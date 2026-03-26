@@ -78,6 +78,34 @@ O runtime em `runtime/` deve ser tratado como destino de build/publicacao, nao c
   - `mensagem origem + grupo destino`
 - falhas num grupo nao devem bloquear a distribuicao para os restantes grupos
 
+## Modelo de Ownership
+
+- `app owner`
+  - dono global da aplicacao
+  - pode gerir settings globais, auth, host lifecycle, terminal e qualquer grupo
+- `group owner`
+  - dono operacional de um ou mais grupos especificos
+  - pode gerir apenas agendamentos, routing e aprovacoes dentro dos grupos que lhe pertencem
+- `group owner` nao recebe por defeito privilegios globais de `app owner`
+
+## Niveis de Acesso do Calendario
+
+- `group`
+  - acesso normal do grupo ao proprio calendario
+  - por defeito: `read`
+  - leitura e interacao limitada ao contexto do grupo atual
+- `group_owner`
+  - gestao do calendario dos grupos que possui
+  - por defeito: `read_write`
+  - pode criar, editar, aprovar, suprimir e reprocessar apenas nesses grupos
+- `app_owner`
+  - acesso global a qualquer calendario do sistema
+  - por defeito: `read_write`
+  - pode sobrepor politicas locais quando necessario
+- os modos de acesso canonicos sao apenas:
+  - `read`
+  - `read_write`
+
 ## Estrutura principal
 
 - `docs/architecture/`

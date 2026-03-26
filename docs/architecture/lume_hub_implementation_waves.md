@@ -44,6 +44,10 @@ Coisas que nao devem ficar esquecidas durante a implementacao:
    - a chave operacional deve distinguir `mensagem origem + grupo destino`
 12. falha parcial controlada
    - falhar um grupo nao pode bloquear os restantes
+13. ACL explicita do calendario
+   - distinguir `group`, `group_owner` e `app_owner`
+   - mutacoes do calendario nunca devem contornar estes niveis
+   - os modos canonicos devem ser `read` e `read_write`
 
 ## Wave 0 - Scaffold e contratos
 
@@ -185,6 +189,12 @@ Criterios de aceitacao:
 - consegue resolver uma pessoa/remetente para `N` grupos destino
 - consegue produzir preview de distribuicao antes de enviar
 - o catalogo inicial de grupos/cursos e tratado como seed, nao como limite
+- cada grupo pode definir `group owner` e policy local de acesso ao calendario
+- o sistema distingue `app owner` de `group owner` logo nesta wave
+- a policy do calendario por grupo distingue pelo menos:
+  - `group -> read/read_write`
+  - `group_owner -> read/read_write`
+  - `app_owner -> read/read_write`
 
 ## Wave 7 - Fan-out e controlo operacional
 
@@ -203,6 +213,14 @@ Criterios de aceitacao:
 - existe dedupe por `mensagem origem + grupo destino`
 - falha num alvo nao bloqueia os restantes
 - existe modo `preview/dry-run` e modo confirmado
+- mutacoes do calendario respeitam ACL:
+  - `group`
+  - `group_owner`
+  - `app_owner`
+- as operacoes distinguem explicitamente pedido de:
+  - `read`
+  - `read_write`
+- terminal e controlo global continuam exclusivos do `app owner`
 
 ## Wave 8 - HTTP, WS e painel minimo
 
@@ -226,6 +244,8 @@ Criterios de aceitacao:
   - politica anti-sleep
   - arrancar com o sistema
   - regras de fan-out por pessoa/remetente
+  - `group owners`
+  - ACL do calendario por grupo
 
 ## Wave 9 - Agent runtime e conversa
 

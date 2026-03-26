@@ -32,6 +32,9 @@ Decisoes ja fechadas:
 - o sistema deve escalar para muitos grupos, sem assumir um conjunto pequeno fixo
 - uma pessoa/remetente pode mapear para `N` grupos destino com fan-out controlado
 - a idempotencia de distribuicao deve distinguir `mensagem origem + grupo destino`
+- o sistema deve distinguir `app owner` e `group owner`
+- o calendario deve ter ACL explicita com niveis `group`, `group_owner` e `app_owner`
+- os modos canonicos de ACL do calendario devem ser `read` e `read_write`
 
 Tarefa inicial:
 - implementa a Wave 0 completa

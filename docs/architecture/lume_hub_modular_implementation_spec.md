@@ -532,7 +532,7 @@ Paralelizavel com:
 ## 2. `group-directory`
 
 Responsabilidade:
-- catalogar grupos e aliases
+- catalogar grupos, aliases, ownership local e policy de acesso ao calendario
 - localizar o workspace persistente de cada grupo
 - expor prompt e policy especificos do grupo
 
@@ -549,6 +549,9 @@ Classes:
 Entidades:
 - `Group`
 - `GroupAlias`
+- `GroupOwnerAssignment`
+- `GroupCalendarAccessPolicy`
+- `CalendarAccessMode`
 
 Fonte:
 - WhatsApp metadata
@@ -560,6 +563,8 @@ Contrato publico:
 - `findBySubject()`
 - `findByAlias()`
 - `refreshFromWhatsApp()`
+- `getGroupOwners()`
+- `getCalendarAccessPolicy()`
 - `getGroupWorkspace()`
 - `getGroupPrompt()`
 - `getGroupPolicy()`
@@ -724,11 +729,14 @@ Classes:
 - `ScheduleEventRepository`
 - `ScheduleEventFactory`
 - `ScheduleEventMutator`
+- `CalendarAccessPolicy`
 
 Entidades:
 - `ScheduleEvent`
 - `EventKind`
 - `EventTarget`
+- `CalendarAccessLevel`
+- `CalendarAccessMode`
 
 Fonte:
 - ficheiro mensal do respetivo grupo
@@ -739,6 +747,7 @@ Contrato publico:
 - `deleteEvent()`
 - `listEventsByWeek()`
 - `findEventById()`
+- `assertCalendarAccess(requiredMode)`
 
 Nota de modelacao:
 - um evento e sempre o objeto principal
@@ -890,10 +899,13 @@ Classes:
 - `SenderAuthorizationPolicy`
 - `GroupAuthorizationPolicy`
 - `OwnerPolicy`
+- `CalendarAccessAuthorizer`
 
 Contrato publico:
 - `canUseAssistant()`
 - `canUseScheduling()`
+- `canManageCalendar(requiredMode)`
+- `getCalendarAccessMode()`
 - `canUseOwnerTerminal()`
 - `canAutoReplyInGroup()`
 
@@ -1000,11 +1012,13 @@ Contrato publico:
 ## 19. `owner-control`
 
 Responsabilidade:
-- comandos especiais do owner
+- comandos especiais do `app owner`
+- acoes administrativas scoped do `group owner`
 
 Classes:
 - `OwnerControlModule`
 - `OwnerControlService`
+- `OwnerScopeAuthorizer`
 - `TerminalCommandExecutor`
 - `CommandSanitizer`
 - `TerminalReplyFormatter`
@@ -1012,6 +1026,7 @@ Classes:
 Contrato publico:
 - `detectOwnerCommand()`
 - `executeOwnerCommand()`
+- `resolveOwnerScope()`
 
 ## 20. `alerts`
 

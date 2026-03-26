@@ -28,13 +28,18 @@ O sistema deve:
 6. manter uma fila de instrucoes para aplicar alteracoes estruturadas com seguranca
 7. gerir eventos com numero variavel de alertas, incluindo defaults como `24h antes` e `30 min antes`
 8. enviar mensagens agendadas sem duplicar nem marcar como enviadas cedo demais
-9. detetar falhas e atrasos com um watchdog que avisa o owner
+9. detetar falhas e atrasos com um watchdog que avisa o `app owner` e, quando fizer sentido, o `group owner`
 10. expor API HTTP e WebSocket para UI local
 11. manter logs e audit trail suficientes para diagnostico
 12. gerir varias contas Codex OAuth e escolher a menos pressionada
 13. impedir que o PC entre em deep sleep quando o sistema precisa de ficar acordado
 14. gerir o mesmo ficheiro OAuth live que o Codex usa, sem manter uma copia paralela escondida
 15. instalar e manter a persistencia de arranque no proprio PC, com opcao configuravel na GUI
+16. distinguir niveis de acesso ao calendario:
+   - `group`
+   - `group_owner`
+   - `app_owner`
+   - com modos explicitos `read` e `read_write`
 
 ## Principios de arquitetura obrigatorios
 
@@ -236,6 +241,8 @@ Forma ideal:
   - `preferredSubject`
   - aliases conhecidos
   - curso associado
+  - `groupOwners`
+  - `calendarAccessPolicy`
   - caminho do workspace do grupo
   - caminho do `prompt.md`
   - caminho do `policy.json`
@@ -297,12 +304,14 @@ Forma ideal:
 
 Responsabilidade:
 - decidir se uma mensagem pode ou nao acionar capacidades do bot
-- aplicar regras de owner, grupos autorizados e privados autorizados
+- aplicar regras de `app owner`, `group owner`, grupos autorizados e privados autorizados
 
 Informacao que deve buscar:
 - configuracao do modulo de comandos
 - identidade do remetente
 - contexto do chat
+- ownership de grupo
+- nivel de acesso ao calendario pedido pela acao
 
 Forma ideal:
 - politica declarativa
@@ -311,8 +320,10 @@ Forma ideal:
 Capacidades a governar:
 - scheduling
 - conversa em grupo
-- owner assistant
-- owner terminal
+- `app owner` assistant
+- `app owner` terminal
+- acoes de `group owner`
+- mutacao de calendario por ACL
 - direct replies
 - multi-group fan-out
 
@@ -530,6 +541,13 @@ Regra adicional:
 - todos os eventos e jobs devem pertencer explicitamente a uma `ISO week`
 - `week_id` nao e apenas filtro de UI; e parte do modelo de dominio
 - o sistema deve conseguir carregar, listar, exportar e operar por semana sem inferencias ad hoc
+- qualquer mutacao do calendario deve respeitar ACL explicita:
+  - `group`
+  - `group_owner`
+  - `app_owner`
+  - com verificacao do modo pedido:
+    - `read`
+    - `read_write`
 
 ### 16. `schedule_policy_engine`
 
@@ -557,6 +575,10 @@ Forma ideal:
 - regras declarativas
 - implementacao pura
 - sem side effects
+- nunca contornar ACL do calendario por atalhos em UI ou conversa
+- os modos canonicos de permissao do calendario sao apenas:
+  - `read`
+  - `read_write`
 - cada regra de notificacao deve suportar pelo menos:
   - `relative_before_event`
   - `fixed_local_time`
@@ -745,17 +767,21 @@ Regras atuais a preservar:
 ### 23. `owner_control`
 
 Responsabilidade:
-- permitir comandos de terminal do owner
+- permitir comandos globais do `app owner`
+- permitir acoes administrativas scoped do `group owner`
 - devolver output controlado
 
 Informacao que deve buscar:
-- politica de owner
+- politica de `app owner`
+- ownership de grupo
 - texto da mensagem
 
 Forma ideal:
 - completamente isolado da conversa normal
 - timeout e truncagem obrigatorios
 - logs auditaveis
+- comandos de terminal continuam exclusivos do `app owner`
+- `group owner` so opera sobre os grupos que lhe pertencem
 
 ### 24. `alerts_engine`
 
@@ -792,7 +818,8 @@ Responsabilidade:
   - schedules overdue
   - queue actions falhadas
 - persistir issues
-- avisar owner
+- avisar `app owner`
+- avisar `group owner` do grupo afetado quando a issue for local ao grupo
 
 Informacao que deve buscar:
 - repositorio de jobs
@@ -1450,13 +1477,14 @@ Estas regras sao obrigatorias porque o sistema atual falhou nelas:
 5. Suporte para:
    - mensagens privadas autorizadas
    - grupos autorizados
-   - owner mode
-   - owner terminal opcional
+   - `app owner` mode
+   - `group owner` mode
+   - `app owner` terminal opcional
 6. Parsing de agendamentos por linguagem natural.
 7. Respostas conversacionais com historico.
 8. Politicas de `EFA`, `CET`, `AS` e `pre30m`.
 9. Queue de instrucoes com retry.
-10. Watchdog com aviso ao owner.
+10. Watchdog com aviso ao `app owner` e, quando fizer sentido, ao `group owner`.
 11. Logs de:
    - mensagens WA
    - interacoes de comandos
