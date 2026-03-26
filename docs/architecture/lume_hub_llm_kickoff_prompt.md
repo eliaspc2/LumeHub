@@ -29,6 +29,9 @@ Decisoes ja fechadas:
 - defaults de aviso: 24h antes e 30 min antes
 - estados visiveis: pending, waiting_confirmation, sent
 - watchdog baseado em atraso em minutos sobre sendAt
+- o sistema deve escalar para muitos grupos, sem assumir um conjunto pequeno fixo
+- uma pessoa/remetente pode mapear para `N` grupos destino com fan-out controlado
+- a idempotencia de distribuicao deve distinguir `mensagem origem + grupo destino`
 
 Tarefa inicial:
 - implementa a Wave 0 completa

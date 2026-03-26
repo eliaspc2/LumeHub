@@ -27,6 +27,8 @@ O projeto novo deve assumir explicitamente estas responsabilidades:
 3. instalar e manter persistencia de arranque no proprio PC
 4. suportar numero variavel de avisos por evento
 5. usar pastas por grupo como fonte canonica dos schedules
+6. escalar de poucos grupos para muitos grupos sem pressupor um conjunto pequeno fixo
+7. suportar distribuicao fan-out de uma mensagem para `N` grupos a partir de regras por pessoa/remetente
 
 Isto nao fica "fora do projeto".
 Fica modelado em modulos e deployables proprios.
@@ -66,6 +68,15 @@ O runtime em `runtime/` deve ser tratado como destino de build/publicacao, nao c
 - a semana ISO continua obrigatoria como indice operacional
 - a quinzena nao foi escolhida como fronteira canonica
 - o watchdog deve detetar jobs que passaram `x` minutos da hora de envio sem chegar a `sent`
+
+## Reforco Multi-Grupo
+
+- os grupos atuais conhecidos sao apenas exemplos iniciais, nao um limite de produto
+- o sistema deve tratar `group-directory` como catalogo escalavel, nao como lista curta hardcoded
+- uma mensagem de uma pessoa especifica pode originar um plano de distribuicao para `N` grupos destino
+- a unidade de idempotencia para distribuicao multi-grupo deve ser:
+  - `mensagem origem + grupo destino`
+- falhas num grupo nao devem bloquear a distribuicao para os restantes grupos
 
 ## Estrutura principal
 

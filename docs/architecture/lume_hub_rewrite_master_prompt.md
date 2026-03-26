@@ -261,6 +261,38 @@ Catalogo atual relevante:
   - jid: `120363407086801381@g.us`
   - subject preferido: `CET Ciberseguranca`
 
+Nota importante:
+- estes grupos iniciais sao apenas exemplos de arranque
+- nao assumir que o produto vai ficar limitado a `2-3` grupos
+- o desenho novo deve escalar para muitos grupos e crescer sem hardcodes de catalogo
+
+### 8A. `audience_routing`
+
+Responsabilidade:
+- resolver uma pessoa/remetente para `N` grupos destino
+- guardar regras declarativas de distribuicao multi-grupo
+- produzir um plano de fan-out antes do envio real
+
+Informacao que deve buscar:
+- identidade tecnica do remetente
+- memoria de pessoas
+- `group_directory`
+- `discipline_catalog`
+- configuracao administrativa
+
+Forma ideal:
+- sem limite hardcoded de grupos por remetente
+- distinguir claramente:
+  - mensagem origem
+  - pessoa/remetente origem
+  - grupos destino
+  - politica de fan-out
+- suportar:
+  - preview/dry-run
+  - confirmacao manual quando necessario
+  - dedupe por `mensagem origem + grupo destino`
+  - falha parcial sem bloquear os restantes grupos
+
 ### 9. `command_policy`
 
 Responsabilidade:
@@ -282,6 +314,7 @@ Capacidades a governar:
 - owner assistant
 - owner terminal
 - direct replies
+- multi-group fan-out
 
 ### 10. `intent_classifier`
 
@@ -1429,6 +1462,7 @@ Estas regras sao obrigatorias porque o sistema atual falhou nelas:
    - interacoes de comandos
    - runs LLM
 12. Codex OAuth router com switch manual e automatico.
+13. Fan-out controlado de uma mensagem para `N` grupos por regras de pessoa/remetente.
 
 ## Casos de teste obrigatorios
 

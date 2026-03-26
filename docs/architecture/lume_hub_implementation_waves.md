@@ -35,6 +35,15 @@ Coisas que nao devem ficar esquecidas durante a implementacao:
    - para diagnosticar se o companion local caiu
 8. modo de teste
    - deve existir forma de testar entregas sem mexer na regra real de producao
+9. escala multi-grupo
+   - nao assumir que o produto fica por `2-3` grupos
+   - o diretório de grupos deve aguentar crescimento sem hardcodes
+10. fan-out por pessoa/remetente
+   - uma mensagem pode precisar de ser distribuida para `N` grupos destino
+11. idempotencia de distribuicao
+   - a chave operacional deve distinguir `mensagem origem + grupo destino`
+12. falha parcial controlada
+   - falhar um grupo nao pode bloquear os restantes
 
 ## Wave 0 - Scaffold e contratos
 
@@ -155,62 +164,99 @@ Criterios de aceitacao:
 - gere o mesmo `/home/eliaspc/.codex/auth.json` usado pelo Codex
 - expõe heartbeat/estado para o backend
 
-## Wave 6 - HTTP, WS e painel minimo
+## Replaneamento a partir da Wave 6
+
+As `Wave 0` a `Wave 5` mantêm-se validas.
+A partir daqui, a ordem muda para suportar escala multi-grupo e fan-out por pessoa/remetente antes da UI e da camada conversacional completa.
+
+## Wave 6 - Diretório, catalogo e routing multi-grupo
 
 Objetivo:
-- tornar o sistema administravel
+- deixar o dominio preparado para muitos grupos e roteamento declarativo de destinatarios
+
+Entregaveis:
+- `modules/group-directory`
+- `modules/discipline-catalog`
+- `modules/people-memory`
+- `modules/audience-routing`
+
+Criterios de aceitacao:
+- consegue catalogar muitos grupos sem lista fixa no codigo
+- consegue resolver uma pessoa/remetente para `N` grupos destino
+- consegue produzir preview de distribuicao antes de enviar
+- o catalogo inicial de grupos/cursos e tratado como seed, nao como limite
+
+## Wave 7 - Fan-out e controlo operacional
+
+Objetivo:
+- transformar uma mensagem origem num plano real de distribuicao multi-grupo
+
+Entregaveis:
+- motor de `fan-out/distribution`
+- `modules/command-policy`
+- `modules/instruction-queue`
+- `modules/owner-control`
+- `modules/intent-classifier`
+
+Criterios de aceitacao:
+- uma mensagem origem pode criar `N` entregas alvo
+- existe dedupe por `mensagem origem + grupo destino`
+- falha num alvo nao bloqueia os restantes
+- existe modo `preview/dry-run` e modo confirmado
+
+## Wave 8 - HTTP, WS e painel minimo
+
+Objetivo:
+- tornar o sistema administravel no novo modelo multi-grupo
 
 Entregaveis:
 - `adapters/http-fastify`
 - `adapters/ws-fastify`
 - web shell minimo
-- pagina de semana
+- pagina de grupos
+- pagina de routing fan-out
 - pagina de watchdog
 - pagina de settings
 
 Criterios de aceitacao:
-- UI mostra semana ativa
-- UI mostra jobs por estado
+- UI mostra grupos conhecidos e regras de routing
+- UI mostra campanhas/distribuicoes por estado
 - GUI permite configurar:
   - avisos default
   - politica anti-sleep
   - arrancar com o sistema
+  - regras de fan-out por pessoa/remetente
 
-## Wave 7 - Agent runtime e conversa
+## Wave 9 - Agent runtime e conversa
 
 Objetivo:
-- implementar a parte conversacional e de agente
+- implementar a parte conversacional e de agente por cima do modelo multi-grupo
 
 Entregaveis:
 - `modules/assistant-context`
 - `modules/llm-orchestrator`
 - `modules/agent-runtime`
 - `modules/conversation`
-- `modules/intent-classifier`
-- `modules/command-policy`
 
 Criterios de aceitacao:
 - responde em privado e grupo com contexto
-- gera acoes estruturadas
+- pode sugerir/acionar fan-out quando a politica permitir
 - nao deixa a LLM ser fonte de verdade do dominio
 
-## Wave 8 - OAuth router e memoria
+## Wave 10 - OAuth router
 
 Objetivo:
-- fechar conta, auth e memoria
+- fechar conta e auth com o novo modelo ja assente
 
 Entregaveis:
 - `modules/codex-auth-router`
-- `modules/people-memory`
-- `modules/group-directory`
-- `modules/discipline-catalog`
 
 Criterios de aceitacao:
 - troca atomica e auditavel do auth live
 - uso do mesmo auth do Codex
-- leitura de grupos e catalogo pronta para o dominio
+- impacto operacional claro no companion e no backend
 
-## Wave 9 - Hardening, testes e arquivo
+## Wave 11 - Hardening, testes e arquivo
 
 Objetivo:
 - estabilizar antes de producao
@@ -225,8 +271,10 @@ Criterios de aceitacao:
 - restart nao causa duplicacoes
 - cleanup de eventos passados e previsivel
 - watchdog e host companion aparecem bem no dashboard
+- restart nao duplica fan-out para o mesmo `source message + target group`
+- fan-out parcial falhado pode ser reprocessado sem reenviar o que ja foi confirmado
 
-## Wave 10 - Packaging e deploy
+## Wave 12 - Packaging e deploy
 
 Objetivo:
 - preparar execucao real

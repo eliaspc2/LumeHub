@@ -146,6 +146,7 @@ lume-hub/
     modules/
       admin-config/
       group-directory/
+      audience-routing/
       discipline-catalog/
       people-memory/
       codex-auth-router/
@@ -562,6 +563,37 @@ Contrato publico:
 - `getGroupWorkspace()`
 - `getGroupPrompt()`
 - `getGroupPolicy()`
+
+## 2A. `audience-routing`
+
+Responsabilidade:
+- resolver destinatarios multi-grupo a partir de pessoa/remetente
+- manter regras declarativas de fan-out
+- produzir preview/plano de distribuicao antes do envio
+
+Classes:
+- `AudienceRoutingModule`
+- `AudienceRoutingService`
+- `SenderAudienceRepository`
+- `DistributionPlanBuilder`
+- `FanOutPolicyEvaluator`
+
+Entidades:
+- `SenderAudienceRule`
+- `DistributionPlan`
+- `DistributionTarget`
+
+Fonte:
+- `people-memory`
+- `group-directory`
+- `discipline-catalog`
+- configuracao administrativa
+
+Contrato publico:
+- `resolveTargetsForSender()`
+- `previewDistributionPlan()`
+- `upsertSenderAudienceRule()`
+- `listSenderAudienceRules()`
 
 ## 3. `discipline-catalog`
 
@@ -1471,27 +1503,29 @@ tests/
 6. `modules/notification-jobs`
 7. `modules/delivery-tracker`
 8. `adapters/whatsapp-baileys`
-9. `modules/command-policy`
-10. `modules/intent-classifier`
+9. `modules/group-directory`
+10. `modules/discipline-catalog`
 11. `modules/people-memory`
-12. `modules/group-directory`
-13. `modules/discipline-catalog`
-14. `modules/assistant-context`
-15. `adapters/llm-codex-oauth`
-16. `adapters/llm-openai-compat`
-17. `modules/codex-auth-router`
-18. `modules/llm-orchestrator`
-19. `modules/agent-runtime`
-20. `modules/conversation`
-21. `modules/instruction-queue`
-22. `modules/watchdog`
-23. `modules/alerts`
-24. `modules/automations`
-25. `adapters/http-fastify`
-26. `adapters/ws-fastify`
-27. `apps/lume-hub-backend`
-28. `packages/ui-modules/*`
-29. `apps/lume-hub-web`
+12. `modules/audience-routing`
+13. `modules/command-policy`
+14. `modules/instruction-queue`
+15. `modules/owner-control`
+16. `modules/intent-classifier`
+17. `modules/assistant-context`
+18. `adapters/llm-codex-oauth`
+19. `adapters/llm-openai-compat`
+20. `modules/codex-auth-router`
+21. `modules/llm-orchestrator`
+22. `modules/agent-runtime`
+23. `modules/conversation`
+24. `modules/watchdog`
+25. `modules/alerts`
+26. `modules/automations`
+27. `adapters/http-fastify`
+28. `adapters/ws-fastify`
+29. `apps/lume-hub-backend`
+30. `packages/ui-modules/*`
+31. `apps/lume-hub-web`
 
 ## Resultado final esperado
 
