@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "./dist/public/index.js",
-  "types": "./dist/public/index.d.ts",
+  "main": "./dist/modules/discipline-catalog/src/public/index.js",
+  "types": "./dist/modules/discipline-catalog/src/public/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/public/index.d.ts",
-      "default": "./dist/public/index.js"
+      "types": "./dist/modules/discipline-catalog/src/public/index.d.ts",
+      "default": "./dist/modules/discipline-catalog/src/public/index.js"
     }
   },
   "scripts": {
