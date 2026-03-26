@@ -15,10 +15,20 @@ export class SettingsCenterUiModule {
   ) {}
 
   render(snapshot: SettingsSnapshot): UiPage<SettingsSnapshot> {
+    const authRouterLines = snapshot.authRouterStatus
+      ? [
+          `current_account=${snapshot.authRouterStatus.currentSelection?.accountId ?? 'none'}`,
+          `current_source=${snapshot.authRouterStatus.currentSelection?.sourceFilePath ?? '-'}`,
+          `canonical=${snapshot.authRouterStatus.canonicalAuthFilePath}`,
+          `accounts=${snapshot.authRouterStatus.accountCount}`,
+          `last_switch=${snapshot.authRouterStatus.lastSwitchAt ?? 'never'}`,
+        ]
+      : ['auth_router=not_configured'];
+
     return {
       route: this.config.route,
       title: this.config.label,
-      description: 'Configuracao operacional: avisos default, anti-sleep e autostart.',
+      description: 'Configuracao operacional: avisos default, anti-sleep, autostart e auth live do Codex.',
       sections: [
         createListSection(
           'Avisos Default',
@@ -57,6 +67,7 @@ export class SettingsCenterUiModule {
           ],
           'Sem estado do host.',
         ),
+        createListSection('Codex Auth Router', authRouterLines, 'Sem estado do auth router.'),
       ],
       data: snapshot,
     };

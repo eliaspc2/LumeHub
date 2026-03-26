@@ -66,6 +66,7 @@ export class HostLifecycleModule extends BaseModule implements HostLifecycleModu
       new HostCompanionCoordinator(this.service, {
         backendStateFilePath,
         powerStatusProvider: config.powerStatusProvider,
+        authRouterStatusProvider: config.authRouterStatusProvider,
       });
   }
 

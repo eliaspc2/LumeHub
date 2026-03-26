@@ -23,6 +23,9 @@ importers:
 
   apps/lume-hub-host:
     dependencies:
+      '@lume-hub/codex-auth-router':
+        specifier: workspace:*
+        version: link:../../packages/modules/codex-auth-router
       '@lume-hub/host-lifecycle':
         specifier: workspace:*
         version: link:../../packages/modules/host-lifecycle
@@ -62,6 +65,9 @@ importers:
       '@lume-hub/audience-routing':
         specifier: workspace:*
         version: link:../../modules/audience-routing
+      '@lume-hub/codex-auth-router':
+        specifier: workspace:*
+        version: link:../../modules/codex-auth-router
       '@lume-hub/group-directory':
         specifier: workspace:*
         version: link:../../modules/group-directory
@@ -89,6 +95,9 @@ importers:
       '@lume-hub/audience-routing':
         specifier: workspace:*
         version: link:../../modules/audience-routing
+      '@lume-hub/codex-auth-router':
+        specifier: workspace:*
+        version: link:../../modules/codex-auth-router
       '@lume-hub/group-directory':
         specifier: workspace:*
         version: link:../../modules/group-directory
@@ -251,6 +260,9 @@ importers:
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
 
   packages/modules/command-policy:
     dependencies:

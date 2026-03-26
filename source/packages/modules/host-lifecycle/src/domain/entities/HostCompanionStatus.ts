@@ -5,6 +5,14 @@ export interface HostPowerStatusSnapshot {
   readonly explanation: string;
 }
 
+export interface HostCodexAuthRouterSnapshot {
+  readonly canonicalAuthFilePath: string;
+  readonly currentAccountId: string | null;
+  readonly currentSourceFilePath: string | null;
+  readonly accountCount: number;
+  readonly lastSwitchAt: string | null;
+}
+
 export interface HostCompanionStatus {
   readonly schemaVersion: 1;
   readonly hostId: string;
@@ -30,4 +38,5 @@ export interface HostCompanionStatus {
     readonly lastError: string | null;
   };
   readonly power?: HostPowerStatusSnapshot;
+  readonly authRouter?: HostCodexAuthRouterSnapshot;
 }

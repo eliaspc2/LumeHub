@@ -9,6 +9,7 @@
     "test": "node -e \"console.log('No tests yet for @lume-hub/lume-hub-host.')\""
   },
   "dependencies": {
+    "@lume-hub/codex-auth-router": "workspace:*",
     "@lume-hub/host-lifecycle": "workspace:*",
     "@lume-hub/system-power": "workspace:*"
   }

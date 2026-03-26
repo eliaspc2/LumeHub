@@ -2,12 +2,17 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 
-import type { HostCompanionStatus, HostPowerStatusSnapshot } from '../../domain/entities/HostCompanionStatus.js';
+import type {
+  HostCodexAuthRouterSnapshot,
+  HostCompanionStatus,
+  HostPowerStatusSnapshot,
+} from '../../domain/entities/HostCompanionStatus.js';
 import { HostLifecycleService } from './HostLifecycleService.js';
 
 export interface HostCompanionCoordinatorConfig {
   readonly backendStateFilePath: string;
   readonly powerStatusProvider?: () => Promise<HostPowerStatusSnapshot | undefined>;
+  readonly authRouterStatusProvider?: () => Promise<HostCodexAuthRouterSnapshot | undefined>;
 }
 
 export class HostCompanionCoordinator {
@@ -20,10 +25,12 @@ export class HostCompanionCoordinator {
     await this.service.recordHeartbeat(input);
     const status = await this.service.getHostCompanionStatus();
     const power = await this.config.powerStatusProvider?.();
+    const authRouter = await this.config.authRouterStatusProvider?.();
 
     const snapshot: HostCompanionStatus = {
       ...status,
       power,
+      authRouter,
     };
 
     await writeJsonFileAtomically(this.config.backendStateFilePath, snapshot);

@@ -4,6 +4,7 @@ import type {
   SenderAudienceRule,
   SenderAudienceRuleUpsertInput,
 } from '@lume-hub/audience-routing';
+import type { CodexAuthRouterStatus } from '@lume-hub/codex-auth-router';
 import type { HealthSnapshot } from '@lume-hub/health-monitor';
 import type { HostCompanionStatus } from '@lume-hub/host-lifecycle';
 import type { Instruction } from '@lume-hub/instruction-queue';
@@ -96,6 +97,7 @@ export interface SettingsSnapshot {
   readonly adminSettings: AdminSettings;
   readonly powerStatus: PowerStatus;
   readonly hostStatus: HostCompanionStatus;
+  readonly authRouterStatus: CodexAuthRouterStatus | null;
 }
 
 export class InMemoryFrontendApiTransport implements FrontendApiTransport {
@@ -214,6 +216,27 @@ export class FrontendApiClient {
         path: '/api/settings/ui',
         body: {
           defaultNotificationRules,
+        },
+      }),
+    );
+  }
+
+  async getCodexAuthRouterStatus(): Promise<CodexAuthRouterStatus | null> {
+    return this.expectOk(
+      await this.transport.request<CodexAuthRouterStatus | null>({
+        method: 'GET',
+        path: '/api/settings/codex-auth-router',
+      }),
+    );
+  }
+
+  async forceCodexAuthSwitch(accountId: string): Promise<CodexAuthRouterStatus> {
+    return this.expectOk(
+      await this.transport.request<CodexAuthRouterStatus>({
+        method: 'POST',
+        path: '/api/settings/codex-auth-router/switch',
+        body: {
+          accountId,
         },
       }),
     );

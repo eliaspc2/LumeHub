@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { AdminConfigModuleContract } from '@lume-hub/admin-config';
 import type { AudienceRoutingModuleContract } from '@lume-hub/audience-routing';
+import type { CodexAuthRouterModuleContract } from '@lume-hub/codex-auth-router';
 import type { GroupCalendarAccessPolicy, GroupDirectoryModuleContract } from '@lume-hub/group-directory';
 import type { HealthMonitorModuleContract } from '@lume-hub/health-monitor';
 import type { HostLifecycleModuleContract } from '@lume-hub/host-lifecycle';
@@ -54,6 +55,7 @@ export interface UiEventPublisherLike {
 export interface HttpApiModules {
   readonly adminConfig: Pick<AdminConfigModuleContract, 'getSettings' | 'updateUiSettings'>;
   readonly audienceRouting: Pick<AudienceRoutingModuleContract, 'listSenderAudienceRules' | 'upsertSenderAudienceRule'>;
+  readonly codexAuthRouter?: Pick<CodexAuthRouterModuleContract, 'forceSwitch' | 'getStatus'>;
   readonly groupDirectory: Pick<
     GroupDirectoryModuleContract,
     'listGroups' | 'replaceGroupOwners' | 'updateCalendarAccessPolicy'
@@ -304,6 +306,41 @@ export class RouteRegistrar {
         return status;
       },
     });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/settings/codex-auth-router',
+      handler: async () => {
+        if (!this.modules.codexAuthRouter) {
+          return null;
+        }
+
+        return this.modules.codexAuthRouter.getStatus();
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/settings/codex-auth-router/switch',
+      handler: async (context) => {
+        if (!this.modules.codexAuthRouter) {
+          throw new ApiError(404, 'Codex auth router is not configured.');
+        }
+
+        if (!context.body || typeof context.body !== 'object') {
+          throw new ApiError(400, 'Codex auth router switch payload must be an object.');
+        }
+
+        const accountId = readStringBodyField(context.body, 'accountId');
+        const selection = await this.modules.codexAuthRouter.forceSwitch(accountId, {
+          reason: 'backend_manual_switch',
+        });
+        const status = await this.modules.codexAuthRouter.getStatus();
+        this.publish('settings.codex_auth_router.updated', {
+          selection,
+          status,
+        });
+        return status;
+      },
+    });
   }
 
   private async getDashboardSnapshot() {
@@ -349,16 +386,18 @@ export class RouteRegistrar {
   }
 
   private async getSettingsSnapshot() {
-    const [adminSettings, powerStatus, hostStatus] = await Promise.all([
+    const [adminSettings, powerStatus, hostStatus, authRouterStatus] = await Promise.all([
       this.modules.adminConfig.getSettings(),
       this.modules.systemPower.getPowerStatus(),
       this.modules.hostLifecycle.getHostCompanionStatus(),
+      this.modules.codexAuthRouter?.getStatus() ?? Promise.resolve(null),
     ]);
 
     return {
       adminSettings,
       powerStatus,
       hostStatus,
+      authRouterStatus,
     };
   }
 
@@ -481,6 +520,20 @@ function readBooleanBodyField(body: unknown, fieldName: string): boolean {
   }
 
   return (body as Record<string, boolean>)[fieldName];
+}
+
+function readStringBodyField(body: unknown, fieldName: string): string {
+  if (!body || typeof body !== 'object') {
+    throw new ApiError(400, `${fieldName} payload must be an object.`);
+  }
+
+  const value = (body as Record<string, unknown>)[fieldName];
+
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new ApiError(400, `${fieldName} must be a non-empty string.`);
+  }
+
+  return value.trim();
 }
 
 function mapInstruction(instruction: Instruction) {
