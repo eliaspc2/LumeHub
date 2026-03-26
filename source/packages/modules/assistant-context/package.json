@@ -17,6 +17,9 @@
     "test": "node -e \"console.log('No tests yet for @lume-hub/assistant-context.')\""
   },
   "dependencies": {
-    "@lume-hub/kernel": "workspace:*"
+    "@lume-hub/group-directory": "workspace:*",
+    "@lume-hub/kernel": "workspace:*",
+    "@lume-hub/people-memory": "workspace:*",
+    "@lume-hub/persistence-group-files": "workspace:*"
   }
 }

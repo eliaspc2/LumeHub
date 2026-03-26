@@ -17,6 +17,14 @@
     "test": "node -e \"console.log('No tests yet for @lume-hub/agent-runtime.')\""
   },
   "dependencies": {
-    "@lume-hub/kernel": "workspace:*"
+    "@lume-hub/assistant-context": "workspace:*",
+    "@lume-hub/audience-routing": "workspace:*",
+    "@lume-hub/command-policy": "workspace:*",
+    "@lume-hub/instruction-queue": "workspace:*",
+    "@lume-hub/intent-classifier": "workspace:*",
+    "@lume-hub/kernel": "workspace:*",
+    "@lume-hub/llm-orchestrator": "workspace:*",
+    "@lume-hub/owner-control": "workspace:*",
+    "@lume-hub/people-memory": "workspace:*"
   }
 }

@@ -173,9 +173,33 @@ importers:
 
   packages/modules/agent-runtime:
     dependencies:
+      '@lume-hub/assistant-context':
+        specifier: workspace:*
+        version: link:../assistant-context
+      '@lume-hub/audience-routing':
+        specifier: workspace:*
+        version: link:../audience-routing
+      '@lume-hub/command-policy':
+        specifier: workspace:*
+        version: link:../command-policy
+      '@lume-hub/instruction-queue':
+        specifier: workspace:*
+        version: link:../instruction-queue
+      '@lume-hub/intent-classifier':
+        specifier: workspace:*
+        version: link:../intent-classifier
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/llm-orchestrator':
+        specifier: workspace:*
+        version: link:../llm-orchestrator
+      '@lume-hub/owner-control':
+        specifier: workspace:*
+        version: link:../owner-control
+      '@lume-hub/people-memory':
+        specifier: workspace:*
+        version: link:../people-memory
 
   packages/modules/alerts:
     dependencies:
@@ -185,9 +209,18 @@ importers:
 
   packages/modules/assistant-context:
     dependencies:
+      '@lume-hub/group-directory':
+        specifier: workspace:*
+        version: link:../group-directory
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/people-memory':
+        specifier: workspace:*
+        version: link:../people-memory
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
 
   packages/modules/audience-routing:
     dependencies:
@@ -233,9 +266,21 @@ importers:
 
   packages/modules/conversation:
     dependencies:
+      '@lume-hub/agent-runtime':
+        specifier: workspace:*
+        version: link:../agent-runtime
+      '@lume-hub/assistant-context':
+        specifier: workspace:*
+        version: link:../assistant-context
+      '@lume-hub/command-policy':
+        specifier: workspace:*
+        version: link:../command-policy
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
 
   packages/modules/delivery-tracker:
     dependencies:
@@ -329,6 +374,9 @@ importers:
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
 
   packages/modules/notification-jobs:
     dependencies:

@@ -17,7 +17,8 @@
     "validate:wave5": "corepack pnpm -r --if-present build && node ./scripts/validate-wave5.mjs",
     "validate:wave6": "corepack pnpm -r --if-present build && node ./scripts/validate-wave6.mjs",
     "validate:wave7": "corepack pnpm -r --if-present build && node ./scripts/validate-wave7.mjs",
-    "validate:wave8": "corepack pnpm -r --if-present build && node ./scripts/validate-wave8.mjs"
+    "validate:wave8": "corepack pnpm -r --if-present build && node ./scripts/validate-wave8.mjs",
+    "validate:wave9": "corepack pnpm -r --if-present build && node ./scripts/validate-wave9.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",

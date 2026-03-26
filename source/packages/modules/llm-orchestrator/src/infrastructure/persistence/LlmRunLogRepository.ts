@@ -1,0 +1,72 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
+import { AtomicJsonWriter } from '@lume-hub/persistence-group-files';
+
+import type { LlmRunLogEntry, LlmRunLogFile } from '../../domain/entities/LlmOrchestrator.js';
+
+const EMPTY_RUN_LOG: LlmRunLogFile = {
+  schemaVersion: 1,
+  entries: [],
+};
+
+export interface LlmRunLogRepositoryConfig {
+  readonly dataRootPath?: string;
+  readonly runLogFilePath?: string;
+}
+
+export class LlmRunLogRepository {
+  constructor(
+    private readonly config: LlmRunLogRepositoryConfig = {},
+    private readonly writer = new AtomicJsonWriter(),
+  ) {}
+
+  resolveRunLogFilePath(): string {
+    return this.config.runLogFilePath ?? join(this.config.dataRootPath ?? 'data', 'runtime', 'llm-run-log.json');
+  }
+
+  async read(): Promise<LlmRunLogFile> {
+    try {
+      return normaliseLog(JSON.parse(await readFile(this.resolveRunLogFilePath(), 'utf8')) as LlmRunLogFile);
+    } catch (error) {
+      if (isNodeError(error) && error.code === 'ENOENT') {
+        return EMPTY_RUN_LOG;
+      }
+
+      throw error;
+    }
+  }
+
+  async appendEntry(entry: LlmRunLogEntry): Promise<LlmRunLogEntry> {
+    const current = await this.read();
+    const nextEntry = normaliseEntry(entry);
+    await this.writer.write(this.resolveRunLogFilePath(), {
+      schemaVersion: 1,
+      entries: [...current.entries, nextEntry],
+    });
+    return nextEntry;
+  }
+}
+
+function normaliseLog(log: LlmRunLogFile): LlmRunLogFile {
+  return {
+    schemaVersion: 1,
+    entries: log.entries.map(normaliseEntry),
+  };
+}
+
+function normaliseEntry(entry: LlmRunLogEntry): LlmRunLogEntry {
+  return {
+    runId: entry.runId.trim(),
+    operation: entry.operation,
+    providerId: entry.providerId.trim(),
+    modelId: entry.modelId.trim(),
+    inputSummary: entry.inputSummary.trim(),
+    outputSummary: entry.outputSummary.trim(),
+    createdAt: entry.createdAt,
+  };
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error;
+}
