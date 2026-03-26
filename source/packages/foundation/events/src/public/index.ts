@@ -1,37 +1,56 @@
-export interface DomainEvent<TPayload = unknown> {
-  readonly type: string;
+export interface DomainEvent<TType extends string = string, TPayload = unknown> {
+  readonly type: TType;
   readonly payload: TPayload;
   readonly occurredAt: Date;
 }
 
-export type EventHandler<TPayload = unknown> = (event: DomainEvent<TPayload>) => void | Promise<void>;
+export type EventMapBase = Record<string, unknown>;
 
-export class EventSubscriptionRegistry {
-  private readonly handlers = new Map<string, Set<EventHandler>>();
+export type EventHandler<TPayload = unknown> = (event: DomainEvent<string, TPayload>) => void | Promise<void>;
+export type Unsubscribe = () => void;
 
-  add<TPayload>(type: string, handler: EventHandler<TPayload>): void {
+export class EventSubscriptionRegistry<TEventMap extends EventMapBase = EventMapBase> {
+  private readonly handlers = new Map<keyof TEventMap | string, Set<EventHandler>>();
+
+  subscribe<TKey extends keyof TEventMap & string>(
+    type: TKey,
+    handler: EventHandler<TEventMap[TKey]>,
+  ): Unsubscribe {
     const bucket = this.handlers.get(type) ?? new Set<EventHandler>();
     bucket.add(handler as EventHandler);
     this.handlers.set(type, bucket);
+
+    return () => {
+      bucket.delete(handler as EventHandler);
+
+      if (bucket.size === 0) {
+        this.handlers.delete(type);
+      }
+    };
   }
 
-  get(type: string): readonly EventHandler[] {
-    return [...(this.handlers.get(type) ?? new Set<EventHandler>())];
+  get<TKey extends keyof TEventMap & string>(type: TKey): readonly EventHandler<TEventMap[TKey]>[] {
+    return [...(this.handlers.get(type) ?? new Set<EventHandler>())] as readonly EventHandler<TEventMap[TKey]>[];
   }
 }
 
-export class InMemoryEventBus {
-  constructor(private readonly registry = new EventSubscriptionRegistry()) {}
+export class InMemoryEventBus<TEventMap extends EventMapBase = EventMapBase> {
+  constructor(private readonly registry = new EventSubscriptionRegistry<TEventMap>()) {}
 
-  subscribe<TPayload>(type: string, handler: EventHandler<TPayload>): void {
-    this.registry.add(type, handler);
+  subscribe<TKey extends keyof TEventMap & string>(
+    type: TKey,
+    handler: EventHandler<TEventMap[TKey]>,
+  ): Unsubscribe {
+    return this.registry.subscribe(type, handler);
   }
 
-  async publish<TPayload>(event: DomainEvent<TPayload>): Promise<void> {
+  async publish<TKey extends keyof TEventMap & string>(
+    event: DomainEvent<TKey, TEventMap[TKey]>,
+  ): Promise<void> {
     for (const handler of this.registry.get(event.type)) {
       await handler(event);
     }
   }
 }
 
-export class DomainEventBus extends InMemoryEventBus {}
+export class DomainEventBus<TEventMap extends EventMapBase = EventMapBase> extends InMemoryEventBus<TEventMap> {}

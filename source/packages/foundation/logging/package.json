@@ -16,5 +16,7 @@
     "build": "tsc -p tsconfig.json",
     "test": "node -e \"console.log('No tests yet for @lume-hub/logging.')\""
   },
-  "dependencies": {}
+  "dependencies": {
+    "pino": "^9.13.1"
+  }
 }

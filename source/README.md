@@ -39,10 +39,19 @@ Decisao de storage:
 O scaffold da `Wave 0` ja foi montado para permitir trabalho paralelo real.
 As workspaces de `apps/`, `foundation/`, `adapters/`, `modules/` e `ui-modules/` ja existem com contratos publicos minimos, `package.json`, `tsconfig` e pontos de entrada TypeScript.
 
+A `Wave 1` ja deixou implementacoes reais em:
+
+- `foundation/kernel`
+- `foundation/config`
+- `foundation/logging`
+- `foundation/events`
+- `adapters/persistence-group-files`
+
 Validacao base desta fase:
 
 - `pnpm install`
 - `pnpm -r typecheck`
+- `pnpm run validate:wave1`
 
 Nota operacional:
 
