@@ -1,0 +1,6 @@
+packages:
+  - "apps/*"
+  - "packages/foundation/*"
+  - "packages/adapters/*"
+  - "packages/modules/*"
+  - "packages/ui-modules/*"

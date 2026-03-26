@@ -1,0 +1,22 @@
+{
+  "name": "@lume-hub/agent-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/public/index.js",
+  "types": "./dist/public/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/public/index.d.ts",
+      "default": "./dist/public/index.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "test": "node -e \"console.log('No tests yet for @lume-hub/agent-runtime.')\""
+  },
+  "dependencies": {
+    "@lume-hub/kernel": "workspace:*"
+  }
+}

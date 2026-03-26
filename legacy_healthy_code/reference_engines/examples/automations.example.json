@@ -1,0 +1,47 @@
+{
+  "groups": [
+    {
+      "name": "Grupo Aulas 1",
+      "entries": [
+        {
+          "id": "proxima-aula",
+          "type": "weekly",
+          "daysOfWeek": ["tue", "thu"],
+          "time": "19:00",
+          "notifyBeforeMinutes": [60, 10],
+          "messageTemplate": "Lembrete: proxima aula hoje as {{time}}.",
+          "actions": [
+            { "type": "log" },
+            { "type": "wa_send" },
+            {
+              "type": "webhook",
+              "url": "http://127.0.0.1:9001/wa-alert",
+              "method": "POST"
+            }
+          ]
+        },
+        {
+          "id": "abre-modulo",
+          "type": "oneShot",
+          "startsAt": "2026-02-20T18:00:00",
+          "notifyBeforeMinutes": [1440, 60, 10],
+          "messageTemplate": "Abre o proximo modulo em {{minutesLeft}} min ({{datetime}}).",
+          "actions": [{ "type": "log" }]
+        }
+      ]
+    },
+    {
+      "name": "Grupo Aulas 2",
+      "entries": [
+        {
+          "id": "proxima-aula",
+          "type": "weekly",
+          "daysOfWeek": ["mon"],
+          "time": "21:30",
+          "notifyBeforeMinutes": [30, 5],
+          "actions": [{ "type": "log" }]
+        }
+      ]
+    }
+  ]
+}

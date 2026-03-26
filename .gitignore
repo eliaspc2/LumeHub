@@ -1,0 +1,13 @@
+source/node_modules/
+source/apps/**/dist/
+source/packages/**/dist/
+source/**/coverage/
+source/.turbo/
+source/.cache/
+source/.pnpm-store/
+runtime/lxd/host-mounts/app-release/*
+runtime/lxd/host-mounts/data/*
+runtime/lxd/host-mounts/logs/*
+runtime/lxd/release-bundles/*
+*.log
+.DS_Store

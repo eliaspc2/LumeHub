@@ -1,0 +1,182 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2022"
+    ],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "moduleDetection": "force",
+    "strict": true,
+    "noEmitOnError": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@lume-hub/kernel": [
+        "packages/foundation/kernel/src/public/index.ts"
+      ],
+      "@lume-hub/config": [
+        "packages/foundation/config/src/public/index.ts"
+      ],
+      "@lume-hub/logging": [
+        "packages/foundation/logging/src/public/index.ts"
+      ],
+      "@lume-hub/events": [
+        "packages/foundation/events/src/public/index.ts"
+      ],
+      "@lume-hub/clock": [
+        "packages/foundation/clock/src/public/index.ts"
+      ],
+      "@lume-hub/identity": [
+        "packages/foundation/identity/src/public/index.ts"
+      ],
+      "@lume-hub/errors": [
+        "packages/foundation/errors/src/public/index.ts"
+      ],
+      "@lume-hub/test-kit": [
+        "packages/foundation/test-kit/src/public/index.ts"
+      ],
+      "@lume-hub/contracts": [
+        "packages/foundation/contracts/src/public/index.ts"
+      ],
+      "@lume-hub/persistence-group-files": [
+        "packages/adapters/persistence-group-files/src/public/index.ts"
+      ],
+      "@lume-hub/http-fastify": [
+        "packages/adapters/http-fastify/src/public/index.ts"
+      ],
+      "@lume-hub/ws-fastify": [
+        "packages/adapters/ws-fastify/src/public/index.ts"
+      ],
+      "@lume-hub/whatsapp-baileys": [
+        "packages/adapters/whatsapp-baileys/src/public/index.ts"
+      ],
+      "@lume-hub/llm-codex-oauth": [
+        "packages/adapters/llm-codex-oauth/src/public/index.ts"
+      ],
+      "@lume-hub/llm-openai-compat": [
+        "packages/adapters/llm-openai-compat/src/public/index.ts"
+      ],
+      "@lume-hub/frontend-api-client": [
+        "packages/adapters/frontend-api-client/src/public/index.ts"
+      ],
+      "@lume-hub/admin-config": [
+        "packages/modules/admin-config/src/public/index.ts"
+      ],
+      "@lume-hub/group-directory": [
+        "packages/modules/group-directory/src/public/index.ts"
+      ],
+      "@lume-hub/discipline-catalog": [
+        "packages/modules/discipline-catalog/src/public/index.ts"
+      ],
+      "@lume-hub/people-memory": [
+        "packages/modules/people-memory/src/public/index.ts"
+      ],
+      "@lume-hub/codex-auth-router": [
+        "packages/modules/codex-auth-router/src/public/index.ts"
+      ],
+      "@lume-hub/schedule-weeks": [
+        "packages/modules/schedule-weeks/src/public/index.ts"
+      ],
+      "@lume-hub/schedule-events": [
+        "packages/modules/schedule-events/src/public/index.ts"
+      ],
+      "@lume-hub/notification-rules": [
+        "packages/modules/notification-rules/src/public/index.ts"
+      ],
+      "@lume-hub/notification-jobs": [
+        "packages/modules/notification-jobs/src/public/index.ts"
+      ],
+      "@lume-hub/delivery-tracker": [
+        "packages/modules/delivery-tracker/src/public/index.ts"
+      ],
+      "@lume-hub/instruction-queue": [
+        "packages/modules/instruction-queue/src/public/index.ts"
+      ],
+      "@lume-hub/weekly-planner": [
+        "packages/modules/weekly-planner/src/public/index.ts"
+      ],
+      "@lume-hub/command-policy": [
+        "packages/modules/command-policy/src/public/index.ts"
+      ],
+      "@lume-hub/intent-classifier": [
+        "packages/modules/intent-classifier/src/public/index.ts"
+      ],
+      "@lume-hub/assistant-context": [
+        "packages/modules/assistant-context/src/public/index.ts"
+      ],
+      "@lume-hub/llm-orchestrator": [
+        "packages/modules/llm-orchestrator/src/public/index.ts"
+      ],
+      "@lume-hub/agent-runtime": [
+        "packages/modules/agent-runtime/src/public/index.ts"
+      ],
+      "@lume-hub/conversation": [
+        "packages/modules/conversation/src/public/index.ts"
+      ],
+      "@lume-hub/owner-control": [
+        "packages/modules/owner-control/src/public/index.ts"
+      ],
+      "@lume-hub/alerts": [
+        "packages/modules/alerts/src/public/index.ts"
+      ],
+      "@lume-hub/automations": [
+        "packages/modules/automations/src/public/index.ts"
+      ],
+      "@lume-hub/watchdog": [
+        "packages/modules/watchdog/src/public/index.ts"
+      ],
+      "@lume-hub/health-monitor": [
+        "packages/modules/health-monitor/src/public/index.ts"
+      ],
+      "@lume-hub/system-power": [
+        "packages/modules/system-power/src/public/index.ts"
+      ],
+      "@lume-hub/host-lifecycle": [
+        "packages/modules/host-lifecycle/src/public/index.ts"
+      ],
+      "@lume-hub/dashboard": [
+        "packages/ui-modules/dashboard/src/index.ts"
+      ],
+      "@lume-hub/week-planner": [
+        "packages/ui-modules/week-planner/src/index.ts"
+      ],
+      "@lume-hub/assistant-console": [
+        "packages/ui-modules/assistant-console/src/index.ts"
+      ],
+      "@lume-hub/delivery-monitor": [
+        "packages/ui-modules/delivery-monitor/src/index.ts"
+      ],
+      "@lume-hub/watchdog-inbox": [
+        "packages/ui-modules/watchdog-inbox/src/index.ts"
+      ],
+      "@lume-hub/queue-console": [
+        "packages/ui-modules/queue-console/src/index.ts"
+      ],
+      "@lume-hub/group-directory-console": [
+        "packages/ui-modules/group-directory-console/src/index.ts"
+      ],
+      "@lume-hub/settings-center": [
+        "packages/ui-modules/settings-center/src/index.ts"
+      ],
+      "@lume-hub/shared-ui": [
+        "packages/ui-modules/shared-ui/src/index.ts"
+      ],
+      "@lume-hub/lume-hub-backend": [
+        "apps/lume-hub-backend/src/main.ts"
+      ],
+      "@lume-hub/lume-hub-host": [
+        "apps/lume-hub-host/src/main.ts"
+      ],
+      "@lume-hub/lume-hub-web": [
+        "apps/lume-hub-web/src/main.ts"
+      ]
+    }
+  }
+}

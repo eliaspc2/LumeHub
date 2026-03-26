@@ -1,0 +1,15 @@
+{
+  "name": "@lume-hub/lume-hub-host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "test": "node -e \"console.log('No tests yet for @lume-hub/lume-hub-host.')\""
+  },
+  "dependencies": {
+    "@lume-hub/host-lifecycle": "workspace:*",
+    "@lume-hub/system-power": "workspace:*"
+  }
+}

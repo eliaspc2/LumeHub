@@ -1,0 +1,24 @@
+{
+  "rules": [
+    {
+      "id": "grupo-pagamentos",
+      "enabled": true,
+      "scope": {
+        "type": "group",
+        "jid": "1203630xxxxxxxxx@g.us"
+      },
+      "match": {
+        "type": "regex",
+        "pattern": "(?i)pagamento|transferencia|mbway"
+      },
+      "actions": [
+        {
+          "type": "webhook",
+          "url": "http://127.0.0.1:9001/wa-alert",
+          "method": "POST"
+        }
+      ]
+    }
+  ]
+}
+

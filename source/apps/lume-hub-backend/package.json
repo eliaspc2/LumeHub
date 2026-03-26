@@ -1,0 +1,14 @@
+{
+  "name": "@lume-hub/lume-hub-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "test": "node -e \"console.log('No tests yet for @lume-hub/lume-hub-backend.')\""
+  },
+  "dependencies": {
+    "@lume-hub/kernel": "workspace:*"
+  }
+}
