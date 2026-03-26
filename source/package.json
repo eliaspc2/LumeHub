@@ -10,6 +10,9 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "build": "pnpm -r --if-present build",
     "test": "pnpm -r --if-present test",
+    "test:unit": "node --test ./tests/unit",
+    "test:integration": "node --test ./tests/integration",
+    "test:e2e": "node --test ./tests/e2e",
     "validate:wave1": "corepack pnpm -r --if-present build && node ./scripts/validate-wave1.mjs",
     "validate:wave2": "corepack pnpm -r --if-present build && node ./scripts/validate-wave2.mjs",
     "validate:wave3": "corepack pnpm -r --if-present build && node ./scripts/validate-wave3.mjs",
@@ -19,7 +22,8 @@
     "validate:wave7": "corepack pnpm -r --if-present build && node ./scripts/validate-wave7.mjs",
     "validate:wave8": "corepack pnpm -r --if-present build && node ./scripts/validate-wave8.mjs",
     "validate:wave9": "corepack pnpm -r --if-present build && node ./scripts/validate-wave9.mjs",
-    "validate:wave10": "corepack pnpm -r --if-present build && node ./scripts/validate-wave10.mjs"
+    "validate:wave10": "corepack pnpm -r --if-present build && node ./scripts/validate-wave10.mjs",
+    "validate:wave11": "corepack pnpm -r --if-present build && corepack pnpm run test:unit && corepack pnpm run test:integration && corepack pnpm run test:e2e"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",

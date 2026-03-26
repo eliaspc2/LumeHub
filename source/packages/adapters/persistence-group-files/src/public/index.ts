@@ -13,6 +13,7 @@ import { z } from 'zod';
 
 export const SETTINGS_SCHEMA_VERSION = 1;
 export const CALENDAR_SCHEMA_VERSION = 1;
+export const CALENDAR_ARCHIVE_SCHEMA_VERSION = 1;
 export const DEFAULT_TIMEZONE = 'Europe/Lisbon';
 
 const weekIdSchema = z.string().regex(/^\d{4}-W\d{2}$/);
@@ -222,6 +223,61 @@ const calendarMonthSchema = z
     }
   });
 
+const calendarArchiveEntrySchema = z.object({
+  archivedAt: isoDateTimeStringSchema,
+  reason: z.literal('past_event_cleanup'),
+  event: eventSchema,
+  deliveryAttempts: z.array(deliveryAttemptSchema).default([]),
+});
+
+const calendarArchiveMonthSchema = z
+  .object({
+    schemaVersion: z.literal(CALENDAR_ARCHIVE_SCHEMA_VERSION),
+    groupJid: z.string().trim().min(1),
+    groupLabel: z.string().trim().min(1),
+    year: z.number().int().min(2000).max(9999),
+    month: z.number().int().min(1).max(12),
+    timezone: timeZoneSchema,
+    archivedEvents: z.array(calendarArchiveEntrySchema).default([]),
+  })
+  .superRefine((value, context) => {
+    for (const [entryIndex, entry] of value.archivedEvents.entries()) {
+      if (entry.event.groupJid !== value.groupJid) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['archivedEvents', entryIndex, 'event', 'groupJid'],
+          message: 'archived event groupJid must match the parent archive groupJid.',
+        });
+      }
+
+      if (entry.event.groupLabel !== value.groupLabel) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['archivedEvents', entryIndex, 'event', 'groupLabel'],
+          message: 'archived event groupLabel must match the parent archive groupLabel.',
+        });
+      }
+
+      for (const [attemptIndex, attempt] of entry.deliveryAttempts.entries()) {
+        if (attempt.groupJid !== value.groupJid) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['archivedEvents', entryIndex, 'deliveryAttempts', attemptIndex, 'groupJid'],
+            message: 'archived delivery attempt groupJid must match the parent archive groupJid.',
+          });
+        }
+
+        if (attempt.groupLabel !== value.groupLabel) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['archivedEvents', entryIndex, 'deliveryAttempts', attemptIndex, 'groupLabel'],
+            message: 'archived delivery attempt groupLabel must match the parent archive groupLabel.',
+          });
+        }
+      }
+    }
+  });
+
 const workspaceSettingsSchema = z.object({
   schemaVersion: z.literal(SETTINGS_SCHEMA_VERSION),
   timezone: timeZoneSchema,
@@ -237,6 +293,8 @@ export type GroupOutboundConfirmationRecord = z.infer<typeof outboundConfirmatio
 export type GroupDeliveryAttemptRecord = z.infer<typeof deliveryAttemptSchema>;
 export type GroupCalendarEventRecord = z.infer<typeof eventSchema>;
 export type GroupCalendarMonthFile = z.infer<typeof calendarMonthSchema>;
+export type GroupCalendarArchiveEntry = z.infer<typeof calendarArchiveEntrySchema>;
+export type GroupCalendarArchiveMonthFile = z.infer<typeof calendarArchiveMonthSchema>;
 export type GroupWorkspaceSettingsFile = z.infer<typeof workspaceSettingsSchema>;
 
 export interface GroupWeekViewFile {
@@ -295,6 +353,14 @@ export class GroupPathResolver {
 
   resolveGroupCalendarPath(groupJid: string, year: number, month: number): string {
     return join(this.resolveGroupCalendarDirectoryPath(groupJid), `${year}-${String(month).padStart(2, '0')}.json`);
+  }
+
+  resolveGroupArchiveDirectoryPath(groupJid: string): string {
+    return join(this.resolveGroupRootPath(groupJid), 'archive');
+  }
+
+  resolveGroupCalendarArchivePath(groupJid: string, year: number, month: number): string {
+    return join(this.resolveGroupArchiveDirectoryPath(groupJid), `${year}-${String(month).padStart(2, '0')}.json`);
   }
 
   resolveGroupMetadataPath(groupJid: string): string {
@@ -454,6 +520,10 @@ export class GroupCalendarSchemaValidator {
     return calendarMonthSchema.parse(migrated);
   }
 
+  validateArchive(value: unknown): GroupCalendarArchiveMonthFile {
+    return calendarArchiveMonthSchema.parse(value);
+  }
+
   createDefaultSettings(input: Partial<Omit<GroupWorkspaceSettingsFile, 'schemaVersion' | 'calendarSchemaVersion'>> = {}): GroupWorkspaceSettingsFile {
     return this.validateSettings({
       schemaVersion: SETTINGS_SCHEMA_VERSION,
@@ -472,6 +542,18 @@ export class GroupCalendarSchemaValidator {
       month: input.month,
       timezone: input.timezone ?? DEFAULT_TIMEZONE,
       events: [],
+    });
+  }
+
+  createEmptyArchiveMonth(input: GroupCalendarCreationInput): GroupCalendarArchiveMonthFile {
+    return this.validateArchive({
+      schemaVersion: CALENDAR_ARCHIVE_SCHEMA_VERSION,
+      groupJid: input.groupJid,
+      groupLabel: input.groupLabel,
+      year: input.year,
+      month: input.month,
+      timezone: input.timezone ?? DEFAULT_TIMEZONE,
+      archivedEvents: [],
     });
   }
 
@@ -692,6 +774,52 @@ export class GroupCalendarFileRepository {
 
     await this.lockManager.withLock(calendarPath, async () => {
       await this.writer.write(calendarPath, validated);
+    });
+
+    return validated;
+  }
+}
+
+export class GroupCalendarArchiveRepository {
+  constructor(
+    private readonly pathResolver = new GroupPathResolver(),
+    private readonly lockManager = new GroupFileLockManager(),
+    private readonly writer = new AtomicJsonWriter(),
+    private readonly validator = new GroupCalendarSchemaValidator(),
+  ) {}
+
+  async readArchiveMonth(identity: GroupCalendarIdentity): Promise<GroupCalendarArchiveMonthFile | undefined> {
+    const archivePath = this.pathResolver.resolveGroupCalendarArchivePath(identity.groupJid, identity.year, identity.month);
+
+    try {
+      return this.validator.validateArchive(await readJsonFile(archivePath));
+    } catch (error) {
+      const nodeError = error as NodeJS.ErrnoException;
+
+      if (nodeError.code === 'ENOENT') {
+        return undefined;
+      }
+
+      throw error;
+    }
+  }
+
+  async ensureArchiveMonth(input: GroupCalendarCreationInput): Promise<GroupCalendarArchiveMonthFile> {
+    const existing = await this.readArchiveMonth(input);
+
+    if (existing) {
+      return existing;
+    }
+
+    return this.saveArchiveMonth(this.validator.createEmptyArchiveMonth(input));
+  }
+
+  async saveArchiveMonth(value: GroupCalendarArchiveMonthFile): Promise<GroupCalendarArchiveMonthFile> {
+    const validated = this.validator.validateArchive(value);
+    const archivePath = this.pathResolver.resolveGroupCalendarArchivePath(validated.groupJid, validated.year, validated.month);
+
+    await this.lockManager.withLock(archivePath, async () => {
+      await this.writer.write(archivePath, validated);
     });
 
     return validated;

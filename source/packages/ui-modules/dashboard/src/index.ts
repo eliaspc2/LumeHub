@@ -61,6 +61,49 @@ export class DashboardUiModule {
           lines: [`Total de campanhas/distribuicoes: ${snapshot.distributions.total}`],
         },
         {
+          title: 'Host Companion',
+          metrics: [
+            {
+              label: 'Auth',
+              value: snapshot.hostCompanion.authExists,
+              tone: snapshot.hostCompanion.authExists ? 'positive' : 'danger',
+            },
+            {
+              label: 'Autostart',
+              value: snapshot.hostCompanion.autostartEnabled,
+              tone: snapshot.hostCompanion.autostartEnabled ? 'positive' : 'warning',
+            },
+            {
+              label: 'Heartbeat',
+              value: snapshot.hostCompanion.lastHeartbeatAt ? 'ok' : 'missing',
+              tone: snapshot.hostCompanion.lastHeartbeatAt ? 'positive' : 'warning',
+            },
+          ],
+          lines: [
+            `host_id=${snapshot.hostCompanion.hostId}`,
+            `same_as_codex=${snapshot.hostCompanion.sameAsCodexCanonical}`,
+            `last_heartbeat=${snapshot.hostCompanion.lastHeartbeatAt ?? 'never'}`,
+            `last_error=${snapshot.hostCompanion.lastError ?? '-'}`,
+          ],
+        },
+        {
+          title: 'Watchdog',
+          metrics: [
+            {
+              label: 'Open',
+              value: snapshot.watchdog.openIssues,
+              tone: snapshot.watchdog.openIssues > 0 ? 'warning' : 'positive',
+            },
+          ],
+          lines:
+            snapshot.watchdog.recentIssues.length > 0
+              ? snapshot.watchdog.recentIssues.map(
+                  (issue) =>
+                    `${issue.groupLabel} | ${issue.kind} | ${issue.summary} | opened_at=${issue.openedAt}`,
+                )
+              : ['Sem issues abertas.'],
+        },
+        {
           title: 'Health',
           lines: snapshot.health.modules.map(
             (module, index) => `module-${index + 1}: ${module.status}${module.details ? ` ${JSON.stringify(module.details)}` : ''}`,

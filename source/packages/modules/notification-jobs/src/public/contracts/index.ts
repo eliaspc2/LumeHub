@@ -3,6 +3,10 @@ export type {
   NotificationJobLookupQuery,
   NotificationJobQuery,
 } from '../../domain/repositories/NotificationJobRepository.js';
+export type {
+  NotificationJobCleanupInput,
+  NotificationJobCleanupResult,
+} from '../../application/services/NotificationJobCleanupService.js';
 
 export interface NotificationJobsModuleContract {
   readonly moduleName: 'notification-jobs';
@@ -21,4 +25,7 @@ export interface NotificationJobsModuleContract {
     jobId: string,
     query?: import('../../domain/repositories/NotificationJobRepository.js').NotificationJobLookupQuery,
   ): Promise<import('../../domain/entities/NotificationJob.js').NotificationJob | undefined>;
+  cleanupPastEvents(
+    input?: import('../../application/services/NotificationJobCleanupService.js').NotificationJobCleanupInput,
+  ): Promise<import('../../application/services/NotificationJobCleanupService.js').NotificationJobCleanupResult>;
 }

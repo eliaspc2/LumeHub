@@ -344,7 +344,7 @@ export class RouteRegistrar {
   }
 
   private async getDashboardSnapshot() {
-    const [health, readiness, groups, rules, instructions, issues] = await Promise.all([
+    const [health, readiness, groups, rules, instructions, issues, hostStatus] = await Promise.all([
       this.modules.healthMonitor.getHealthSnapshot(),
       this.modules.healthMonitor.getReadiness(),
       this.modules.groupDirectory.listGroups(),
@@ -353,6 +353,7 @@ export class RouteRegistrar {
       this.modules.watchdog.listIssues({
         status: 'open',
       }),
+      this.modules.hostLifecycle.getHostCompanionStatus(),
     ]);
 
     return {
@@ -381,6 +382,21 @@ export class RouteRegistrar {
       },
       watchdog: {
         openIssues: issues.length,
+        recentIssues: issues.slice(0, 5).map((issue) => ({
+          issueId: issue.issueId,
+          kind: issue.kind,
+          groupLabel: issue.groupLabel,
+          summary: issue.summary,
+          openedAt: issue.openedAt,
+        })),
+      },
+      hostCompanion: {
+        hostId: hostStatus.hostId,
+        authExists: hostStatus.auth.exists,
+        sameAsCodexCanonical: hostStatus.auth.sameAsCodexCanonical,
+        autostartEnabled: hostStatus.autostart.enabled,
+        lastHeartbeatAt: hostStatus.runtime.lastHeartbeatAt,
+        lastError: hostStatus.runtime.lastError,
       },
     };
   }

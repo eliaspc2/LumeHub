@@ -63,11 +63,14 @@ O runtime em `runtime/` deve ser tratado como destino de build/publicacao, nao c
   - `waiting_confirmation`
   - `sent`
 - quando a hora do evento passar, jobs concluidos devem ser limpos da semana ativa
+- o cleanup deve arquivar eventos passados concluidos antes de os retirar da vista ativa
+- um evento passado so sai da vista ativa quando todos os jobs estiverem concluidos, suprimidos ou desativados
 - a organizacao canonica dos schedules deve ser por grupo
 - dentro de cada grupo, o calendario canonico deve ser mensal
 - a semana ISO continua obrigatoria como indice operacional
 - a quinzena nao foi escolhida como fronteira canonica
 - o watchdog deve detetar jobs que passaram `x` minutos da hora de envio sem chegar a `sent`
+- o dashboard deve mostrar de forma explicita o estado do `watchdog` e do `host companion`
 
 ## Reforco Multi-Grupo
 

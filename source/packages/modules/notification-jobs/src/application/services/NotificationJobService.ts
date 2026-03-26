@@ -9,6 +9,11 @@ import type {
   NotificationJobRepository,
 } from '../../domain/repositories/NotificationJobRepository.js';
 import { NotificationJobMaterializer } from '../../domain/services/NotificationJobMaterializer.js';
+import type {
+  NotificationJobCleanupInput,
+  NotificationJobCleanupResult,
+} from './NotificationJobCleanupService.js';
+import { NotificationJobCleanupService } from './NotificationJobCleanupService.js';
 
 function sortJobs(left: NotificationJob, right: NotificationJob): number {
   return left.sendAt.localeCompare(right.sendAt) || left.jobId.localeCompare(right.jobId);
@@ -21,6 +26,7 @@ export class NotificationJobService {
     private readonly scheduleEventService: ScheduleEventService,
     private readonly materializer = new NotificationJobMaterializer(),
     private readonly clock: Clock = new SystemClock(),
+    private readonly cleanupService?: NotificationJobCleanupService,
   ) {}
 
   async materializeForEvent(
@@ -76,5 +82,16 @@ export class NotificationJobService {
       }),
       query,
     );
+  }
+
+  async cleanupPastEvents(input: NotificationJobCleanupInput = {}): Promise<NotificationJobCleanupResult> {
+    if (!this.cleanupService) {
+      throw new Error('Notification job cleanup service is not configured.');
+    }
+
+    return this.cleanupService.cleanupPastEvents({
+      ...input,
+      now: input.now ?? this.clock.now(),
+    });
   }
 }

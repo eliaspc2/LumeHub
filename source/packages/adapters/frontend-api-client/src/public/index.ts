@@ -90,6 +90,15 @@ export interface DashboardSnapshot {
   };
   readonly watchdog: {
     readonly openIssues: number;
+    readonly recentIssues: readonly Pick<WatchdogIssue, 'issueId' | 'kind' | 'groupLabel' | 'summary' | 'openedAt'>[];
+  };
+  readonly hostCompanion: {
+    readonly hostId: string;
+    readonly authExists: boolean;
+    readonly sameAsCodexCanonical: boolean;
+    readonly autostartEnabled: boolean;
+    readonly lastHeartbeatAt: string | null;
+    readonly lastError: string | null;
   };
 }
 
