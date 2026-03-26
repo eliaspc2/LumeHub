@@ -118,6 +118,24 @@ importers:
         specifier: workspace:*
         version: link:../../foundation/kernel
 
+  packages/modules/audience-routing:
+    dependencies:
+      '@lume-hub/discipline-catalog':
+        specifier: workspace:*
+        version: link:../discipline-catalog
+      '@lume-hub/group-directory':
+        specifier: workspace:*
+        version: link:../group-directory
+      '@lume-hub/kernel':
+        specifier: workspace:*
+        version: link:../../foundation/kernel
+      '@lume-hub/people-memory':
+        specifier: workspace:*
+        version: link:../people-memory
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
+
   packages/modules/automations:
     dependencies:
       '@lume-hub/kernel':
@@ -174,6 +192,9 @@ importers:
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
 
   packages/modules/health-monitor:
     dependencies:
@@ -273,6 +294,9 @@ importers:
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
 
   packages/modules/schedule-dispatcher:
     dependencies:

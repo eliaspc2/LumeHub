@@ -78,6 +78,9 @@
       "@lume-hub/people-memory": [
         "packages/modules/people-memory/src/public/index.ts"
       ],
+      "@lume-hub/audience-routing": [
+        "packages/modules/audience-routing/src/public/index.ts"
+      ],
       "@lume-hub/codex-auth-router": [
         "packages/modules/codex-auth-router/src/public/index.ts"
       ],
