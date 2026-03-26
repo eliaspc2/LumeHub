@@ -17,6 +17,7 @@
     "test": "node -e \"console.log('No tests yet for @lume-hub/system-power.')\""
   },
   "dependencies": {
+    "@lume-hub/clock": "workspace:*",
     "@lume-hub/kernel": "workspace:*"
   }
 }

@@ -201,6 +201,9 @@ importers:
 
   packages/modules/host-lifecycle:
     dependencies:
+      '@lume-hub/clock':
+        specifier: workspace:*
+        version: link:../../foundation/clock
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
@@ -327,6 +330,9 @@ importers:
 
   packages/modules/system-power:
     dependencies:
+      '@lume-hub/clock':
+        specifier: workspace:*
+        version: link:../../foundation/clock
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
