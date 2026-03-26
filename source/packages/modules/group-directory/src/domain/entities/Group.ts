@@ -6,6 +6,12 @@ export interface GroupOwnerAssignment {
   readonly assignedBy: string | null;
 }
 
+export interface GroupOwnerAssignmentInput {
+  readonly personId: string;
+  readonly assignedAt?: string;
+  readonly assignedBy?: string | null;
+}
+
 export interface GroupCalendarAccessPolicy {
   readonly group: CalendarAccessMode;
   readonly groupOwner: CalendarAccessMode;

@@ -10,6 +10,11 @@
   },
   "dependencies": {
     "@lume-hub/dashboard": "workspace:*",
-    "@lume-hub/settings-center": "workspace:*"
+    "@lume-hub/frontend-api-client": "workspace:*",
+    "@lume-hub/group-directory-console": "workspace:*",
+    "@lume-hub/queue-console": "workspace:*",
+    "@lume-hub/settings-center": "workspace:*",
+    "@lume-hub/shared-ui": "workspace:*",
+    "@lume-hub/watchdog-inbox": "workspace:*"
   }
 }

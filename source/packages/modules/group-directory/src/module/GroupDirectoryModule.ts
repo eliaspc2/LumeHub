@@ -59,8 +59,22 @@ export class GroupDirectoryModule extends BaseModule implements GroupDirectoryMo
     return this.service.getGroupOwners(groupJid);
   }
 
+  async replaceGroupOwners(
+    groupJid: string,
+    owners: Parameters<GroupDirectoryService['replaceGroupOwners']>[1],
+  ) {
+    return this.service.replaceGroupOwners(groupJid, owners);
+  }
+
   async getCalendarAccessPolicy(groupJid: string) {
     return this.service.getCalendarAccessPolicy(groupJid);
+  }
+
+  async updateCalendarAccessPolicy(
+    groupJid: string,
+    update: Parameters<GroupDirectoryService['updateCalendarAccessPolicy']>[1],
+  ) {
+    return this.service.updateCalendarAccessPolicy(groupJid, update);
   }
 
   async getGroupWorkspace(groupJid: string) {

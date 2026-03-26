@@ -5,6 +5,7 @@ import { GroupPathResolver } from '@lume-hub/persistence-group-files';
 import type {
   Group,
   GroupCalendarAccessPolicy,
+  GroupOwnerAssignmentInput,
   GroupOwnerAssignment,
   GroupPolicyDocument,
   GroupPromptDocument,
@@ -70,12 +71,48 @@ export class GroupDirectoryService {
     return (await this.findRequiredGroup(groupJid)).groupOwners;
   }
 
+  async replaceGroupOwners(
+    groupJid: string,
+    owners: readonly GroupOwnerAssignmentInput[],
+    now = new Date(),
+  ): Promise<readonly GroupOwnerAssignment[]> {
+    const group = await this.findRequiredGroup(groupJid);
+    const nextGroup: Group = {
+      ...group,
+      groupOwners: owners
+        .map((owner) => ({
+          personId: owner.personId.trim(),
+          assignedAt: owner.assignedAt ?? now.toISOString(),
+          assignedBy: owner.assignedBy ?? null,
+        }))
+        .filter((owner) => owner.personId.length > 0),
+    };
+
+    return (await this.repository.saveGroup(nextGroup)).groupOwners;
+  }
+
   async isGroupOwner(groupJid: string, personId: string): Promise<boolean> {
     return (await this.getGroupOwners(groupJid)).some((owner) => owner.personId === personId);
   }
 
   async getCalendarAccessPolicy(groupJid: string): Promise<GroupCalendarAccessPolicy> {
     return (await this.findRequiredGroup(groupJid)).calendarAccessPolicy;
+  }
+
+  async updateCalendarAccessPolicy(
+    groupJid: string,
+    update: Partial<GroupCalendarAccessPolicy>,
+  ): Promise<GroupCalendarAccessPolicy> {
+    const group = await this.findRequiredGroup(groupJid);
+    const nextGroup: Group = {
+      ...group,
+      calendarAccessPolicy: {
+        ...group.calendarAccessPolicy,
+        ...update,
+      },
+    };
+
+    return (await this.repository.saveGroup(nextGroup)).calendarAccessPolicy;
   }
 
   async getGroupWorkspace(groupJid: string): Promise<GroupWorkspaceDescriptor> {

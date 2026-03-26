@@ -1,12 +1,43 @@
 import { BaseModule } from '@lume-hub/kernel';
+
+import { AdminConfigService } from '../application/services/AdminConfigService.js';
+import { AdminConfigRepository } from '../infrastructure/persistence/AdminConfigRepository.js';
+import type { AdminConfigModuleContract } from '../public/contracts/index.js';
 import type { AdminConfigModuleConfig } from './AdminConfigModuleConfig.js';
 
-export class AdminConfigModule extends BaseModule {
+export class AdminConfigModule extends BaseModule implements AdminConfigModuleContract {
+  readonly moduleName = 'admin-config' as const;
+  readonly service: AdminConfigService;
+
   constructor(readonly config: AdminConfigModuleConfig = {}) {
     super({
       name: 'admin-config',
       version: '0.1.0',
       dependencies: [],
     });
+
+    const repository =
+      config.repository ??
+      new AdminConfigRepository({
+        settingsFilePath: config.settingsFilePath,
+      });
+
+    this.service = config.service ?? new AdminConfigService(repository);
+  }
+
+  async getSettings() {
+    return this.service.getSettings();
+  }
+
+  async updateCommandsSettings(update: Parameters<AdminConfigService['updateCommandsSettings']>[0]) {
+    return this.service.updateCommandsSettings(update);
+  }
+
+  async updateLlmSettings(update: Parameters<AdminConfigService['updateLlmSettings']>[0]) {
+    return this.service.updateLlmSettings(update);
+  }
+
+  async updateUiSettings(update: Parameters<AdminConfigService['updateUiSettings']>[0]) {
+    return this.service.updateUiSettings(update);
   }
 }

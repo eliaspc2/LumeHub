@@ -35,13 +35,78 @@ importers:
       '@lume-hub/dashboard':
         specifier: workspace:*
         version: link:../../packages/ui-modules/dashboard
+      '@lume-hub/frontend-api-client':
+        specifier: workspace:*
+        version: link:../../packages/adapters/frontend-api-client
+      '@lume-hub/group-directory-console':
+        specifier: workspace:*
+        version: link:../../packages/ui-modules/group-directory-console
+      '@lume-hub/queue-console':
+        specifier: workspace:*
+        version: link:../../packages/ui-modules/queue-console
       '@lume-hub/settings-center':
         specifier: workspace:*
         version: link:../../packages/ui-modules/settings-center
+      '@lume-hub/shared-ui':
+        specifier: workspace:*
+        version: link:../../packages/ui-modules/shared-ui
+      '@lume-hub/watchdog-inbox':
+        specifier: workspace:*
+        version: link:../../packages/ui-modules/watchdog-inbox
 
-  packages/adapters/frontend-api-client: {}
+  packages/adapters/frontend-api-client:
+    dependencies:
+      '@lume-hub/admin-config':
+        specifier: workspace:*
+        version: link:../../modules/admin-config
+      '@lume-hub/audience-routing':
+        specifier: workspace:*
+        version: link:../../modules/audience-routing
+      '@lume-hub/group-directory':
+        specifier: workspace:*
+        version: link:../../modules/group-directory
+      '@lume-hub/health-monitor':
+        specifier: workspace:*
+        version: link:../../modules/health-monitor
+      '@lume-hub/host-lifecycle':
+        specifier: workspace:*
+        version: link:../../modules/host-lifecycle
+      '@lume-hub/instruction-queue':
+        specifier: workspace:*
+        version: link:../../modules/instruction-queue
+      '@lume-hub/system-power':
+        specifier: workspace:*
+        version: link:../../modules/system-power
+      '@lume-hub/watchdog':
+        specifier: workspace:*
+        version: link:../../modules/watchdog
 
-  packages/adapters/http-fastify: {}
+  packages/adapters/http-fastify:
+    dependencies:
+      '@lume-hub/admin-config':
+        specifier: workspace:*
+        version: link:../../modules/admin-config
+      '@lume-hub/audience-routing':
+        specifier: workspace:*
+        version: link:../../modules/audience-routing
+      '@lume-hub/group-directory':
+        specifier: workspace:*
+        version: link:../../modules/group-directory
+      '@lume-hub/health-monitor':
+        specifier: workspace:*
+        version: link:../../modules/health-monitor
+      '@lume-hub/host-lifecycle':
+        specifier: workspace:*
+        version: link:../../modules/host-lifecycle
+      '@lume-hub/instruction-queue':
+        specifier: workspace:*
+        version: link:../../modules/instruction-queue
+      '@lume-hub/system-power':
+        specifier: workspace:*
+        version: link:../../modules/system-power
+      '@lume-hub/watchdog':
+        specifier: workspace:*
+        version: link:../../modules/watchdog
 
   packages/adapters/llm-codex-oauth: {}
 
@@ -99,6 +164,12 @@ importers:
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/notification-rules':
+        specifier: workspace:*
+        version: link:../notification-rules
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
 
   packages/modules/agent-runtime:
     dependencies:
@@ -414,19 +485,54 @@ importers:
 
   packages/ui-modules/assistant-console: {}
 
-  packages/ui-modules/dashboard: {}
+  packages/ui-modules/dashboard:
+    dependencies:
+      '@lume-hub/frontend-api-client':
+        specifier: workspace:*
+        version: link:../../adapters/frontend-api-client
+      '@lume-hub/shared-ui':
+        specifier: workspace:*
+        version: link:../shared-ui
 
   packages/ui-modules/delivery-monitor: {}
 
-  packages/ui-modules/group-directory-console: {}
+  packages/ui-modules/group-directory-console:
+    dependencies:
+      '@lume-hub/frontend-api-client':
+        specifier: workspace:*
+        version: link:../../adapters/frontend-api-client
+      '@lume-hub/shared-ui':
+        specifier: workspace:*
+        version: link:../shared-ui
 
-  packages/ui-modules/queue-console: {}
+  packages/ui-modules/queue-console:
+    dependencies:
+      '@lume-hub/frontend-api-client':
+        specifier: workspace:*
+        version: link:../../adapters/frontend-api-client
+      '@lume-hub/shared-ui':
+        specifier: workspace:*
+        version: link:../shared-ui
 
-  packages/ui-modules/settings-center: {}
+  packages/ui-modules/settings-center:
+    dependencies:
+      '@lume-hub/frontend-api-client':
+        specifier: workspace:*
+        version: link:../../adapters/frontend-api-client
+      '@lume-hub/shared-ui':
+        specifier: workspace:*
+        version: link:../shared-ui
 
   packages/ui-modules/shared-ui: {}
 
-  packages/ui-modules/watchdog-inbox: {}
+  packages/ui-modules/watchdog-inbox:
+    dependencies:
+      '@lume-hub/frontend-api-client':
+        specifier: workspace:*
+        version: link:../../adapters/frontend-api-client
+      '@lume-hub/shared-ui':
+        specifier: workspace:*
+        version: link:../shared-ui
 
   packages/ui-modules/week-planner: {}
 
