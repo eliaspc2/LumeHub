@@ -1,0 +1,39 @@
+import type { DistributionPlanEnqueueInput, Instruction } from '../../domain/entities/InstructionQueue.js';
+import { InstructionQueueService } from './InstructionQueueService.js';
+
+export class FanOutDistributionService {
+  constructor(private readonly queueService: InstructionQueueService) {}
+
+  async enqueueDistributionPlan(input: DistributionPlanEnqueueInput, now = new Date()): Promise<Instruction> {
+    return this.queueService.enqueueInstruction(
+      {
+        sourceType: 'fanout_distribution',
+        sourceMessageId: input.plan.sourceMessageId,
+        mode: input.mode,
+        metadata: {
+          senderPersonId: input.plan.senderPersonId,
+          senderDisplayName: input.plan.senderDisplayName,
+          requiresConfirmation: input.plan.requiresConfirmation,
+          matchedRuleIds: input.plan.matchedRuleIds,
+          matchedDisciplineCodes: input.plan.matchedDisciplineCodes,
+          targetCount: input.plan.targetCount,
+        },
+        actions: input.plan.targets.map((target) => ({
+          type: 'distribution_delivery',
+          dedupeKey: target.dedupeKey,
+          targetGroupJid: target.groupJid,
+          payload: {
+            sourceMessageId: input.plan.sourceMessageId,
+            sourcePersonId: input.plan.senderPersonId,
+            sourceDisplayName: input.plan.senderDisplayName,
+            messageText: input.messageText,
+            targetGroupJid: target.groupJid,
+            targetLabel: target.preferredSubject,
+            requiresConfirmation: input.plan.requiresConfirmation,
+          },
+        })),
+      },
+      now,
+    );
+  }
+}

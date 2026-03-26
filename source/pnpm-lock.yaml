@@ -150,9 +150,15 @@ importers:
 
   packages/modules/command-policy:
     dependencies:
+      '@lume-hub/group-directory':
+        specifier: workspace:*
+        version: link:../group-directory
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/people-memory':
+        specifier: workspace:*
+        version: link:../people-memory
 
   packages/modules/conversation:
     dependencies:
@@ -231,9 +237,15 @@ importers:
 
   packages/modules/instruction-queue:
     dependencies:
+      '@lume-hub/audience-routing':
+        specifier: workspace:*
+        version: link:../audience-routing
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
 
   packages/modules/intent-classifier:
     dependencies:
@@ -285,9 +297,21 @@ importers:
 
   packages/modules/owner-control:
     dependencies:
+      '@lume-hub/command-policy':
+        specifier: workspace:*
+        version: link:../command-policy
+      '@lume-hub/group-directory':
+        specifier: workspace:*
+        version: link:../group-directory
+      '@lume-hub/instruction-queue':
+        specifier: workspace:*
+        version: link:../instruction-queue
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/people-memory':
+        specifier: workspace:*
+        version: link:../people-memory
 
   packages/modules/people-memory:
     dependencies:

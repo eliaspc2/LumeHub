@@ -17,6 +17,10 @@
     "test": "node -e \"console.log('No tests yet for @lume-hub/owner-control.')\""
   },
   "dependencies": {
-    "@lume-hub/kernel": "workspace:*"
+    "@lume-hub/command-policy": "workspace:*",
+    "@lume-hub/group-directory": "workspace:*",
+    "@lume-hub/instruction-queue": "workspace:*",
+    "@lume-hub/kernel": "workspace:*",
+    "@lume-hub/people-memory": "workspace:*"
   }
 }
