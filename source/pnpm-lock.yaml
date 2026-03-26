@@ -177,9 +177,27 @@ importers:
 
   packages/modules/health-monitor:
     dependencies:
+      '@lume-hub/contracts':
+        specifier: workspace:*
+        version: link:../../foundation/contracts
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/notification-jobs':
+        specifier: workspace:*
+        version: link:../notification-jobs
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
+      '@lume-hub/schedule-events':
+        specifier: workspace:*
+        version: link:../schedule-events
+      '@lume-hub/schedule-weeks':
+        specifier: workspace:*
+        version: link:../schedule-weeks
+      '@lume-hub/watchdog':
+        specifier: workspace:*
+        version: link:../watchdog
 
   packages/modules/host-lifecycle:
     dependencies:
@@ -253,6 +271,33 @@ importers:
         specifier: workspace:*
         version: link:../../foundation/kernel
 
+  packages/modules/schedule-dispatcher:
+    dependencies:
+      '@lume-hub/clock':
+        specifier: workspace:*
+        version: link:../../foundation/clock
+      '@lume-hub/delivery-tracker':
+        specifier: workspace:*
+        version: link:../delivery-tracker
+      '@lume-hub/kernel':
+        specifier: workspace:*
+        version: link:../../foundation/kernel
+      '@lume-hub/notification-jobs':
+        specifier: workspace:*
+        version: link:../notification-jobs
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
+      '@lume-hub/schedule-events':
+        specifier: workspace:*
+        version: link:../schedule-events
+      '@lume-hub/schedule-weeks':
+        specifier: workspace:*
+        version: link:../schedule-weeks
+      '@lume-hub/whatsapp-baileys':
+        specifier: workspace:*
+        version: link:../../adapters/whatsapp-baileys
+
   packages/modules/schedule-events:
     dependencies:
       '@lume-hub/kernel':
@@ -288,9 +333,24 @@ importers:
 
   packages/modules/watchdog:
     dependencies:
+      '@lume-hub/clock':
+        specifier: workspace:*
+        version: link:../../foundation/clock
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/notification-jobs':
+        specifier: workspace:*
+        version: link:../notification-jobs
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
+      '@lume-hub/schedule-events':
+        specifier: workspace:*
+        version: link:../schedule-events
+      '@lume-hub/schedule-weeks':
+        specifier: workspace:*
+        version: link:../schedule-weeks
 
   packages/modules/weekly-planner:
     dependencies:

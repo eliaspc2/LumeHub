@@ -93,6 +93,9 @@
       "@lume-hub/notification-jobs": [
         "packages/modules/notification-jobs/src/public/index.ts"
       ],
+      "@lume-hub/schedule-dispatcher": [
+        "packages/modules/schedule-dispatcher/src/public/index.ts"
+      ],
       "@lume-hub/delivery-tracker": [
         "packages/modules/delivery-tracker/src/public/index.ts"
       ],

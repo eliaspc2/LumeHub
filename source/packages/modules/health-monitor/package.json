@@ -17,6 +17,12 @@
     "test": "node -e \"console.log('No tests yet for @lume-hub/health-monitor.')\""
   },
   "dependencies": {
-    "@lume-hub/kernel": "workspace:*"
+    "@lume-hub/contracts": "workspace:*",
+    "@lume-hub/kernel": "workspace:*",
+    "@lume-hub/notification-jobs": "workspace:*",
+    "@lume-hub/persistence-group-files": "workspace:*",
+    "@lume-hub/schedule-events": "workspace:*",
+    "@lume-hub/schedule-weeks": "workspace:*",
+    "@lume-hub/watchdog": "workspace:*"
   }
 }
