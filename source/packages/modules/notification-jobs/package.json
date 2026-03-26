@@ -17,6 +17,11 @@
     "test": "node -e \"console.log('No tests yet for @lume-hub/notification-jobs.')\""
   },
   "dependencies": {
-    "@lume-hub/kernel": "workspace:*"
+    "@lume-hub/clock": "workspace:*",
+    "@lume-hub/kernel": "workspace:*",
+    "@lume-hub/notification-rules": "workspace:*",
+    "@lume-hub/persistence-group-files": "workspace:*",
+    "@lume-hub/schedule-events": "workspace:*",
+    "@lume-hub/schedule-weeks": "workspace:*"
   }
 }

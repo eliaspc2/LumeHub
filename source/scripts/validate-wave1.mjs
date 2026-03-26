@@ -141,6 +141,7 @@ try {
         notifications: [
           {
             jobId: 'job-validation-001',
+            ruleId: 'rule-validation-001',
             weekId: '2026-W13',
             ruleType: 'fixed_local_time',
             sendAt: '2026-03-24T10:00:00+00:00',

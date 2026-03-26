@@ -1,4 +1,5 @@
 import type { ModuleContext } from '@lume-hub/kernel';
+
 import { ScheduleWeeksModule } from './ScheduleWeeksModule.js';
 import type { ScheduleWeeksModuleConfig } from './ScheduleWeeksModuleConfig.js';
 

@@ -1,4 +1,13 @@
-import { mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  open,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 
@@ -7,6 +16,7 @@ export const CALENDAR_SCHEMA_VERSION = 1;
 export const DEFAULT_TIMEZONE = 'Europe/Lisbon';
 
 const weekIdSchema = z.string().regex(/^\d{4}-W\d{2}$/);
+const localTimeSchema = z.string().regex(/^\d{2}:\d{2}$/);
 
 function isValidTimeZone(timeZone: string): boolean {
   try {
@@ -23,16 +33,70 @@ const timeZoneSchema = z.string().trim().min(1).refine(isValidTimeZone, {
 
 const isoDateTimeStringSchema = z.string().datetime({ offset: true });
 
+const eventTargetSchema = z.object({
+  type: z.string().trim().min(1),
+  id: z.string().trim().min(1),
+  label: z.string().trim().min(1).optional(),
+});
+
+const notificationRuleSchema = z
+  .object({
+    ruleId: z.string().trim().min(1),
+    eventId: z.string().trim().min(1),
+    weekId: weekIdSchema,
+    kind: z.enum(['relative_before_event', 'fixed_local_time']),
+    enabled: z.boolean().default(true),
+    label: z.string().trim().min(1).nullable().default(null),
+    offsetMinutesBeforeEvent: z.number().int().positive().nullable().optional(),
+    daysBeforeEvent: z.number().int().nonnegative().nullable().optional(),
+    localTime: localTimeSchema.nullable().optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.kind === 'relative_before_event' && !value.offsetMinutesBeforeEvent) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['offsetMinutesBeforeEvent'],
+        message: 'relative_before_event rules require offsetMinutesBeforeEvent.',
+      });
+    }
+
+    if (value.kind === 'fixed_local_time') {
+      if (value.daysBeforeEvent === null || value.daysBeforeEvent === undefined) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['daysBeforeEvent'],
+          message: 'fixed_local_time rules require daysBeforeEvent.',
+        });
+      }
+
+      if (!value.localTime) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['localTime'],
+          message: 'fixed_local_time rules require localTime.',
+        });
+      }
+    }
+  });
+
 const notificationSchema = z.object({
   jobId: z.string().trim().min(1),
+  ruleId: z.string().trim().min(1),
   weekId: weekIdSchema,
-  ruleType: z.union([z.literal('relative_offset'), z.literal('fixed_local_time'), z.string().trim().min(1)]),
+  ruleType: z.union([
+    z.literal('relative_before_event'),
+    z.literal('fixed_local_time'),
+    z.literal('relative_offset'),
+    z.string().trim().min(1),
+  ]),
   sendAt: isoDateTimeStringSchema,
   status: z.enum(['pending', 'waiting_confirmation', 'sent']),
   attempts: z.number().int().nonnegative(),
   lastError: z.string().nullable(),
   lastOutboundObservationAt: isoDateTimeStringSchema.nullable(),
   confirmedAt: isoDateTimeStringSchema.nullable(),
+  suppressedAt: isoDateTimeStringSchema.nullable().optional(),
+  disabledAt: isoDateTimeStringSchema.nullable().optional(),
 });
 
 const eventSchema = z.object({
@@ -40,8 +104,13 @@ const eventSchema = z.object({
   weekId: weekIdSchema,
   groupJid: z.string().trim().min(1),
   groupLabel: z.string().trim().min(1),
+  title: z.string().trim().min(1).default('Untitled event'),
+  kind: z.string().trim().min(1).default('generic'),
+  target: eventTargetSchema.optional(),
   eventAt: isoDateTimeStringSchema,
-  notifications: z.array(notificationSchema),
+  notificationRules: z.array(notificationRuleSchema).default([]),
+  notifications: z.array(notificationSchema).default([]),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 const calendarMonthSchema = z
@@ -71,6 +140,34 @@ const calendarMonthSchema = z
           message: 'event.groupLabel must match the parent calendar groupLabel.',
         });
       }
+
+      for (const [ruleIndex, rule] of event.notificationRules.entries()) {
+        if (rule.eventId !== event.eventId) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['events', eventIndex, 'notificationRules', ruleIndex, 'eventId'],
+            message: 'notification rule eventId must match the parent eventId.',
+          });
+        }
+
+        if (rule.weekId !== event.weekId) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['events', eventIndex, 'notificationRules', ruleIndex, 'weekId'],
+            message: 'notification rule weekId must match the parent event weekId.',
+          });
+        }
+      }
+
+      for (const [jobIndex, job] of event.notifications.entries()) {
+        if (job.weekId !== event.weekId) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['events', eventIndex, 'notifications', jobIndex, 'weekId'],
+            message: 'notification job weekId must match the parent event weekId.',
+          });
+        }
+      }
     }
   });
 
@@ -81,6 +178,8 @@ const workspaceSettingsSchema = z.object({
   updatedAt: isoDateTimeStringSchema,
 });
 
+export type GroupEventTargetRecord = z.infer<typeof eventTargetSchema>;
+export type GroupNotificationRuleRecord = z.infer<typeof notificationRuleSchema>;
 export type GroupNotificationRecord = z.infer<typeof notificationSchema>;
 export type GroupCalendarEventRecord = z.infer<typeof eventSchema>;
 export type GroupCalendarMonthFile = z.infer<typeof calendarMonthSchema>;
@@ -168,6 +267,10 @@ function delay(milliseconds: number): Promise<void> {
   });
 }
 
+function sortCalendarIdentities(left: GroupCalendarIdentity, right: GroupCalendarIdentity): number {
+  return left.groupJid.localeCompare(right.groupJid) || left.year - right.year || left.month - right.month;
+}
+
 export class GroupFileLockManager {
   constructor(
     private readonly defaults: Required<GroupFileLockOptions> = {
@@ -198,14 +301,22 @@ export class GroupFileLockManager {
 
     while (true) {
       try {
-        await writeFile(lockPath, JSON.stringify({
-          ownerId,
-          pid: process.pid,
-          createdAt: new Date().toISOString(),
-        }, null, 2), {
-          encoding: 'utf8',
-          flag: 'wx',
-        });
+        await writeFile(
+          lockPath,
+          JSON.stringify(
+            {
+              ownerId,
+              pid: process.pid,
+              createdAt: new Date().toISOString(),
+            },
+            null,
+            2,
+          ),
+          {
+            encoding: 'utf8',
+            flag: 'wx',
+          },
+        );
 
         break;
       } catch (error) {
@@ -252,7 +363,6 @@ export class AtomicJsonWriter {
     const serialized = `${JSON.stringify(value, null, options.indent ?? 2)}\n`;
 
     await mkdir(directoryPath, { recursive: true });
-
     await writeFile(tempPath, serialized, 'utf8');
 
     const handle = await open(tempPath, 'r');
@@ -421,6 +531,80 @@ export class GroupCalendarFileRepository {
     private readonly writer = new AtomicJsonWriter(),
     private readonly validator = new GroupCalendarSchemaValidator(),
   ) {}
+
+  async listGroupJids(): Promise<readonly string[]> {
+    const groupsRootPath = this.pathResolver.resolveGroupsRootPath();
+
+    try {
+      const entries = await readdir(groupsRootPath, { withFileTypes: true });
+      return entries
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+        .sort((left, right) => left.localeCompare(right));
+    } catch (error) {
+      const nodeError = error as NodeJS.ErrnoException;
+
+      if (nodeError.code === 'ENOENT') {
+        return [];
+      }
+
+      throw error;
+    }
+  }
+
+  async listCalendarIdentities(groupJid?: string): Promise<readonly GroupCalendarIdentity[]> {
+    const groupJids = groupJid ? [groupJid] : await this.listGroupJids();
+    const identities: GroupCalendarIdentity[] = [];
+
+    for (const currentGroupJid of groupJids) {
+      const calendarDirectoryPath = this.pathResolver.resolveGroupCalendarDirectoryPath(currentGroupJid);
+
+      try {
+        const entries = await readdir(calendarDirectoryPath, { withFileTypes: true });
+
+        for (const entry of entries) {
+          if (!entry.isFile()) {
+            continue;
+          }
+
+          const match = /^(\d{4})-(\d{2})\.json$/u.exec(entry.name);
+
+          if (!match) {
+            continue;
+          }
+
+          identities.push({
+            groupJid: currentGroupJid,
+            year: Number(match[1]),
+            month: Number(match[2]),
+          });
+        }
+      } catch (error) {
+        const nodeError = error as NodeJS.ErrnoException;
+
+        if (nodeError.code !== 'ENOENT') {
+          throw error;
+        }
+      }
+    }
+
+    return identities.sort(sortCalendarIdentities);
+  }
+
+  async listCalendarMonths(groupJid?: string): Promise<readonly GroupCalendarMonthFile[]> {
+    const identities = await this.listCalendarIdentities(groupJid);
+    const months: GroupCalendarMonthFile[] = [];
+
+    for (const identity of identities) {
+      const month = await this.readCalendarMonth(identity);
+
+      if (month) {
+        months.push(month);
+      }
+    }
+
+    return months;
+  }
 
   async readCalendarMonth(identity: GroupCalendarIdentity): Promise<GroupCalendarMonthFile | undefined> {
     const calendarPath = this.pathResolver.resolveGroupCalendarPath(identity.groupJid, identity.year, identity.month);

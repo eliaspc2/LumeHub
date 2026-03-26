@@ -192,15 +192,39 @@ importers:
 
   packages/modules/notification-jobs:
     dependencies:
+      '@lume-hub/clock':
+        specifier: workspace:*
+        version: link:../../foundation/clock
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/notification-rules':
+        specifier: workspace:*
+        version: link:../notification-rules
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
+      '@lume-hub/schedule-events':
+        specifier: workspace:*
+        version: link:../schedule-events
+      '@lume-hub/schedule-weeks':
+        specifier: workspace:*
+        version: link:../schedule-weeks
 
   packages/modules/notification-rules:
     dependencies:
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
+      '@lume-hub/schedule-events':
+        specifier: workspace:*
+        version: link:../schedule-events
+      '@lume-hub/schedule-weeks':
+        specifier: workspace:*
+        version: link:../schedule-weeks
 
   packages/modules/owner-control:
     dependencies:
@@ -219,12 +243,27 @@ importers:
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
+      '@lume-hub/schedule-weeks':
+        specifier: workspace:*
+        version: link:../schedule-weeks
 
   packages/modules/schedule-weeks:
     dependencies:
+      '@lume-hub/clock':
+        specifier: workspace:*
+        version: link:../../foundation/clock
+      '@lume-hub/contracts':
+        specifier: workspace:*
+        version: link:../../foundation/contracts
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
 
   packages/modules/system-power:
     dependencies:

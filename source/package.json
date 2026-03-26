@@ -10,7 +10,8 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "build": "pnpm -r --if-present build",
     "test": "pnpm -r --if-present test",
-    "validate:wave1": "corepack pnpm -r --if-present build && node ./scripts/validate-wave1.mjs"
+    "validate:wave1": "corepack pnpm -r --if-present build && node ./scripts/validate-wave1.mjs",
+    "validate:wave2": "corepack pnpm -r --if-present build && node ./scripts/validate-wave2.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",
