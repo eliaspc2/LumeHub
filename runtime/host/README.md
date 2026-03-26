@@ -8,6 +8,10 @@ Guardar e preparar o lado host do projeto, separado do source tree e separado do
 
 ## Pastas
 
+- `current/`
+  - release ativa publicada do host companion
+- `releases/`
+  - bundles versionados do host companion
 - `systemd-user/`
   - manifests/unidades de utilizador
 - `state/`
@@ -25,3 +29,12 @@ Guardar e preparar o lado host do projeto, separado do source tree e separado do
 - politica de energia/deep sleep
 - ownership do mesmo ficheiro OAuth live usado pelo Codex
 - publicar heartbeat para `runtime/lxd/host-mounts/data/runtime/host-state.json`
+
+## Artefactos da Wave 12
+
+- `current/bin/lume-hub-host`
+  - entrypoint publicado para o host
+- `current/release-manifest.json`
+  - manifest com paths de estado local e do backend bridge
+- `systemd-user/lume-hub-host.service`
+  - unit file gerada para `systemd --user`

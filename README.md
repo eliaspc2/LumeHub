@@ -146,6 +146,14 @@ O ponto importante e este: o projeto deve gerir o mesmo ficheiro live que o Code
 5. O container `LXD` consome apenas o artefacto publicado, nao o source tree inteiro como local de edicao.
 6. Dados persistentes do runtime ficam separados do source.
 
+Na `Wave 12`, o fluxo canónico passa por:
+
+- `pnpm run validate:wave12`
+- backend publicado em `runtime/lxd/host-mounts/app-release/current/`
+- bundle versionado em `runtime/lxd/release-bundles/`
+- host companion publicado em `runtime/host/current/`
+- unit file do host em `runtime/host/systemd-user/lume-hub-host.service`
+
 ## Documentos mais importantes
 
 - [AGENTS.md](/home/eliaspc/Documentos/lume-hub/AGENTS.md)
@@ -155,6 +163,7 @@ O ponto importante e este: o projeto deve gerir o mesmo ficheiro live que o Code
 - [lume_hub_llm_kickoff_prompt.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_llm_kickoff_prompt.md)
 - [lume_hub_healthy_code_manifest.md](/home/eliaspc/Documentos/lume-hub/docs/reuse/lume_hub_healthy_code_manifest.md)
 - [lume_hub_lxd_runtime_plan.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_lxd_runtime_plan.md)
+- [lume_hub_release_publish.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_release_publish.md)
 
 ## Estado atual
 
