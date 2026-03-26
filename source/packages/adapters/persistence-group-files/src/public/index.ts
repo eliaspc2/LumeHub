@@ -99,6 +99,38 @@ const notificationSchema = z.object({
   disabledAt: isoDateTimeStringSchema.nullable().optional(),
 });
 
+const outboundObservationSchema = z.object({
+  jobId: z.string().trim().min(1).optional(),
+  messageId: z.string().trim().min(1),
+  chatJid: z.string().trim().min(1),
+  observedAt: isoDateTimeStringSchema,
+  source: z.string().trim().min(1),
+});
+
+const outboundConfirmationSchema = z.object({
+  jobId: z.string().trim().min(1).optional(),
+  messageId: z.string().trim().min(1),
+  chatJid: z.string().trim().min(1),
+  confirmedAt: isoDateTimeStringSchema,
+  source: z.string().trim().min(1),
+  ack: z.number().int().nonnegative(),
+});
+
+const deliveryAttemptSchema = z.object({
+  attemptId: z.string().trim().min(1),
+  jobId: z.string().trim().min(1),
+  eventId: z.string().trim().min(1),
+  weekId: weekIdSchema,
+  groupJid: z.string().trim().min(1),
+  groupLabel: z.string().trim().min(1),
+  messageId: z.string().trim().min(1),
+  startedAt: isoDateTimeStringSchema,
+  status: z.enum(['started', 'observed', 'confirmed', 'failed']),
+  lastError: z.string().nullable().default(null),
+  observation: outboundObservationSchema.nullable().optional(),
+  confirmation: outboundConfirmationSchema.nullable().optional(),
+});
+
 const eventSchema = z.object({
   eventId: z.string().trim().min(1),
   weekId: weekIdSchema,
@@ -122,6 +154,7 @@ const calendarMonthSchema = z
     month: z.number().int().min(1).max(12),
     timezone: timeZoneSchema,
     events: z.array(eventSchema),
+    deliveryAttempts: z.array(deliveryAttemptSchema).default([]),
   })
   .superRefine((value, context) => {
     for (const [eventIndex, event] of value.events.entries()) {
@@ -169,6 +202,24 @@ const calendarMonthSchema = z
         }
       }
     }
+
+    for (const [attemptIndex, attempt] of value.deliveryAttempts.entries()) {
+      if (attempt.groupJid !== value.groupJid) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['deliveryAttempts', attemptIndex, 'groupJid'],
+          message: 'delivery attempt groupJid must match the parent calendar groupJid.',
+        });
+      }
+
+      if (attempt.groupLabel !== value.groupLabel) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['deliveryAttempts', attemptIndex, 'groupLabel'],
+          message: 'delivery attempt groupLabel must match the parent calendar groupLabel.',
+        });
+      }
+    }
   });
 
 const workspaceSettingsSchema = z.object({
@@ -181,6 +232,9 @@ const workspaceSettingsSchema = z.object({
 export type GroupEventTargetRecord = z.infer<typeof eventTargetSchema>;
 export type GroupNotificationRuleRecord = z.infer<typeof notificationRuleSchema>;
 export type GroupNotificationRecord = z.infer<typeof notificationSchema>;
+export type GroupOutboundObservationRecord = z.infer<typeof outboundObservationSchema>;
+export type GroupOutboundConfirmationRecord = z.infer<typeof outboundConfirmationSchema>;
+export type GroupDeliveryAttemptRecord = z.infer<typeof deliveryAttemptSchema>;
 export type GroupCalendarEventRecord = z.infer<typeof eventSchema>;
 export type GroupCalendarMonthFile = z.infer<typeof calendarMonthSchema>;
 export type GroupWorkspaceSettingsFile = z.infer<typeof workspaceSettingsSchema>;
