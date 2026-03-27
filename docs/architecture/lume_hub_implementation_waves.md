@@ -318,6 +318,24 @@ Mas para o produto ficar realmente utilizavel por pessoas com poucos conheciment
 Estas waves novas nao substituem o trabalho anterior.
 Servem para modernizar a experiencia e aproximar o produto da usabilidade real.
 
+As novas waves passam a ter tres regras adicionais:
+
+1. sempre que possivel, cada wave deve terminar com rebuild real do que foi tocado
+2. cada wave nova deve ganhar o seu proprio `validate:waveX` em `source/package.json` e respetivo `scripts/validate-waveX.mjs`
+3. cada wave deve declarar explicitamente quando e porque vale a pena o utilizador testar logo nessa fase
+
+Rebuild minimo esperado no fim de qualquer wave nova:
+- `corepack pnpm run typecheck`
+- `corepack pnpm run build`
+
+Se a wave tocar browser/app web:
+- rebuild da web app
+- preview local executavel para teste manual
+
+Se a wave tocar backend, HTTP, WS ou runtime:
+- smoke test dedicado da wave
+- validar que a UI continua a abrir e a consumir a API esperada
+
 ## Wave 13 - Frontend foundation moderna
 
 Objetivo:
@@ -329,6 +347,8 @@ Entregaveis:
 - shell principal moderno
 - design system local
 - navegacao principal baseada em tarefas
+- pagina `Hoje` realmente navegavel
+- infraestrutura de preview local do frontend
 - estados globais de sessao:
   - loading
   - empty
@@ -361,6 +381,26 @@ Criterios de aceitacao:
   - qual e a proxima acao recomendada
 - o frontend ja nao parece um painel tecnico datado
 
+Rebuild e validacao minima:
+- `corepack pnpm run typecheck`
+- `corepack pnpm run build`
+- `corepack pnpm run validate:wave13`
+
+Melhor momento para testar:
+- testar aqui o novo design do frontend
+- se houver problema de direcao visual, linguagem, hierarquia ou navegacao, este e o melhor ponto para mudar o curso rapidamente
+- a pergunta pratica desta wave e: `queremos mesmo esta cara para o produto?`
+
+O que testar:
+- abrir a home `Hoje` em desktop e mobile
+- perceber em menos de `30` segundos:
+  - se o WhatsApp esta ligado
+  - se ha falhas
+  - qual e a proxima acao
+- confirmar se o visual parece moderno e confiavel
+- validar se menus, titulos e labels usam linguagem simples
+- verificar se a navegacao principal faz sentido sem explicacao previa
+
 ## Wave 14 - Fluxos guiados de operacao
 
 Objetivo:
@@ -384,6 +424,23 @@ Criterios de aceitacao:
 - existe preview antes de acoes destrutivas ou multi-grupo
 - a UI sugere o proximo passo em vez de obrigar o utilizador a navegar as cegas
 
+Rebuild e validacao minima:
+- `corepack pnpm run typecheck`
+- `corepack pnpm run build`
+- `corepack pnpm run validate:wave14`
+
+Melhor momento para testar:
+- testar aqui os fluxos guiados mais importantes
+- e a melhor wave para perceber se uma pessoa pouco tecnica consegue completar tarefas reais sem ajuda
+- a pergunta pratica desta wave e: `a operacao principal esta simples o suficiente?`
+
+O que testar:
+- criar um agendamento novo do inicio ao fim
+- editar um agendamento existente sem medo de estragar dados
+- fazer preview de uma distribuicao multi-grupo
+- confirmar se o sistema explica bem erros e proximos passos
+- verificar se quase nunca precisas de ver ids, `jid` ou termos internos
+
 ## Wave 15 - Permissoes, ownership e WhatsApp UX
 
 Objetivo:
@@ -402,6 +459,24 @@ Criterios de aceitacao:
 - um utilizador nao tecnico percebe quem pode fazer o que sem ler documentacao
 - a configuracao de permissoes acontece por seletores e passos guiados
 - a ligacao WhatsApp mostra estado, causa provavel de erro e sugestao de resolucao
+
+Rebuild e validacao minima:
+- `corepack pnpm run typecheck`
+- `corepack pnpm run build`
+- `corepack pnpm run validate:wave15`
+
+Melhor momento para testar:
+- testar aqui a consola de WhatsApp, os grupos, as conversas e o modelo de permissoes
+- se houver confusao entre `app owner`, `group owner`, `read` e `read_write`, ainda vamos a tempo de simplificar sem refazer o produto inteiro
+- a pergunta pratica desta wave e: `as permissoes sao realmente claras para humanos?`
+
+O que testar:
+- ligar ou recuperar a sessao WhatsApp por QR
+- confirmar se e facil perceber o estado atual da ligacao
+- abrir grupos e conversas e validar se os nomes mostrados sao humanos e claros
+- atribuir `app owner` e `group owner`
+- mudar ACL entre `read` e `read_write`
+- confirmar se percebes imediatamente quem pode ver, editar, aprovar e distribuir em cada grupo
 
 ## Wave 16 - Polimento, acessibilidade e confianca operacional
 
@@ -428,10 +503,71 @@ Criterios de aceitacao:
 - o modo avancado existe sem poluir a experiencia principal
 - o frontend transmite confianca operacional e clareza
 
+Rebuild e validacao minima:
+- `corepack pnpm run typecheck`
+- `corepack pnpm run build`
+- `corepack pnpm run test:e2e`
+- `corepack pnpm run validate:wave16`
+
+Melhor momento para testar:
+- testar aqui um uso diario mais realista
+- e a melhor wave para validar acessibilidade base, microcopy, confianca e pontos de friccao pequenos que so aparecem no uso continuo
+- a pergunta pratica desta wave e: `isto ja parece um produto seguro para usar todos os dias?`
+
+O que testar:
+- usar a app durante uma sessao mais longa, como se fosse operacao real
+- navegar por teclado nas areas principais
+- confirmar contraste, foco e legibilidade
+- procurar textos ambiguos, assustadores ou tecnicos demais
+- verificar se o modo avancado ajuda sem atrapalhar a experiencia principal
+- validar se watchdog, entregas e historico inspiram confianca
+
+## Wave 17 - Limpeza final e remocao de legado inutil
+
+Objetivo:
+- remover informacao, ficheiros e codigo de apoio que deixaram de ser necessarios
+- fechar o projeto com uma base mais limpa para manutencao
+
+Entregaveis:
+- limpeza de docs obsoletos ou duplicados
+- remocao de codigo morto, stubs supersedidos e assets antigos sem uso
+- remocao de `legacy_healthy_code/` que ja nao seja preciso como referencia
+- remocao de snapshots, notas e placeholders que ja nao acrescentem contexto
+- atualizacao final de `README.md`, `AGENTS.md` e backlog para refletir apenas o estado real
+
+Regra forte desta wave:
+- apagar `legacy_healthy_code/` ou partes dele apenas quando o comportamento ja estiver portado, validado e sem dependencia documental relevante
+
+Criterios de aceitacao:
+- o repositorio deixa de ter material antigo que confunde mais do que ajuda
+- o codigo saudavel guardado so permanece se ainda for referencia viva
+- a documentacao principal descreve o sistema atual e nao o seu passado
+
+Rebuild e validacao minima:
+- `corepack pnpm run typecheck`
+- `corepack pnpm run build`
+- `corepack pnpm run test`
+- `corepack pnpm run validate:wave17`
+
+Melhor momento para testar:
+- testar aqui regressao geral e arranque normal do produto depois da limpeza
+- e a melhor wave para confirmar que nada importante foi apagado por engano
+- a pergunta pratica desta wave e: `o projeto ficou mais simples sem perder capacidade?`
+
+O que testar:
+- arrancar o sistema de forma normal depois da limpeza
+- repetir rapidamente os fluxos principais das waves `13` a `16`
+- confirmar que docs principais ainda explicam o sistema certo
+- verificar se nao desapareceu nenhuma referencia ainda util ao migrar ou depurar
+- confirmar que o repositorio esta mais claro e nao mais opaco
+
 ## Regra de execucao para a LLM
 
 - completar uma wave antes de saltar para a seguinte
 - no fim de cada wave:
   - atualizar docs locais relevantes
+  - criar ou atualizar `validate:waveX`
+  - fazer rebuild do que foi tocado
   - validar com testes/typecheck
+  - indicar explicitamente se e um bom momento para teste manual do utilizador
   - deixar estado explicito do que ficou pronto e do que falta

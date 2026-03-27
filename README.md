@@ -220,4 +220,5 @@ O foco atual do projeto passou a ser:
 
 - fechar gaps reais de integracao e produto descritos em `docs/architecture/lume_hub_gap_audit.md`
 - modernizar a experiencia web nas `Wave 13` a `Wave 16`
+- fechar a ronda com limpeza final e remocao de material obsoleto na `Wave 17`
 - simplificar documentacao e remover material antigo de scaffold que ja nao acrescenta contexto util
