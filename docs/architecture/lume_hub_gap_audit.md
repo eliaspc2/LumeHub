@@ -34,6 +34,15 @@ Conclusao curta:
   - modulos ainda em stub
   - cobertura de testes muito abaixo do que a spec pede
 
+Nota de planeamento:
+- a partir desta auditoria, o frontend passa a ter waves dedicadas de modernizacao e UX:
+  - `Wave 13`
+  - `Wave 14`
+  - `Wave 15`
+  - `Wave 16`
+- essas waves vivem em `docs/architecture/lume_hub_implementation_waves.md`
+- o objetivo explicito e deixar o frontend moderno, claro e utilizavel por pessoas com poucos conhecimentos tecnicos
+
 ## O que ja esta implementado com base razoavel
 
 Estas areas ja existem e parecem suficientemente reais para servir de fundacao:

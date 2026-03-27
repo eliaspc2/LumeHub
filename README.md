@@ -120,6 +120,43 @@ O runtime em `runtime/` deve ser tratado como destino de build/publicacao, nao c
   - `app owners`, `group owners` e ACL do calendario por grupo
 - o backend deve expor um snapshot unico de workspace WhatsApp para esta pagina, em vez de obrigar a UI a compor varios endpoints sem contexto
 
+## Principios de UX do Frontend
+
+- o frontend novo nao deve parecer uma consola administrativa antiga nem um painel tecnico cru
+- o utilizador-alvo pode ter pouco conhecimento tecnico
+- a interface deve privilegiar:
+  - linguagem simples
+  - estados humanos claros
+  - passos guiados
+  - feedback imediato
+  - navegacao previsivel
+- a UI nao deve obrigar o utilizador a interpretar:
+  - `jid`
+  - ids internos
+  - nomes tecnicos de modulos
+  - diferenca estrutural entre evento base, job, tentativa e sinal
+  sem uma camada de traducao visual
+- o frontend deve usar divulgacao progressiva:
+  - por defeito mostra o essencial
+  - detalhes tecnicos ficam atras de vistas secundarias, drawers ou modo avancado
+- o ecran inicial deve responder de forma rapida a:
+  - o WhatsApp esta ligado?
+  - ha algo para fazer agora?
+  - houve falhas?
+  - qual e o proximo passo recomendado?
+- criar ou editar entidades sensiveis deve acontecer por fluxos guiados:
+  - criar aviso/agendamento
+  - distribuir mensagem para multiplos grupos
+  - configurar permissoes
+  - ligar ou reparar WhatsApp
+- o frontend deve parecer moderno e intencional:
+  - layout limpo
+  - hierarquia visual forte
+  - contraste bom
+  - tipografia legivel
+  - componentes coerentes
+  - sem aspeto "dated" de backoffice antigo
+
 ## Estrutura principal
 
 - `docs/architecture/`

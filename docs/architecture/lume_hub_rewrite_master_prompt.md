@@ -908,13 +908,36 @@ Forma ideal:
 
 Objetivo explicito de UX:
 - a pagina web nova deve ser significativamente menos confusa do que a atual
+- a pagina web nova deve parecer moderna, confiante e atual, nao um painel tecnico datado
 - a interface deve ser organizada pelo modelo mental do utilizador, nao pelo modelo interno dos ficheiros
+- a interface deve ser utilizavel por pessoas com poucos conhecimentos tecnicos
 - o utilizador nao deve ter de adivinhar:
   - qual e a semana ativa
   - qual e o estado real de um aviso
   - se um item e evento base ou lembrete derivado
   - de onde veio uma acao
   - se o bot respondeu, enfileirou, falhou ou ficou ambiguo
+
+Principios obrigatorios de UX:
+- linguagem simples e humana
+- zero dependencia de jargao tecnico para tarefas comuns
+- divulgacao progressiva de detalhe tecnico
+- empty states com instrucoes claras
+- acoes principais sempre visiveis e reconheciveis
+- estados operacionais com texto e cor, nao apenas codigos
+- onboarding e reparacao guiada para:
+  - ligar WhatsApp
+  - escolher grupos
+  - configurar permissoes
+  - validar fan-out
+  - corrigir falhas
+- qualquer fluxo sensivel deve ser desenhado em modo `wizard` ou `step-by-step` quando isso reduzir erro
+- mobile e desktop devem ficar legiveis desde o arranque
+- acessibilidade basica nao e opcional:
+  - contraste suficiente
+  - foco visivel
+  - labels claras
+  - navegacao por teclado razoavel
 
 Arquitetura ideal da UI:
 - shell principal com 3 zonas estaveis:
@@ -957,6 +980,14 @@ Pagina inicial ideal: `Hoje`
   - cartao `Envios pendentes/agora`
   - cartao `Problemas ativos`
   - cartao `Atalhos`
+
+Padrao visual recomendado:
+- design system local com identidade propria
+- cards claros, espacamento generoso e tipografia robusta
+- icones e labels de apoio para tarefas frequentes
+- superfices, cores de estado e componentes coerentes entre vistas
+- evitar aspeto de tabela crua como modo dominante da app
+- tabelas continuam a existir, mas como vista secundaria e nao como experiencia principal
 
 Pagina `Semana`
 - deve ser a principal vista operacional de planeamento

@@ -310,6 +310,124 @@ Criterios de aceitacao:
 - `lume-hub-host` pode correr no host
 - mounts de auth, data e logs estao claros
 
+## Replaneamento frontend a partir da Wave 13
+
+As `Wave 0` a `Wave 12` continuam uteis como base de dominio, runtime e deploy.
+Mas para o produto ficar realmente utilizavel por pessoas com poucos conhecimentos tecnicos, o frontend precisa de uma fase propria de redesenho.
+
+Estas waves novas nao substituem o trabalho anterior.
+Servem para modernizar a experiencia e aproximar o produto da usabilidade real.
+
+## Wave 13 - Frontend foundation moderna
+
+Objetivo:
+- substituir o shell textual por uma web app moderna
+- criar identidade visual, layout e design system consistentes
+
+Entregaveis:
+- migracao de `apps/lume-hub-web` para SPA real
+- shell principal moderno
+- design system local
+- navegacao principal baseada em tarefas
+- estados globais de sessao:
+  - loading
+  - empty
+  - offline
+  - erro
+
+Regras obrigatorias:
+- desenhar para utilizador pouco tecnico
+- linguagem simples
+- mobile e desktop legiveis
+- detalhes tecnicos ficam em modo secundario
+
+Navegacao minima esperada:
+- `Hoje`
+- `Semana`
+- `Assistente`
+- `Distribuicoes`
+- `Entregas`
+- `Watchdog`
+- `Grupos`
+- `WhatsApp`
+- `Configuracao`
+
+Criterios de aceitacao:
+- a app corre num browser real
+- existe layout moderno com sidebar, header e painel contextual opcional
+- a pagina inicial `Hoje` responde claramente:
+  - se o WhatsApp esta ligado
+  - se ha falhas
+  - qual e a proxima acao recomendada
+- o frontend ja nao parece um painel tecnico datado
+
+## Wave 14 - Fluxos guiados de operacao
+
+Objetivo:
+- tornar as tarefas principais executaveis sem conhecimento interno do sistema
+
+Entregaveis:
+- fluxo guiado para criar/editar agendamentos
+- fluxo guiado para fan-out multi-grupo
+- fluxo guiado para resolver falhas comuns
+- quick actions na home
+- empty states e mensagens de erro humanas
+
+Fluxos minimos:
+- `Criar agendamento`
+- `Distribuir mensagem`
+- `Ligar ou reparar WhatsApp`
+- `Resolver problema watchdog`
+
+Criterios de aceitacao:
+- as tarefas principais podem ser feitas sem expor `jid`, ids internos ou nomes de modulo
+- existe preview antes de acoes destrutivas ou multi-grupo
+- a UI sugere o proximo passo em vez de obrigar o utilizador a navegar as cegas
+
+## Wave 15 - Permissoes, ownership e WhatsApp UX
+
+Objetivo:
+- tornar ownership, ACL e configuracao WhatsApp compreensiveis para humanos
+
+Entregaveis:
+- consola WhatsApp redesenhada
+- gestao visual de:
+  - `app owner`
+  - `group owner`
+  - ACL `read` / `read_write`
+- lista de grupos e conversas com labels humanas
+- onboarding de sessao WhatsApp com QR, estado e recuperacao guiada
+
+Criterios de aceitacao:
+- um utilizador nao tecnico percebe quem pode fazer o que sem ler documentacao
+- a configuracao de permissoes acontece por seletores e passos guiados
+- a ligacao WhatsApp mostra estado, causa provavel de erro e sugestao de resolucao
+
+## Wave 16 - Polimento, acessibilidade e confianca operacional
+
+Objetivo:
+- fechar a experiencia para uso real diario
+
+Entregaveis:
+- acessibilidade base
+- refinamento visual
+- microcopy final
+- modo `advanced details`
+- telemetria UX local suficiente para perceber erros frequentes
+
+Checklist obrigatoria:
+- contraste suficiente
+- foco visivel
+- navegacao por teclado razoavel
+- labels e feedback claros
+- confirmacoes para operacoes sensiveis
+- historico e estado operacional explicados em linguagem simples
+
+Criterios de aceitacao:
+- uma pessoa com pouco conhecimento tecnico consegue usar a app para tarefas frequentes
+- o modo avancado existe sem poluir a experiencia principal
+- o frontend transmite confianca operacional e clareza
+
 ## Regra de execucao para a LLM
 
 - completar uma wave antes de saltar para a seguinte

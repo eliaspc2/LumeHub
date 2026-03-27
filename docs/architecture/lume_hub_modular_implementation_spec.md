@@ -1169,11 +1169,19 @@ Mesmo o frontend deve ser modular e portavel.
 ### `dashboard`
 
 Classes/componentes:
+- `TodayPage`
 - `DashboardPage`
 - `SystemStatusCard`
 - `UpcomingEventsCard`
 - `ActiveProblemsCard`
 - `QuickActionsCard`
+- `RecommendedNextStepCard`
+- `EmptyStatePanel`
+
+Nota de UX:
+- este modulo deve funcionar como pagina `Hoje`
+- e a primeira vista para utilizadores pouco tecnicos
+- deve privilegiar clareza operacional, nao densidade tecnica
 
 ### `week-planner`
 
@@ -1183,6 +1191,12 @@ Classes/componentes:
 - `WeekDayColumn`
 - `EventCard`
 - `NotificationTree`
+- `WeekFilterBar`
+- `ScheduleWizardEntryPoint`
+
+Nota de UX:
+- criar e editar deve poder arrancar de um fluxo guiado
+- a tabela tecnica nunca deve ser a unica forma de operar
 
 ### `assistant-console`
 
@@ -1191,6 +1205,8 @@ Classes/componentes:
 - `AssistantChatPanel`
 - `AssistantActionPreview`
 - `AssistantContextSidebar`
+- `SuggestedActionsPanel`
+- `AssistantSafetyBanner`
 
 ### `delivery-monitor`
 
@@ -1199,6 +1215,7 @@ Classes/componentes:
 - `DeliveryJobTable`
 - `DeliveryAttemptTimeline`
 - `OutboundSignalPanel`
+- `DeliveryStatusSummary`
 
 ### `watchdog-inbox`
 
@@ -1206,6 +1223,7 @@ Classes/componentes:
 - `WatchdogInboxPage`
 - `WatchdogIssueList`
 - `WatchdogIssueDetail`
+- `RecoverySuggestionPanel`
 
 ### `queue-console`
 
@@ -1214,6 +1232,7 @@ Classes/componentes:
 - `InstructionTable`
 - `InstructionDetailDrawer`
 - `ActionStateBadge`
+- `FanoutPreviewPanel`
 
 ### `group-directory-console`
 
@@ -1221,6 +1240,18 @@ Classes/componentes:
 - `GroupDirectoryPage`
 - `GroupTable`
 - `GroupAliasPanel`
+- `GroupOwnerEditor`
+- `CalendarAclEditor`
+
+### `whatsapp-console`
+
+Classes/componentes:
+- `WhatsAppConsolePage`
+- `ConnectionStatusHero`
+- `QrOnboardingPanel`
+- `ConversationDirectory`
+- `PermissionsMatrix`
+- `OwnerAccessEditor`
 
 ### `settings-center`
 
@@ -1232,6 +1263,12 @@ Classes/componentes:
 - `PolicySettingsTab`
 - `HostIntegrationSettingsTab`
 - `PowerSettingsTab`
+- `AdvancedModeToggle`
+
+Regra de UX transversal:
+- os ui-modules devem ser pensados para utilizadores com baixo conforto tecnico
+- linguagem simples primeiro, detalhe tecnico depois
+- empty states, onboarding e recovery flows sao parte do produto, nao detalhe opcional
 
 ## Estrutura do backend app
 
