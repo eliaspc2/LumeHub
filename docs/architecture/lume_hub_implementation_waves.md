@@ -59,11 +59,12 @@ Coisas que nao devem ficar esquecidas durante a implementacao:
 As waves pendentes estao agora concentradas no frontend, UX e limpeza final do projeto.
 O objetivo desta fase e modernizar a experiencia e aproximar o produto da usabilidade real.
 
-As novas waves passam a ter tres regras adicionais:
+As novas waves passam a ter quatro regras adicionais:
 
 1. sempre que possivel, cada wave deve terminar com rebuild real do que foi tocado
 2. cada wave nova deve ganhar o seu proprio `validate:waveX` em `source/package.json` e respetivo `scripts/validate-waveX.mjs`
 3. cada wave deve declarar explicitamente quando e porque vale a pena o utilizador testar logo nessa fase
+4. sempre que houver edicao de frontend, o FE deve ser recarregado num browser headless para confirmar que a pagina abre sem erro de runtime, sem ecra branco e sem erros relevantes de consola
 
 Rebuild minimo esperado no fim de qualquer wave nova:
 - `corepack pnpm run typecheck`
@@ -72,6 +73,13 @@ Rebuild minimo esperado no fim de qualquer wave nova:
 Se a wave tocar browser/app web:
 - rebuild da web app
 - preview local executavel para teste manual
+- depois de cada alteracao relevante de frontend, recarregar pelo menos a rota mexida num browser headless
+- verificar explicitamente:
+  - se a UI monta
+  - se nao ha erro de runtime no browser
+  - se nao ha ecra branco
+  - se a consola nao mostra erros relevantes
+- esta verificacao deve acontecer durante a implementacao e outra vez no fecho da wave
 
 Se a wave tocar backend, HTTP, WS ou runtime:
 - smoke test dedicado da wave
@@ -245,5 +253,6 @@ O que testar:
   - criar ou atualizar `validate:waveX`
   - fazer rebuild do que foi tocado
   - validar com testes/typecheck
+  - se houve mudancas no frontend, recarregar a app no browser headless e verificar erros antes de dar a wave por pronta
   - indicar explicitamente se e um bom momento para teste manual do utilizador
   - deixar estado explicito do que ficou pronto e do que falta
