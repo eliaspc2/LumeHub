@@ -1,6 +1,7 @@
 export interface QueryClient {
   get<T>(key: string): T | undefined;
   set<T>(key: string, value: T): T;
+  clear(): void;
 }
 
 export class QueryClientFactory {
@@ -14,6 +15,9 @@ export class QueryClientFactory {
       set<T>(key: string, value: T): T {
         store.set(key, value);
         return value;
+      },
+      clear(): void {
+        store.clear();
       },
     };
   }

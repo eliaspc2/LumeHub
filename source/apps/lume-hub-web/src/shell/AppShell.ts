@@ -1,8 +1,10 @@
 import type {
+  CalendarAccessMode,
   DashboardSnapshot,
   DistributionSummary,
   FrontendUiEvent,
   Group,
+  PersonRole,
   SettingsSnapshot,
   WhatsAppWorkspaceSnapshot,
   WatchdogIssue,
@@ -25,7 +27,7 @@ import {
 import type { WeekPlannerSnapshot } from '@lume-hub/week-planner';
 
 import type { FrontendTransportMode } from '../app/BrowserTransportFactory.js';
-import type { AppRouteDefinition, AppRouter } from '../app/AppRouter.js';
+import type { AppRouteDefinition, AppRouter, WhatsAppManagementPageData } from '../app/AppRouter.js';
 import type { WebAppBootstrap } from '../app/WebAppBootstrap.js';
 
 type PreviewState = 'none' | 'loading' | 'empty' | 'offline' | 'error';
@@ -59,11 +61,24 @@ interface AppShellState {
   readonly scheduleDraft: GuidedScheduleDraft;
   readonly distributionDraft: GuidedDistributionDraft;
   readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
+  readonly whatsappQrPreviewVisible: boolean;
   readonly dismissedWatchdogIssueIds: readonly string[];
   readonly flowFeedback: {
     readonly tone: UiTone;
     readonly message: string;
   } | null;
+}
+
+type CalendarAccessScope = 'group' | 'groupOwner' | 'appOwner';
+
+interface WorkspacePersonView {
+  readonly personId: string | null;
+  readonly displayName: string;
+  readonly whatsappJids: readonly string[];
+  readonly globalRoles: readonly PersonRole[];
+  readonly privateAssistantAuthorized: boolean;
+  readonly ownedGroupJids: readonly string[];
+  readonly knownToBot: boolean;
 }
 
 export class AppShell {
@@ -103,6 +118,7 @@ export class AppShell {
         confirmationMode: 'rule_default',
       },
       whatsappRepairFocus: 'auth',
+      whatsappQrPreviewVisible: false,
       dismissedWatchdogIssueIds: [],
       flowFeedback: null,
     };
@@ -131,6 +147,14 @@ export class AppShell {
 
   private currentRouter(): AppRouter {
     return this.getBootstrap(this.state.mode).router;
+  }
+
+  private currentBootstrap(): WebAppBootstrap {
+    return this.getBootstrap(this.state.mode);
+  }
+
+  private currentClient() {
+    return this.currentBootstrap().apiClientProvider.getClient();
   }
 
   private getBootstrap(mode: FrontendTransportMode): WebAppBootstrap {
@@ -217,6 +241,11 @@ export class AppShell {
     }
   }
 
+  private async refreshCurrentRouteData(): Promise<void> {
+    this.currentBootstrap().queryClient.clear();
+    await this.loadCurrentRoute({ replaceHistory: true });
+  }
+
   private render(): void {
     if (!this.root) {
       return;
@@ -263,7 +292,7 @@ export class AppShell {
         <div class="shell-main">
           <header class="surface shell-header surface--strong">
             <div class="header-copy">
-              <p class="eyebrow">Wave 13</p>
+              <p class="eyebrow">Wave 15</p>
               <h1>${escapeHtml(currentRoute.label)}</h1>
               <p>${escapeHtml(currentRoute.description)}</p>
             </div>
@@ -311,12 +340,12 @@ export class AppShell {
           <section class="surface rail-card">
             <h3>Foco desta wave</h3>
             <p>
-              Aqui queremos validar visual, linguagem, largura total e navegacao principal antes de entrar nos fluxos guiados.
+              Nesta wave queremos tornar ownership, ACL e configuracao WhatsApp claros para pessoas com pouco contexto tecnico.
             </p>
             <ul>
-              <li>Confirmar que a home ocupa bem o viewport e nao deixa vazio lateral excessivo.</li>
-              <li>Ver se a hierarquia visual faz sentido sem explicacao tecnica.</li>
-              <li>Ver se o utilizador sabe logo o que fazer a seguir.</li>
+              <li>Ver se e obvio quem e app owner, quem e group owner e o que muda entre leitura e leitura com escrita.</li>
+              <li>Confirmar que a ligacao WhatsApp mostra estado, causa provavel e proximo passo sugerido.</li>
+              <li>Validar se grupos e conversas aparecem com nomes humanos e acoes diretas.</li>
             </ul>
           </section>
 
@@ -418,7 +447,7 @@ export class AppShell {
       case '/groups':
         return this.renderGroupsPage(this.state.page as UiPage<readonly Group[]>);
       case '/whatsapp':
-        return this.renderWhatsAppPage(this.state.page as UiPage<WhatsAppWorkspaceSnapshot>);
+        return this.renderWhatsAppPage(this.state.page as UiPage<WhatsAppManagementPageData>);
       case '/settings':
         return this.renderSettingsPage(this.state.page as UiPage<SettingsSnapshot>);
       case '/distributions':
@@ -824,17 +853,22 @@ export class AppShell {
     `;
   }
 
-  private renderWhatsAppPage(page: UiPage<WhatsAppWorkspaceSnapshot>): string {
-    const snapshot = page.data;
+  private renderWhatsAppPage(page: UiPage<WhatsAppManagementPageData>): string {
+    const snapshot = page.data.workspace;
+    const people = buildWorkspacePeople(page.data);
 
     return `
       <section class="surface hero surface--strong">
         <div>
           <p class="eyebrow">Canal WhatsApp</p>
-          <h2>Estado da ligacao, grupos conhecidos e permissoes humanas num unico sitio.</h2>
+          <h2>Ligacao, onboarding, ownership e ACL tratados como operacao humana e nao como configuracao tecnica.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
-            ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', dataAttributes: { route: '/groups' } })}
+            ${renderUiActionButton({
+              label: this.state.whatsappQrPreviewVisible ? 'Fechar preview QR' : 'Ver onboarding QR',
+              dataAttributes: { 'whatsapp-action': 'toggle-qr-preview' },
+            })}
+            ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', variant: 'secondary', dataAttributes: { route: '/groups' } })}
             ${renderUiActionButton({ label: 'Ver configuracao', href: '/settings', variant: 'secondary', dataAttributes: { route: '/settings' } })}
           </div>
         </div>
@@ -849,6 +883,16 @@ export class AppShell {
                 : 'Nao encontrámos auth live. Vale a pena reparar isto antes de confiar no canal.',
             )}</p>`,
           })}
+          ${renderUiPanelCard({
+            title: 'Onboarding',
+            badgeLabel: this.state.whatsappQrPreviewVisible ? 'QR visivel' : 'Guia pronto',
+            badgeTone: this.state.whatsappQrPreviewVisible ? 'positive' : 'neutral',
+            contentHtml: `<p>${escapeHtml(
+              this.state.whatsappQrPreviewVisible
+                ? 'Estamos a simular o ponto onde o QR e os passos de ligacao devem aparecer ao operador.'
+                : 'Abertura da sessao, diagnostico e recuperacao ficam explicados sem linguagem interna.',
+            )}</p>`,
+          })}
         </div>
       </section>
 
@@ -857,6 +901,7 @@ export class AppShell {
         ${renderUiMetricCard({ title: 'Privados autorizados', value: `${snapshot.permissionSummary.authorizedPrivateConversations}/${snapshot.permissionSummary.knownPrivateConversations}`, tone: 'neutral', description: 'Conversas privadas onde o assistente pode responder.' })}
         ${renderUiMetricCard({ title: 'App owners', value: String(snapshot.permissionSummary.appOwners), tone: 'positive', description: 'Pessoas com controlo global da aplicacao.' })}
         ${renderUiMetricCard({ title: 'Mesmo auth do Codex', value: snapshot.host.sameAsCodexCanonical ? 'Sim' : 'Nao', tone: snapshot.host.sameAsCodexCanonical ? 'positive' : 'warning', description: 'Partilha do auth live com o ambiente principal.' })}
+        ${renderUiMetricCard({ title: 'Pessoas visiveis', value: String(people.length), tone: 'neutral', description: 'Base humana para gerir owners e acessos.' })}
       </section>
 
       <section class="content-grid">
@@ -903,22 +948,131 @@ export class AppShell {
           </div>
         </article>
 
-        <article class="surface content-card span-4">
+        <article class="surface content-card span-5">
           <div class="card-header">
-            <h3>App owners</h3>
+            <h3>Onboarding e controlos da sessao</h3>
+            ${renderUiBadge({ label: snapshot.settings.whatsapp.enabled ? 'Canal ativo' : 'Canal desligado', tone: snapshot.settings.whatsapp.enabled ? 'positive' : 'warning' })}
           </div>
-          <ul>
-            ${snapshot.appOwners
-              .map(
-                (person) =>
-                  `<li><strong>${escapeHtml(person.displayName)}</strong> · ${escapeHtml(person.whatsappJids.join(', ') || 'sem JID')}</li>`,
+          <div class="ui-card__content">
+            ${this.state.whatsappQrPreviewVisible ? `
+              <div class="qr-preview">
+                <div class="qr-preview__code" aria-hidden="true"></div>
+                <div>
+                  <strong>QR de onboarding</strong>
+                  <p>Aponta o telemovel da conta operadora a este QR para ligar a sessao. Esta e uma previsualizacao UX para validar a clareza do fluxo.</p>
+                </div>
+              </div>
+            ` : `
+              <div class="guide-preview">
+                <p><strong>Quando mostrar QR</strong>: quando o auth faltar, expirar ou precisares de trocar de conta.</p>
+                <p><strong>Depois do scan</strong>: confirmar auth, descoberta de grupos e permissoes base.</p>
+              </div>
+            `}
+            <div class="action-row">
+              ${renderUiActionButton({
+                label: snapshot.settings.whatsapp.enabled ? 'Desligar canal' : 'Ligar canal',
+                variant: snapshot.settings.whatsapp.enabled ? 'secondary' : 'primary',
+                dataAttributes: { 'whatsapp-action': 'toggle-whatsapp-enabled' },
+              })}
+              ${renderUiActionButton({
+                label: snapshot.settings.commands.allowPrivateAssistant ? 'Bloquear privados' : 'Permitir privados',
+                variant: 'secondary',
+                dataAttributes: { 'whatsapp-action': 'toggle-private-assistant-global' },
+              })}
+            </div>
+            <div class="ui-card__chips">
+              ${renderUiBadge({ label: snapshot.settings.whatsapp.sharedAuthWithCodex ? 'Mesmo auth do Codex' : 'Auth isolado', tone: snapshot.settings.whatsapp.sharedAuthWithCodex ? 'positive' : 'warning', style: 'chip' })}
+              ${renderUiBadge({ label: snapshot.settings.whatsapp.groupDiscoveryEnabled ? 'Descoberta grupos ativa' : 'Descoberta grupos desligada', tone: snapshot.settings.whatsapp.groupDiscoveryEnabled ? 'positive' : 'warning', style: 'chip' })}
+              ${renderUiBadge({ label: snapshot.settings.whatsapp.conversationDiscoveryEnabled ? 'Descoberta conversas ativa' : 'Descoberta conversas desligada', tone: snapshot.settings.whatsapp.conversationDiscoveryEnabled ? 'positive' : 'warning', style: 'chip' })}
+            </div>
+            <div class="action-row">
+              ${renderUiActionButton({
+                label: snapshot.settings.whatsapp.sharedAuthWithCodex ? 'Usar auth isolado' : 'Partilhar auth do Codex',
+                variant: 'secondary',
+                dataAttributes: { 'whatsapp-action': 'toggle-shared-auth' },
+              })}
+              ${renderUiActionButton({
+                label: snapshot.settings.whatsapp.groupDiscoveryEnabled ? 'Pausar descoberta de grupos' : 'Ativar descoberta de grupos',
+                variant: 'secondary',
+                dataAttributes: { 'whatsapp-action': 'toggle-group-discovery' },
+              })}
+              ${renderUiActionButton({
+                label: snapshot.settings.whatsapp.conversationDiscoveryEnabled ? 'Pausar descoberta de conversas' : 'Ativar descoberta de conversas',
+                variant: 'secondary',
+                dataAttributes: { 'whatsapp-action': 'toggle-conversation-discovery' },
+              })}
+            </div>
+          </div>
+        </article>
+
+        <article class="surface content-card span-7">
+          <div class="card-header">
+            <h3>Pessoas, app owners e acesso privado</h3>
+            ${renderUiBadge({ label: `${people.filter((person) => person.personId).length} pessoas geriveis`, tone: 'neutral' })}
+          </div>
+          <div class="card-grid">
+            ${people
+              .map((person) =>
+                renderUiRecordCard({
+                  title: person.displayName,
+                  subtitle:
+                    person.whatsappJids.length > 0
+                      ? `${person.whatsappJids.length} contacto(s) WhatsApp conhecido(s)`
+                      : 'Sem contacto WhatsApp conhecido',
+                  badgeLabel: person.globalRoles.includes('app_owner') ? 'App owner' : 'Membro',
+                  badgeTone: person.globalRoles.includes('app_owner') ? 'positive' : 'neutral',
+                  chips: [
+                    {
+                      label: person.privateAssistantAuthorized ? 'Privado permitido' : 'Privado bloqueado',
+                      tone: person.privateAssistantAuthorized ? 'positive' : 'warning',
+                    },
+                    ...(person.ownedGroupJids.length > 0
+                      ? [{ label: `${person.ownedGroupJids.length} grupos associados`, tone: 'neutral' as const }]
+                      : []),
+                  ],
+                  bodyHtml: `
+                    <div class="action-row">
+                      ${
+                        person.personId
+                          ? renderUiActionButton({
+                              label: person.globalRoles.includes('app_owner') ? 'Remover app owner' : 'Tornar app owner',
+                              variant: person.globalRoles.includes('app_owner') ? 'secondary' : 'primary',
+                              dataAttributes: {
+                                'whatsapp-action': 'toggle-app-owner',
+                                'person-id': person.personId,
+                              },
+                            })
+                          : ''
+                      }
+                      ${
+                        person.personId && person.whatsappJids.length > 0
+                          ? renderUiActionButton({
+                              label: person.privateAssistantAuthorized ? 'Bloquear privado' : 'Permitir privado',
+                              variant: 'secondary',
+                              dataAttributes: {
+                                'whatsapp-action': 'toggle-private-person',
+                                'person-id': person.personId,
+                              },
+                            })
+                          : ''
+                      }
+                    </div>
+                  `,
+                  detailsSummary: 'Detalhes tecnicos',
+                  detailsHtml: `
+                    <p>JIDs: ${escapeHtml(person.whatsappJids.join(', ') || 'sem JID')}</p>
+                    <p>Conhecido pelo bot: ${person.knownToBot ? 'sim' : 'nao'}</p>
+                  `,
+                }),
               )
               .join('')}
-          </ul>
+          </div>
         </article>
-        <article class="surface content-card span-8">
+
+        <article class="surface content-card span-12">
           <div class="card-header">
-            <h3>Grupos</h3>
+            <h3>Grupos, group owners e ACL do calendario</h3>
+            ${renderUiBadge({ label: 'Gestao visual direta', tone: 'positive' })}
           </div>
           <div class="card-grid">
             ${snapshot.groups
@@ -934,6 +1088,56 @@ export class AppShell {
                       { label: `Owner ${group.calendarAccessPolicy.groupOwner}`, tone: 'warning' },
                       { label: `App ${group.calendarAccessPolicy.appOwner}`, tone: 'neutral' },
                     ],
+                    bodyHtml: `
+                      <div class="ui-card__content">
+                        <p><strong>Owners atuais</strong>: ${escapeHtml(group.ownerLabels.join(', ') || 'nenhum')}</p>
+                        <div class="action-row">
+                          ${renderUiActionButton({
+                            label: group.assistantAuthorized ? 'Bloquear grupo' : 'Autorizar grupo',
+                            variant: group.assistantAuthorized ? 'secondary' : 'primary',
+                            dataAttributes: {
+                              'whatsapp-action': 'toggle-group-authorized',
+                              'group-jid': group.groupJid,
+                            },
+                          })}
+                          ${group.ownerPersonIds.length > 0
+                            ? renderUiActionButton({
+                                label: 'Limpar owners',
+                                variant: 'secondary',
+                                dataAttributes: {
+                                  'whatsapp-action': 'clear-group-owners',
+                                  'group-jid': group.groupJid,
+                                },
+                              })
+                            : ''
+                          }
+                        </div>
+                        <div class="ui-card__chips">
+                          ${people
+                            .filter((person) => person.personId)
+                            .map((person) =>
+                              renderUiActionButton({
+                                label: person.displayName,
+                                variant:
+                                  person.personId && group.ownerPersonIds.includes(person.personId)
+                                    ? 'primary'
+                                    : 'secondary',
+                                dataAttributes: {
+                                  'whatsapp-action': 'toggle-group-owner',
+                                  'group-jid': group.groupJid,
+                                  'person-id': person.personId ?? '',
+                                },
+                              }),
+                            )
+                            .join('')}
+                        </div>
+                        <div class="ui-form-grid ui-form-grid--triple">
+                          ${renderWhatsAppAclField(group.groupJid, 'group', group.calendarAccessPolicy.group, 'Acesso do grupo')}
+                          ${renderWhatsAppAclField(group.groupJid, 'groupOwner', group.calendarAccessPolicy.groupOwner, 'Acesso do owner')}
+                          ${renderWhatsAppAclField(group.groupJid, 'appOwner', group.calendarAccessPolicy.appOwner, 'Acesso do app owner')}
+                        </div>
+                      </div>
+                    `,
                     detailsSummary: 'Detalhes tecnicos',
                     detailsHtml: `
                       <p>JID: ${escapeHtml(group.groupJid)}</p>
@@ -1567,6 +1771,315 @@ export class AppShell {
     }
   }
 
+  private readWhatsAppPageData(): WhatsAppManagementPageData | null {
+    const page = this.state.page as UiPage<WhatsAppManagementPageData> | null;
+
+    if (!page || page.route !== '/whatsapp') {
+      return null;
+    }
+
+    return page.data;
+  }
+
+  private async runWhatsAppMutation(task: () => Promise<void>, successMessage: string): Promise<void> {
+    this.state = {
+      ...this.state,
+      flowFeedback: {
+        tone: 'neutral',
+        message: 'A aplicar alteracao nesta area para poderes validar logo o resultado.',
+      },
+    };
+    this.render();
+
+    try {
+      await task();
+      await this.refreshCurrentRouteData();
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'positive',
+          message: successMessage,
+        },
+      };
+    } catch (error) {
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'danger',
+          message: `Nao foi possivel atualizar esta configuracao. ${readErrorMessage(error)}`,
+        },
+      };
+    }
+
+    this.render();
+  }
+
+  private async handleWhatsAppAction(action: string, dataset: DOMStringMap): Promise<void> {
+    if (action === 'toggle-qr-preview') {
+      this.state = {
+        ...this.state,
+        whatsappQrPreviewVisible: !this.state.whatsappQrPreviewVisible,
+        flowFeedback: null,
+      };
+      this.render();
+      return;
+    }
+
+    const pageData = this.readWhatsAppPageData();
+
+    if (!pageData) {
+      return;
+    }
+
+    const snapshot = pageData.workspace;
+    const people = buildWorkspacePeople(pageData);
+
+    if (action === 'toggle-whatsapp-enabled') {
+      await this.runWhatsAppMutation(
+        async () => {
+          await this.currentClient().updateWhatsAppSettings({
+            enabled: !snapshot.settings.whatsapp.enabled,
+          });
+        },
+        snapshot.settings.whatsapp.enabled
+          ? 'Canal WhatsApp desligado nesta preview para testares o estado de recuperacao.'
+          : 'Canal WhatsApp ligado nesta preview para continuares a validacao do fluxo.',
+      );
+      return;
+    }
+
+    if (action === 'toggle-private-assistant-global') {
+      await this.runWhatsAppMutation(
+        async () => {
+          await this.currentClient().updateCommandSettings({
+            allowPrivateAssistant: !snapshot.settings.commands.allowPrivateAssistant,
+            authorizedPrivateJids: snapshot.settings.commands.allowPrivateAssistant ? [] : [],
+          });
+        },
+        snapshot.settings.commands.allowPrivateAssistant
+          ? 'O assistente privado ficou bloqueado globalmente.'
+          : 'O assistente privado ficou ativo globalmente para os chats conhecidos.',
+      );
+      return;
+    }
+
+    if (action === 'toggle-shared-auth') {
+      await this.runWhatsAppMutation(
+        async () => {
+          await this.currentClient().updateWhatsAppSettings({
+            sharedAuthWithCodex: !snapshot.settings.whatsapp.sharedAuthWithCodex,
+          });
+        },
+        snapshot.settings.whatsapp.sharedAuthWithCodex
+          ? 'A preview passou para auth isolado.'
+          : 'A preview voltou a partilhar o auth do Codex.',
+      );
+      return;
+    }
+
+    if (action === 'toggle-group-discovery') {
+      await this.runWhatsAppMutation(
+        async () => {
+          await this.currentClient().updateWhatsAppSettings({
+            groupDiscoveryEnabled: !snapshot.settings.whatsapp.groupDiscoveryEnabled,
+          });
+        },
+        snapshot.settings.whatsapp.groupDiscoveryEnabled
+          ? 'A descoberta de grupos ficou em pausa.'
+          : 'A descoberta de grupos voltou a ficar ativa.',
+      );
+      return;
+    }
+
+    if (action === 'toggle-conversation-discovery') {
+      await this.runWhatsAppMutation(
+        async () => {
+          await this.currentClient().updateWhatsAppSettings({
+            conversationDiscoveryEnabled: !snapshot.settings.whatsapp.conversationDiscoveryEnabled,
+          });
+        },
+        snapshot.settings.whatsapp.conversationDiscoveryEnabled
+          ? 'A descoberta de conversas ficou em pausa.'
+          : 'A descoberta de conversas voltou a ficar ativa.',
+      );
+      return;
+    }
+
+    if (action === 'toggle-app-owner') {
+      const personId = dataset.personId;
+      const person = people.find((candidate) => candidate.personId === personId);
+
+      if (!personId || !person) {
+        return;
+      }
+
+      const isAppOwner = person.globalRoles.includes('app_owner');
+      const nextRoles = dedupePersonRoles(
+        isAppOwner
+          ? person.globalRoles.filter((role) => role !== 'app_owner')
+          : [...person.globalRoles, 'app_owner'],
+      );
+      const normalizedRoles = nextRoles.length > 0 ? nextRoles : (['member'] as const);
+
+      await this.runWhatsAppMutation(
+        async () => {
+          await this.currentClient().updatePersonRoles(personId, normalizedRoles);
+        },
+        isAppOwner
+          ? `${person.displayName} deixou de ser app owner.`
+          : `${person.displayName} passou a ter controlo global como app owner.`,
+      );
+      return;
+    }
+
+    if (action === 'toggle-private-person') {
+      const personId = dataset.personId;
+      const person = people.find((candidate) => candidate.personId === personId);
+
+      if (!personId || !person || person.whatsappJids.length === 0) {
+        return;
+      }
+
+      const knownPrivateJids = dedupeStringList(
+        snapshot.conversations.flatMap((conversation) => conversation.whatsappJids),
+      );
+      const currentAuthorizedPrivateJids = resolveAuthorizedPrivateJids(snapshot);
+      const nextAuthorizedPrivateJids = person.privateAssistantAuthorized
+        ? currentAuthorizedPrivateJids.filter((chatJid) => !person.whatsappJids.includes(chatJid))
+        : dedupeStringList([...currentAuthorizedPrivateJids, ...person.whatsappJids]);
+      const nextAllowPrivateAssistant = nextAuthorizedPrivateJids.length > 0;
+
+      await this.runWhatsAppMutation(
+        async () => {
+          await this.currentClient().updateCommandSettings({
+            allowPrivateAssistant: nextAllowPrivateAssistant,
+            authorizedPrivateJids:
+              nextAllowPrivateAssistant && nextAuthorizedPrivateJids.length === knownPrivateJids.length
+                ? []
+                : nextAuthorizedPrivateJids,
+          });
+        },
+        person.privateAssistantAuthorized
+          ? `O acesso privado de ${person.displayName} ficou bloqueado.`
+          : `O acesso privado de ${person.displayName} ficou autorizado.`,
+      );
+      return;
+    }
+
+    if (action === 'toggle-group-authorized') {
+      const groupJid = dataset.groupJid;
+      const group = snapshot.groups.find((candidate) => candidate.groupJid === groupJid);
+
+      if (!groupJid || !group) {
+        return;
+      }
+
+      const currentAuthorizedGroupJids = resolveAuthorizedGroupJids(snapshot);
+      const nextAuthorizedGroupJids = group.assistantAuthorized
+        ? currentAuthorizedGroupJids.filter((candidate) => candidate !== groupJid)
+        : dedupeStringList([...currentAuthorizedGroupJids, groupJid]);
+
+      if (nextAuthorizedGroupJids.length === 0) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message:
+              'O modelo atual precisa de pelo menos um grupo autorizado. Se quiseres parar tudo, usa o controlo global do assistente noutra area.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      await this.runWhatsAppMutation(
+        async () => {
+          await this.currentClient().updateCommandSettings({
+            assistantEnabled: true,
+            authorizedGroupJids:
+              nextAuthorizedGroupJids.length === snapshot.groups.length ? [] : nextAuthorizedGroupJids,
+          });
+        },
+        group.assistantAuthorized
+          ? `${group.preferredSubject} deixou de estar autorizado para o assistente.`
+          : `${group.preferredSubject} ficou autorizado para o assistente.`,
+      );
+      return;
+    }
+
+    if (action === 'clear-group-owners') {
+      const groupJid = dataset.groupJid;
+      const group = snapshot.groups.find((candidate) => candidate.groupJid === groupJid);
+
+      if (!groupJid || !group) {
+        return;
+      }
+
+      await this.runWhatsAppMutation(
+        async () => {
+          await this.currentClient().replaceGroupOwners(groupJid, []);
+        },
+        `Os group owners de ${group.preferredSubject} foram limpos nesta preview.`,
+      );
+      return;
+    }
+
+    if (action === 'toggle-group-owner') {
+      const groupJid = dataset.groupJid;
+      const personId = dataset.personId;
+      const group = snapshot.groups.find((candidate) => candidate.groupJid === groupJid);
+      const person = people.find((candidate) => candidate.personId === personId);
+
+      if (!groupJid || !personId || !group || !person) {
+        return;
+      }
+
+      const nextOwnerIds = group.ownerPersonIds.includes(personId)
+        ? group.ownerPersonIds.filter((candidate) => candidate !== personId)
+        : [...group.ownerPersonIds, personId];
+
+      await this.runWhatsAppMutation(
+        async () => {
+          await this.currentClient().replaceGroupOwners(
+            groupJid,
+            nextOwnerIds.map((ownerPersonId) => ({
+              personId: ownerPersonId,
+            })),
+          );
+        },
+        group.ownerPersonIds.includes(personId)
+          ? `${person.displayName} deixou de ser owner de ${group.preferredSubject}.`
+          : `${person.displayName} ficou como owner de ${group.preferredSubject}.`,
+      );
+    }
+  }
+
+  private async handleWhatsAppAclChange(
+    groupJid: string,
+    scope: string,
+    nextValue: string,
+  ): Promise<void> {
+    if (!isCalendarAccessScope(scope) || !isCalendarAccessMode(nextValue)) {
+      return;
+    }
+
+    const pageData = this.readWhatsAppPageData();
+    const group = pageData?.workspace.groups.find((candidate) => candidate.groupJid === groupJid);
+
+    if (!pageData || !group) {
+      return;
+    }
+
+    await this.runWhatsAppMutation(
+      async () => {
+        await this.currentClient().updateGroupCalendarAccessPolicy(groupJid, {
+          [scope]: nextValue,
+        });
+      },
+      `${group.preferredSubject}: ${describeCalendarScope(scope)} ficou em ${readableCalendarAccessMode(nextValue)}.`,
+    );
+  }
+
   private bindInteractions(): void {
     if (!this.root) {
       return;
@@ -1646,6 +2159,32 @@ export class AppShell {
         }
 
         this.handleFlowAction(action, element.dataset.flowValue);
+      });
+    }
+
+    for (const element of this.root.querySelectorAll<HTMLElement>('[data-whatsapp-action]')) {
+      element.addEventListener('click', (event) => {
+        event.preventDefault();
+        const action = element.dataset.whatsappAction;
+
+        if (!action) {
+          return;
+        }
+
+        void this.handleWhatsAppAction(action, element.dataset);
+      });
+    }
+
+    for (const field of this.root.querySelectorAll<HTMLSelectElement>('[data-whatsapp-acl-scope]')) {
+      field.addEventListener('change', () => {
+        const groupJid = field.dataset.whatsappAclGroupJid;
+        const scope = field.dataset.whatsappAclScope;
+
+        if (!groupJid || !scope) {
+          return;
+        }
+
+        void this.handleWhatsAppAclChange(groupJid, scope, field.value);
       });
     }
   }
@@ -1860,6 +2399,168 @@ function renderRepairChecklist(
       <li>Estado atual: ${snapshot.permissionSummary.appOwners} app owners conhecidos.</li>
     </ul>
   `;
+}
+
+function buildWorkspacePeople(pageData: WhatsAppManagementPageData): readonly WorkspacePersonView[] {
+  const merged = new Map<string, WorkspacePersonView>();
+  const ownedGroupsByPersonId = new Map<string, string[]>();
+
+  for (const group of pageData.workspace.groups) {
+    for (const ownerPersonId of group.ownerPersonIds) {
+      const current = ownedGroupsByPersonId.get(ownerPersonId) ?? [];
+      current.push(group.groupJid);
+      ownedGroupsByPersonId.set(ownerPersonId, current);
+    }
+  }
+
+  const upsertPerson = (person: WorkspacePersonView): void => {
+    const key = person.personId ?? `jid:${person.whatsappJids.join('|') || person.displayName}`;
+    const current = merged.get(key);
+
+    merged.set(key, {
+      personId: person.personId ?? current?.personId ?? null,
+      displayName: person.displayName || current?.displayName || 'Contacto sem nome',
+      whatsappJids: dedupeStringList([...(current?.whatsappJids ?? []), ...person.whatsappJids]),
+      globalRoles: dedupePersonRoles([...(current?.globalRoles ?? []), ...person.globalRoles]),
+      privateAssistantAuthorized: current?.privateAssistantAuthorized || person.privateAssistantAuthorized,
+      ownedGroupJids: dedupeStringList([...(current?.ownedGroupJids ?? []), ...person.ownedGroupJids]),
+      knownToBot: current?.knownToBot || person.knownToBot,
+    });
+  };
+
+  for (const person of pageData.people) {
+    const whatsappJids = person.identifiers
+      .filter((identifier) => identifier.kind === 'whatsapp_jid')
+      .map((identifier) => identifier.value);
+
+    upsertPerson({
+      personId: person.personId,
+      displayName: person.displayName,
+      whatsappJids,
+      globalRoles: person.globalRoles,
+      privateAssistantAuthorized: false,
+      ownedGroupJids: ownedGroupsByPersonId.get(person.personId) ?? [],
+      knownToBot: whatsappJids.length > 0,
+    });
+  }
+
+  for (const conversation of pageData.workspace.conversations) {
+    upsertPerson({
+      personId: conversation.personId,
+      displayName: conversation.displayName,
+      whatsappJids: conversation.whatsappJids,
+      globalRoles: conversation.globalRoles,
+      privateAssistantAuthorized: conversation.privateAssistantAuthorized,
+      ownedGroupJids: conversation.ownedGroupJids,
+      knownToBot: conversation.knownToBot,
+    });
+  }
+
+  for (const appOwner of pageData.workspace.appOwners) {
+    upsertPerson({
+      personId: appOwner.personId,
+      displayName: appOwner.displayName,
+      whatsappJids: appOwner.whatsappJids,
+      globalRoles: appOwner.globalRoles,
+      privateAssistantAuthorized: appOwner.privateAssistantAuthorized,
+      ownedGroupJids: appOwner.ownedGroupJids,
+      knownToBot: appOwner.knownToBot,
+    });
+  }
+
+  return [...merged.values()].sort((left, right) => {
+    const leftWeight = left.globalRoles.includes('app_owner') ? 0 : 1;
+    const rightWeight = right.globalRoles.includes('app_owner') ? 0 : 1;
+
+    if (leftWeight !== rightWeight) {
+      return leftWeight - rightWeight;
+    }
+
+    return left.displayName.localeCompare(right.displayName, 'pt-PT');
+  });
+}
+
+function renderWhatsAppAclField(
+  groupJid: string,
+  scope: CalendarAccessScope,
+  currentValue: CalendarAccessMode,
+  label: string,
+): string {
+  return `
+    <label class="ui-field">
+      <span class="ui-field__label">${escapeHtml(label)}</span>
+      <select
+        class="ui-control"
+        data-whatsapp-acl-group-jid="${escapeHtml(groupJid)}"
+        data-whatsapp-acl-scope="${escapeHtml(scope)}"
+      >
+        <option value="read"${currentValue === 'read' ? ' selected' : ''}>Leitura</option>
+        <option value="read_write"${currentValue === 'read_write' ? ' selected' : ''}>Leitura e escrita</option>
+      </select>
+      <span class="ui-field__hint">${escapeHtml(describeCalendarScope(scope))}</span>
+    </label>
+  `;
+}
+
+function resolveAuthorizedGroupJids(snapshot: WhatsAppWorkspaceSnapshot): string[] {
+  if (!snapshot.settings.commands.assistantEnabled) {
+    return [];
+  }
+
+  if (snapshot.settings.commands.authorizedGroupJids.length === 0) {
+    return snapshot.groups.map((group) => group.groupJid);
+  }
+
+  return dedupeStringList(snapshot.settings.commands.authorizedGroupJids);
+}
+
+function resolveAuthorizedPrivateJids(snapshot: WhatsAppWorkspaceSnapshot): string[] {
+  if (!snapshot.settings.commands.assistantEnabled || !snapshot.settings.commands.allowPrivateAssistant) {
+    return [];
+  }
+
+  if (snapshot.settings.commands.authorizedPrivateJids.length === 0) {
+    return dedupeStringList(snapshot.conversations.flatMap((conversation) => conversation.whatsappJids));
+  }
+
+  return dedupeStringList(snapshot.settings.commands.authorizedPrivateJids);
+}
+
+function isCalendarAccessScope(value: string): value is CalendarAccessScope {
+  return value === 'group' || value === 'groupOwner' || value === 'appOwner';
+}
+
+function isCalendarAccessMode(value: string): value is CalendarAccessMode {
+  return value === 'read' || value === 'read_write';
+}
+
+function readableCalendarAccessMode(value: CalendarAccessMode): string {
+  return value === 'read_write' ? 'leitura e escrita' : 'leitura';
+}
+
+function describeCalendarScope(scope: CalendarAccessScope): string {
+  switch (scope) {
+    case 'group':
+      return 'Define se o grupo pode apenas ver ou tambem editar o calendario.';
+    case 'groupOwner':
+      return 'Define o nivel de acesso do owner deste grupo ao calendario.';
+    case 'appOwner':
+      return 'Define o acesso global do app owner ao calendario deste grupo.';
+  }
+}
+
+function dedupeStringList(values: readonly string[]): string[] {
+  return [...new Set(values.filter((value) => value.length > 0))].sort((left, right) =>
+    left.localeCompare(right, 'pt-PT'),
+  );
+}
+
+function dedupePersonRoles(values: readonly PersonRole[]): PersonRole[] {
+  return [...new Set(values)];
+}
+
+function readErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function renderScreenStateLabel(screenState: ScreenState): string {

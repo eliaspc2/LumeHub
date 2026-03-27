@@ -6,7 +6,7 @@ Serve para uma LLM ou equipa executar o projeto por fases, sem misturar fundamen
 Regra editorial:
 - este ficheiro deve manter apenas waves ainda por executar
 - waves ja concluidas devem sair daqui para o plano ativo ficar curto e legivel
-- neste momento, as `Wave 0` a `Wave 12` ja foram executadas e por isso deixaram de aparecer neste ficheiro
+- neste momento, as `Wave 0` a `Wave 15` ja foram executadas e por isso deixaram de aparecer neste ficheiro
 
 ## Regras de leitura
 
@@ -84,43 +84,6 @@ Se a wave tocar browser/app web:
 Se a wave tocar backend, HTTP, WS ou runtime:
 - smoke test dedicado da wave
 - validar que a UI continua a abrir e a consumir a API esperada
-
-## Wave 15 - Permissoes, ownership e WhatsApp UX
-
-Objetivo:
-- tornar ownership, ACL e configuracao WhatsApp compreensiveis para humanos
-
-Entregaveis:
-- consola WhatsApp redesenhada
-- gestao visual de:
-  - `app owner`
-  - `group owner`
-  - ACL `read` / `read_write`
-- lista de grupos e conversas com labels humanas
-- onboarding de sessao WhatsApp com QR, estado e recuperacao guiada
-
-Criterios de aceitacao:
-- um utilizador nao tecnico percebe quem pode fazer o que sem ler documentacao
-- a configuracao de permissoes acontece por seletores e passos guiados
-- a ligacao WhatsApp mostra estado, causa provavel de erro e sugestao de resolucao
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave15`
-
-Melhor momento para testar:
-- testar aqui a consola de WhatsApp, os grupos, as conversas e o modelo de permissoes
-- se houver confusao entre `app owner`, `group owner`, `read` e `read_write`, ainda vamos a tempo de simplificar sem refazer o produto inteiro
-- a pergunta pratica desta wave e: `as permissoes sao realmente claras para humanos?`
-
-O que testar:
-- ligar ou recuperar a sessao WhatsApp por QR
-- confirmar se e facil perceber o estado atual da ligacao
-- abrir grupos e conversas e validar se os nomes mostrados sao humanos e claros
-- atribuir `app owner` e `group owner`
-- mudar ACL entre `read` e `read_write`
-- confirmar se percebes imediatamente quem pode ver, editar, aprovar e distribuir em cada grupo
 
 ## Wave 16 - Polimento, acessibilidade e confianca operacional
 

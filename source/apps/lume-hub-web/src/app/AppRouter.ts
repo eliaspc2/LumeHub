@@ -3,6 +3,7 @@ import { DashboardUiModule } from '@lume-hub/dashboard';
 import { DeliveryMonitorUiModule } from '@lume-hub/delivery-monitor';
 import type { FrontendApiClient } from '@lume-hub/frontend-api-client';
 import { GroupDirectoryConsoleUiModule } from '@lume-hub/group-directory-console';
+import type { Person } from '@lume-hub/people-memory';
 import { QueueConsoleUiModule } from '@lume-hub/queue-console';
 import { SettingsCenterUiModule } from '@lume-hub/settings-center';
 import type { NavigationItem, UiPage } from '@lume-hub/shared-ui';
@@ -18,6 +19,11 @@ export interface AppRouteDefinition {
   readonly description: string;
   readonly legacyRoutes?: readonly string[];
   render(): Promise<UiPage>;
+}
+
+export interface WhatsAppManagementPageData {
+  readonly workspace: import('@lume-hub/frontend-api-client').WhatsAppWorkspaceSnapshot;
+  readonly people: readonly Person[];
 }
 
 export class AppRouter {
@@ -163,8 +169,19 @@ export class AppRouter {
         route: this.whatsapp.config.route,
         label: this.whatsapp.config.label,
         description: 'Ligacao do canal, grupos conhecidos, conversas privadas e permissoes efetivas.',
-        render: async () =>
-          this.whatsapp.render(await this.readQuery('whatsapp-workspace', () => this.client.getWhatsAppWorkspace())),
+        render: async () => {
+          const workspace = await this.readQuery('whatsapp-workspace', () => this.client.getWhatsAppWorkspace());
+          const people = await this.readOptionalPeople();
+          const basePage = this.whatsapp.render(workspace);
+
+          return {
+            ...basePage,
+            data: {
+              workspace,
+              people,
+            } satisfies WhatsAppManagementPageData,
+          };
+        },
       },
       {
         route: this.settings.config.route,
@@ -187,6 +204,14 @@ export class AppRouter {
     }
 
     return this.queryClient.set(key, await loader());
+  }
+
+  private async readOptionalPeople(): Promise<readonly Person[]> {
+    try {
+      return await this.readQuery('people', () => this.client.listPeople());
+    } catch {
+      return [];
+    }
   }
 
   private legacyRouteAliases(): ReadonlyMap<string, string> {

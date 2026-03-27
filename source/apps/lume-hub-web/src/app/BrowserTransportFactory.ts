@@ -1,5 +1,6 @@
 import type {
   AdminSettings,
+  CommandsPolicySettings,
   DashboardSnapshot,
   DistributionSummary,
   FrontendApiRequest,
@@ -7,9 +8,15 @@ import type {
   FrontendApiTransport,
   FrontendUiEvent,
   Group,
+  GroupCalendarAccessPolicy,
+  GroupOwnerAssignmentInput,
+  Person,
+  PersonRole,
   SettingsSnapshot,
   SenderAudienceRule,
   WhatsAppWorkspaceSnapshot,
+  WhatsAppConversationSummary,
+  WhatsAppGroupSummary,
   WatchdogIssue,
 } from '@lume-hub/frontend-api-client';
 
@@ -91,7 +98,7 @@ class BrowserFetchFrontendApiTransport implements FrontendApiTransport {
       body: request.body === undefined ? undefined : JSON.stringify(request.body),
     });
     const rawBody = await response.text();
-    const body = rawBody.length > 0 ? (JSON.parse(rawBody) as T) : (undefined as T);
+    const body = parseHttpBody<T>(rawBody, response.headers.get('content-type'));
 
     return {
       statusCode: response.status,
@@ -102,7 +109,7 @@ class BrowserFetchFrontendApiTransport implements FrontendApiTransport {
 
 class DemoFrontendApiTransport implements FrontendApiTransport {
   private readonly listeners = new Set<(event: FrontendUiEvent) => void>();
-  private readonly snapshot = createDemoSnapshot();
+  private readonly state = createDemoState();
 
   constructor() {
     setTimeout(() => {
@@ -118,29 +125,145 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
 
     const pathname = new URL(request.path, 'http://lumehub.preview').pathname;
 
-    switch (pathname) {
-      case '/api/dashboard':
-        return this.ok(this.snapshot.dashboard);
-      case '/api/groups':
-        return this.ok(this.snapshot.groups);
-      case '/api/routing/rules':
-        return this.ok(this.snapshot.routingRules);
-      case '/api/routing/distributions':
-        return this.ok(this.snapshot.distributions);
-      case '/api/whatsapp/workspace':
-        return this.ok(this.snapshot.whatsAppWorkspace);
-      case '/api/watchdog/issues':
-        return this.ok(this.snapshot.watchdogIssues);
-      case '/api/settings':
-        return this.ok(this.snapshot.settings);
-      default:
-        return {
-          statusCode: 404,
-          body: {
-            error: `Demo transport has no handler for ${request.method} ${pathname}.`,
-          } as T,
-        };
+    if (request.method === 'GET' && pathname === '/api/dashboard') {
+      return this.ok(buildDashboardSnapshot(this.state));
     }
+
+    if (request.method === 'GET' && pathname === '/api/groups') {
+      return this.ok(this.state.groups);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/people') {
+      return this.ok(this.state.people);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/routing/rules') {
+      return this.ok(this.state.routingRules);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/routing/distributions') {
+      return this.ok(this.state.distributions);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/whatsapp/workspace') {
+      return this.ok(buildWhatsAppWorkspaceSnapshot(this.state));
+    }
+
+    if (request.method === 'GET' && pathname === '/api/watchdog/issues') {
+      return this.ok(this.state.watchdogIssues);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/settings') {
+      return this.ok(this.state.settings);
+    }
+
+    if (request.method === 'PATCH' && pathname === '/api/settings/whatsapp') {
+      this.state.settings = {
+        ...this.state.settings,
+        adminSettings: {
+          ...this.state.settings.adminSettings,
+          whatsapp: {
+            ...this.state.settings.adminSettings.whatsapp,
+            ...(request.body as Partial<AdminSettings['whatsapp']>),
+          },
+          updatedAt: new Date().toISOString(),
+        },
+      };
+      const next = this.state.settings.adminSettings;
+      this.emit('settings.whatsapp.updated', next.whatsapp);
+      return this.ok(next);
+    }
+
+    if (request.method === 'PATCH' && pathname === '/api/settings/commands') {
+      this.state.settings = {
+        ...this.state.settings,
+        adminSettings: {
+          ...this.state.settings.adminSettings,
+          commands: {
+            ...this.state.settings.adminSettings.commands,
+            ...(request.body as Partial<CommandsPolicySettings>),
+          },
+          updatedAt: new Date().toISOString(),
+        },
+      };
+      const next = this.state.settings.adminSettings;
+      this.emit('settings.commands.updated', next.commands);
+      return this.ok(next);
+    }
+
+    const personRolesMatch = matchParameterizedPath(pathname, '/api/people/:personId/roles');
+
+    if (request.method === 'PUT' && personRolesMatch) {
+      const body = request.body as { readonly globalRoles?: readonly PersonRole[] };
+      const personIndex = this.state.people.findIndex((person) => person.personId === personRolesMatch.personId);
+
+      if (personIndex < 0) {
+        return this.error(404, `Demo person ${personRolesMatch.personId} not found.`);
+      }
+
+      const person = this.state.people[personIndex];
+      const updatedPerson: Person = {
+        ...person,
+        globalRoles: [...(body.globalRoles ?? [])],
+        updatedAt: new Date().toISOString(),
+      };
+      this.state.people.splice(personIndex, 1, updatedPerson);
+      this.emit('people.roles.updated', updatedPerson);
+      return this.ok(updatedPerson);
+    }
+
+    const groupOwnersMatch = matchParameterizedPath(pathname, '/api/groups/:groupJid/owners');
+
+    if (request.method === 'PUT' && groupOwnersMatch) {
+      const groupIndex = this.state.groups.findIndex((group) => group.groupJid === groupOwnersMatch.groupJid);
+
+      if (groupIndex < 0) {
+        return this.error(404, `Demo group ${groupOwnersMatch.groupJid} not found.`);
+      }
+
+      const body = request.body as { readonly owners?: readonly GroupOwnerAssignmentInput[] };
+      const owners = (body.owners ?? []).map((owner) => ({
+        personId: owner.personId,
+        assignedAt: owner.assignedAt ?? new Date().toISOString(),
+        assignedBy: owner.assignedBy ?? 'person-marta',
+      }));
+      this.state.groups[groupIndex] = {
+        ...this.state.groups[groupIndex],
+        groupOwners: owners,
+      };
+      this.emit('groups.owners.updated', {
+        groupJid: groupOwnersMatch.groupJid,
+        owners,
+      });
+      return this.ok(owners);
+    }
+
+    const groupAccessMatch = matchParameterizedPath(pathname, '/api/groups/:groupJid/calendar-access');
+
+    if (request.method === 'PATCH' && groupAccessMatch) {
+      const groupIndex = this.state.groups.findIndex((group) => group.groupJid === groupAccessMatch.groupJid);
+
+      if (groupIndex < 0) {
+        return this.error(404, `Demo group ${groupAccessMatch.groupJid} not found.`);
+      }
+
+      const body = request.body as Partial<GroupCalendarAccessPolicy>;
+      const nextPolicy: GroupCalendarAccessPolicy = {
+        ...this.state.groups[groupIndex].calendarAccessPolicy,
+        ...body,
+      };
+      this.state.groups[groupIndex] = {
+        ...this.state.groups[groupIndex],
+        calendarAccessPolicy: nextPolicy,
+      };
+      this.emit('groups.calendar_access.updated', {
+        groupJid: groupAccessMatch.groupJid,
+        calendarAccessPolicy: nextPolicy,
+      });
+      return this.ok(nextPolicy);
+    }
+
+    return this.error(404, `Demo transport has no handler for ${request.method} ${pathname}.`);
   }
 
   subscribe(listener: (event: FrontendUiEvent) => void): () => void {
@@ -169,21 +292,32 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       body: structuredClone(body) as T,
     };
   }
+
+  private error<T>(statusCode: number, error: string): FrontendApiResponse<T> {
+    return {
+      statusCode,
+      body: {
+        error,
+      } as T,
+    };
+  }
 }
 
-function createDemoSnapshot(): {
-  readonly dashboard: DashboardSnapshot;
-  readonly groups: readonly Group[];
-  readonly routingRules: readonly SenderAudienceRule[];
-  readonly distributions: readonly DistributionSummary[];
-  readonly watchdogIssues: readonly WatchdogIssue[];
-  readonly settings: SettingsSnapshot;
-  readonly whatsAppWorkspace: WhatsAppWorkspaceSnapshot;
-} {
+interface DemoState {
+  groups: Group[];
+  people: Person[];
+  routingRules: SenderAudienceRule[];
+  distributions: DistributionSummary[];
+  watchdogIssues: WatchdogIssue[];
+  readonly externalPrivateConversations: readonly WhatsAppConversationSummary[];
+  settings: SettingsSnapshot;
+}
+
+function createDemoState(): DemoState {
   const now = new Date();
   const iso = (minutesOffset = 0) => new Date(now.getTime() + minutesOffset * 60_000).toISOString();
 
-  const groups: readonly Group[] = [
+  const groups: Group[] = [
     {
       groupJid: '120363407086801381@g.us',
       preferredSubject: 'Ballet Iniciacao',
@@ -240,7 +374,7 @@ function createDemoSnapshot(): {
     },
   ];
 
-  const routingRules: readonly SenderAudienceRule[] = [
+  const routingRules: SenderAudienceRule[] = [
     {
       ruleId: 'rule-ana-ballet',
       personId: 'person-ana',
@@ -282,7 +416,7 @@ function createDemoSnapshot(): {
     },
   ];
 
-  const distributions: readonly DistributionSummary[] = [
+  const distributions: DistributionSummary[] = [
     {
       instructionId: 'instruction-20260327-001',
       sourceType: 'incoming_message',
@@ -353,7 +487,7 @@ function createDemoSnapshot(): {
     },
   ];
 
-  const watchdogIssues: readonly WatchdogIssue[] = [
+  const watchdogIssues: WatchdogIssue[] = [
     {
       issueId: 'issue-overdue-001',
       kind: 'job_overdue',
@@ -520,123 +654,63 @@ function createDemoSnapshot(): {
     },
   };
 
-  const dashboard: DashboardSnapshot = {
-    health: {
-      status: 'healthy',
-      ready: true,
-      modules: [
-        { status: 'healthy', details: { module: 'backend', latencyMs: 38 } },
-        { status: 'healthy', details: { module: 'whatsapp', lastSyncAt: iso(-7) } },
-        { status: 'healthy', details: { module: 'dispatcher', activeWorkers: 1 } },
-      ],
-      jobs: {
-        pending: 6,
-        waitingConfirmation: 2,
-        sent: 18,
-      },
-      watchdog: {
-        openIssues: watchdogIssues.length,
-      },
-    },
-    readiness: {
-      ready: true,
-      status: 'healthy',
-    },
-    groups: {
-      total: groups.length,
-      withOwners: groups.filter((group) => group.groupOwners.length > 0).length,
-      readWriteGroupOwnerAccess: groups.filter((group) => group.calendarAccessPolicy.groupOwner === 'read_write').length,
-    },
-    routing: {
-      totalRules: routingRules.length,
-      confirmationRules: routingRules.filter((rule) => rule.requiresConfirmation).length,
-      totalPlannedTargets: routingRules.reduce(
-        (total, rule) =>
-          total + rule.targetGroupJids.length + rule.targetCourseIds.length + rule.targetDisciplineCodes.length,
-        0,
-      ),
-    },
-    distributions: {
-      total: distributions.length,
-      queued: distributions.filter((distribution) => distribution.status === 'queued').length,
-      running: distributions.filter((distribution) => distribution.status === 'running').length,
-      completed: distributions.filter((distribution) => distribution.status === 'completed').length,
-      partialFailed: distributions.filter((distribution) => distribution.status === 'partial_failed').length,
-      failed: distributions.filter((distribution) => distribution.status === 'failed').length,
-    },
-    watchdog: {
-      openIssues: watchdogIssues.length,
-      recentIssues: watchdogIssues.map((issue) => ({
-        issueId: issue.issueId,
-        kind: issue.kind,
-        groupLabel: issue.groupLabel,
-        summary: issue.summary,
-        openedAt: issue.openedAt,
-      })),
-    },
-    hostCompanion: {
-      hostId: settings.hostStatus.hostId,
-      authExists: settings.hostStatus.auth.exists,
-      sameAsCodexCanonical: settings.hostStatus.auth.sameAsCodexCanonical,
-      autostartEnabled: settings.hostStatus.autostart.enabled,
-      lastHeartbeatAt: settings.hostStatus.runtime.lastHeartbeatAt,
-      lastError: settings.hostStatus.runtime.lastError,
-    },
-  };
-
-  const whatsAppWorkspace: WhatsAppWorkspaceSnapshot = {
-    settings: {
-      commands: settings.adminSettings.commands,
-      whatsapp: settings.adminSettings.whatsapp,
-    },
-    host: {
-      authFilePath: settings.hostStatus.auth.filePath,
-      canonicalAuthFilePath: settings.authRouterStatus?.canonicalAuthFilePath ?? settings.hostStatus.auth.filePath,
-      authExists: settings.hostStatus.auth.exists,
-      sameAsCodexCanonical: settings.hostStatus.auth.sameAsCodexCanonical,
-      autostartEnabled: settings.hostStatus.autostart.enabled,
-      lastHeartbeatAt: settings.hostStatus.runtime.lastHeartbeatAt,
-    },
-    groups: groups.map((group) => ({
-      groupJid: group.groupJid,
-      preferredSubject: group.preferredSubject,
-      aliases: group.aliases,
-      courseId: group.courseId,
-      ownerPersonIds: group.groupOwners.map((owner) => owner.personId),
-      ownerLabels: group.groupOwners.map((owner) => owner.personId.replace('person-', '').replace(/(^\w)/u, (value) => value.toUpperCase())),
-      assistantAuthorized: group.groupJid !== groups[3].groupJid,
-      calendarAccessPolicy: group.calendarAccessPolicy,
-      lastRefreshedAt: group.lastRefreshedAt,
-      knownToBot: true,
-    })),
-    conversations: [
+  return {
+    groups,
+    people: [
       {
         personId: 'person-ana',
         displayName: 'Ana Costa',
-        whatsappJids: ['351910000001@s.whatsapp.net'],
+        identifiers: [{ kind: 'whatsapp_jid', value: '351910000001@s.whatsapp.net' }],
         globalRoles: ['member'],
-        privateAssistantAuthorized: true,
-        ownedGroupJids: [groups[0].groupJid],
-        knownToBot: true,
+        createdAt: iso(-4_300),
+        updatedAt: iso(-240),
       },
       {
         personId: 'person-lucia',
         displayName: 'Lucia Matos',
-        whatsappJids: ['351910000002@s.whatsapp.net'],
+        identifiers: [{ kind: 'whatsapp_jid', value: '351910000002@s.whatsapp.net' }],
         globalRoles: ['member'],
-        privateAssistantAuthorized: true,
-        ownedGroupJids: [groups[2].groupJid],
-        knownToBot: true,
+        createdAt: iso(-4_000),
+        updatedAt: iso(-95),
       },
       {
         personId: 'person-rita',
         displayName: 'Rita Gomes',
-        whatsappJids: ['351910000003@s.whatsapp.net'],
+        identifiers: [{ kind: 'whatsapp_jid', value: '351910000003@s.whatsapp.net' }],
         globalRoles: ['member'],
-        privateAssistantAuthorized: false,
-        ownedGroupJids: [groups[4].groupJid],
-        knownToBot: true,
+        createdAt: iso(-3_600),
+        updatedAt: iso(-65),
       },
+      {
+        personId: 'person-marta',
+        displayName: 'Marta Silva',
+        identifiers: [{ kind: 'whatsapp_jid', value: '351910000010@s.whatsapp.net' }],
+        globalRoles: ['app_owner'],
+        createdAt: iso(-5_800),
+        updatedAt: iso(-12),
+      },
+      {
+        personId: 'person-tiago',
+        displayName: 'Tiago Ferreira',
+        identifiers: [{ kind: 'whatsapp_jid', value: '351910000011@s.whatsapp.net' }],
+        globalRoles: ['member'],
+        createdAt: iso(-3_900),
+        updatedAt: iso(-18),
+      },
+      {
+        personId: 'person-joao',
+        displayName: 'Joao Martins',
+        identifiers: [{ kind: 'whatsapp_jid', value: '351910000012@s.whatsapp.net' }],
+        globalRoles: ['member'],
+        createdAt: iso(-3_700),
+        updatedAt: iso(-27),
+      },
+    ],
+    routingRules,
+    distributions,
+    watchdogIssues,
+    settings,
+    externalPrivateConversations: [
       {
         personId: null,
         displayName: 'Contacto externo sem mapeamento',
@@ -647,39 +721,253 @@ function createDemoSnapshot(): {
         knownToBot: false,
       },
     ],
-    appOwners: [
-      {
-        personId: 'person-marta',
-        displayName: 'Marta Silva',
-        whatsappJids: ['351910000010@s.whatsapp.net'],
-        globalRoles: ['app_owner'],
-        privateAssistantAuthorized: true,
-        ownedGroupJids: groups.map((group) => group.groupJid),
-        knownToBot: true,
+  };
+}
+
+function buildDashboardSnapshot(state: DemoState): DashboardSnapshot {
+  return {
+    health: {
+      status: 'healthy',
+      ready: true,
+      modules: [
+        { status: 'healthy', details: { module: 'backend', latencyMs: 38 } },
+        { status: 'healthy', details: { module: 'whatsapp', lastSyncAt: state.settings.hostStatus.runtime.lastHeartbeatAt } },
+        { status: 'healthy', details: { module: 'dispatcher', activeWorkers: 1 } },
+      ],
+      jobs: {
+        pending: 6,
+        waitingConfirmation: 2,
+        sent: 18,
       },
-    ],
-    permissionSummary: {
-      knownGroups: groups.length,
-      authorizedGroups: groups.length - 1,
-      knownPrivateConversations: 3,
-      authorizedPrivateConversations: 2,
-      appOwners: 1,
+      watchdog: {
+        openIssues: state.watchdogIssues.length,
+      },
+    },
+    readiness: {
+      ready: true,
+      status: 'healthy',
+    },
+    groups: {
+      total: state.groups.length,
+      withOwners: state.groups.filter((group) => group.groupOwners.length > 0).length,
+      readWriteGroupOwnerAccess: state.groups.filter((group) => group.calendarAccessPolicy.groupOwner === 'read_write').length,
+    },
+    routing: {
+      totalRules: state.routingRules.length,
+      confirmationRules: state.routingRules.filter((rule) => rule.requiresConfirmation).length,
+      totalPlannedTargets: state.routingRules.reduce(
+        (total, rule) =>
+          total + rule.targetGroupJids.length + rule.targetCourseIds.length + rule.targetDisciplineCodes.length,
+        0,
+      ),
+    },
+    distributions: {
+      total: state.distributions.length,
+      queued: state.distributions.filter((distribution) => distribution.status === 'queued').length,
+      running: state.distributions.filter((distribution) => distribution.status === 'running').length,
+      completed: state.distributions.filter((distribution) => distribution.status === 'completed').length,
+      partialFailed: state.distributions.filter((distribution) => distribution.status === 'partial_failed').length,
+      failed: state.distributions.filter((distribution) => distribution.status === 'failed').length,
+    },
+    watchdog: {
+      openIssues: state.watchdogIssues.length,
+      recentIssues: state.watchdogIssues.map((issue) => ({
+        issueId: issue.issueId,
+        kind: issue.kind,
+        groupLabel: issue.groupLabel,
+        summary: issue.summary,
+        openedAt: issue.openedAt,
+      })),
+    },
+    hostCompanion: {
+      hostId: state.settings.hostStatus.hostId,
+      authExists: state.settings.hostStatus.auth.exists,
+      sameAsCodexCanonical: state.settings.hostStatus.auth.sameAsCodexCanonical,
+      autostartEnabled: state.settings.hostStatus.autostart.enabled,
+      lastHeartbeatAt: state.settings.hostStatus.runtime.lastHeartbeatAt,
+      lastError: state.settings.hostStatus.runtime.lastError,
     },
   };
+}
+
+function buildWhatsAppWorkspaceSnapshot(state: DemoState): WhatsAppWorkspaceSnapshot {
+  const peopleById = new Map(state.people.map((person) => [person.personId, person]));
+  const ownedGroupsByPersonId = new Map<string, string[]>();
+
+  for (const group of state.groups) {
+    for (const owner of group.groupOwners) {
+      const groups = ownedGroupsByPersonId.get(owner.personId) ?? [];
+      groups.push(group.groupJid);
+      ownedGroupsByPersonId.set(owner.personId, groups);
+    }
+  }
+
+  const commands = state.settings.adminSettings.commands;
+  const whatsappEnabled = state.settings.adminSettings.whatsapp.enabled;
+  const allowAllGroups = commands.authorizedGroupJids.length === 0;
+  const allowAllPrivateChats = commands.authorizedPrivateJids.length === 0;
+
+  const groupSummaries: WhatsAppGroupSummary[] = state.groups.map((group) => ({
+    groupJid: group.groupJid,
+    preferredSubject: group.preferredSubject,
+    aliases: group.aliases,
+    courseId: group.courseId,
+    ownerPersonIds: group.groupOwners.map((owner) => owner.personId),
+    ownerLabels: group.groupOwners.map((owner) => peopleById.get(owner.personId)?.displayName ?? owner.personId),
+    assistantAuthorized:
+      commands.assistantEnabled &&
+      state.settings.adminSettings.whatsapp.enabled &&
+      (allowAllGroups || commands.authorizedGroupJids.includes(group.groupJid)),
+    calendarAccessPolicy: group.calendarAccessPolicy,
+    lastRefreshedAt: group.lastRefreshedAt,
+    knownToBot: true,
+  }));
+
+  const conversations = [
+    ...state.people
+    .filter((person) => person.identifiers.some((identifier) => identifier.kind === 'whatsapp_jid'))
+      .map((person) =>
+        mapPersonToConversationSummary(person, ownedGroupsByPersonId, commands, whatsappEnabled, allowAllPrivateChats),
+      ),
+    ...state.externalPrivateConversations.map((conversation) => ({
+      ...conversation,
+      privateAssistantAuthorized:
+        commands.assistantEnabled &&
+        whatsappEnabled &&
+        commands.allowPrivateAssistant &&
+        (allowAllPrivateChats ||
+          conversation.whatsappJids.some((chatJid) => commands.authorizedPrivateJids.includes(chatJid))),
+    })),
+  ];
+
+  const appOwners = state.people
+    .filter((person) => person.globalRoles.includes('app_owner'))
+    .map((person) =>
+      mapPersonToConversationSummary(person, ownedGroupsByPersonId, commands, whatsappEnabled, allowAllPrivateChats),
+    );
 
   return {
-    dashboard,
-    groups,
-    routingRules,
-    distributions,
-    watchdogIssues,
-    settings,
-    whatsAppWorkspace,
+    settings: {
+      commands,
+      whatsapp: state.settings.adminSettings.whatsapp,
+    },
+    host: {
+      authFilePath: state.settings.hostStatus.auth.filePath,
+      canonicalAuthFilePath:
+        state.settings.authRouterStatus?.canonicalAuthFilePath ?? state.settings.hostStatus.auth.filePath,
+      authExists: state.settings.hostStatus.auth.exists,
+      sameAsCodexCanonical: state.settings.hostStatus.auth.sameAsCodexCanonical,
+      autostartEnabled: state.settings.hostStatus.autostart.enabled,
+      lastHeartbeatAt: state.settings.hostStatus.runtime.lastHeartbeatAt,
+    },
+    groups: groupSummaries.sort(compareByLabel),
+    conversations: conversations.sort(compareByLabel),
+    appOwners: appOwners.sort(compareByLabel),
+    permissionSummary: {
+      knownGroups: groupSummaries.filter((group) => group.knownToBot).length,
+      authorizedGroups: groupSummaries.filter((group) => group.assistantAuthorized).length,
+      knownPrivateConversations: conversations.filter((conversation) => conversation.knownToBot).length,
+      authorizedPrivateConversations: conversations.filter((conversation) => conversation.privateAssistantAuthorized).length,
+      appOwners: appOwners.length,
+    },
   };
+}
+
+function mapPersonToConversationSummary(
+  person: Person,
+  ownedGroupsByPersonId: ReadonlyMap<string, readonly string[]>,
+  commands: CommandsPolicySettings,
+  whatsappEnabled: boolean,
+  allowAllPrivateChats: boolean,
+): WhatsAppConversationSummary {
+  const whatsappJids = person.identifiers
+    .filter((identifier) => identifier.kind === 'whatsapp_jid')
+    .map((identifier) => identifier.value);
+
+  return {
+    personId: person.personId,
+    displayName: person.displayName,
+    whatsappJids,
+    globalRoles: person.globalRoles,
+    privateAssistantAuthorized:
+      commands.assistantEnabled &&
+      whatsappEnabled &&
+      commands.allowPrivateAssistant &&
+      whatsappJids.length > 0 &&
+      (allowAllPrivateChats || whatsappJids.some((chatJid) => commands.authorizedPrivateJids.includes(chatJid))),
+    ownedGroupJids: ownedGroupsByPersonId.get(person.personId) ?? [],
+    knownToBot: whatsappJids.length > 0,
+  };
+}
+
+function matchParameterizedPath(pathname: string, template: string): Record<string, string> | null {
+  const pathSegments = pathname.split('/').filter(Boolean);
+  const templateSegments = template.split('/').filter(Boolean);
+
+  if (pathSegments.length !== templateSegments.length) {
+    return null;
+  }
+
+  const params: Record<string, string> = {};
+
+  for (let index = 0; index < templateSegments.length; index += 1) {
+    const templateSegment = templateSegments[index];
+    const pathSegment = pathSegments[index];
+
+    if (templateSegment.startsWith(':')) {
+      params[templateSegment.slice(1)] = decodeURIComponent(pathSegment);
+      continue;
+    }
+
+    if (templateSegment !== pathSegment) {
+      return null;
+    }
+  }
+
+  return params;
+}
+
+function compareByLabel(
+  left: { readonly displayName?: string; readonly preferredSubject?: string },
+  right: { readonly displayName?: string; readonly preferredSubject?: string },
+): number {
+  const leftLabel = left.displayName ?? left.preferredSubject ?? '';
+  const rightLabel = right.displayName ?? right.preferredSubject ?? '';
+  return leftLabel.localeCompare(rightLabel, 'pt-PT');
 }
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
   });
+}
+
+function parseHttpBody<T>(rawBody: string, contentType: string | null): T {
+  if (rawBody.length === 0) {
+    return undefined as T;
+  }
+
+  const normalizedBody = rawBody.trimStart();
+  const declaredJson = contentType?.includes('application/json') ?? false;
+  const looksJson = normalizedBody.startsWith('{') || normalizedBody.startsWith('[');
+
+  if (declaredJson || looksJson) {
+    try {
+      return JSON.parse(rawBody) as T;
+    } catch {
+      throw new Error(
+        'A ligacao live respondeu dados invalidos. Confirma se a API HTTP do LumeHub esta mesmo ativa nesta porta.',
+      );
+    }
+  }
+
+  if (normalizedBody.startsWith('<')) {
+    throw new Error(
+      'A ligacao live abriu a pagina web, mas nao encontrou a API do LumeHub nesta porta. Usa Demo ou arranca o backend HTTP real.',
+    );
+  }
+
+  throw new Error(
+    'A ligacao live respondeu num formato inesperado. Confirma se o backend do LumeHub esta a expor JSON nesta porta.',
+  );
 }

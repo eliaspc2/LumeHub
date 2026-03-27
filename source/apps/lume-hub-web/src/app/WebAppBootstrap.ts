@@ -2,7 +2,7 @@ import type { FrontendApiTransport } from '@lume-hub/frontend-api-client';
 
 import { ApiClientProvider } from './ApiClientProvider.js';
 import { AppRouter } from './AppRouter.js';
-import { QueryClientFactory } from './QueryClientFactory.js';
+import { QueryClientFactory, type QueryClient } from './QueryClientFactory.js';
 
 export interface WebAppBootstrapConfig {
   readonly transport?: FrontendApiTransport;
@@ -11,6 +11,7 @@ export interface WebAppBootstrapConfig {
 export class WebAppBootstrap {
   readonly apiClientProvider: ApiClientProvider;
   readonly queryClientFactory: QueryClientFactory;
+  readonly queryClient: QueryClient;
   readonly router: AppRouter;
 
   constructor(
@@ -22,6 +23,7 @@ export class WebAppBootstrap {
   ) {
     this.apiClientProvider = apiClientProvider;
     this.queryClientFactory = queryClientFactory;
-    this.router = new AppRouter(this.apiClientProvider.getClient(), this.queryClientFactory.create());
+    this.queryClient = this.queryClientFactory.create();
+    this.router = new AppRouter(this.apiClientProvider.getClient(), this.queryClient);
   }
 }
