@@ -5,7 +5,7 @@ import type { DisciplineCatalogModule } from '@lume-hub/discipline-catalog';
 import type { GroupDirectoryModule } from '@lume-hub/group-directory';
 import type { HealthMonitorModule } from '@lume-hub/health-monitor';
 import type { HostLifecycleModule } from '@lume-hub/host-lifecycle';
-import type { FastifyHttpServer, HttpRequest, HttpResponse } from '@lume-hub/http-fastify';
+import type { FastifyHttpServer, HttpListeningAddress, HttpRequest, HttpResponse } from '@lume-hub/http-fastify';
 import type { InstructionQueueModule } from '@lume-hub/instruction-queue';
 import type { ApplicationKernel, IModule, ModuleContext, ModuleRegistration } from '@lume-hub/kernel';
 import type { NotificationJobsModule } from '@lume-hub/notification-jobs';
@@ -75,6 +75,7 @@ export class BackendRuntime {
   private readonly operationalTickIntervalMs: number;
   private operationalTimer?: ReturnType<typeof setInterval>;
   private kernelStarted = false;
+  private listeningAddress?: HttpListeningAddress;
 
   constructor(private readonly options: BackendRuntimeOptions) {
     this.operationalTickIntervalMs = Math.max(
@@ -107,6 +108,10 @@ export class BackendRuntime {
     return this.options.paths;
   }
 
+  get baseUrl(): string | null {
+    return this.listeningAddress?.origin ?? null;
+  }
+
   async start(): Promise<void> {
     if (this.kernelStarted) {
       return;
@@ -134,6 +139,10 @@ export class BackendRuntime {
       this.operationalTimer = undefined;
     }
 
+    await this.options.webSocketGateway.close();
+    await this.options.httpServer.close();
+    this.listeningAddress = undefined;
+
     if (!this.kernelStarted) {
       return;
     }
@@ -152,6 +161,35 @@ export class BackendRuntime {
 
   getContext(): ModuleContext {
     return this.options.kernel.getContext();
+  }
+
+  async listen(): Promise<HttpListeningAddress> {
+    if (this.listeningAddress) {
+      return this.listeningAddress;
+    }
+
+    this.listeningAddress = await this.options.httpServer.listen({
+      host: this.paths.httpHost,
+      port: this.paths.httpPort,
+      staticSite: {
+        rootPath: this.paths.webDistRootPath,
+        bootConfig: {
+          defaultMode: this.paths.frontendDefaultMode,
+          webSocketPath: this.paths.webSocketPath,
+        },
+      },
+      onServerCreated: async (server) => {
+        this.options.webSocketGateway.attach(server, {
+          path: this.paths.webSocketPath,
+        });
+      },
+    });
+
+    return this.listeningAddress;
+  }
+
+  getListeningAddress(): HttpListeningAddress | null {
+    return this.listeningAddress ?? null;
   }
 
   async performOperationalTick(now = new Date()): Promise<BackendOperationalTickSnapshot> {

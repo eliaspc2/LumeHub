@@ -16,5 +16,7 @@
     "build": "tsc -p tsconfig.json",
     "test": "node -e \"console.log('No tests yet for @lume-hub/ws-fastify.')\""
   },
-  "dependencies": {}
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
 }

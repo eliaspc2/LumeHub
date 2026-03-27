@@ -40,10 +40,11 @@ export class HostModuleLoader {
     const codexAuthRouterModule = new CodexAuthRouterModule({
       canonicalAuthFilePath: canonicalCodexAuthFile,
       stateFilePath:
-        this.options.codexAuthRouterStateFilePath ?? resolve(rootPath, 'data/runtime/codex-auth-router.state.json'),
+        this.options.codexAuthRouterStateFilePath ??
+        resolve(rootPath, 'runtime/host/state/codex-auth-router.state.json'),
       backupDirectoryPath:
         this.options.codexAuthRouterBackupDirectoryPath ??
-        resolve(rootPath, 'data/runtime/codex-auth-router-backups'),
+        resolve(rootPath, 'runtime/host/state/codex-auth-router-backups'),
       sourceAccounts: this.options.codexAuthSources,
     });
     const systemPowerModule = new SystemPowerModule({

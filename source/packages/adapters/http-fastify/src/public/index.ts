@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { createServer, type IncomingMessage, type Server as NodeHttpServer, type ServerResponse } from 'node:http';
+import { access, readFile } from 'node:fs/promises';
+import { extname, join, normalize, resolve } from 'node:path';
 
 import {
   DEFAULT_ADMIN_SETTINGS,
@@ -91,6 +94,30 @@ export interface FastifyHttpServerConfig {
   readonly errorHandler?: ApiErrorHandler;
 }
 
+export interface HttpFrontendBootConfig {
+  readonly defaultMode?: 'demo' | 'live';
+  readonly apiBaseUrl?: string;
+  readonly webSocketPath?: string;
+}
+
+export interface HttpStaticSiteConfig {
+  readonly rootPath: string;
+  readonly bootConfig?: HttpFrontendBootConfig;
+}
+
+export interface HttpListenOptions {
+  readonly host: string;
+  readonly port: number;
+  readonly staticSite?: HttpStaticSiteConfig;
+  readonly onServerCreated?: (server: NodeHttpServer) => void | Promise<void>;
+}
+
+export interface HttpListeningAddress {
+  readonly host: string;
+  readonly port: number;
+  readonly origin: string;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly statusCode: number,
@@ -141,6 +168,9 @@ export class FastifyHttpServer {
   private readonly routes: RegisteredRoute[] = [];
   private readonly requestContextFactory: RequestContextFactory;
   private readonly errorHandler: ApiErrorHandler;
+  private nodeServer?: NodeHttpServer;
+  private staticSite?: HttpStaticSiteConfig;
+  private listeningAddress?: HttpListeningAddress;
 
   constructor(readonly config: FastifyHttpServerConfig) {
     this.requestContextFactory = config.requestContextFactory ?? new RequestContextFactory();
@@ -175,6 +205,180 @@ export class FastifyHttpServer {
     } catch (error) {
       return this.errorHandler.toResponse(error) as HttpResponse<T>;
     }
+  }
+
+  async listen(options: HttpListenOptions): Promise<HttpListeningAddress> {
+    if (this.nodeServer && this.listeningAddress) {
+      return this.listeningAddress;
+    }
+
+    this.staticSite = options.staticSite;
+    const server = createServer((request, response) => {
+      void this.handleNodeRequest(request, response);
+    });
+
+    if (options.onServerCreated) {
+      await options.onServerCreated(server);
+    }
+
+    await new Promise<void>((resolvePromise, rejectPromise) => {
+      server.once('error', rejectPromise);
+      server.listen(options.port, options.host, () => {
+        server.off('error', rejectPromise);
+        resolvePromise();
+      });
+    });
+
+    const address = server.address();
+    const resolvedPort = typeof address === 'object' && address ? address.port : options.port;
+    this.nodeServer = server;
+    this.listeningAddress = {
+      host: options.host,
+      port: resolvedPort,
+      origin: `http://${options.host}:${resolvedPort}`,
+    };
+    return this.listeningAddress;
+  }
+
+  async close(): Promise<void> {
+    if (!this.nodeServer) {
+      return;
+    }
+
+    const server = this.nodeServer;
+    this.nodeServer = undefined;
+    this.listeningAddress = undefined;
+
+    await new Promise<void>((resolvePromise, rejectPromise) => {
+      server.close((error) => {
+        if (error) {
+          rejectPromise(error);
+          return;
+        }
+
+        resolvePromise();
+      });
+    });
+  }
+
+  getListeningAddress(): HttpListeningAddress | null {
+    return this.listeningAddress ?? null;
+  }
+
+  private async handleNodeRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
+    const rawMethod = (request.method ?? 'GET').toUpperCase();
+    const method = normaliseHttpMethod(rawMethod);
+    const url = new URL(request.url ?? '/', 'http://lume-hub.local');
+
+    if (method && url.pathname.startsWith('/api/')) {
+      await this.handleApiRequest(request, response, method);
+      return;
+    }
+
+    if (rawMethod === 'GET' || rawMethod === 'HEAD') {
+      const served = await this.serveStaticAsset(url.pathname, response, rawMethod === 'HEAD');
+
+      if (served) {
+        return;
+      }
+    }
+
+    response.writeHead(404, {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+    });
+    response.end(JSON.stringify({ error: `Route not found for ${request.method ?? 'GET'} ${url.pathname}.` }));
+  }
+
+  private async handleApiRequest(
+    request: IncomingMessage,
+    response: ServerResponse,
+    method: HttpMethod,
+  ): Promise<void> {
+    const bodyText = await readRequestBody(request);
+    const requestPath = request.url ?? '/';
+
+    try {
+      const result = await this.inject({
+        method,
+        path: requestPath,
+        body: parseRequestBody(bodyText, request.headers['content-type']),
+        headers: mapHeaders(request.headers),
+      });
+      this.writeJsonResponse(response, result.statusCode, result.body);
+    } catch (error) {
+      const apiError = this.errorHandler.toResponse(error);
+      this.writeJsonResponse(response, apiError.statusCode, apiError.body);
+    }
+  }
+
+  private async serveStaticAsset(pathname: string, response: ServerResponse, headOnly: boolean): Promise<boolean> {
+    if (!this.staticSite) {
+      return false;
+    }
+
+    const filePath = resolveStaticFilePath(this.staticSite.rootPath, pathname);
+
+    if (!filePath) {
+      return false;
+    }
+
+    const exists = await fileExists(filePath);
+
+    if (!exists) {
+      if (pathname.includes('.')) {
+        response.writeHead(404, {
+          'content-type': 'text/plain; charset=utf-8',
+          'cache-control': 'no-store',
+        });
+        response.end(headOnly ? undefined : 'Not found.');
+        return true;
+      }
+
+      const spaEntryPath = join(this.staticSite.rootPath, 'index.html');
+      return this.serveFile(spaEntryPath, response, headOnly, true);
+    }
+
+    return this.serveFile(filePath, response, headOnly, filePath.endsWith('.html'));
+  }
+
+  private async serveFile(
+    filePath: string,
+    response: ServerResponse,
+    headOnly: boolean,
+    injectBootConfig: boolean,
+  ): Promise<boolean> {
+    if (!(await fileExists(filePath))) {
+      return false;
+    }
+
+    const contentType = resolveContentType(filePath);
+    let body = await readFile(filePath);
+
+    if (injectBootConfig && this.staticSite?.bootConfig) {
+      body = Buffer.from(injectFrontendBootConfig(body.toString('utf8'), this.staticSite.bootConfig), 'utf8');
+    }
+
+    response.writeHead(200, {
+      'content-type': contentType,
+      'cache-control': 'no-store',
+    });
+
+    if (!headOnly) {
+      response.end(body);
+      return true;
+    }
+
+    response.end();
+    return true;
+  }
+
+  private writeJsonResponse(response: ServerResponse, statusCode: number, body: unknown): void {
+    response.writeHead(statusCode, {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+    });
+    response.end(JSON.stringify(body));
   }
 }
 
@@ -1015,4 +1219,113 @@ function mapInstruction(instruction: Instruction) {
     createdAt: instruction.createdAt,
     updatedAt: instruction.updatedAt,
   };
+}
+
+function normaliseHttpMethod(method: string | undefined): HttpMethod | null {
+  switch (method?.toUpperCase()) {
+    case 'GET':
+    case 'POST':
+    case 'PUT':
+    case 'PATCH':
+    case 'DELETE':
+      return method.toUpperCase() as HttpMethod;
+    default:
+      return null;
+  }
+}
+
+async function readRequestBody(request: IncomingMessage): Promise<string> {
+  const chunks: Buffer[] = [];
+
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+function parseRequestBody(rawBody: string, contentTypeHeader: string | readonly string[] | undefined): unknown {
+  if (rawBody.length === 0) {
+    return undefined;
+  }
+
+  const contentType = Array.isArray(contentTypeHeader) ? contentTypeHeader.join(', ') : (contentTypeHeader ?? '');
+
+  if (contentType.includes('application/json')) {
+    try {
+      return JSON.parse(rawBody);
+    } catch {
+      throw new ApiError(400, 'Request body must be valid JSON.');
+    }
+  }
+
+  return rawBody;
+}
+
+function mapHeaders(headers: IncomingMessage['headers']): Record<string, string> {
+  const entries = Object.entries(headers).map(([key, value]) => [
+    key.toLowerCase(),
+    Array.isArray(value) ? value.join(', ') : (value ?? ''),
+  ]);
+
+  return Object.fromEntries(entries);
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function resolveStaticFilePath(rootPath: string, pathname: string): string | null {
+  const safeRootPath = resolve(rootPath);
+  const safeRootPrefix = safeRootPath.endsWith('/') ? safeRootPath : `${safeRootPath}/`;
+  const candidatePath = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+  const nextPath = resolve(safeRootPath, normalize(candidatePath));
+
+  if (nextPath !== safeRootPath && !nextPath.startsWith(safeRootPrefix)) {
+    return null;
+  }
+
+  return nextPath;
+}
+
+function resolveContentType(filePath: string): string {
+  switch (extname(filePath).toLowerCase()) {
+    case '.css':
+      return 'text/css; charset=utf-8';
+    case '.html':
+      return 'text/html; charset=utf-8';
+    case '.ico':
+      return 'image/x-icon';
+    case '.jpeg':
+    case '.jpg':
+      return 'image/jpeg';
+    case '.js':
+      return 'text/javascript; charset=utf-8';
+    case '.json':
+      return 'application/json; charset=utf-8';
+    case '.png':
+      return 'image/png';
+    case '.svg':
+      return 'image/svg+xml';
+    case '.webp':
+      return 'image/webp';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+function injectFrontendBootConfig(html: string, config: HttpFrontendBootConfig): string {
+  const serializedConfig = JSON.stringify({
+    defaultMode: config.defaultMode ?? 'live',
+    apiBaseUrl: config.apiBaseUrl,
+    webSocketPath: config.webSocketPath ?? '/ws',
+  });
+  const injection = `<script>window.__LUMEHUB_BOOT_CONFIG__ = ${serializedConfig};</script>`;
+
+  return html.includes('</head>') ? html.replace('</head>', `${injection}</head>`) : `${injection}${html}`;
 }

@@ -22,6 +22,18 @@ import type {
 
 export type FrontendTransportMode = 'demo' | 'live';
 
+export interface FrontendBootConfig {
+  readonly defaultMode?: FrontendTransportMode;
+  readonly apiBaseUrl?: string;
+  readonly webSocketPath?: string;
+}
+
+declare global {
+  interface Window {
+    __LUMEHUB_BOOT_CONFIG__?: FrontendBootConfig;
+  }
+}
+
 const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
   schemaVersion: 1,
   commands: {
@@ -67,26 +79,52 @@ const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
   updatedAt: null,
 };
 
-export function createInitialTransportMode(locationLike: Pick<Location, 'search'> = window.location): FrontendTransportMode {
+export function createInitialTransportMode(
+  locationLike: Pick<Location, 'search'> = window.location,
+  bootConfig: FrontendBootConfig = readFrontendBootConfig(),
+): FrontendTransportMode {
   const params = new URLSearchParams(locationLike.search);
-  return params.get('mode') === 'live' ? 'live' : 'demo';
+
+  if (params.get('mode') === 'live') {
+    return 'live';
+  }
+
+  if (params.get('mode') === 'demo') {
+    return 'demo';
+  }
+
+  return bootConfig.defaultMode === 'live' ? 'live' : 'demo';
 }
 
 export function createFrontendTransport(
   mode: FrontendTransportMode,
   options: {
     readonly baseUrl?: string;
+    readonly webSocketPath?: string;
   } = {},
 ): FrontendApiTransport {
   if (mode === 'live') {
-    return new BrowserFetchFrontendApiTransport(options.baseUrl);
+    const bootConfig = readFrontendBootConfig();
+
+    return new BrowserFetchFrontendApiTransport(options.baseUrl ?? bootConfig.apiBaseUrl, {
+      webSocketPath: options.webSocketPath ?? bootConfig.webSocketPath,
+    });
   }
 
   return new DemoFrontendApiTransport();
 }
 
 class BrowserFetchFrontendApiTransport implements FrontendApiTransport {
-  constructor(private readonly baseUrl = window.location.origin) {}
+  private readonly listeners = new Set<(event: FrontendUiEvent) => void>();
+  private socket: WebSocket | null = null;
+  private reconnectTimer: number | null = null;
+
+  constructor(
+    private readonly baseUrl = window.location.origin,
+    private readonly options: {
+      readonly webSocketPath?: string;
+    } = {},
+  ) {}
 
   async request<T = unknown>(request: FrontendApiRequest): Promise<FrontendApiResponse<T>> {
     const response = await fetch(new URL(request.path, this.baseUrl), {
@@ -104,6 +142,78 @@ class BrowserFetchFrontendApiTransport implements FrontendApiTransport {
       statusCode: response.status,
       body,
     };
+  }
+
+  subscribe(listener: (event: FrontendUiEvent) => void): () => void {
+    this.listeners.add(listener);
+    this.ensureSocket();
+
+    return () => {
+      this.listeners.delete(listener);
+
+      if (this.listeners.size === 0) {
+        this.disposeSocket();
+      }
+    };
+  }
+
+  private ensureSocket(): void {
+    if (this.socket || this.listeners.size === 0) {
+      return;
+    }
+
+    const socket = new WebSocket(this.resolveWebSocketUrl());
+    this.socket = socket;
+
+    socket.addEventListener('message', (event) => {
+      try {
+        const payload = JSON.parse(String(event.data)) as FrontendUiEvent;
+        this.listeners.forEach((listener) => listener(payload));
+      } catch {}
+    });
+
+    socket.addEventListener('close', () => {
+      this.socket = null;
+
+      if (this.listeners.size === 0 || this.reconnectTimer !== null) {
+        return;
+      }
+
+      this.reconnectTimer = window.setTimeout(() => {
+        this.reconnectTimer = null;
+        this.ensureSocket();
+      }, 800);
+    });
+
+    socket.addEventListener('error', () => {
+      try {
+        socket.close();
+      } catch {}
+    });
+  }
+
+  private disposeSocket(): void {
+    if (this.reconnectTimer !== null) {
+      window.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    if (!this.socket) {
+      return;
+    }
+
+    try {
+      this.socket.close();
+    } catch {}
+
+    this.socket = null;
+  }
+
+  private resolveWebSocketUrl(): string {
+    const wsPath = normaliseWebSocketPath(this.options.webSocketPath ?? '/ws');
+    const baseUrl = new URL(this.baseUrl, window.location.origin);
+    const protocol = baseUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${baseUrl.host}${wsPath}`;
   }
 }
 
@@ -940,6 +1050,20 @@ function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
   });
+}
+
+function readFrontendBootConfig(): FrontendBootConfig {
+  return window.__LUMEHUB_BOOT_CONFIG__ ?? {};
+}
+
+function normaliseWebSocketPath(path = '/ws'): string {
+  const trimmed = path.trim();
+
+  if (!trimmed) {
+    return '/ws';
+  }
+
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
 }
 
 function parseHttpBody<T>(rawBody: string, contentType: string | null): T {

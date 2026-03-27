@@ -9,7 +9,7 @@ export interface AppBootstrapOptions {
 }
 
 export class AppBootstrap {
-  private kernel?: ReturnType<RuntimeBuilder['build']>;
+  private runtime?: ReturnType<RuntimeBuilder['build']>;
 
   private readonly runtimeBuilder: RuntimeBuilder;
   private readonly shutdownCoordinator: ShutdownCoordinator;
@@ -24,30 +24,37 @@ export class AppBootstrap {
   }
 
   async start(): Promise<void> {
-    if (this.kernel) {
+    if (this.runtime) {
       return;
     }
 
-    this.kernel = this.runtimeBuilder.build();
+    this.runtime = this.runtimeBuilder.build();
     this.shutdownCoordinator.install(() => this.stop());
-    await this.kernel.start();
+
+    try {
+      await this.runtime.start();
+      await this.runtime.listen();
+    } catch (error) {
+      await this.stop().catch(() => undefined);
+      throw error;
+    }
   }
 
   async stop(): Promise<void> {
-    if (!this.kernel) {
+    if (!this.runtime) {
       return;
     }
 
-    await this.kernel.stop();
-    this.kernel = undefined;
+    await this.runtime.stop();
+    this.runtime = undefined;
     this.shutdownCoordinator.dispose();
   }
 
-  getRuntime(): NonNullable<typeof this.kernel> {
-    if (!this.kernel) {
+  getRuntime(): NonNullable<typeof this.runtime> {
+    if (!this.runtime) {
       throw new Error('Backend runtime is not started.');
     }
 
-    return this.kernel;
+    return this.runtime;
   }
 }

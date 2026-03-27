@@ -10,12 +10,11 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 18` ja foram executadas e validadas.
+As `Wave 0` a `Wave 19` ja foram executadas e validadas.
 O backlog restante continua organizado em waves de fecho para runtime real.
 
 As waves ativas passam a ser:
 
-- `Wave 19`
 - `Wave 20`
 - `Wave 21`
 - `Wave 22`
@@ -91,37 +90,6 @@ Se tocar backend, HTTP, WS ou runtime:
 - validar que a UI continua a abrir e a consumir a API esperada
 
 ## Waves ativas
-
-## Wave 19 - HTTP, WS e modo live verdadeiro
-
-Objetivo:
-- trocar o modo `live` de preview parcial por runtime de rede real
-
-Entregaveis:
-- `http-fastify` com `listen(host, port)` real
-- `ws-fastify` com endpoint WebSocket real e feed de eventos operacionais
-- serving real da web app pelo backend ou por runtime acoplado claramente configurado
-- launcher a abrir o `Live` verdadeiro em vez do fallback de demo
-- erros live humanos e observaveis sem `JSON.parse` cru nem HTML indevido onde era esperado JSON
-
-Criterios de aceitacao:
-- a app abre em `Live` e carrega dados do backend real
-- o browser deixa de depender de modo demo para navegar nas paginas principais
-- eventos operacionais chegam via WS real
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave19`
-
-Melhor momento para testar:
-- testar aqui e essencial, porque e o primeiro ponto em que o `Live` passa a significar mesmo runtime real
-
-O que testar:
-- abrir a app em `Live`
-- navegar por `Hoje`, `WhatsApp`, `Semana` e `Configuracao`
-- confirmar que nao ha ecras brancos nem erros de parse
-- confirmar que eventos live chegam ao frontend
 
 ## Wave 20 - WhatsApp live, QR e descoberta
 

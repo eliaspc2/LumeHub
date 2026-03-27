@@ -5,6 +5,8 @@ import type { Clock } from '@lume-hub/clock';
 import type { CodexAuthSourceConfig } from '@lume-hub/codex-auth-router';
 import type { ModuleEnvironment } from '@lume-hub/kernel';
 
+export type BackendFrontendMode = 'demo' | 'live';
+
 export interface BackendRuntimeConfig {
   readonly rootPath?: string;
   readonly environment?: ModuleEnvironment;
@@ -34,6 +36,11 @@ export interface BackendRuntimeConfig {
   readonly codexAuthSources?: readonly CodexAuthSourceConfig[];
   readonly startByPreparingCodexAuth?: boolean;
   readonly operationalTickIntervalMs?: number;
+  readonly httpHost?: string;
+  readonly httpPort?: number;
+  readonly webSocketPath?: string;
+  readonly webDistRootPath?: string;
+  readonly frontendDefaultMode?: BackendFrontendMode;
 }
 
 export interface BackendRuntimePaths {
@@ -60,6 +67,12 @@ export interface BackendRuntimePaths {
   readonly hostWorkingDirectory: string;
   readonly hostExecStart: string;
   readonly hostServiceName: string;
+  readonly httpHost: string;
+  readonly httpPort: number;
+  readonly httpOrigin: string;
+  readonly webSocketPath: string;
+  readonly webDistRootPath: string;
+  readonly frontendDefaultMode: BackendFrontendMode;
 }
 
 export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): BackendRuntimePaths {
@@ -72,6 +85,16 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
   const canonicalCodexAuthFile = config.canonicalCodexAuthFile ?? codexAuthFile;
   const hostServiceName = config.hostServiceName ?? 'lume-hub-host.service';
   const hostWorkingDirectory = config.hostWorkingDirectory ?? sourceRoot;
+  const httpHost = config.httpHost ?? process.env.LUME_HUB_HTTP_HOST ?? process.env.LUMEHUB_HOST ?? '127.0.0.1';
+  const httpPort =
+    config.httpPort ??
+    readPortFromEnv(process.env.LUME_HUB_HTTP_PORT) ??
+    readPortFromEnv(process.env.LUMEHUB_PORT) ??
+    18420;
+  const webSocketPath = normaliseWebSocketPath(config.webSocketPath ?? process.env.LUME_HUB_WS_PATH ?? '/ws');
+  const webDistRootPath =
+    config.webDistRootPath ?? resolve(sourceRoot, 'apps', 'lume-hub-web', 'dist');
+  const frontendDefaultMode = config.frontendDefaultMode ?? 'live';
 
   return {
     projectRoot,
@@ -104,6 +127,12 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
       config.hostExecStart ??
       `/usr/bin/env node ${resolve(sourceRoot, 'apps', 'lume-hub-host', 'dist', 'apps', 'lume-hub-host', 'src', 'main.js')}`,
     hostServiceName,
+    httpHost,
+    httpPort,
+    httpOrigin: `http://${httpHost}:${httpPort}`,
+    webSocketPath,
+    webDistRootPath,
+    frontendDefaultMode,
   };
 }
 
@@ -129,4 +158,28 @@ export function resolveProjectRoot(rootPath = process.cwd()): string {
 export function resolveSourceRoot(projectRoot: string): string {
   const directSourceRoot = projectRoot.endsWith('/source') ? projectRoot : resolve(projectRoot, 'source');
   return existsSync(directSourceRoot) ? directSourceRoot : projectRoot;
+}
+
+function readPortFromEnv(rawValue: string | undefined): number | undefined {
+  if (!rawValue) {
+    return undefined;
+  }
+
+  const value = Number(rawValue);
+
+  if (!Number.isInteger(value) || value <= 0 || value > 65_535) {
+    return undefined;
+  }
+
+  return value;
+}
+
+function normaliseWebSocketPath(path: string): string {
+  const trimmed = path.trim();
+
+  if (!trimmed) {
+    return '/ws';
+  }
+
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
 }

@@ -3,21 +3,20 @@
 Data: `2026-03-27`
 
 Objetivo:
-- descrever apenas os gaps reais que restam depois das `Wave 0` a `Wave 18`
+- descrever apenas os gaps reais que restam depois das `Wave 0` a `Wave 19`
 - evitar backlog preso a estado antigo do frontend ou a scaffolds ja removidos
 
 ## Resumo executivo
 
 Conclusao curta:
-- as `Wave 0` a `Wave 18` ficaram executadas e validadas
+- as `Wave 0` a `Wave 19` ficaram executadas e validadas
 - o frontend operacional ja existe e a limpeza final do repositorio foi feita
+- o modo `Live` ja usa backend HTTP real, WebSocket real e launcher local sem servidor provisório
 - o backlog restante voltou a estar organizado em waves ativas
 - o backlog restante esta concentrado em integracoes reais de runtime e robustez de producao
 
 Plano ativo de fecho:
 
-- `Wave 19`
-  - HTTP, WS e `Live` verdadeiro
 - `Wave 20`
   - WhatsApp live, QR e descoberta
 - `Wave 21`
@@ -56,21 +55,7 @@ As seguintes areas existem com base razoavel:
 
 ## Gaps reais por prioridade
 
-### 1. HTTP e WS reais continuam em falta
-
-Estado atual:
-- `http-fastify` continua centrado em `inject()`
-- `ws-fastify` continua a ser registry/pub-sub em memoria
-
-Impacto:
-- falta listener real de rede, porta configuravel, endpoint WS e serving operacional da app
-
-Onde fechar:
-- `source/packages/adapters/http-fastify`
-- `source/packages/adapters/ws-fastify`
-- `source/apps/lume-hub-backend`
-
-### 2. A integracao WhatsApp live continua por fazer
+### 1. A integracao WhatsApp live continua por fazer
 
 Estado atual:
 - o adapter `whatsapp-baileys` ainda nao faz socket real, QR real nem descoberta live de grupos/conversas
@@ -86,7 +71,7 @@ Onde fechar:
 - `source/packages/adapters/http-fastify`
 - `source/packages/adapters/ws-fastify`
 
-### 3. O pipeline inbound -> conversa -> reply -> envio nao esta ligado no runtime
+### 2. O pipeline inbound -> conversa -> reply -> envio nao esta ligado no runtime
 
 Estado atual:
 - `conversation`, `assistant-context` e `agent-runtime` existem
@@ -99,7 +84,7 @@ Onde fechar:
 - `source/packages/modules/agent-runtime`
 - `source/packages/adapters/whatsapp-baileys`
 
-### 4. Os providers LLM reais ainda sao stubs
+### 3. Os providers LLM reais ainda sao stubs
 
 Estado atual:
 - `llm-codex-oauth` e `llm-openai-compat` ainda expõem apenas `describe()`
@@ -113,10 +98,10 @@ Onde fechar:
 - `source/packages/modules/llm-orchestrator`
 - `source/packages/modules/codex-auth-router`
 
-### 5. A API do produto continua parcial
+### 4. A API do produto continua parcial
 
 Estado atual:
-- existem endpoints para dashboard, groups, people, routing, watchdog, settings e workspace WhatsApp
+- existem endpoints e runtime reais para dashboard, groups, people, routing, watchdog, settings e workspace WhatsApp
 - continuam em falta varias rotas canonicamente esperadas, como:
   - `GET /api/status`
   - `GET /api/qr`
@@ -131,7 +116,7 @@ Onde fechar:
 - `source/packages/adapters/http-fastify`
 - modulos de scheduling, instruction queue, conversation e llm
 
-### 6. `weekly-planner` do dominio ainda esta minimo
+### 5. `weekly-planner` do dominio ainda esta minimo
 
 Estado atual:
 - `source/packages/modules/weekly-planner` continua a ser um modulo estrutural sem comportamento real
@@ -143,7 +128,7 @@ Onde fechar:
 - `source/packages/modules/weekly-planner`
 - depois ligar a `source/packages/ui-modules/week-planner`
 
-### 7. A cobertura de testes continua curta para o produto final
+### 6. A cobertura de testes continua curta para o produto final
 
 Estado atual:
 - continuam a existir poucos testes centrais:
@@ -158,7 +143,7 @@ Onde fechar:
 - `source/tests/*`
 - e idealmente suites locais em packages criticos
 
-### 8. `alerts` e `automations` sairam do workspace ativo
+### 7. `alerts` e `automations` sairam do workspace ativo
 
 Estado atual:
 - os antigos packages `source/packages/modules/alerts` e `source/packages/modules/automations` eram stubs vazios
@@ -170,12 +155,11 @@ Regra daqui para a frente:
 
 ## Ordem recomendada para o backlog restante
 
-1. `Wave 19`
-2. `Wave 20`
-3. `Wave 21`
-4. `Wave 22`
-5. `Wave 23`
-6. `Wave 24`
+1. `Wave 20`
+2. `Wave 21`
+3. `Wave 22`
+4. `Wave 23`
+5. `Wave 24`
 
 ## Nota final
 
