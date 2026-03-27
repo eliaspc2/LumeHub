@@ -5,17 +5,25 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "tsc -p tsconfig.json",
+    "build": "vite build",
+    "dev": "vite",
+    "preview": "vite preview",
     "test": "node -e \"console.log('No tests yet for @lume-hub/lume-hub-web.')\""
   },
   "dependencies": {
     "@lume-hub/dashboard": "workspace:*",
+    "@lume-hub/delivery-monitor": "workspace:*",
     "@lume-hub/frontend-api-client": "workspace:*",
     "@lume-hub/group-directory-console": "workspace:*",
     "@lume-hub/queue-console": "workspace:*",
     "@lume-hub/settings-center": "workspace:*",
     "@lume-hub/shared-ui": "workspace:*",
+    "@lume-hub/assistant-console": "workspace:*",
+    "@lume-hub/week-planner": "workspace:*",
     "@lume-hub/whatsapp-console": "workspace:*",
     "@lume-hub/watchdog-inbox": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^7.1.7"
   }
 }
