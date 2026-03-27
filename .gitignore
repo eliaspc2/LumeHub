@@ -11,6 +11,7 @@ runtime/lxd/host-mounts/logs/*
 runtime/lxd/release-bundles/*
 runtime/host/current/*
 runtime/host/releases/*
+runtime/host/state/*
 runtime/host/systemd-user/*.service
 *.log
 .DS_Store
