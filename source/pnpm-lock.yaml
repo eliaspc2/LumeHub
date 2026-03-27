@@ -17,9 +17,63 @@ importers:
 
   apps/lume-hub-backend:
     dependencies:
+      '@lume-hub/admin-config':
+        specifier: workspace:*
+        version: link:../../packages/modules/admin-config
+      '@lume-hub/audience-routing':
+        specifier: workspace:*
+        version: link:../../packages/modules/audience-routing
+      '@lume-hub/clock':
+        specifier: workspace:*
+        version: link:../../packages/foundation/clock
+      '@lume-hub/codex-auth-router':
+        specifier: workspace:*
+        version: link:../../packages/modules/codex-auth-router
+      '@lume-hub/discipline-catalog':
+        specifier: workspace:*
+        version: link:../../packages/modules/discipline-catalog
+      '@lume-hub/group-directory':
+        specifier: workspace:*
+        version: link:../../packages/modules/group-directory
+      '@lume-hub/health-monitor':
+        specifier: workspace:*
+        version: link:../../packages/modules/health-monitor
+      '@lume-hub/host-lifecycle':
+        specifier: workspace:*
+        version: link:../../packages/modules/host-lifecycle
+      '@lume-hub/http-fastify':
+        specifier: workspace:*
+        version: link:../../packages/adapters/http-fastify
+      '@lume-hub/instruction-queue':
+        specifier: workspace:*
+        version: link:../../packages/modules/instruction-queue
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../packages/foundation/kernel
+      '@lume-hub/notification-jobs':
+        specifier: workspace:*
+        version: link:../../packages/modules/notification-jobs
+      '@lume-hub/notification-rules':
+        specifier: workspace:*
+        version: link:../../packages/modules/notification-rules
+      '@lume-hub/people-memory':
+        specifier: workspace:*
+        version: link:../../packages/modules/people-memory
+      '@lume-hub/schedule-events':
+        specifier: workspace:*
+        version: link:../../packages/modules/schedule-events
+      '@lume-hub/schedule-weeks':
+        specifier: workspace:*
+        version: link:../../packages/modules/schedule-weeks
+      '@lume-hub/system-power':
+        specifier: workspace:*
+        version: link:../../packages/modules/system-power
+      '@lume-hub/watchdog':
+        specifier: workspace:*
+        version: link:../../packages/modules/watchdog
+      '@lume-hub/ws-fastify':
+        specifier: workspace:*
+        version: link:../../packages/adapters/ws-fastify
 
   apps/lume-hub-host:
     dependencies:
@@ -235,12 +289,6 @@ importers:
         specifier: workspace:*
         version: link:../people-memory
 
-  packages/modules/alerts:
-    dependencies:
-      '@lume-hub/kernel':
-        specifier: workspace:*
-        version: link:../../foundation/kernel
-
   packages/modules/assistant-context:
     dependencies:
       '@lume-hub/group-directory':
@@ -273,12 +321,6 @@ importers:
       '@lume-hub/persistence-group-files':
         specifier: workspace:*
         version: link:../../adapters/persistence-group-files
-
-  packages/modules/automations:
-    dependencies:
-      '@lume-hub/kernel':
-        specifier: workspace:*
-        version: link:../../foundation/kernel
 
   packages/modules/codex-auth-router:
     dependencies:

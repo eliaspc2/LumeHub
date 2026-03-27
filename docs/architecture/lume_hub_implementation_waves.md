@@ -6,20 +6,21 @@ Regra editorial:
 - waves concluidas devem sair daqui
 - o plano ativo deve ficar curto e legivel
 - novas waves so devem ser criadas quando existir trabalho suficientemente coeso, validavel e com fronteira clara
+- sempre que abrir uma nova ronda de waves, essa ronda deve terminar com uma wave final de limpeza
 
 ## Estado atual
 
-As `Wave 0` a `Wave 17` ja foram executadas e validadas.
-O backlog restante foi agora reagrupado em novas waves de fecho para runtime real.
+As `Wave 0` a `Wave 18` ja foram executadas e validadas.
+O backlog restante continua organizado em waves de fecho para runtime real.
 
 As waves ativas passam a ser:
 
-- `Wave 18`
 - `Wave 19`
 - `Wave 20`
 - `Wave 21`
 - `Wave 22`
 - `Wave 23`
+- `Wave 24`
 
 Objetivo desta nova ronda:
 
@@ -75,6 +76,9 @@ Se surgir uma nova wave:
   - confirmar que a UI monta
   - confirmar que nao ha ecra branco
   - confirmar que nao ha erro relevante de runtime/consola
+- se for aberta uma nova ronda:
+  - reservar desde logo a ultima wave dessa ronda para limpeza final
+  - essa wave deve remover lixo tecnico e documental criado ou tornado obsoleto pela propria ronda
 
 Rebuild minimo esperado:
 
@@ -87,37 +91,6 @@ Se tocar backend, HTTP, WS ou runtime:
 - validar que a UI continua a abrir e a consumir a API esperada
 
 ## Waves ativas
-
-## Wave 18 - Composition root e runtime real do backend
-
-Objetivo:
-- substituir o bootstrap placeholder por composition root real do produto
-
-Entregaveis:
-- `ModuleLoader` com carga real de modules e adapters
-- `ModuleGraphBuilder` com ordem/dependencias declaradas
-- `KernelFactory` a criar runtime real do backend
-- `AppBootstrap` a subir backend funcional e nao apenas processo vivo
-- configuracao minima de runtime para host, paths, ticks e modulos base
-
-Criterios de aceitacao:
-- o backend arranca e pára sem placeholders estruturais
-- `dashboard`, `settings`, `groups` e `watchdog` ficam acessiveis a partir do runtime real
-- o runtime usa os modulos reais ja existentes em vez de `[]` ou wiring vazio
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave18`
-
-Melhor momento para testar:
-- testar aqui, porque e a melhor altura para apanhar conflitos de wiring sem ainda misturar WhatsApp live ou LLM real
-
-O que testar:
-- arranque e paragem do backend
-- leitura de health/dashboard reais
-- ausencia de crash no arranque e no idle
-- consistencia entre `host lifecycle`, `system power`, `watchdog` e `settings`
 
 ## Wave 19 - HTTP, WS e modo live verdadeiro
 
@@ -277,6 +250,37 @@ O que testar:
 - reconnect do WhatsApp
 - fluxos completos de agendamento, distribuicao, conversa e permissao
 - verificacao do launcher, da pagina web e dos sinais operacionais
+
+## Wave 24 - Limpeza final da ronda de runtime real
+
+Objetivo:
+- fechar a ronda `Wave 18` a `Wave 23` sem lixo tecnico nem documental
+
+Entregaveis:
+- remocao de stubs, adaptadores temporarios e validadores supersedidos pela ronda
+- poda de notas, docs e backlog que tenham ficado ultrapassados
+- limpeza de wiring temporario que tenha sido usado para migrar entre fases
+- alinhamento final de `README.md`, `AGENTS.md`, `gap_audit` e plano de waves ao estado real
+
+Criterios de aceitacao:
+- o repositorio fica sem restos de transicao desnecessarios desta ronda
+- o backlog final descreve apenas o que continuar realmente por fazer
+- a documentacao principal descreve o sistema resultante e nao o caminho intermedio
+
+Rebuild e validacao minima:
+- `corepack pnpm run typecheck`
+- `corepack pnpm run build`
+- `corepack pnpm run test`
+- `corepack pnpm run validate:wave24`
+
+Melhor momento para testar:
+- testar aqui a regressao final depois do cutover, para confirmar que a limpeza nao retirou nada importante
+
+O que testar:
+- arranque normal do produto em `Live`
+- repeticao rapida dos fluxos principais das `Wave 18` a `Wave 23`
+- verificacao da documentacao principal e do launcher
+- confirmacao de que o repositorio ficou mais claro e nao mais opaco
 
 ## Fora de scope destas waves
 

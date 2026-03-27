@@ -3,21 +3,19 @@
 Data: `2026-03-27`
 
 Objetivo:
-- descrever apenas os gaps reais que restam depois das `Wave 0` a `Wave 17`
+- descrever apenas os gaps reais que restam depois das `Wave 0` a `Wave 18`
 - evitar backlog preso a estado antigo do frontend ou a scaffolds ja removidos
 
 ## Resumo executivo
 
 Conclusao curta:
-- as `Wave 0` a `Wave 17` ficaram executadas e validadas
+- as `Wave 0` a `Wave 18` ficaram executadas e validadas
 - o frontend operacional ja existe e a limpeza final do repositorio foi feita
 - o backlog restante voltou a estar organizado em waves ativas
 - o backlog restante esta concentrado em integracoes reais de runtime e robustez de producao
 
 Plano ativo de fecho:
 
-- `Wave 18`
-  - composition root e runtime real do backend
 - `Wave 19`
   - HTTP, WS e `Live` verdadeiro
 - `Wave 20`
@@ -28,6 +26,8 @@ Plano ativo de fecho:
   - API operacional completa e `weekly-planner` real
 - `Wave 23`
   - hardening, cobertura e cutover para uso real
+- `Wave 24`
+  - limpeza final da ronda de runtime real
 
 Em particular, ja nao faz sentido falar de:
 
@@ -56,23 +56,7 @@ As seguintes areas existem com base razoavel:
 
 ## Gaps reais por prioridade
 
-### 1. O backend publicado ainda nao tem composition root real
-
-Estado atual:
-- `apps/lume-hub-backend/src/bootstrap/ModuleLoader.ts` continua a devolver `[]`
-- `ModuleGraphBuilder.ts` continua a devolver `[]`
-- `KernelFactory.ts` cria `new ApplicationKernel()` sem carregar o produto real
-
-Impacto:
-- o bundle existe, mas o backend publicado ainda nao representa um runtime de produto completo
-
-Onde fechar:
-- `apps/lume-hub-backend/src/bootstrap/ModuleLoader.ts`
-- `apps/lume-hub-backend/src/bootstrap/ModuleGraphBuilder.ts`
-- `apps/lume-hub-backend/src/bootstrap/KernelFactory.ts`
-- `apps/lume-hub-backend/src/bootstrap/AppBootstrap.ts`
-
-### 2. HTTP e WS reais continuam em falta
+### 1. HTTP e WS reais continuam em falta
 
 Estado atual:
 - `http-fastify` continua centrado em `inject()`
@@ -86,7 +70,7 @@ Onde fechar:
 - `source/packages/adapters/ws-fastify`
 - `source/apps/lume-hub-backend`
 
-### 3. A integracao WhatsApp live continua por fazer
+### 2. A integracao WhatsApp live continua por fazer
 
 Estado atual:
 - o adapter `whatsapp-baileys` ainda nao faz socket real, QR real nem descoberta live de grupos/conversas
@@ -102,7 +86,7 @@ Onde fechar:
 - `source/packages/adapters/http-fastify`
 - `source/packages/adapters/ws-fastify`
 
-### 4. O pipeline inbound -> conversa -> reply -> envio nao esta ligado no runtime
+### 3. O pipeline inbound -> conversa -> reply -> envio nao esta ligado no runtime
 
 Estado atual:
 - `conversation`, `assistant-context` e `agent-runtime` existem
@@ -115,7 +99,7 @@ Onde fechar:
 - `source/packages/modules/agent-runtime`
 - `source/packages/adapters/whatsapp-baileys`
 
-### 5. Os providers LLM reais ainda sao stubs
+### 4. Os providers LLM reais ainda sao stubs
 
 Estado atual:
 - `llm-codex-oauth` e `llm-openai-compat` ainda expõem apenas `describe()`
@@ -129,7 +113,7 @@ Onde fechar:
 - `source/packages/modules/llm-orchestrator`
 - `source/packages/modules/codex-auth-router`
 
-### 6. A API do produto continua parcial
+### 5. A API do produto continua parcial
 
 Estado atual:
 - existem endpoints para dashboard, groups, people, routing, watchdog, settings e workspace WhatsApp
@@ -147,7 +131,7 @@ Onde fechar:
 - `source/packages/adapters/http-fastify`
 - modulos de scheduling, instruction queue, conversation e llm
 
-### 7. `weekly-planner` do dominio ainda esta minimo
+### 6. `weekly-planner` do dominio ainda esta minimo
 
 Estado atual:
 - `source/packages/modules/weekly-planner` continua a ser um modulo estrutural sem comportamento real
@@ -159,7 +143,7 @@ Onde fechar:
 - `source/packages/modules/weekly-planner`
 - depois ligar a `source/packages/ui-modules/week-planner`
 
-### 8. A cobertura de testes continua curta para o produto final
+### 7. A cobertura de testes continua curta para o produto final
 
 Estado atual:
 - continuam a existir poucos testes centrais:
@@ -174,7 +158,7 @@ Onde fechar:
 - `source/tests/*`
 - e idealmente suites locais em packages criticos
 
-### 9. `alerts` e `automations` sairam do workspace ativo
+### 8. `alerts` e `automations` sairam do workspace ativo
 
 Estado atual:
 - os antigos packages `source/packages/modules/alerts` e `source/packages/modules/automations` eram stubs vazios
@@ -186,12 +170,12 @@ Regra daqui para a frente:
 
 ## Ordem recomendada para o backlog restante
 
-1. `Wave 18`
-2. `Wave 19`
-3. `Wave 20`
-4. `Wave 21`
-5. `Wave 22`
-6. `Wave 23`
+1. `Wave 19`
+2. `Wave 20`
+3. `Wave 21`
+4. `Wave 22`
+5. `Wave 23`
+6. `Wave 24`
 
 ## Nota final
 

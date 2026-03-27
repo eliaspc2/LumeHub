@@ -217,17 +217,20 @@ Na `Wave 12`, o fluxo canónico passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 17` ja foram executadas e validadas.
+As `Wave 0` a `Wave 18` ja foram executadas e validadas.
 Neste momento:
 
 - o frontend operacional das `Wave 13` a `Wave 16` ficou fechado
 - a `Wave 17` limpou stubs mortos, docs obsoletas e legado ja supersedido
-- o backlog restante foi reaberto como `Wave 18` a `Wave 23`
+- a `Wave 18` fechou a composition root e o runtime real de backend em memoria
+- o backlog restante ficou agora em `Wave 19` a `Wave 24`
 - essas waves focam:
-  - backend real
   - HTTP/WS reais
   - WhatsApp live
   - providers LLM reais
   - API operacional completa
   - hardening e cutover
+  - limpeza final da ronda
+- regra de processo:
+  - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
 - o objetivo explicito desta nova ronda e chegar a runtime `Live` funcional como substituicao do sistema anterior
