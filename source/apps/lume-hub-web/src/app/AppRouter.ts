@@ -77,11 +77,27 @@ export class AppRouter {
         description: 'Area semanal preparada para crescer com uma visao de agenda mais visual.',
         legacyRoutes: ['/week-planner'],
         render: async () =>
-          this.weekPlanner.render({
-            timezone: 'Europe/Lisbon',
-            focusWeekLabel: formatCurrentIsoWeek(new Date()),
-            groupsKnown: (await this.readQuery('groups', () => this.client.listGroups())).length,
-          }),
+          {
+            const [groups, settings] = await Promise.all([
+              this.readQuery('groups', () => this.client.listGroups()),
+              this.readQuery('settings', () => this.client.getSettings()),
+            ]);
+
+            return this.weekPlanner.render({
+              timezone: 'Europe/Lisbon',
+              focusWeekLabel: formatCurrentIsoWeek(new Date()),
+              groupsKnown: groups.length,
+              groups: groups.map((group) => ({
+                groupJid: group.groupJid,
+                preferredSubject: group.preferredSubject,
+                courseId: group.courseId,
+                ownerLabels: group.groupOwners.map((owner) => owner.personId),
+              })),
+              defaultNotificationRuleLabels: settings.adminSettings.ui.defaultNotificationRules.map(
+                (rule) => rule.label ?? rule.kind,
+              ),
+            });
+          },
       },
       {
         route: this.assistant.config.route,
@@ -108,6 +124,10 @@ export class AppRouter {
           this.routing.render({
             rules: await this.readQuery('routing-rules', () => this.client.listRoutingRules()),
             distributions: await this.readQuery('routing-distributions', () => this.client.listDistributions()),
+            groups: (await this.readQuery('groups', () => this.client.listGroups())).map((group) => ({
+              groupJid: group.groupJid,
+              preferredSubject: group.preferredSubject,
+            })),
           }),
       },
       {

@@ -12,13 +12,17 @@ import {
   escapeHtml,
   renderUiActionButton,
   renderUiBadge,
+  renderUiInputField,
   renderUiMetricCard,
   renderUiPanelCard,
   renderUiRecordCard,
+  renderUiSelectField,
+  renderUiTextAreaField,
   renderUiToggleButton,
   type UiPage,
   type UiTone,
 } from '@lume-hub/shared-ui';
+import type { WeekPlannerSnapshot } from '@lume-hub/week-planner';
 
 import type { FrontendTransportMode } from '../app/BrowserTransportFactory.js';
 import type { AppRouteDefinition, AppRouter } from '../app/AppRouter.js';
@@ -26,6 +30,22 @@ import type { WebAppBootstrap } from '../app/WebAppBootstrap.js';
 
 type PreviewState = 'none' | 'loading' | 'empty' | 'offline' | 'error';
 type ScreenState = 'loading' | 'ready' | 'empty' | 'offline' | 'error';
+
+interface GuidedScheduleDraft {
+  readonly groupJid: string;
+  readonly title: string;
+  readonly dayLabel: string;
+  readonly startTime: string;
+  readonly durationMinutes: string;
+  readonly notes: string;
+}
+
+interface GuidedDistributionDraft {
+  readonly ruleId: string;
+  readonly messageSummary: string;
+  readonly urgency: string;
+  readonly confirmationMode: string;
+}
 
 interface AppShellState {
   readonly mode: FrontendTransportMode;
@@ -36,6 +56,14 @@ interface AppShellState {
   readonly errorMessage: string | null;
   readonly liveEvents: readonly FrontendUiEvent[];
   readonly lastLoadedAt: string | null;
+  readonly scheduleDraft: GuidedScheduleDraft;
+  readonly distributionDraft: GuidedDistributionDraft;
+  readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
+  readonly dismissedWatchdogIssueIds: readonly string[];
+  readonly flowFeedback: {
+    readonly tone: UiTone;
+    readonly message: string;
+  } | null;
 }
 
 export class AppShell {
@@ -60,6 +88,23 @@ export class AppShell {
       errorMessage: null,
       liveEvents: [],
       lastLoadedAt: null,
+      scheduleDraft: {
+        groupJid: '',
+        title: '',
+        dayLabel: 'sexta-feira',
+        startTime: '18:30',
+        durationMinutes: '60',
+        notes: '',
+      },
+      distributionDraft: {
+        ruleId: '',
+        messageSummary: '',
+        urgency: 'normal',
+        confirmationMode: 'rule_default',
+      },
+      whatsappRepairFocus: 'auth',
+      dismissedWatchdogIssueIds: [],
+      flowFeedback: null,
     };
   }
 
@@ -236,6 +281,7 @@ export class AppShell {
           </header>
 
           <main class="page-stack">
+            ${this.state.flowFeedback ? `<section class="surface flow-feedback flow-feedback--${this.state.flowFeedback.tone}"><p>${escapeHtml(this.state.flowFeedback.message)}</p></section>` : ''}
             ${this.renderMainContent(currentRoute)}
           </main>
         </div>
@@ -367,6 +413,8 @@ export class AppShell {
     switch (this.state.page.route) {
       case '/today':
         return this.renderTodayPage(this.state.page as UiPage<DashboardSnapshot>);
+      case '/week':
+        return this.renderWeekPage(this.state.page as UiPage<WeekPlannerSnapshot>);
       case '/groups':
         return this.renderGroupsPage(this.state.page as UiPage<readonly Group[]>);
       case '/whatsapp':
@@ -425,6 +473,57 @@ export class AppShell {
         ${renderUiMetricCard({ title: 'Problemas ativos', value: String(snapshot.watchdog.openIssues), tone: snapshot.watchdog.openIssues > 0 ? 'warning' : 'positive', description: 'Issues que merecem acao agora.' })}
         ${renderUiMetricCard({ title: 'Distribuicoes em curso', value: String(snapshot.distributions.running + snapshot.distributions.queued), tone: snapshot.distributions.running > 0 ? 'warning' : 'neutral', description: 'Campanhas a correr ou em espera.' })}
         ${renderUiMetricCard({ title: 'Grupos com owner', value: `${snapshot.groups.withOwners}/${snapshot.groups.total}`, tone: 'neutral', description: 'Cobertura operacional do diretorio de grupos.' })}
+      </section>
+
+      <section class="card-grid">
+        ${renderUiRecordCard({
+          title: 'Criar agendamento',
+          subtitle: 'Fluxo guiado com preview antes de confirmar.',
+          badgeLabel: 'Passo a passo',
+          badgeTone: 'positive',
+          bodyHtml: `
+            <p>Escolhe grupo, hora e notas sem ver IDs internos.</p>
+            <div class="action-row">
+              ${renderUiActionButton({ label: 'Abrir fluxo', href: '/week', dataAttributes: { route: '/week' } })}
+            </div>
+          `,
+        })}
+        ${renderUiRecordCard({
+          title: 'Distribuir mensagem',
+          subtitle: 'Preview de fan-out multi-grupo com confirmacao clara.',
+          badgeLabel: 'Com preview',
+          badgeTone: 'warning',
+          bodyHtml: `
+            <p>Prepara a distribuicao e valida os alvos antes de enviar.</p>
+            <div class="action-row">
+              ${renderUiActionButton({ label: 'Abrir distribuicoes', href: '/distributions', dataAttributes: { route: '/distributions' } })}
+            </div>
+          `,
+        })}
+        ${renderUiRecordCard({
+          title: 'Ligar ou reparar WhatsApp',
+          subtitle: 'Checklist guiada para auth, descoberta e permissoes.',
+          badgeLabel: snapshot.hostCompanion.authExists ? 'Sessao presente' : 'Precisa de atencao',
+          badgeTone: snapshot.hostCompanion.authExists ? 'positive' : 'danger',
+          bodyHtml: `
+            <p>Segue uma ordem clara para recuperar a ligacao sem mexer as cegas.</p>
+            <div class="action-row">
+              ${renderUiActionButton({ label: 'Abrir WhatsApp', href: '/whatsapp', dataAttributes: { route: '/whatsapp' } })}
+            </div>
+          `,
+        })}
+        ${renderUiRecordCard({
+          title: 'Resolver problema watchdog',
+          subtitle: 'Inbox operacional com proximo passo recomendado.',
+          badgeLabel: snapshot.watchdog.openIssues > 0 ? 'Resolver agora' : 'Sem bloqueios',
+          badgeTone: snapshot.watchdog.openIssues > 0 ? 'warning' : 'positive',
+          bodyHtml: `
+            <p>Ve a issue mais urgente e marca-a como revista quando terminares.</p>
+            <div class="action-row">
+              ${renderUiActionButton({ label: 'Abrir watchdog', href: '/watchdog', dataAttributes: { route: '/watchdog' } })}
+            </div>
+          `,
+        })}
       </section>
 
       <section class="content-grid">
@@ -490,6 +589,185 @@ export class AppShell {
               .join('')}
           </ul>
         </article>
+      </section>
+    `;
+  }
+
+  private renderWeekPage(page: UiPage<WeekPlannerSnapshot>): string {
+    const groups = page.data.groups;
+    const draft = resolveScheduleDraft(this.state.scheduleDraft, groups);
+    const selectedGroup = groups.find((group) => group.groupJid === draft.groupJid) ?? null;
+    const notificationLabels = page.data.defaultNotificationRuleLabels.length > 0
+      ? page.data.defaultNotificationRuleLabels
+      : ['24h antes', '30 min antes'];
+    const examples = groups.slice(0, 3).map((group, index) => ({
+      key: group.groupJid,
+      title: index === 0 ? 'Aula regular' : index === 1 ? 'Reposicao' : 'Sessao especial',
+      notes:
+        index === 0
+          ? 'Mantem o horario habitual e replica os avisos default.'
+          : index === 1
+            ? 'Usa este exemplo para mover ou reforcar uma aula ja prevista.'
+            : 'Bom para eventos pontuais, ensaios ou comunicados com hora marcada.',
+      preview: buildScheduleExample(group, index),
+    }));
+
+    return `
+      <section class="surface hero surface--strong">
+        <div>
+          <p class="eyebrow">Criar agendamento</p>
+          <h2>Fluxo guiado para montar ou ajustar um agendamento sem mexer em termos internos.</h2>
+          <p>${escapeHtml(page.description)}</p>
+          <div class="action-row">
+            ${renderUiActionButton({
+              label: 'Guardar rascunho',
+              dataAttributes: { 'flow-action': 'schedule-save' },
+            })}
+            ${renderUiActionButton({
+              label: 'Limpar formulario',
+              variant: 'secondary',
+              dataAttributes: { 'flow-action': 'schedule-clear' },
+            })}
+          </div>
+        </div>
+        <div class="hero-panel">
+          ${renderUiPanelCard({
+            title: 'Semana em foco',
+            badgeLabel: page.data.focusWeekLabel,
+            badgeTone: 'neutral',
+            contentHtml: `<p>${escapeHtml(`Timezone ${page.data.timezone}. ${groups.length} grupos prontos para usar neste fluxo.`)}</p>`,
+          })}
+          ${renderUiPanelCard({
+            title: 'Como validar',
+            badgeLabel: 'Preview antes de gravar',
+            badgeTone: 'positive',
+            contentHtml: '<p>Preenche grupo, hora e notas. O preview humano mostra logo o que vai acontecer e quais os avisos associados.</p>',
+          })}
+        </div>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-7">
+          <div class="card-header">
+            <h3>Passo 1. Dados base do agendamento</h3>
+            ${renderUiBadge({ label: selectedGroup ? 'Pronto para preview' : 'Escolhe um grupo', tone: selectedGroup ? 'positive' : 'warning' })}
+          </div>
+          <div class="ui-form-grid">
+            ${renderUiSelectField({
+              label: 'Grupo',
+              value: draft.groupJid,
+              dataKey: 'schedule.groupJid',
+              options: groups.map((group) => ({
+                value: group.groupJid,
+                label: group.preferredSubject,
+              })),
+              hint: 'Escolhe o grupo sem precisares de ver JIDs.',
+            })}
+            ${renderUiInputField({
+              label: 'Titulo',
+              value: draft.title,
+              dataKey: 'schedule.title',
+              placeholder: 'Ex.: Aula aberta de sexta',
+              hint: 'Usa um titulo humano e curto.',
+            })}
+            ${renderUiSelectField({
+              label: 'Dia',
+              value: draft.dayLabel,
+              dataKey: 'schedule.dayLabel',
+              options: [
+                { value: 'segunda-feira', label: 'Segunda-feira' },
+                { value: 'terca-feira', label: 'Terca-feira' },
+                { value: 'quarta-feira', label: 'Quarta-feira' },
+                { value: 'quinta-feira', label: 'Quinta-feira' },
+                { value: 'sexta-feira', label: 'Sexta-feira' },
+                { value: 'sabado', label: 'Sabado' },
+              ],
+            })}
+            ${renderUiInputField({
+              label: 'Hora',
+              value: draft.startTime,
+              dataKey: 'schedule.startTime',
+              type: 'time',
+            })}
+            ${renderUiSelectField({
+              label: 'Duracao',
+              value: draft.durationMinutes,
+              dataKey: 'schedule.durationMinutes',
+              options: [
+                { value: '45', label: '45 minutos' },
+                { value: '60', label: '60 minutos' },
+                { value: '75', label: '75 minutos' },
+                { value: '90', label: '90 minutos' },
+              ],
+            })}
+            ${renderUiTextAreaField({
+              label: 'Notas para a equipa',
+              value: draft.notes,
+              dataKey: 'schedule.notes',
+              rows: 4,
+              placeholder: 'Ex.: levar material de ensaio e confirmar sala 2.',
+              hint: 'Esta nota aparece no preview para veres se a mensagem ficou clara.',
+            })}
+          </div>
+        </article>
+
+        <article class="surface content-card span-5">
+          <div class="card-header">
+            <h3>Passo 2. Preview humano</h3>
+            ${renderUiBadge({ label: 'Antes de confirmar', tone: 'neutral' })}
+          </div>
+          <div class="guide-preview">
+            <p><strong>Grupo</strong>: ${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe um grupo')}</p>
+            <p><strong>Quando</strong>: ${escapeHtml(`${draft.dayLabel}, ${draft.startTime}`)}</p>
+            <p><strong>Duracao</strong>: ${escapeHtml(`${draft.durationMinutes} minutos`)}</p>
+            <p><strong>Owners</strong>: ${escapeHtml(
+              selectedGroup
+                ? selectedGroup.ownerLabels.length > 0
+                  ? `${selectedGroup.ownerLabels.length} owner(s) definidos`
+                  : 'sem owner definido'
+                : 'sem owner definido',
+            )}</p>
+            <p><strong>Mensagem interna</strong>: ${escapeHtml(draft.notes || 'Sem nota adicional. Vais poder rever isto antes de gravar de forma real numa wave posterior.')}</p>
+            <div class="ui-card__chips">
+              ${notificationLabels.map((label) => renderUiBadge({ label, tone: 'positive', style: 'chip' })).join('')}
+            </div>
+          </div>
+          <ul>
+            <li>O fluxo ja elimina IDs e JIDs da operacao principal.</li>
+            <li>O proximo passo de produto sera ligar este formulario aos eventos reais do calendario.</li>
+            <li>Para ja, o objetivo e validar compreensao, preview e seguranca de uso.</li>
+          </ul>
+        </article>
+      </section>
+
+      <section class="card-grid">
+        ${examples
+          .map((example) =>
+            renderUiRecordCard({
+              title: example.title,
+              subtitle: example.notes,
+              badgeLabel: example.preview.dayLabel,
+              badgeTone: 'neutral',
+              bodyHtml: `
+                <ul>
+                  <li>Grupo: ${escapeHtml(example.preview.groupLabel)}</li>
+                  <li>Hora: ${escapeHtml(example.preview.startTime)}</li>
+                  <li>Duracao: ${escapeHtml(example.preview.durationMinutes)} min</li>
+                </ul>
+                <div class="action-row">
+                  ${renderUiActionButton({
+                    label: 'Usar como base',
+                    variant: 'secondary',
+                    dataAttributes: {
+                      'flow-action': 'schedule-load-example',
+                      'flow-value': example.key,
+                    },
+                  })}
+                </div>
+              `,
+            }),
+          )
+          .join('')}
       </section>
     `;
   }
@@ -582,6 +860,49 @@ export class AppShell {
       </section>
 
       <section class="content-grid">
+        <article class="surface content-card span-12">
+          <div class="card-header">
+            <h3>Fluxo guiado para ligar ou reparar WhatsApp</h3>
+            ${renderUiBadge({ label: readableRepairFocus(this.state.whatsappRepairFocus), tone: repairTone(this.state.whatsappRepairFocus, snapshot) })}
+          </div>
+          <div class="action-row">
+            ${renderUiActionButton({
+              label: 'Auth',
+              variant: this.state.whatsappRepairFocus === 'auth' ? 'primary' : 'secondary',
+              dataAttributes: { 'flow-action': 'repair-focus', 'flow-value': 'auth' },
+            })}
+            ${renderUiActionButton({
+              label: 'Grupos',
+              variant: this.state.whatsappRepairFocus === 'groups' ? 'primary' : 'secondary',
+              dataAttributes: { 'flow-action': 'repair-focus', 'flow-value': 'groups' },
+            })}
+            ${renderUiActionButton({
+              label: 'Permissoes',
+              variant: this.state.whatsappRepairFocus === 'permissions' ? 'primary' : 'secondary',
+              dataAttributes: { 'flow-action': 'repair-focus', 'flow-value': 'permissions' },
+            })}
+          </div>
+          <div class="content-grid">
+            <article class="surface content-card span-7">
+              <div class="card-header">
+                <h3>Passos recomendados</h3>
+              </div>
+              ${renderRepairChecklist(this.state.whatsappRepairFocus, snapshot)}
+            </article>
+            <article class="surface content-card span-5">
+              <div class="card-header">
+                <h3>Leitura rapida do estado</h3>
+              </div>
+              <ul>
+                <li>Auth presente: ${snapshot.host.authExists ? 'sim' : 'nao'}</li>
+                <li>Descoberta de grupos: ${snapshot.settings.whatsapp.groupDiscoveryEnabled ? 'ativa' : 'desligada'}</li>
+                <li>Descoberta de conversas: ${snapshot.settings.whatsapp.conversationDiscoveryEnabled ? 'ativa' : 'desligada'}</li>
+                <li>Assistente privado: ${snapshot.settings.commands.allowPrivateAssistant ? 'permitido' : 'bloqueado'}</li>
+              </ul>
+            </article>
+          </div>
+        </article>
+
         <article class="surface content-card span-4">
           <div class="card-header">
             <h3>App owners</h3>
@@ -657,6 +978,11 @@ export class AppShell {
 
   private renderRoutingPage(page: UiPage<RoutingConsoleSnapshot>): string {
     const snapshot = page.data;
+    const draft = resolveDistributionDraft(this.state.distributionDraft, snapshot.rules);
+    const selectedRule = snapshot.rules.find((rule) => rule.ruleId === draft.ruleId) ?? null;
+    const targetLabels = (selectedRule?.targetGroupJids ?? []).map(
+      (groupJid) => snapshot.groups.find((group) => group.groupJid === groupJid)?.preferredSubject ?? groupJid,
+    );
 
     return `
       <section class="surface hero surface--strong">
@@ -664,6 +990,17 @@ export class AppShell {
           <p class="eyebrow">Distribuicoes</p>
           <h2>Regras declarativas e campanhas em andamento numa vista mais legivel.</h2>
           <p>${escapeHtml(page.description)}</p>
+          <div class="action-row">
+            ${renderUiActionButton({
+              label: 'Preparar preview',
+              dataAttributes: { 'flow-action': 'distribution-save' },
+            })}
+            ${renderUiActionButton({
+              label: 'Limpar fluxo',
+              variant: 'secondary',
+              dataAttributes: { 'flow-action': 'distribution-clear' },
+            })}
+          </div>
         </div>
         <div class="hero-panel">
           ${renderUiPanelCard({
@@ -672,8 +1009,102 @@ export class AppShell {
             badgeTone: 'neutral',
             contentHtml: `<p>${escapeHtml(`${snapshot.rules.length} regras ativas alimentam o plano de distribuicao multi-grupo.`)}</p>`,
           })}
+          ${renderUiPanelCard({
+            title: 'Fluxo guiado',
+            badgeLabel: selectedRule ? 'Preview pronto' : 'Escolhe um remetente',
+            badgeTone: selectedRule ? 'positive' : 'warning',
+            contentHtml: '<p>Escreve a mensagem, valida os alvos e decide se queres confirmacao antes de distribuir.</p>',
+          })}
         </div>
       </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-5">
+          <div class="card-header">
+            <h3>Passo 1. Preparar a distribuicao</h3>
+            ${renderUiBadge({ label: selectedRule ? 'Fluxo preenchido' : 'Falta escolher regra', tone: selectedRule ? 'positive' : 'warning' })}
+          </div>
+          ${
+            snapshot.rules.length > 0
+              ? `
+                <div class="ui-form-grid">
+                  ${renderUiSelectField({
+                    label: 'Remetente / regra',
+                    value: draft.ruleId,
+                    dataKey: 'distribution.ruleId',
+                    options: snapshot.rules.map((rule) => ({
+                      value: rule.ruleId,
+                      label: rule.personId ?? rule.ruleId,
+                    })),
+                    hint: 'A ideia aqui e preparar o fan-out sem expor JIDs ou detalhes internos.',
+                  })}
+                  ${renderUiSelectField({
+                    label: 'Urgencia',
+                    value: draft.urgency,
+                    dataKey: 'distribution.urgency',
+                    options: [
+                      { value: 'normal', label: 'Normal' },
+                      { value: 'hoje', label: 'Para hoje' },
+                      { value: 'urgente', label: 'Urgente' },
+                    ],
+                  })}
+                  ${renderUiSelectField({
+                    label: 'Confirmacao',
+                    value: draft.confirmationMode,
+                    dataKey: 'distribution.confirmationMode',
+                    options: [
+                      { value: 'rule_default', label: 'Usar a regra atual' },
+                      { value: 'force_confirmation', label: 'Pedir confirmacao' },
+                      { value: 'direct', label: 'Distribuicao direta' },
+                    ],
+                  })}
+                  ${renderUiTextAreaField({
+                    label: 'Mensagem',
+                    value: draft.messageSummary,
+                    dataKey: 'distribution.messageSummary',
+                    rows: 5,
+                    placeholder: 'Ex.: Aula de amanha passa para sala 2. Confirmem rececao.',
+                    hint: 'Escreve aqui a mensagem humana antes de espalhar pelos grupos.',
+                  })}
+                </div>
+              `
+              : `
+                <section class="surface placeholder-card">
+                  <div>
+                    <p class="eyebrow">Sem regras</p>
+                    <h3>Este fluxo precisa de pelo menos uma regra de routing</h3>
+                    <p>Quando existirem regras, esta pagina passa a orientar a distribuicao passo a passo sem linguagem interna.</p>
+                  </div>
+                </section>
+              `
+          }
+        </article>
+
+        <article class="surface content-card span-7">
+          <div class="card-header">
+            <h3>Passo 2. Preview dos alvos</h3>
+            ${renderUiBadge({ label: `${targetLabels.length} grupos alvo`, tone: targetLabels.length > 0 ? 'positive' : 'neutral' })}
+          </div>
+          <div class="guide-preview">
+            <p><strong>Mensagem</strong>: ${escapeHtml(draft.messageSummary || 'Escreve primeiro a mensagem principal para veres o preview.')}</p>
+            <p><strong>Urgencia</strong>: ${escapeHtml(draft.urgency)}</p>
+            <p><strong>Confirmacao</strong>: ${escapeHtml(readableConfirmationMode(draft.confirmationMode, selectedRule?.requiresConfirmation ?? false))}</p>
+          </div>
+          <div class="ui-card__chips">
+            ${
+              targetLabels.length > 0
+                ? targetLabels.map((label) => renderUiBadge({ label, tone: 'positive', style: 'chip' })).join('')
+                : renderUiBadge({ label: 'Sem grupos alvo selecionados', tone: 'warning', style: 'chip' })
+            }
+          </div>
+          <ul>
+            <li>O preview ajuda a travar fan-out precipitado para grupos errados.</li>
+            <li>Se houver confirmacao, a mensagem continua a chegar ao operador antes da distribuicao final.</li>
+            <li>O passo seguinte desta area e ligar este preview a execucao real por destino.</li>
+          </ul>
+        </article>
+      </section>
+
       <section class="content-grid">
         <article class="surface content-card span-5">
           <div class="card-header">
@@ -735,7 +1166,8 @@ export class AppShell {
   }
 
   private renderWatchdogPage(page: UiPage<readonly WatchdogIssue[]>): string {
-    const issues = page.data;
+    const issues = page.data.filter((issue) => !this.state.dismissedWatchdogIssueIds.includes(issue.issueId));
+    const firstIssue = issues[0] ?? null;
 
     return `
       <section class="surface hero surface--strong">
@@ -757,6 +1189,56 @@ export class AppShell {
           })}
         </div>
       </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-12">
+          <div class="card-header">
+            <h3>Fluxo guiado para resolver problema</h3>
+            ${renderUiBadge({ label: firstIssue ? 'Ha uma proxima acao clara' : 'Sem fila pendente', tone: firstIssue ? 'warning' : 'positive' })}
+          </div>
+          ${
+            firstIssue
+              ? `
+                <div class="content-grid">
+                  <article class="surface content-card span-7">
+                    <div class="card-header">
+                      <h3>Comeca por aqui</h3>
+                    </div>
+                    <ul>
+                      <li>Grupo: ${escapeHtml(firstIssue.groupLabel)}</li>
+                      <li>Resumo: ${escapeHtml(firstIssue.summary)}</li>
+                      <li>Tipo: ${escapeHtml(firstIssue.kind)}</li>
+                      <li>Aberta: ${escapeHtml(formatShortDateTime(firstIssue.openedAt))}</li>
+                    </ul>
+                  </article>
+                  <article class="surface content-card span-5">
+                    <div class="card-header">
+                      <h3>Passos recomendados</h3>
+                    </div>
+                    <ul>
+                      <li>Confirmar se o atraso ou falha ainda se mantem.</li>
+                      <li>Validar se houve entrega, confirmacao ou bloqueio real.</li>
+                      <li>Marcar como revista quando terminares a verificacao.</li>
+                    </ul>
+                    <div class="action-row">
+                      ${renderUiActionButton({
+                        label: 'Marcar como revista nesta sessao',
+                        dataAttributes: {
+                          'flow-action': 'watchdog-dismiss',
+                          'flow-value': firstIssue.issueId,
+                        },
+                      })}
+                    </div>
+                  </article>
+                </div>
+              `
+              : `
+                <p>Nao ha issues abertas. O fluxo guiado fica pronto para ser usado assim que aparecer um problema novo.</p>
+              `
+          }
+        </article>
+      </section>
+
       <section class="card-grid">
         ${
           issues.length > 0
@@ -925,6 +1407,166 @@ export class AppShell {
     `;
   }
 
+  private updateGuidedField(fieldKey: string, value: string): void {
+    switch (fieldKey) {
+      case 'schedule.groupJid':
+      case 'schedule.title':
+      case 'schedule.dayLabel':
+      case 'schedule.startTime':
+      case 'schedule.durationMinutes':
+      case 'schedule.notes':
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          scheduleDraft: {
+            ...this.state.scheduleDraft,
+            [fieldKey.replace('schedule.', '')]: value,
+          } as GuidedScheduleDraft,
+        };
+        this.render();
+        return;
+      case 'distribution.ruleId':
+      case 'distribution.messageSummary':
+      case 'distribution.urgency':
+      case 'distribution.confirmationMode':
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          distributionDraft: {
+            ...this.state.distributionDraft,
+            [fieldKey.replace('distribution.', '')]: value,
+          } as GuidedDistributionDraft,
+        };
+        this.render();
+        return;
+      default:
+        return;
+    }
+  }
+
+  private handleFlowAction(action: string, value?: string): void {
+    if (action === 'schedule-save') {
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'positive',
+          message: 'Rascunho de agendamento guardado nesta sessao para continuares a validacao do fluxo.',
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'schedule-clear') {
+      this.state = {
+        ...this.state,
+        scheduleDraft: {
+          groupJid: '',
+          title: '',
+          dayLabel: 'sexta-feira',
+          startTime: '18:30',
+          durationMinutes: '60',
+          notes: '',
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'Formulario de agendamento limpo. Podes testar o fluxo outra vez.',
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'schedule-load-example') {
+      const page = this.state.page as UiPage<WeekPlannerSnapshot> | null;
+
+      if (!page || page.route !== '/week' || !value) {
+        return;
+      }
+
+      const group = page.data.groups.find((candidate) => candidate.groupJid === value);
+
+      if (!group) {
+        return;
+      }
+
+      const example = buildScheduleExample(group, 0);
+      this.state = {
+        ...this.state,
+        scheduleDraft: {
+          groupJid: group.groupJid,
+          title: example.title,
+          dayLabel: example.dayLabel,
+          startTime: example.startTime,
+          durationMinutes: example.durationMinutes,
+          notes: example.notes,
+        },
+        flowFeedback: {
+          tone: 'positive',
+          message: `Preenchemos o fluxo com um exemplo base para ${group.preferredSubject}.`,
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'distribution-save') {
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'positive',
+          message: 'Preview de distribuicao preparado. Revê os grupos alvo antes de passar a execucao real.',
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'distribution-clear') {
+      this.state = {
+        ...this.state,
+        distributionDraft: {
+          ruleId: '',
+          messageSummary: '',
+          urgency: 'normal',
+          confirmationMode: 'rule_default',
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'Fluxo de distribuicao limpo para um novo teste.',
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'repair-focus' && (value === 'auth' || value === 'groups' || value === 'permissions')) {
+      this.state = {
+        ...this.state,
+        whatsappRepairFocus: value,
+        flowFeedback: null,
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'watchdog-dismiss' && value) {
+      if (this.state.dismissedWatchdogIssueIds.includes(value)) {
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        dismissedWatchdogIssueIds: [...this.state.dismissedWatchdogIssueIds, value],
+        flowFeedback: {
+          tone: 'positive',
+          message: 'Issue marcada como revista nesta sessao. A fila ficou mais clara para continuares.',
+        },
+      };
+      this.render();
+    }
+  }
+
   private bindInteractions(): void {
     if (!this.root) {
       return;
@@ -977,6 +1619,33 @@ export class AppShell {
           previewState: nextPreview,
         };
         void this.loadCurrentRoute({ replaceHistory: true });
+      });
+    }
+
+    for (const field of this.root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[data-field-key]')) {
+      const sync = () => {
+        const fieldKey = field.dataset.fieldKey;
+
+        if (!fieldKey) {
+          return;
+        }
+
+        this.updateGuidedField(fieldKey, field.value);
+      };
+
+      field.addEventListener(field instanceof HTMLSelectElement ? 'change' : 'input', sync);
+    }
+
+    for (const element of this.root.querySelectorAll<HTMLElement>('[data-flow-action]')) {
+      element.addEventListener('click', (event) => {
+        event.preventDefault();
+        const action = element.dataset.flowAction;
+
+        if (!action) {
+          return;
+        }
+
+        this.handleFlowAction(action, element.dataset.flowValue);
       });
     }
   }
@@ -1043,6 +1712,154 @@ function mapPreviewStateToScreenState(previewState: PreviewState): ScreenState {
     default:
       return 'ready';
   }
+}
+
+function resolveScheduleDraft(
+  draft: GuidedScheduleDraft,
+  groups: readonly WeekPlannerSnapshot['groups'][number][],
+): GuidedScheduleDraft {
+  const fallbackGroup = groups[0] ?? null;
+  const selectedGroup =
+    groups.find((group) => group.groupJid === draft.groupJid) ??
+    fallbackGroup;
+
+  return {
+    groupJid: selectedGroup?.groupJid ?? '',
+    title: draft.title || (selectedGroup ? `Sessao ${selectedGroup.preferredSubject}` : ''),
+    dayLabel: draft.dayLabel,
+    startTime: draft.startTime,
+    durationMinutes: draft.durationMinutes,
+    notes: draft.notes,
+  };
+}
+
+function buildScheduleExample(
+  group: WeekPlannerSnapshot['groups'][number],
+  index: number,
+): {
+  readonly title: string;
+  readonly groupLabel: string;
+  readonly dayLabel: string;
+  readonly startTime: string;
+  readonly durationMinutes: string;
+  readonly notes: string;
+} {
+  const presets = [
+    {
+      title: `Aula regular ${group.preferredSubject}`,
+      dayLabel: 'sexta-feira',
+      startTime: '18:30',
+      durationMinutes: '60',
+      notes: 'Confirmar sala habitual e manter avisos default.',
+    },
+    {
+      title: `Reposicao ${group.preferredSubject}`,
+      dayLabel: 'sabado',
+      startTime: '11:00',
+      durationMinutes: '75',
+      notes: 'Avisar que esta sessao substitui a aula perdida da semana.',
+    },
+    {
+      title: `Sessao especial ${group.preferredSubject}`,
+      dayLabel: 'quarta-feira',
+      startTime: '20:00',
+      durationMinutes: '90',
+      notes: 'Usar mensagem curta, indicar material necessario e pedir confirmacao.',
+    },
+  ] as const;
+
+  return {
+    ...(presets[index] ?? presets[0]),
+    groupLabel: group.preferredSubject,
+  };
+}
+
+function resolveDistributionDraft(
+  draft: GuidedDistributionDraft,
+  rules: readonly RoutingConsoleSnapshot['rules'][number][],
+): GuidedDistributionDraft {
+  const fallbackRule = rules[0] ?? null;
+  const selectedRule = rules.find((rule) => rule.ruleId === draft.ruleId) ?? fallbackRule;
+
+  return {
+    ruleId: selectedRule?.ruleId ?? '',
+    messageSummary: draft.messageSummary,
+    urgency: draft.urgency,
+    confirmationMode: draft.confirmationMode,
+  };
+}
+
+function readableConfirmationMode(mode: string, requiresConfirmation: boolean): string {
+  switch (mode) {
+    case 'force_confirmation':
+      return 'Pedir confirmacao antes do fan-out';
+    case 'direct':
+      return 'Distribuicao direta';
+    default:
+      return requiresConfirmation ? 'Usar confirmacao da regra' : 'Usar distribuicao direta da regra';
+  }
+}
+
+function readableRepairFocus(value: 'auth' | 'groups' | 'permissions'): string {
+  switch (value) {
+    case 'auth':
+      return 'Verificar auth';
+    case 'groups':
+      return 'Rever grupos';
+    case 'permissions':
+      return 'Rever permissoes';
+  }
+}
+
+function repairTone(
+  focus: 'auth' | 'groups' | 'permissions',
+  snapshot: WhatsAppWorkspaceSnapshot,
+): UiTone {
+  if (focus === 'auth') {
+    return snapshot.host.authExists ? 'positive' : 'danger';
+  }
+
+  if (focus === 'groups') {
+    return snapshot.permissionSummary.knownGroups > 0 ? 'positive' : 'warning';
+  }
+
+  return snapshot.permissionSummary.appOwners > 0 ? 'positive' : 'warning';
+}
+
+function renderRepairChecklist(
+  focus: 'auth' | 'groups' | 'permissions',
+  snapshot: WhatsAppWorkspaceSnapshot,
+): string {
+  if (focus === 'auth') {
+    return `
+      <ul>
+        <li>Confirmar se o auth partilhado com o Codex existe no host.</li>
+        <li>Validar se o companion local tem heartbeat recente.</li>
+        <li>Se faltar auth, reabrir a ligacao e voltar a testar antes de mexer em permissoes.</li>
+        <li>Estado atual: ${snapshot.host.authExists ? 'auth presente' : 'auth em falta'}.</li>
+      </ul>
+    `;
+  }
+
+  if (focus === 'groups') {
+    return `
+      <ul>
+        <li>Validar se a descoberta de grupos esta ativa.</li>
+        <li>Comparar grupos conhecidos com grupos autorizados para o assistente.</li>
+        <li>Se houver grupos sem owner, resolver isso antes de confiar no fluxo humano.</li>
+        <li>Estado atual: ${snapshot.permissionSummary.authorizedGroups}/${snapshot.permissionSummary.knownGroups} grupos autorizados.</li>
+      </ul>
+    `;
+  }
+
+  return `
+    <ul>
+      <li>Verificar quem e app owner e quem e group owner.</li>
+      <li>Rever ACL do calendario para confirmar se faz sentido humano.</li>
+      <li>Confirmar se o assistente privado esta alinhado com a politica pretendida.</li>
+      <li>Estado atual: ${snapshot.permissionSummary.appOwners} app owners conhecidos.</li>
+    </ul>
+  `;
 }
 
 function renderScreenStateLabel(screenState: ScreenState): string {

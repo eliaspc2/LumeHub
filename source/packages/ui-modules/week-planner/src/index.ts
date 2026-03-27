@@ -4,6 +4,13 @@ export interface WeekPlannerSnapshot {
   readonly timezone: string;
   readonly focusWeekLabel: string;
   readonly groupsKnown: number;
+  readonly groups: readonly {
+    readonly groupJid: string;
+    readonly preferredSubject: string;
+    readonly courseId: string | null;
+    readonly ownerLabels: readonly string[];
+  }[];
+  readonly defaultNotificationRuleLabels: readonly string[];
 }
 
 export interface WeekPlannerUiModuleConfig {
@@ -31,6 +38,7 @@ export class WeekPlannerUiModule {
             `Semana em foco: ${snapshot.focusWeekLabel}`,
             `Timezone: ${snapshot.timezone}`,
             `Grupos conhecidos: ${snapshot.groupsKnown}`,
+            `Avisos default: ${snapshot.defaultNotificationRuleLabels.join(', ') || 'sem defaults'}`,
           ],
         },
         {

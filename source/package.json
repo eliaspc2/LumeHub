@@ -27,6 +27,7 @@
     "validate:wave11": "corepack pnpm -r --if-present build && corepack pnpm run test:unit && corepack pnpm run test:integration && corepack pnpm run test:e2e",
     "validate:wave12": "corepack pnpm -r --if-present build && node ./scripts/validate-wave12.mjs && node ./scripts/package-wave12.mjs",
     "validate:wave13": "corepack pnpm run typecheck && corepack pnpm -r --if-present build && node ./scripts/validate-wave13.mjs",
+    "validate:wave14": "corepack pnpm run typecheck && corepack pnpm -r --if-present build && node ./scripts/validate-wave14.mjs",
     "preview:wave13": "corepack pnpm --filter @lume-hub/lume-hub-web preview -- --host 127.0.0.1 --port 4173 --strictPort"
   },
   "devDependencies": {

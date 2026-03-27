@@ -85,46 +85,6 @@ Se a wave tocar backend, HTTP, WS ou runtime:
 - smoke test dedicado da wave
 - validar que a UI continua a abrir e a consumir a API esperada
 
-## Wave 14 - Fluxos guiados de operacao
-
-Objetivo:
-- tornar as tarefas principais executaveis sem conhecimento interno do sistema
-
-Entregaveis:
-- fluxo guiado para criar/editar agendamentos
-- fluxo guiado para fan-out multi-grupo
-- fluxo guiado para resolver falhas comuns
-- quick actions na home
-- empty states e mensagens de erro humanas
-
-Fluxos minimos:
-- `Criar agendamento`
-- `Distribuir mensagem`
-- `Ligar ou reparar WhatsApp`
-- `Resolver problema watchdog`
-
-Criterios de aceitacao:
-- as tarefas principais podem ser feitas sem expor `jid`, ids internos ou nomes de modulo
-- existe preview antes de acoes destrutivas ou multi-grupo
-- a UI sugere o proximo passo em vez de obrigar o utilizador a navegar as cegas
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave14`
-
-Melhor momento para testar:
-- testar aqui os fluxos guiados mais importantes
-- e a melhor wave para perceber se uma pessoa pouco tecnica consegue completar tarefas reais sem ajuda
-- a pergunta pratica desta wave e: `a operacao principal esta simples o suficiente?`
-
-O que testar:
-- criar um agendamento novo do inicio ao fim
-- editar um agendamento existente sem medo de estragar dados
-- fazer preview de uma distribuicao multi-grupo
-- confirmar se o sistema explica bem erros e proximos passos
-- verificar se quase nunca precisas de ver ids, `jid` ou termos internos
-
 ## Wave 15 - Permissoes, ownership e WhatsApp UX
 
 Objetivo:

@@ -4,6 +4,10 @@ import { createListSection, type UiPage } from '@lume-hub/shared-ui';
 export interface RoutingConsoleSnapshot {
   readonly rules: readonly SenderAudienceRule[];
   readonly distributions: readonly DistributionSummary[];
+  readonly groups: readonly {
+    readonly groupJid: string;
+    readonly preferredSubject: string;
+  }[];
 }
 
 export interface QueueConsoleUiModuleConfig {

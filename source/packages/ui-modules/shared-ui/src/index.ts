@@ -60,6 +60,37 @@ export interface UiActionButtonSpec {
   readonly dataAttributes?: Readonly<Record<string, string | undefined>>;
 }
 
+export interface UiFieldOption {
+  readonly value: string;
+  readonly label: string;
+}
+
+export interface UiInputFieldSpec {
+  readonly label: string;
+  readonly value: string;
+  readonly dataKey: string;
+  readonly type?: 'text' | 'time' | 'number';
+  readonly placeholder?: string;
+  readonly hint?: string;
+}
+
+export interface UiSelectFieldSpec {
+  readonly label: string;
+  readonly value: string;
+  readonly dataKey: string;
+  readonly options: readonly UiFieldOption[];
+  readonly hint?: string;
+}
+
+export interface UiTextAreaFieldSpec {
+  readonly label: string;
+  readonly value: string;
+  readonly dataKey: string;
+  readonly placeholder?: string;
+  readonly hint?: string;
+  readonly rows?: number;
+}
+
 export interface UiMetricCardSpec {
   readonly title: string;
   readonly value: string;
@@ -120,6 +151,54 @@ export function renderUiActionButton(spec: UiActionButtonSpec): string {
   }
 
   return `<button class="ui-button ui-button--${variant}" type="button"${attributeList}>${escapeHtml(spec.label)}</button>`;
+}
+
+export function renderUiInputField(spec: UiInputFieldSpec): string {
+  return `
+    <label class="ui-field">
+      <span class="ui-field__label">${escapeHtml(spec.label)}</span>
+      <input
+        class="ui-control"
+        type="${escapeHtml(spec.type ?? 'text')}"
+        value="${escapeHtml(spec.value)}"
+        data-field-key="${escapeHtml(spec.dataKey)}"
+        ${spec.placeholder ? `placeholder="${escapeHtml(spec.placeholder)}"` : ''}
+      />
+      ${spec.hint ? `<span class="ui-field__hint">${escapeHtml(spec.hint)}</span>` : ''}
+    </label>
+  `;
+}
+
+export function renderUiSelectField(spec: UiSelectFieldSpec): string {
+  return `
+    <label class="ui-field">
+      <span class="ui-field__label">${escapeHtml(spec.label)}</span>
+      <select class="ui-control" data-field-key="${escapeHtml(spec.dataKey)}">
+        ${spec.options
+          .map(
+            (option) =>
+              `<option value="${escapeHtml(option.value)}"${option.value === spec.value ? ' selected' : ''}>${escapeHtml(option.label)}</option>`,
+          )
+          .join('')}
+      </select>
+      ${spec.hint ? `<span class="ui-field__hint">${escapeHtml(spec.hint)}</span>` : ''}
+    </label>
+  `;
+}
+
+export function renderUiTextAreaField(spec: UiTextAreaFieldSpec): string {
+  return `
+    <label class="ui-field">
+      <span class="ui-field__label">${escapeHtml(spec.label)}</span>
+      <textarea
+        class="ui-control ui-control--textarea"
+        rows="${String(spec.rows ?? 4)}"
+        data-field-key="${escapeHtml(spec.dataKey)}"
+        ${spec.placeholder ? `placeholder="${escapeHtml(spec.placeholder)}"` : ''}
+      >${escapeHtml(spec.value)}</textarea>
+      ${spec.hint ? `<span class="ui-field__hint">${escapeHtml(spec.hint)}</span>` : ''}
+    </label>
+  `;
 }
 
 export function renderUiMetricCard(spec: UiMetricCardSpec): string {
