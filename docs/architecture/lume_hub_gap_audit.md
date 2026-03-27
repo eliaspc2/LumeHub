@@ -16,7 +16,6 @@ Objetivo:
 - `docs/architecture/lume_hub_rewrite_master_prompt.md`
 - `docs/architecture/lume_hub_modular_implementation_spec.md`
 - `docs/architecture/lume_hub_implementation_waves.md`
-- `docs/architecture/lume_hub_llm_kickoff_prompt.md`
 - `docs/reuse/lume_hub_healthy_code_manifest.md`
 - `docs/deployment/lume_hub_lxd_runtime_plan.md`
 - `runtime/lxd/README.md`

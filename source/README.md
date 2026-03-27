@@ -36,22 +36,19 @@ Decisao de storage:
 
 ## Estado
 
-O scaffold da `Wave 0` ja foi montado para permitir trabalho paralelo real.
-As workspaces de `apps/`, `foundation/`, `adapters/`, `modules/` e `ui-modules/` ja existem com contratos publicos minimos, `package.json`, `tsconfig` e pontos de entrada TypeScript.
+A base do monorepo ja existe e as `Wave 0` a `Wave 12` foram executadas.
+Hoje esta pasta ja contem:
 
-A `Wave 1` ja deixou implementacoes reais em:
+- `apps/lume-hub-backend`, `apps/lume-hub-web` e `apps/lume-hub-host`
+- packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
+- scripts de validacao de `validate:wave1` ate `validate:wave12`
+- testes unitarios, de integracao e `e2e`
 
-- `foundation/kernel`
-- `foundation/config`
-- `foundation/logging`
-- `foundation/events`
-- `adapters/persistence-group-files`
+O backlog ativo deixou de ser scaffold.
+Agora esta concentrado em:
 
-Validacao base desta fase:
-
-- `pnpm install`
-- `pnpm -r typecheck`
-- `pnpm run validate:wave1`
+- gaps de integracao real descritos em `../docs/architecture/lume_hub_gap_audit.md`
+- modernizacao do frontend nas `Wave 13` a `Wave 16`
 
 Nota operacional:
 

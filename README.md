@@ -208,17 +208,16 @@ Na `Wave 12`, o fluxo canónico passa por:
 - [lume_hub_rewrite_master_prompt.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_rewrite_master_prompt.md)
 - [lume_hub_modular_implementation_spec.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_modular_implementation_spec.md)
 - [lume_hub_implementation_waves.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_implementation_waves.md)
-- [lume_hub_llm_kickoff_prompt.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_llm_kickoff_prompt.md)
+- [lume_hub_gap_audit.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_gap_audit.md)
 - [lume_hub_healthy_code_manifest.md](/home/eliaspc/Documentos/lume-hub/docs/reuse/lume_hub_healthy_code_manifest.md)
 - [lume_hub_lxd_runtime_plan.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_lxd_runtime_plan.md)
 - [lume_hub_release_publish.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_release_publish.md)
 
 ## Estado atual
 
-Esta pasta ainda nao e a implementacao final.
-Ela ja fica pronta para:
+As `Wave 0` a `Wave 12` ja foram executadas e validadas.
+O foco atual do projeto passou a ser:
 
-- arrancar a reescrita com uma LLM
-- separar fonte, runtime e legado
-- permitir desenvolvimento paralelo por modulos
-- evitar que o runtime volte a ficar misturado com o codigo-fonte
+- fechar gaps reais de integracao e produto descritos em `docs/architecture/lume_hub_gap_audit.md`
+- modernizar a experiencia web nas `Wave 13` a `Wave 16`
+- simplificar documentacao e remover material antigo de scaffold que ja nao acrescenta contexto util
