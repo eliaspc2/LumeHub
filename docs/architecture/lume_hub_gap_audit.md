@@ -11,8 +11,23 @@ Objetivo:
 Conclusao curta:
 - as `Wave 0` a `Wave 17` ficaram executadas e validadas
 - o frontend operacional ja existe e a limpeza final do repositorio foi feita
-- nao ha waves pendentes neste momento
+- o backlog restante voltou a estar organizado em waves ativas
 - o backlog restante esta concentrado em integracoes reais de runtime e robustez de producao
+
+Plano ativo de fecho:
+
+- `Wave 18`
+  - composition root e runtime real do backend
+- `Wave 19`
+  - HTTP, WS e `Live` verdadeiro
+- `Wave 20`
+  - WhatsApp live, QR e descoberta
+- `Wave 21`
+  - pipeline conversacional e providers LLM reais
+- `Wave 22`
+  - API operacional completa e `weekly-planner` real
+- `Wave 23`
+  - hardening, cobertura e cutover para uso real
 
 Em particular, ja nao faz sentido falar de:
 
@@ -171,13 +186,12 @@ Regra daqui para a frente:
 
 ## Ordem recomendada para o backlog restante
 
-1. composition root real do backend
-2. HTTP real + WS real
-3. WhatsApp live + QR + descoberta + pipeline inbound/outbound
-4. providers LLM reais
-5. API restante por casos de uso
-6. `weekly-planner` do dominio
-7. reforco forte de testes
+1. `Wave 18`
+2. `Wave 19`
+3. `Wave 20`
+4. `Wave 21`
+5. `Wave 22`
+6. `Wave 23`
 
 ## Nota final
 

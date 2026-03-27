@@ -220,7 +220,14 @@ Na `Wave 12`, o fluxo canónico passa por:
 As `Wave 0` a `Wave 17` ja foram executadas e validadas.
 Neste momento:
 
-- nao ha waves ativas por executar
 - o frontend operacional das `Wave 13` a `Wave 16` ficou fechado
 - a `Wave 17` limpou stubs mortos, docs obsoletas e legado ja supersedido
-- o backlog restante ficou concentrado apenas em gaps reais de integracao e producao descritos em `docs/architecture/lume_hub_gap_audit.md`
+- o backlog restante foi reaberto como `Wave 18` a `Wave 23`
+- essas waves focam:
+  - backend real
+  - HTTP/WS reais
+  - WhatsApp live
+  - providers LLM reais
+  - API operacional completa
+  - hardening e cutover
+- o objetivo explicito desta nova ronda e chegar a runtime `Live` funcional como substituicao do sistema anterior
