@@ -8,7 +8,17 @@ import type {
   WatchdogIssue,
 } from '@lume-hub/frontend-api-client';
 import type { RoutingConsoleSnapshot } from '@lume-hub/queue-console';
-import type { UiPage } from '@lume-hub/shared-ui';
+import {
+  escapeHtml,
+  renderUiActionButton,
+  renderUiBadge,
+  renderUiMetricCard,
+  renderUiPanelCard,
+  renderUiRecordCard,
+  renderUiToggleButton,
+  type UiPage,
+  type UiTone,
+} from '@lume-hub/shared-ui';
 
 import type { FrontendTransportMode } from '../app/BrowserTransportFactory.js';
 import type { AppRouteDefinition, AppRouter } from '../app/AppRouter.js';
@@ -214,13 +224,13 @@ export class AppShell {
             </div>
             <div class="header-meta">
               <div class="status-strip">
-                ${renderPill(`Modo ${this.state.mode === 'demo' ? 'preview demo' : 'ligacao live'}`, this.state.mode === 'demo' ? 'warning' : 'positive')}
-                ${renderPill(renderScreenStateLabel(this.state.screenState), toneFromScreenState(this.state.screenState))}
-                ${renderPill(`Ultima carga ${formatShortDateTime(this.state.lastLoadedAt)}`, 'neutral')}
+                ${renderUiBadge({ label: `Modo ${this.state.mode === 'demo' ? 'preview demo' : 'ligacao live'}`, tone: this.state.mode === 'demo' ? 'warning' : 'positive' })}
+                ${renderUiBadge({ label: renderScreenStateLabel(this.state.screenState), tone: toneFromScreenState(this.state.screenState) })}
+                ${renderUiBadge({ label: `Ultima carga ${formatShortDateTime(this.state.lastLoadedAt)}`, tone: 'neutral' })}
               </div>
               <div class="status-strip">
-                ${renderPill(`Data ${formatHeaderDate(new Date())}`, 'neutral')}
-                ${renderPill('Timezone Europe/Lisbon', 'neutral')}
+                ${renderUiBadge({ label: `Data ${formatHeaderDate(new Date())}`, tone: 'neutral' })}
+                ${renderUiBadge({ label: 'Timezone Europe/Lisbon', tone: 'neutral' })}
               </div>
             </div>
           </header>
@@ -235,8 +245,8 @@ export class AppShell {
             <h3>Modo de dados</h3>
             <p>Escolhe entre preview demo segura e tentativa de ligacao live ao backend real.</p>
             <div class="control-row">
-              ${renderToggleButton('Demo', 'demo', this.state.mode === 'demo', 'mode')}
-              ${renderToggleButton('Live', 'live', this.state.mode === 'live', 'mode')}
+              ${renderUiToggleButton({ label: 'Demo', value: 'demo', active: this.state.mode === 'demo', kind: 'mode' })}
+              ${renderUiToggleButton({ label: 'Live', value: 'live', active: this.state.mode === 'live', kind: 'mode' })}
             </div>
           </section>
 
@@ -244,11 +254,11 @@ export class AppShell {
             <h3>Estados de preview</h3>
             <p>Usa estes atalhos para testar linguagem, hierarquia e mensagens sem depender do backend.</p>
             <div class="control-row">
-              ${renderToggleButton('Normal', 'none', this.state.previewState === 'none', 'preview')}
-              ${renderToggleButton('Loading', 'loading', this.state.previewState === 'loading', 'preview')}
-              ${renderToggleButton('Empty', 'empty', this.state.previewState === 'empty', 'preview')}
-              ${renderToggleButton('Offline', 'offline', this.state.previewState === 'offline', 'preview')}
-              ${renderToggleButton('Erro', 'error', this.state.previewState === 'error', 'preview')}
+              ${renderUiToggleButton({ label: 'Normal', value: 'none', active: this.state.previewState === 'none', kind: 'preview' })}
+              ${renderUiToggleButton({ label: 'Loading', value: 'loading', active: this.state.previewState === 'loading', kind: 'preview' })}
+              ${renderUiToggleButton({ label: 'Empty', value: 'empty', active: this.state.previewState === 'empty', kind: 'preview' })}
+              ${renderUiToggleButton({ label: 'Offline', value: 'offline', active: this.state.previewState === 'offline', kind: 'preview' })}
+              ${renderUiToggleButton({ label: 'Erro', value: 'error', active: this.state.previewState === 'error', kind: 'preview' })}
             </div>
           </section>
 
@@ -383,48 +393,45 @@ export class AppShell {
           <h2>O que esta bem, o que pede atencao e qual e o proximo passo.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
-            <a class="action-button" href="/whatsapp" data-route="/whatsapp">Ver WhatsApp</a>
-            <a class="action-button action-button--secondary" href="/distributions" data-route="/distributions">Abrir distribuicoes</a>
-            <a class="action-button action-button--secondary" href="/settings" data-route="/settings">Abrir configuracao</a>
+            ${renderUiActionButton({ label: 'Ver WhatsApp', href: '/whatsapp', dataAttributes: { route: '/whatsapp' } })}
+            ${renderUiActionButton({ label: 'Abrir distribuicoes', href: '/distributions', variant: 'secondary', dataAttributes: { route: '/distributions' } })}
+            ${renderUiActionButton({ label: 'Abrir configuracao', href: '/settings', variant: 'secondary', dataAttributes: { route: '/settings' } })}
           </div>
         </div>
         <div class="hero-panel">
-          <div class="surface">
-            <div class="card-header">
-              <h3>Pronto para operar</h3>
-              ${renderPill(snapshot.readiness.ready ? 'Pronto' : 'Rever', readyTone)}
-            </div>
-            <p>
-              ${snapshot.readiness.ready
+          ${renderUiPanelCard({
+            title: 'Pronto para operar',
+            badgeLabel: snapshot.readiness.ready ? 'Pronto' : 'Rever',
+            badgeTone: readyTone,
+            contentHtml: `<p>${escapeHtml(
+              snapshot.readiness.ready
                 ? 'O sistema parece utilizavel e o host companion esta vivo.'
-                : 'Ainda ha sinais a rever antes de confiar plenamente na operacao.'}
-            </p>
-          </div>
-          <div class="surface">
-            <div class="card-header">
-              <h3>Proximo passo recomendado</h3>
-            </div>
-            <p>
-              ${snapshot.watchdog.openIssues > 0
+                : 'Ainda ha sinais a rever antes de confiar plenamente na operacao.',
+            )}</p>`,
+          })}
+          ${renderUiPanelCard({
+            title: 'Proximo passo recomendado',
+            contentHtml: `<p>${escapeHtml(
+              snapshot.watchdog.openIssues > 0
                 ? 'Comeca por rever as issues abertas do watchdog e confirmar a situacao das entregas.'
-                : 'Segue para a area de WhatsApp e valida grupos, owners e estado do auth.'}
-            </p>
-          </div>
+                : 'Segue para a area de WhatsApp e valida grupos, owners e estado do auth.',
+            )}</p>`,
+          })}
         </div>
       </section>
 
       <section class="card-grid">
-        ${renderMetricCard('WhatsApp pronto', snapshot.hostCompanion.authExists ? 'Ligado' : 'Desligado', snapshot.hostCompanion.authExists ? 'positive' : 'danger', 'Sessao auth e heartbeat do companion.')}
-        ${renderMetricCard('Problemas ativos', String(snapshot.watchdog.openIssues), snapshot.watchdog.openIssues > 0 ? 'warning' : 'positive', 'Issues que merecem acao agora.')}
-        ${renderMetricCard('Distribuicoes em curso', String(snapshot.distributions.running + snapshot.distributions.queued), snapshot.distributions.running > 0 ? 'warning' : 'neutral', 'Campanhas a correr ou em espera.')}
-        ${renderMetricCard('Grupos com owner', `${snapshot.groups.withOwners}/${snapshot.groups.total}`, 'neutral', 'Cobertura operacional do diretorio de grupos.')}
+        ${renderUiMetricCard({ title: 'WhatsApp pronto', value: snapshot.hostCompanion.authExists ? 'Ligado' : 'Desligado', tone: snapshot.hostCompanion.authExists ? 'positive' : 'danger', description: 'Sessao auth e heartbeat do companion.' })}
+        ${renderUiMetricCard({ title: 'Problemas ativos', value: String(snapshot.watchdog.openIssues), tone: snapshot.watchdog.openIssues > 0 ? 'warning' : 'positive', description: 'Issues que merecem acao agora.' })}
+        ${renderUiMetricCard({ title: 'Distribuicoes em curso', value: String(snapshot.distributions.running + snapshot.distributions.queued), tone: snapshot.distributions.running > 0 ? 'warning' : 'neutral', description: 'Campanhas a correr ou em espera.' })}
+        ${renderUiMetricCard({ title: 'Grupos com owner', value: `${snapshot.groups.withOwners}/${snapshot.groups.total}`, tone: 'neutral', description: 'Cobertura operacional do diretorio de grupos.' })}
       </section>
 
       <section class="content-grid">
         <article class="surface content-card span-7">
           <div class="card-header">
             <h3>Distribuicoes e ritmo de trabalho</h3>
-            ${renderPill(`${snapshot.distributions.completed} concluidas`, 'positive')}
+            ${renderUiBadge({ label: `${snapshot.distributions.completed} concluidas`, tone: 'positive' })}
           </div>
           <ul>
             <li>${snapshot.distributions.queued} campanhas em fila e ${snapshot.distributions.running} a correr.</li>
@@ -437,7 +444,7 @@ export class AppShell {
         <article class="surface content-card span-5">
           <div class="card-header">
             <h3>Host companion</h3>
-            ${renderPill(snapshot.hostCompanion.autostartEnabled ? 'Autostart ativo' : 'Autostart desligado', snapshot.hostCompanion.autostartEnabled ? 'positive' : 'warning')}
+            ${renderUiBadge({ label: snapshot.hostCompanion.autostartEnabled ? 'Autostart ativo' : 'Autostart desligado', tone: snapshot.hostCompanion.autostartEnabled ? 'positive' : 'warning' })}
           </div>
           <ul>
             <li>Host: ${escapeHtml(snapshot.hostCompanion.hostId)}</li>
@@ -450,7 +457,7 @@ export class AppShell {
         <article class="surface content-card span-6">
           <div class="card-header">
             <h3>Watchdog</h3>
-            ${renderPill(snapshot.watchdog.openIssues > 0 ? 'Precisa de atencao' : 'Sem bloqueios', snapshot.watchdog.openIssues > 0 ? 'warning' : 'positive')}
+            ${renderUiBadge({ label: snapshot.watchdog.openIssues > 0 ? 'Precisa de atencao' : 'Sem bloqueios', tone: snapshot.watchdog.openIssues > 0 ? 'warning' : 'positive' })}
           </div>
           <ul>
             ${
@@ -458,7 +465,7 @@ export class AppShell {
                 ? snapshot.watchdog.recentIssues
                     .map(
                       (issue) =>
-                        `<li><strong>${escapeHtml(issue.groupLabel)}</strong>: ${escapeHtml(issue.summary)} <span class="chip chip--warning">${escapeHtml(formatShortDateTime(issue.openedAt))}</span></li>`,
+                        `<li><strong>${escapeHtml(issue.groupLabel)}</strong>: ${escapeHtml(issue.summary)} ${renderUiBadge({ label: formatShortDateTime(issue.openedAt), tone: 'warning', style: 'chip' })}</li>`,
                     )
                     .join('')
                 : '<li>Sem issues abertas neste momento.</li>'
@@ -469,7 +476,7 @@ export class AppShell {
         <article class="surface content-card span-6">
           <div class="card-header">
             <h3>Saude do sistema</h3>
-            ${renderPill(snapshot.health.status, toneFromHealth(snapshot.health.status))}
+            ${renderUiBadge({ label: snapshot.health.status, tone: toneFromHealth(snapshot.health.status) })}
           </div>
           <ul>
             <li>Jobs pendentes: ${snapshot.health.jobs.pending}</li>
@@ -499,43 +506,40 @@ export class AppShell {
           <p>${escapeHtml(page.description)}</p>
         </div>
         <div class="hero-panel">
-          <div class="surface">
-            <div class="card-header">
-              <h3>Resumo</h3>
-              ${renderPill(`${groups.length} grupos`, 'neutral')}
-            </div>
-            <p>${groupsWithOwners} grupos ja tem owner atribuido. ${groups.length - groupsWithOwners} ainda pedem definicao.</p>
-          </div>
+          ${renderUiPanelCard({
+            title: 'Resumo',
+            badgeLabel: `${groups.length} grupos`,
+            badgeTone: 'neutral',
+            contentHtml: `<p>${escapeHtml(
+              `${groupsWithOwners} grupos ja tem owner atribuido. ${groups.length - groupsWithOwners} ainda pedem definicao.`,
+            )}</p>`,
+          })}
         </div>
       </section>
       <section class="card-grid">
         ${groups
           .map(
-            (group) => `
-              <article class="surface list-card">
-                <div class="card-header">
-                  <div>
-                    <h3>${escapeHtml(group.preferredSubject)}</h3>
-                    <p>${escapeHtml(group.courseId ?? 'Sem curso associado')}</p>
-                  </div>
-                  ${renderPill(group.groupOwners.length > 0 ? 'Com owner' : 'Falta owner', group.groupOwners.length > 0 ? 'positive' : 'warning')}
-                </div>
-                <div class="chip-row">
-                  <span class="chip chip--accent">Grupo ${escapeHtml(group.calendarAccessPolicy.group)}</span>
-                  <span class="chip chip--warm">Owner ${escapeHtml(group.calendarAccessPolicy.groupOwner)}</span>
-                  <span class="chip">App ${escapeHtml(group.calendarAccessPolicy.appOwner)}</span>
-                </div>
-                <ul>
-                  <li>Owners: ${escapeHtml(group.groupOwners.map((owner) => owner.personId.replace('person-', '')).join(', ') || 'nenhum')}</li>
-                  <li>Atualizado: ${escapeHtml(formatShortDateTime(group.lastRefreshedAt))}</li>
-                  <li>Alias: ${escapeHtml(group.aliases.join(', ') || 'sem alias')}</li>
-                </ul>
-                <details class="details">
-                  <summary>Detalhes tecnicos</summary>
-                  <p>JID: ${escapeHtml(group.groupJid)}</p>
-                </details>
-              </article>
-            `,
+            (group) =>
+              renderUiRecordCard({
+                title: group.preferredSubject,
+                subtitle: group.courseId ?? 'Sem curso associado',
+                badgeLabel: group.groupOwners.length > 0 ? 'Com owner' : 'Falta owner',
+                badgeTone: group.groupOwners.length > 0 ? 'positive' : 'warning',
+                chips: [
+                  { label: `Grupo ${group.calendarAccessPolicy.group}`, tone: 'positive' },
+                  { label: `Owner ${group.calendarAccessPolicy.groupOwner}`, tone: 'warning' },
+                  { label: `App ${group.calendarAccessPolicy.appOwner}`, tone: 'neutral' },
+                ],
+                bodyHtml: `
+                  <ul>
+                    <li>Owners: ${escapeHtml(group.groupOwners.map((owner) => owner.personId.replace('person-', '')).join(', ') || 'nenhum')}</li>
+                    <li>Atualizado: ${escapeHtml(formatShortDateTime(group.lastRefreshedAt))}</li>
+                    <li>Alias: ${escapeHtml(group.aliases.join(', ') || 'sem alias')}</li>
+                  </ul>
+                `,
+                detailsSummary: 'Detalhes tecnicos',
+                detailsHtml: `<p>JID: ${escapeHtml(group.groupJid)}</p>`,
+              }),
           )
           .join('')}
       </section>
@@ -552,30 +556,29 @@ export class AppShell {
           <h2>Estado da ligacao, grupos conhecidos e permissoes humanas num unico sitio.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
-            <a class="action-button" href="/groups" data-route="/groups">Ver grupos</a>
-            <a class="action-button action-button--secondary" href="/settings" data-route="/settings">Ver configuracao</a>
+            ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', dataAttributes: { route: '/groups' } })}
+            ${renderUiActionButton({ label: 'Ver configuracao', href: '/settings', variant: 'secondary', dataAttributes: { route: '/settings' } })}
           </div>
         </div>
         <div class="hero-panel">
-          <div class="surface">
-            <div class="card-header">
-              <h3>Sessao atual</h3>
-              ${renderPill(snapshot.settings.whatsapp.enabled ? 'Ligada' : 'Desligada', snapshot.settings.whatsapp.enabled ? 'positive' : 'warning')}
-            </div>
-            <p>
-              ${snapshot.host.authExists
+          ${renderUiPanelCard({
+            title: 'Sessao atual',
+            badgeLabel: snapshot.settings.whatsapp.enabled ? 'Ligada' : 'Desligada',
+            badgeTone: snapshot.settings.whatsapp.enabled ? 'positive' : 'warning',
+            contentHtml: `<p>${escapeHtml(
+              snapshot.host.authExists
                 ? 'Auth encontrado e pronto para partilhar o mesmo login do Codex.'
-                : 'Nao encontrámos auth live. Vale a pena reparar isto antes de confiar no canal.'}
-            </p>
-          </div>
+                : 'Nao encontrámos auth live. Vale a pena reparar isto antes de confiar no canal.',
+            )}</p>`,
+          })}
         </div>
       </section>
 
       <section class="card-grid">
-        ${renderMetricCard('Grupos autorizados', `${snapshot.permissionSummary.authorizedGroups}/${snapshot.permissionSummary.knownGroups}`, 'neutral', 'Cobertura atual do assistente nos grupos conhecidos.')}
-        ${renderMetricCard('Privados autorizados', `${snapshot.permissionSummary.authorizedPrivateConversations}/${snapshot.permissionSummary.knownPrivateConversations}`, 'neutral', 'Conversas privadas onde o assistente pode responder.')}
-        ${renderMetricCard('App owners', String(snapshot.permissionSummary.appOwners), 'positive', 'Pessoas com controlo global da aplicacao.')}
-        ${renderMetricCard('Mesmo auth do Codex', snapshot.host.sameAsCodexCanonical ? 'Sim' : 'Nao', snapshot.host.sameAsCodexCanonical ? 'positive' : 'warning', 'Partilha do auth live com o ambiente principal.')}
+        ${renderUiMetricCard({ title: 'Grupos autorizados', value: `${snapshot.permissionSummary.authorizedGroups}/${snapshot.permissionSummary.knownGroups}`, tone: 'neutral', description: 'Cobertura atual do assistente nos grupos conhecidos.' })}
+        ${renderUiMetricCard({ title: 'Privados autorizados', value: `${snapshot.permissionSummary.authorizedPrivateConversations}/${snapshot.permissionSummary.knownPrivateConversations}`, tone: 'neutral', description: 'Conversas privadas onde o assistente pode responder.' })}
+        ${renderUiMetricCard({ title: 'App owners', value: String(snapshot.permissionSummary.appOwners), tone: 'positive', description: 'Pessoas com controlo global da aplicacao.' })}
+        ${renderUiMetricCard({ title: 'Mesmo auth do Codex', value: snapshot.host.sameAsCodexCanonical ? 'Sim' : 'Nao', tone: snapshot.host.sameAsCodexCanonical ? 'positive' : 'warning', description: 'Partilha do auth live com o ambiente principal.' })}
       </section>
 
       <section class="content-grid">
@@ -600,25 +603,22 @@ export class AppShell {
             ${snapshot.groups
               .map(
                 (group) => `
-                  <article class="surface list-card">
-                    <div class="card-header">
-                      <div>
-                        <h3>${escapeHtml(group.preferredSubject)}</h3>
-                        <p>${escapeHtml(group.ownerLabels.join(', ') || 'Sem owner definido')}</p>
-                      </div>
-                      ${renderPill(group.assistantAuthorized ? 'Assistente ativo' : 'Acesso bloqueado', group.assistantAuthorized ? 'positive' : 'warning')}
-                    </div>
-                    <div class="chip-row">
-                      <span class="chip chip--accent">Grupo ${escapeHtml(group.calendarAccessPolicy.group)}</span>
-                      <span class="chip chip--warm">Owner ${escapeHtml(group.calendarAccessPolicy.groupOwner)}</span>
-                      <span class="chip">App ${escapeHtml(group.calendarAccessPolicy.appOwner)}</span>
-                    </div>
-                    <details class="details">
-                      <summary>Detalhes tecnicos</summary>
+                  ${renderUiRecordCard({
+                    title: group.preferredSubject,
+                    subtitle: group.ownerLabels.join(', ') || 'Sem owner definido',
+                    badgeLabel: group.assistantAuthorized ? 'Assistente ativo' : 'Acesso bloqueado',
+                    badgeTone: group.assistantAuthorized ? 'positive' : 'warning',
+                    chips: [
+                      { label: `Grupo ${group.calendarAccessPolicy.group}`, tone: 'positive' },
+                      { label: `Owner ${group.calendarAccessPolicy.groupOwner}`, tone: 'warning' },
+                      { label: `App ${group.calendarAccessPolicy.appOwner}`, tone: 'neutral' },
+                    ],
+                    detailsSummary: 'Detalhes tecnicos',
+                    detailsHtml: `
                       <p>JID: ${escapeHtml(group.groupJid)}</p>
                       <p>Alias: ${escapeHtml(group.aliases.join(', ') || 'sem alias')}</p>
-                    </details>
-                  </article>
+                    `,
+                  })}
                 `,
               )
               .join('')}
@@ -632,20 +632,20 @@ export class AppShell {
             ${snapshot.conversations
               .map(
                 (conversation) => `
-                  <article class="surface list-card">
-                    <div class="card-header">
-                      <div>
-                        <h3>${escapeHtml(conversation.displayName)}</h3>
-                        <p>${escapeHtml(conversation.ownedGroupJids.length > 0 ? `${conversation.ownedGroupJids.length} grupos associados` : 'Sem grupos associados')}</p>
-                      </div>
-                      ${renderPill(conversation.privateAssistantAuthorized ? 'Acesso privado' : 'Sem acesso', conversation.privateAssistantAuthorized ? 'positive' : 'warning')}
-                    </div>
-                    <details class="details">
-                      <summary>Detalhes tecnicos</summary>
+                  ${renderUiRecordCard({
+                    title: conversation.displayName,
+                    subtitle:
+                      conversation.ownedGroupJids.length > 0
+                        ? `${conversation.ownedGroupJids.length} grupos associados`
+                        : 'Sem grupos associados',
+                    badgeLabel: conversation.privateAssistantAuthorized ? 'Acesso privado' : 'Sem acesso',
+                    badgeTone: conversation.privateAssistantAuthorized ? 'positive' : 'warning',
+                    detailsSummary: 'Detalhes tecnicos',
+                    detailsHtml: `
                       <p>JIDs: ${escapeHtml(conversation.whatsappJids.join(', ') || 'sem JID')}</p>
                       <p>Roles globais: ${escapeHtml(conversation.globalRoles.join(', '))}</p>
-                    </details>
-                  </article>
+                    `,
+                  })}
                 `,
               )
               .join('')}
@@ -666,13 +666,12 @@ export class AppShell {
           <p>${escapeHtml(page.description)}</p>
         </div>
         <div class="hero-panel">
-          <div class="surface">
-            <div class="card-header">
-              <h3>Atividade</h3>
-              ${renderPill(`${snapshot.distributions.length} distribuicoes`, 'neutral')}
-            </div>
-            <p>${snapshot.rules.length} regras ativas alimentam o plano de distribuicao multi-grupo.</p>
-          </div>
+          ${renderUiPanelCard({
+            title: 'Atividade',
+            badgeLabel: `${snapshot.distributions.length} distribuicoes`,
+            badgeTone: 'neutral',
+            contentHtml: `<p>${escapeHtml(`${snapshot.rules.length} regras ativas alimentam o plano de distribuicao multi-grupo.`)}</p>`,
+          })}
         </div>
       </section>
       <section class="content-grid">
@@ -683,22 +682,20 @@ export class AppShell {
           <div class="card-grid">
             ${snapshot.rules
               .map(
-                (rule) => `
-                  <article class="surface list-card">
-                    <div class="card-header">
-                      <div>
-                        <h3>${escapeHtml(rule.personId ?? 'Pessoa sem mapeamento')}</h3>
-                        <p>${escapeHtml(rule.notes ?? 'Regra sem nota adicional')}</p>
-                      </div>
-                      ${renderPill(rule.requiresConfirmation ? 'Com confirmacao' : 'Direta', rule.requiresConfirmation ? 'warning' : 'positive')}
-                    </div>
-                    <ul>
-                      <li>${rule.targetGroupJids.length} grupos alvo</li>
-                      <li>${rule.targetDisciplineCodes.length} disciplinas associadas</li>
-                      <li>${rule.targetCourseIds.length} cursos associados</li>
-                    </ul>
-                  </article>
-                `,
+                (rule) =>
+                  renderUiRecordCard({
+                    title: rule.personId ?? 'Pessoa sem mapeamento',
+                    subtitle: rule.notes ?? 'Regra sem nota adicional',
+                    badgeLabel: rule.requiresConfirmation ? 'Com confirmacao' : 'Direta',
+                    badgeTone: rule.requiresConfirmation ? 'warning' : 'positive',
+                    bodyHtml: `
+                      <ul>
+                        <li>${rule.targetGroupJids.length} grupos alvo</li>
+                        <li>${rule.targetDisciplineCodes.length} disciplinas associadas</li>
+                        <li>${rule.targetCourseIds.length} cursos associados</li>
+                      </ul>
+                    `,
+                  }),
               )
               .join('')}
           </div>
@@ -710,27 +707,25 @@ export class AppShell {
           <div class="card-grid">
             ${snapshot.distributions
               .map(
-                (distribution) => `
-                  <article class="surface list-card">
-                    <div class="card-header">
-                      <div>
-                        <h3>${escapeHtml(distribution.sourceType)}</h3>
-                        <p>${escapeHtml(formatShortDateTime(distribution.updatedAt))}</p>
-                      </div>
-                      ${renderPill(distribution.status, toneFromDistribution(distribution.status))}
-                    </div>
-                    <ul>
-                      <li>${distribution.targetGroupJids.length} grupos alvo</li>
-                      <li>${distribution.actionCounts.completed} completos</li>
-                      <li>${distribution.actionCounts.failed} falhados</li>
-                    </ul>
-                    <details class="details">
-                      <summary>Detalhes tecnicos</summary>
+                (distribution) =>
+                  renderUiRecordCard({
+                    title: distribution.sourceType,
+                    subtitle: formatShortDateTime(distribution.updatedAt),
+                    badgeLabel: distribution.status,
+                    badgeTone: toneFromDistribution(distribution.status),
+                    bodyHtml: `
+                      <ul>
+                        <li>${distribution.targetGroupJids.length} grupos alvo</li>
+                        <li>${distribution.actionCounts.completed} completos</li>
+                        <li>${distribution.actionCounts.failed} falhados</li>
+                      </ul>
+                    `,
+                    detailsSummary: 'Detalhes tecnicos',
+                    detailsHtml: `
                       <p>Instruction ID: ${escapeHtml(distribution.instructionId)}</p>
                       <p>Source message: ${escapeHtml(distribution.sourceMessageId ?? 'manual')}</p>
-                    </details>
-                  </article>
-                `,
+                    `,
+                  }),
               )
               .join('')}
           </div>
@@ -750,13 +745,16 @@ export class AppShell {
           <p>${escapeHtml(page.description)}</p>
         </div>
         <div class="hero-panel">
-          <div class="surface">
-            <div class="card-header">
-              <h3>Estado atual</h3>
-              ${renderPill(`${issues.length} abertas`, issues.length > 0 ? 'warning' : 'positive')}
-            </div>
-            <p>${issues.length > 0 ? 'Convem rever estes atrasos antes de aumentar a carga operacional.' : 'Sem sinais criticos neste momento.'}</p>
-          </div>
+          ${renderUiPanelCard({
+            title: 'Estado atual',
+            badgeLabel: `${issues.length} abertas`,
+            badgeTone: issues.length > 0 ? 'warning' : 'positive',
+            contentHtml: `<p>${escapeHtml(
+              issues.length > 0
+                ? 'Convem rever estes atrasos antes de aumentar a carga operacional.'
+                : 'Sem sinais criticos neste momento.',
+            )}</p>`,
+          })}
         </div>
       </section>
       <section class="card-grid">
@@ -764,22 +762,20 @@ export class AppShell {
           issues.length > 0
             ? issues
                 .map(
-                  (issue) => `
-                    <article class="surface list-card">
-                      <div class="card-header">
-                        <div>
-                          <h3>${escapeHtml(issue.groupLabel)}</h3>
-                          <p>${escapeHtml(issue.summary)}</p>
-                        </div>
-                        ${renderPill(issue.kind, issue.status === 'open' ? 'warning' : 'positive')}
-                      </div>
-                      <ul>
-                        <li>Status: ${escapeHtml(issue.status)}</li>
-                        <li>Aberta: ${escapeHtml(formatShortDateTime(issue.openedAt))}</li>
-                        <li>Semana: ${escapeHtml(issue.weekId)}</li>
-                      </ul>
-                    </article>
-                  `,
+                  (issue) =>
+                    renderUiRecordCard({
+                      title: issue.groupLabel,
+                      subtitle: issue.summary,
+                      badgeLabel: issue.kind,
+                      badgeTone: issue.status === 'open' ? 'warning' : 'positive',
+                      bodyHtml: `
+                        <ul>
+                          <li>Status: ${escapeHtml(issue.status)}</li>
+                          <li>Aberta: ${escapeHtml(formatShortDateTime(issue.openedAt))}</li>
+                          <li>Semana: ${escapeHtml(issue.weekId)}</li>
+                        </ul>
+                      `,
+                    }),
                 )
                 .join('')
             : `
@@ -807,13 +803,12 @@ export class AppShell {
           <p>${escapeHtml(page.description)}</p>
         </div>
         <div class="hero-panel">
-          <div class="surface">
-            <div class="card-header">
-              <h3>Defaults ativos</h3>
-              ${renderPill(`${snapshot.adminSettings.ui.defaultNotificationRules.length} regras`, 'neutral')}
-            </div>
-            <p>As regras default continuam visiveis sem obrigar a ler ficheiros ou JSON.</p>
-          </div>
+          ${renderUiPanelCard({
+            title: 'Defaults ativos',
+            badgeLabel: `${snapshot.adminSettings.ui.defaultNotificationRules.length} regras`,
+            badgeTone: 'neutral',
+            contentHtml: '<p>As regras default continuam visiveis sem obrigar a ler ficheiros ou JSON.</p>',
+          })}
         </div>
       </section>
       <section class="content-grid">
@@ -834,7 +829,7 @@ export class AppShell {
         <article class="surface content-card span-4">
           <div class="card-header">
             <h3>Energia</h3>
-            ${renderPill(snapshot.powerStatus.inhibitorActive ? 'A impedir sleep' : 'Sem inibicao', snapshot.powerStatus.inhibitorActive ? 'warning' : 'neutral')}
+            ${renderUiBadge({ label: snapshot.powerStatus.inhibitorActive ? 'A impedir sleep' : 'Sem inibicao', tone: snapshot.powerStatus.inhibitorActive ? 'warning' : 'neutral' })}
           </div>
           <ul>
             <li>Modo: ${escapeHtml(snapshot.powerStatus.policy.mode)}</li>
@@ -846,7 +841,7 @@ export class AppShell {
         <article class="surface content-card span-4">
           <div class="card-header">
             <h3>Host e auth</h3>
-            ${renderPill(snapshot.hostStatus.autostart.enabled ? 'Autostart ligado' : 'Autostart desligado', snapshot.hostStatus.autostart.enabled ? 'positive' : 'warning')}
+            ${renderUiBadge({ label: snapshot.hostStatus.autostart.enabled ? 'Autostart ligado' : 'Autostart desligado', tone: snapshot.hostStatus.autostart.enabled ? 'positive' : 'warning' })}
           </div>
           <ul>
             <li>Auth live presente: ${snapshot.hostStatus.auth.exists ? 'sim' : 'nao'}</li>
@@ -872,29 +867,21 @@ export class AppShell {
           <p>${escapeHtml(page.description)}</p>
         </div>
         <div class="hero-panel">
-          <div class="surface">
-            <div class="card-header">
-              <h3>Objetivo desta pagina</h3>
-            </div>
-            <p>
-              Nesta wave, estamos a validar presenca no menu, clareza visual e uso correto do espaco antes de aprofundar o comportamento.
-            </p>
-          </div>
+          ${renderUiPanelCard({
+            title: 'Objetivo desta pagina',
+            contentHtml:
+              '<p>Nesta wave, estamos a validar presenca no menu, clareza visual e uso correto do espaco antes de aprofundar o comportamento.</p>',
+          })}
         </div>
       </section>
       <section class="card-grid">
         ${page.sections
           .map(
-            (section) => `
-              <article class="surface list-card">
-                <div class="card-header">
-                  <h3>${escapeHtml(section.title)}</h3>
-                </div>
-                <ul>
-                  ${section.lines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}
-                </ul>
-              </article>
-            `,
+            (section) =>
+              renderUiRecordCard({
+                title: section.title,
+                bodyHtml: `<ul>${section.lines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul>`,
+              }),
           )
           .join('')}
       </section>
@@ -920,8 +907,16 @@ export class AppShell {
             ${actions
               .map((action) =>
                 action.kind === 'mode'
-                  ? `<button class="action-button ${action.value === 'demo' ? '' : 'action-button--secondary'}" data-mode="${escapeHtml(action.value)}">${escapeHtml(action.label)}</button>`
-                  : `<button class="action-button action-button--secondary" data-preview="${escapeHtml(action.value)}">${escapeHtml(action.label)}</button>`,
+                  ? renderUiActionButton({
+                      label: action.label,
+                      variant: action.value === 'demo' ? 'primary' : 'secondary',
+                      dataAttributes: { mode: action.value },
+                    })
+                  : renderUiActionButton({
+                      label: action.label,
+                      variant: 'secondary',
+                      dataAttributes: { preview: action.value },
+                    }),
               )
               .join('')}
           </div>
@@ -1050,32 +1045,6 @@ function mapPreviewStateToScreenState(previewState: PreviewState): ScreenState {
   }
 }
 
-function renderToggleButton(label: string, value: string, active: boolean, kind: 'mode' | 'preview'): string {
-  return `<button class="toggle-button ${active ? 'is-active' : ''}" data-${kind}="${escapeHtml(value)}">${escapeHtml(label)}</button>`;
-}
-
-function renderPill(label: string, tone: 'positive' | 'warning' | 'danger' | 'neutral'): string {
-  return `<span class="pill pill--${tone}">${escapeHtml(label)}</span>`;
-}
-
-function renderMetricCard(
-  title: string,
-  value: string,
-  tone: 'positive' | 'warning' | 'danger' | 'neutral',
-  description: string,
-): string {
-  return `
-    <article class="surface metric-card">
-      <h3>${escapeHtml(title)}</h3>
-      <strong>${escapeHtml(value)}</strong>
-      <p>${escapeHtml(description)}</p>
-      <div class="chip-row">
-        <span class="chip ${tone === 'neutral' ? '' : `chip--${tone === 'positive' ? 'accent' : tone === 'warning' ? 'warning' : 'danger'}`}">${escapeHtml(title)}</span>
-      </div>
-    </article>
-  `;
-}
-
 function renderScreenStateLabel(screenState: ScreenState): string {
   switch (screenState) {
     case 'ready':
@@ -1091,7 +1060,7 @@ function renderScreenStateLabel(screenState: ScreenState): string {
   }
 }
 
-function toneFromScreenState(screenState: ScreenState): 'positive' | 'warning' | 'danger' | 'neutral' {
+function toneFromScreenState(screenState: ScreenState): UiTone {
   switch (screenState) {
     case 'ready':
       return 'positive';
@@ -1104,7 +1073,7 @@ function toneFromScreenState(screenState: ScreenState): 'positive' | 'warning' |
   }
 }
 
-function toneFromHealth(status: DashboardSnapshot['health']['status']): 'positive' | 'warning' | 'danger' | 'neutral' {
+function toneFromHealth(status: DashboardSnapshot['health']['status']): UiTone {
   switch (status) {
     case 'healthy':
       return 'positive';
@@ -1117,7 +1086,7 @@ function toneFromHealth(status: DashboardSnapshot['health']['status']): 'positiv
   }
 }
 
-function toneFromDistribution(status: DistributionSummary['status']): 'positive' | 'warning' | 'danger' | 'neutral' {
+function toneFromDistribution(status: DistributionSummary['status']): UiTone {
   switch (status) {
     case 'completed':
       return 'positive';
@@ -1154,15 +1123,4 @@ function formatHeaderDate(value: Date): string {
 function looksOffline(message: string): boolean {
   const value = message.toLowerCase();
   return value.includes('failed to fetch') || value.includes('network') || value.includes('503') || value.includes('offline');
-}
-
-function escapeHtml(value: unknown): string {
-  const normalized = value == null ? '' : String(value);
-
-  return normalized
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
 }
