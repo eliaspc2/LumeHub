@@ -1156,8 +1156,10 @@ function looksOffline(message: string): boolean {
   return value.includes('failed to fetch') || value.includes('network') || value.includes('503') || value.includes('offline');
 }
 
-function escapeHtml(value: string): string {
-  return value
+function escapeHtml(value: unknown): string {
+  const normalized = value == null ? '' : String(value);
+
+  return normalized
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
