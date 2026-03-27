@@ -1,19 +1,19 @@
 # Legacy Healthy Code
 
-Esta pasta contem um snapshot curado do `WA-Notify` atual.
+Esta pasta ficou reduzida ao minimo na `Wave 17`.
 
-## Objetivo
+## O que resta
 
-Ajudar a reescrita do projeto novo sem obrigar a varrer o projeto antigo inteiro.
+- `reference_engines/`
+  - pequena referencia de comportamento do sistema antigo
+  - mantida apenas para `alerts` e `automations`, que nao ficaram no workspace ativo
 
-## Subpastas
+## O que saiu
 
 - `ready_to_port/`
-  - codigo mais seguro para portar rapidamente
-- `reference_engines/`
-  - codigo util como referencia de comportamento
+  - removido por ja estar supersedido pelo codigo novo ou pela documentacao atual
 
 ## Regra
 
-Este snapshot nao substitui a nova arquitetura.
-Serve para acelerar a implementacao do novo sistema.
+O que resta aqui nao substitui a arquitetura nova.
+Serve apenas como ultima referencia quando o comportamento ainda nao estiver vivo no `source/`.

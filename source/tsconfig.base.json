@@ -129,12 +129,6 @@
       "@lume-hub/owner-control": [
         "packages/modules/owner-control/src/public/index.ts"
       ],
-      "@lume-hub/alerts": [
-        "packages/modules/alerts/src/public/index.ts"
-      ],
-      "@lume-hub/automations": [
-        "packages/modules/automations/src/public/index.ts"
-      ],
       "@lume-hub/watchdog": [
         "packages/modules/watchdog/src/public/index.ts"
       ],

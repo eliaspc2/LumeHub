@@ -9,16 +9,16 @@ Ponto de entrada para qualquer agente/LLM que trabalhe neste novo projeto.
 3. `/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_modular_implementation_spec.md`
 4. `/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_implementation_waves.md`
 5. `/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_gap_audit.md`
-6. `/home/eliaspc/Documentos/lume-hub/docs/reuse/lume_hub_healthy_code_manifest.md`
-7. `/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_lxd_runtime_plan.md`
-8. `/home/eliaspc/Documentos/lume-hub/runtime/lxd/README.md`
+6. `/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_lxd_runtime_plan.md`
+7. `/home/eliaspc/Documentos/lume-hub/runtime/lxd/README.md`
 
 ## Regras rapidas
 
 - O codigo novo vive em `source/`.
 - Nao desenvolver diretamente dentro de `runtime/`.
 - `runtime/` e destino operacional de build/publicacao, nao fonte de verdade.
-- `legacy_healthy_code/` e material doador/referencia, nao arquitetura canonica.
+- `legacy_healthy_code/` ficou reduzida a referencia residual, nao arquitetura canonica.
+- consultar `legacy_healthy_code/reference_engines/` apenas quando o comportamento ainda nao estiver portado nem explicado no codigo novo
 - Se um modulo atual for aproveitado, deve ser portado para a estrutura modular nova em vez de ser simplesmente colado para dentro do backend.
 - O sistema deve nascer modular, com `apps/`, `foundation/`, `adapters/`, `modules/` e `ui-modules/`.
 - O bootstrap tem de continuar fino; a logica de negocio nao deve voltar a acumular-se em `server.ts` ou equivalente.
@@ -49,9 +49,9 @@ Ponto de entrada para qualquer agente/LLM que trabalhe neste novo projeto.
 
 ## Regras sobre o legado
 
-- `legacy_healthy_code/ready_to_port/` contem o que esta em melhor estado para portar.
-- `legacy_healthy_code/reference_engines/` contem motores uteis, mas com mais acoplamento ao desenho antigo.
-- Modulos problematicos do projeto antigo devem ser usados apenas para consulta, nao como base literal do projeto novo.
+- `legacy_healthy_code/reference_engines/` contem o pouco legado que ainda vale como consulta.
+- esse legado deve ser usado apenas para perceber comportamento, nunca como base literal do runtime novo.
+- se um comportamento nao estiver vivo no codigo novo, preferir a arquitetura atual e o `gap_audit` antes de tentar ressuscitar o desenho antigo.
 
 ## Preferencias operacionais
 

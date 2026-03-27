@@ -38,8 +38,6 @@ O container e apenas o local de execucao.
   - `/home/eliaspc/Documentos/lume-hub/source`
 - docs do projeto:
   - `/home/eliaspc/Documentos/lume-hub/docs`
-- snapshot reaproveitavel do projeto atual:
-  - `/home/eliaspc/Documentos/lume-hub/legacy_healthy_code`
 - staging para artefactos:
   - `/home/eliaspc/Documentos/lume-hub/runtime/lxd/release-bundles`
 - staging para bind mounts:

@@ -13,10 +13,11 @@ Este projeto nasce com quatro separacoes claras:
 2. `runtime/`
    - estrutura operacional para correr o sistema fora do codigo-fonte
    - neste momento esta preparada para `LXD`, sem instalar nada automaticamente
-3. `legacy_healthy_code/`
-   - extracto do codigo atual que foi considerado suficientemente saudavel para reaproveitamento ou referencia
-4. `docs/`
+3. `docs/`
    - arquitetura alvo, regras de implementacao, reaproveitamento e plano de deploy
+4. `legacy_healthy_code/`
+   - referencia residual minima do sistema antigo
+   - neste momento restam apenas `reference_engines/` para comportamentos ainda nao reintroduzidos de forma real
 
 ## Responsabilidades nao opcionais do produto
 
@@ -168,7 +169,9 @@ O runtime em `runtime/` deve ser tratado como destino de build/publicacao, nao c
 - `source/`
   - monorepo workspace do projeto novo
 - `legacy_healthy_code/`
-  - snapshot util do projeto atual
+  - referencia residual do projeto atual
+  - `ready_to_port/` foi removido na `Wave 17` por ja estar supersedido
+  - `reference_engines/` ficou como ultima referencia para comportamento de `alerts` e `automations`
 - `runtime/lxd/`
   - layout preparado para publicar builds para um container `LXD`
 
@@ -209,16 +212,15 @@ Na `Wave 12`, o fluxo canónico passa por:
 - [lume_hub_modular_implementation_spec.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_modular_implementation_spec.md)
 - [lume_hub_implementation_waves.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_implementation_waves.md)
 - [lume_hub_gap_audit.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_gap_audit.md)
-- [lume_hub_healthy_code_manifest.md](/home/eliaspc/Documentos/lume-hub/docs/reuse/lume_hub_healthy_code_manifest.md)
 - [lume_hub_lxd_runtime_plan.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_lxd_runtime_plan.md)
 - [lume_hub_release_publish.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_release_publish.md)
 
 ## Estado atual
 
-As `Wave 0` a `Wave 12` ja foram executadas e validadas.
-O foco atual do projeto passou a ser:
+As `Wave 0` a `Wave 17` ja foram executadas e validadas.
+Neste momento:
 
-- fechar gaps reais de integracao e produto descritos em `docs/architecture/lume_hub_gap_audit.md`
-- modernizar a experiencia web nas `Wave 13` a `Wave 16`
-- fechar a ronda com limpeza final e remocao de material obsoleto na `Wave 17`
-- simplificar documentacao e remover material antigo de scaffold que ja nao acrescenta contexto util
+- nao ha waves ativas por executar
+- o frontend operacional das `Wave 13` a `Wave 16` ficou fechado
+- a `Wave 17` limpou stubs mortos, docs obsoletas e legado ja supersedido
+- o backlog restante ficou concentrado apenas em gaps reais de integracao e producao descritos em `docs/architecture/lume_hub_gap_audit.md`

@@ -1,9 +1,0 @@
-{
-  "privateAllowedSenders": [
-    "3519XXXXXXXX@s.whatsapp.net"
-  ],
-  "groupAllowedJids": [
-    "1203630XXXXXXXXX@g.us"
-  ],
-  "logGroupInteractions": true
-}

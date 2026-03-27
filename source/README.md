@@ -36,19 +36,19 @@ Decisao de storage:
 
 ## Estado
 
-A base do monorepo ja existe e as `Wave 0` a `Wave 12` foram executadas.
+A base do monorepo ja existe e as `Wave 0` a `Wave 17` foram executadas.
 Hoje esta pasta ja contem:
 
 - `apps/lume-hub-backend`, `apps/lume-hub-web` e `apps/lume-hub-host`
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
-- scripts de validacao de `validate:wave1` ate `validate:wave12`
+- scripts de validacao de `validate:wave1` ate `validate:wave17`
 - testes unitarios, de integracao e `e2e`
 
-O backlog ativo deixou de ser scaffold.
-Agora esta concentrado em:
+Nao ha uma wave ativa neste momento.
+O backlog restante ficou concentrado em:
 
 - gaps de integracao real descritos em `../docs/architecture/lume_hub_gap_audit.md`
-- modernizacao do frontend nas `Wave 13` a `Wave 16`
+- regressao final e trabalho futuro que venha a merecer waves novas
 
 Nota operacional:
 
