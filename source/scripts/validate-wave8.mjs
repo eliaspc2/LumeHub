@@ -9,6 +9,9 @@ const { AdminConfigModule } = await import(
 const { GroupDirectoryModule } = await import(
   '../packages/modules/group-directory/dist/modules/group-directory/src/public/index.js'
 );
+const { PeopleMemoryModule } = await import(
+  '../packages/modules/people-memory/dist/modules/people-memory/src/public/index.js'
+);
 const { AudienceRoutingModule } = await import(
   '../packages/modules/audience-routing/dist/modules/audience-routing/src/public/index.js'
 );
@@ -397,6 +400,9 @@ try {
     dataRootPath,
     groupSeedFilePath,
   });
+  const peopleMemory = new PeopleMemoryModule({
+    peopleFilePath,
+  });
   const audienceRouting = new AudienceRoutingModule({
     dataRootPath,
     groupSeedFilePath,
@@ -509,6 +515,7 @@ try {
       healthMonitor,
       hostLifecycle,
       instructionQueue,
+      peopleMemory,
       systemPower,
       watchdog,
     },
@@ -525,6 +532,11 @@ try {
   assert.equal(dashboard.groups.total, 3);
   assert.equal(dashboard.distributions.total, 3);
   assert.equal(dashboard.watchdog.openIssues, 1);
+
+  const initialWhatsAppWorkspace = await client.getWhatsAppWorkspace();
+  assert.equal(initialWhatsAppWorkspace.groups.length, 3);
+  assert.equal(initialWhatsAppWorkspace.conversations.length, 3);
+  assert.equal(initialWhatsAppWorkspace.appOwners.length, 1);
 
   const replacedOwners = await client.replaceGroupOwners(groupProgrammingB, [
     {
@@ -554,6 +566,48 @@ try {
     notes: 'Fan-out experimental do Rui.',
   });
   assert.equal(upsertedRule.personId, 'person-rui');
+
+  const upsertedPerson = await client.upsertPerson({
+    displayName: 'Carla Secretaria',
+    identifiers: [
+      {
+        kind: 'whatsapp_jid',
+        value: '351910000077@s.whatsapp.net',
+      },
+    ],
+    globalRoles: ['member'],
+  });
+  assert.equal(upsertedPerson.displayName, 'Carla Secretaria');
+
+  const reprivilegedPerson = await client.updatePersonRoles('person-rui', ['app_owner']);
+  assert.ok(reprivilegedPerson.globalRoles.includes('app_owner'));
+
+  const listedPeople = await client.listPeople();
+  assert.equal(listedPeople.length, 4);
+
+  const updatedCommandSettings = await client.updateCommandSettings({
+    assistantEnabled: true,
+    schedulingEnabled: true,
+    ownerTerminalEnabled: true,
+    autoReplyEnabled: true,
+    directRepliesEnabled: true,
+    allowPrivateAssistant: true,
+    authorizedGroupJids: [groupProgrammingA, groupCyber],
+    authorizedPrivateJids: ['351910000099@s.whatsapp.net', '351910000077@s.whatsapp.net'],
+  });
+  assert.deepEqual(updatedCommandSettings.commands.authorizedGroupJids, [groupProgrammingA, groupCyber]);
+  assert.deepEqual(updatedCommandSettings.commands.authorizedPrivateJids, [
+    '351910000099@s.whatsapp.net',
+    '351910000077@s.whatsapp.net',
+  ]);
+
+  const updatedWhatsAppSettings = await client.updateWhatsAppSettings({
+    enabled: true,
+    sharedAuthWithCodex: false,
+    groupDiscoveryEnabled: true,
+    conversationDiscoveryEnabled: true,
+  });
+  assert.equal(updatedWhatsAppSettings.whatsapp.sharedAuthWithCodex, false);
 
   const updatedAdminSettings = await client.updateDefaultNotificationRules([
     {
@@ -590,6 +644,18 @@ try {
   const routingRules = await client.listRoutingRules();
   assert.ok(routingRules.some((rule) => rule.personId === 'person-rui'));
 
+  const whatsappWorkspace = await client.getWhatsAppWorkspace();
+  assert.equal(whatsappWorkspace.permissionSummary.authorizedGroups, 2);
+  assert.equal(whatsappWorkspace.permissionSummary.authorizedPrivateConversations, 2);
+  assert.equal(whatsappWorkspace.appOwners.length, 2);
+  assert.equal(whatsappWorkspace.settings.whatsapp.sharedAuthWithCodex, false);
+  assert.ok(whatsappWorkspace.groups.some((group) => group.groupJid === groupProgrammingB && !group.assistantAuthorized));
+  assert.ok(
+    whatsappWorkspace.conversations.some(
+      (conversation) => conversation.displayName === 'Carla Secretaria' && conversation.privateAssistantAuthorized,
+    ),
+  );
+
   const distributions = await client.listDistributions();
   assert.ok(distributions.some((distribution) => distribution.status === 'queued'));
   assert.ok(distributions.some((distribution) => distribution.status === 'completed'));
@@ -604,7 +670,11 @@ try {
 
   assert.ok(observedEvents.some((event) => event.topic === 'groups.owners.updated'));
   assert.ok(observedEvents.some((event) => event.topic === 'groups.calendar_access.updated'));
+  assert.ok(observedEvents.some((event) => event.topic === 'people.updated'));
+  assert.ok(observedEvents.some((event) => event.topic === 'people.roles.updated'));
   assert.ok(observedEvents.some((event) => event.topic === 'routing.rule.updated'));
+  assert.ok(observedEvents.some((event) => event.topic === 'settings.commands.updated'));
+  assert.ok(observedEvents.some((event) => event.topic === 'settings.whatsapp.updated'));
   assert.ok(observedEvents.some((event) => event.topic === 'settings.ui.updated'));
   assert.ok(observedEvents.some((event) => event.topic === 'settings.power.updated'));
   assert.ok(observedEvents.some((event) => event.topic === 'settings.autostart.updated'));
@@ -613,11 +683,13 @@ try {
   const shell = new AppShell(bootstrap.router, bootstrap.apiClientProvider.getBufferedEvents());
   const renderedShell = await shell.render();
   const groupsPage = renderedShell.pages.find((page) => page.route === '/groups');
+  const whatsappPage = renderedShell.pages.find((page) => page.route === '/whatsapp');
   const routingPage = renderedShell.pages.find((page) => page.route === '/routing-fanout');
   const watchdogPage = renderedShell.pages.find((page) => page.route === '/watchdog');
   const settingsPage = renderedShell.pages.find((page) => page.route === '/settings');
 
   assert.ok(renderedShell.navigation.some((item) => item.route === '/groups'));
+  assert.ok(renderedShell.navigation.some((item) => item.route === '/whatsapp'));
   assert.ok(renderedShell.navigation.some((item) => item.route === '/routing-fanout'));
   assert.ok(renderedShell.navigation.some((item) => item.route === '/watchdog'));
   assert.ok(renderedShell.navigation.some((item) => item.route === '/settings'));
@@ -630,6 +702,11 @@ try {
   assert.match(routingPage.sections[0].lines.join('\n'), /person-rui/);
   assert.match(routingPage.sections[1].lines.join('\n'), /status=queued/);
   assert.match(routingPage.sections[1].lines.join('\n'), /status=partial_failed/);
+
+  assert.ok(whatsappPage);
+  assert.match(JSON.stringify(whatsappPage), /Carla Secretaria/);
+  assert.match(JSON.stringify(whatsappPage), /assistant_access=blocked/);
+  assert.match(JSON.stringify(whatsappPage), /private_access=allowed/);
 
   assert.ok(watchdogPage);
   assert.match(watchdogPage.sections[0].lines.join('\n'), /resolved/);

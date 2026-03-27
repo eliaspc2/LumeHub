@@ -4,6 +4,7 @@ import { GroupDirectoryConsoleUiModule } from '@lume-hub/group-directory-console
 import { QueueConsoleUiModule } from '@lume-hub/queue-console';
 import { SettingsCenterUiModule } from '@lume-hub/settings-center';
 import type { NavigationItem, UiPage } from '@lume-hub/shared-ui';
+import { WhatsAppConsoleUiModule } from '@lume-hub/whatsapp-console';
 import { WatchdogInboxUiModule } from '@lume-hub/watchdog-inbox';
 
 import type { QueryClient } from './QueryClientFactory.js';
@@ -17,6 +18,7 @@ export interface AppRouteDefinition {
 export class AppRouter {
   private readonly dashboard = new DashboardUiModule();
   private readonly groupDirectory = new GroupDirectoryConsoleUiModule();
+  private readonly whatsapp = new WhatsAppConsoleUiModule();
   private readonly routing = new QueueConsoleUiModule();
   private readonly watchdog = new WatchdogInboxUiModule();
   private readonly settings = new SettingsCenterUiModule();
@@ -44,6 +46,12 @@ export class AppRouter {
         route: this.groupDirectory.config.route,
         label: this.groupDirectory.config.label,
         render: async () => this.groupDirectory.render(await this.readQuery('groups', () => this.client.listGroups())),
+      },
+      {
+        route: this.whatsapp.config.route,
+        label: this.whatsapp.config.label,
+        render: async () =>
+          this.whatsapp.render(await this.readQuery('whatsapp-workspace', () => this.client.getWhatsAppWorkspace())),
       },
       {
         route: this.routing.config.route,

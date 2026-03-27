@@ -171,6 +171,9 @@
       "@lume-hub/settings-center": [
         "packages/ui-modules/settings-center/src/index.ts"
       ],
+      "@lume-hub/whatsapp-console": [
+        "packages/ui-modules/whatsapp-console/src/index.ts"
+      ],
       "@lume-hub/shared-ui": [
         "packages/ui-modules/shared-ui/src/index.ts"
       ],

@@ -1,4 +1,4 @@
-import type { AdminSettings, UiSettings } from '@lume-hub/admin-config';
+import type { AdminSettings, CommandsPolicySettings, UiSettings, WhatsAppSettings } from '@lume-hub/admin-config';
 import type {
   DistributionPlan,
   SenderAudienceRule,
@@ -15,6 +15,7 @@ import type {
   GroupOwnerAssignment,
   GroupOwnerAssignmentInput,
 } from '@lume-hub/group-directory';
+import type { Person, PersonRole, PersonUpsertInput } from '@lume-hub/people-memory';
 import type { PowerPolicyUpdate, PowerStatus } from '@lume-hub/system-power';
 import type { WatchdogIssue } from '@lume-hub/watchdog';
 
@@ -107,6 +108,54 @@ export interface SettingsSnapshot {
   readonly powerStatus: PowerStatus;
   readonly hostStatus: HostCompanionStatus;
   readonly authRouterStatus: CodexAuthRouterStatus | null;
+}
+
+export interface WhatsAppConversationSummary {
+  readonly personId: string | null;
+  readonly displayName: string;
+  readonly whatsappJids: readonly string[];
+  readonly globalRoles: readonly PersonRole[];
+  readonly privateAssistantAuthorized: boolean;
+  readonly ownedGroupJids: readonly string[];
+  readonly knownToBot: boolean;
+}
+
+export interface WhatsAppGroupSummary {
+  readonly groupJid: string;
+  readonly preferredSubject: string;
+  readonly aliases: readonly string[];
+  readonly courseId: string | null;
+  readonly ownerPersonIds: readonly string[];
+  readonly ownerLabels: readonly string[];
+  readonly assistantAuthorized: boolean;
+  readonly calendarAccessPolicy: GroupCalendarAccessPolicy;
+  readonly lastRefreshedAt: string | null;
+  readonly knownToBot: boolean;
+}
+
+export interface WhatsAppWorkspaceSnapshot {
+  readonly settings: {
+    readonly commands: CommandsPolicySettings;
+    readonly whatsapp: WhatsAppSettings;
+  };
+  readonly host: {
+    readonly authFilePath: string;
+    readonly canonicalAuthFilePath: string | null;
+    readonly authExists: boolean;
+    readonly sameAsCodexCanonical: boolean;
+    readonly autostartEnabled: boolean;
+    readonly lastHeartbeatAt: string | null;
+  };
+  readonly groups: readonly WhatsAppGroupSummary[];
+  readonly conversations: readonly WhatsAppConversationSummary[];
+  readonly appOwners: readonly WhatsAppConversationSummary[];
+  readonly permissionSummary: {
+    readonly knownGroups: number;
+    readonly authorizedGroups: number;
+    readonly knownPrivateConversations: number;
+    readonly authorizedPrivateConversations: number;
+    readonly appOwners: number;
+  };
 }
 
 export class InMemoryFrontendApiTransport implements FrontendApiTransport {
@@ -218,6 +267,66 @@ export class FrontendApiClient {
     );
   }
 
+  async getWhatsAppWorkspace(): Promise<WhatsAppWorkspaceSnapshot> {
+    return this.expectOk(
+      await this.transport.request<WhatsAppWorkspaceSnapshot>({
+        method: 'GET',
+        path: '/api/whatsapp/workspace',
+      }),
+    );
+  }
+
+  async listPeople(): Promise<readonly Person[]> {
+    return this.expectOk(
+      await this.transport.request<readonly Person[]>({
+        method: 'GET',
+        path: '/api/people',
+      }),
+    );
+  }
+
+  async upsertPerson(input: PersonUpsertInput): Promise<Person> {
+    return this.expectOk(
+      await this.transport.request<Person>({
+        method: 'POST',
+        path: '/api/people',
+        body: input,
+      }),
+    );
+  }
+
+  async updatePersonRoles(personId: string, globalRoles: readonly PersonRole[]): Promise<Person> {
+    return this.expectOk(
+      await this.transport.request<Person>({
+        method: 'PUT',
+        path: `/api/people/${encodeURIComponent(personId)}/roles`,
+        body: {
+          globalRoles,
+        },
+      }),
+    );
+  }
+
+  async updateCommandSettings(update: Partial<CommandsPolicySettings>): Promise<AdminSettings> {
+    return this.expectOk(
+      await this.transport.request<AdminSettings>({
+        method: 'PATCH',
+        path: '/api/settings/commands',
+        body: update,
+      }),
+    );
+  }
+
+  async updateWhatsAppSettings(update: Partial<WhatsAppSettings>): Promise<AdminSettings> {
+    return this.expectOk(
+      await this.transport.request<AdminSettings>({
+        method: 'PATCH',
+        path: '/api/settings/whatsapp',
+        body: update,
+      }),
+    );
+  }
+
   async updateDefaultNotificationRules(defaultNotificationRules: UiSettings['defaultNotificationRules']): Promise<AdminSettings> {
     return this.expectOk(
       await this.transport.request<AdminSettings>({
@@ -292,6 +401,7 @@ export class FrontendApiClient {
 
 export type {
   AdminSettings,
+  CommandsPolicySettings,
   CalendarAccessMode,
   DistributionPlan,
   Group,
@@ -299,8 +409,12 @@ export type {
   GroupOwnerAssignment,
   GroupOwnerAssignmentInput,
   HostCompanionStatus,
+  Person,
+  PersonRole,
+  PersonUpsertInput,
   PowerStatus,
   SenderAudienceRule,
   SenderAudienceRuleUpsertInput,
+  WhatsAppSettings,
   WatchdogIssue,
 };

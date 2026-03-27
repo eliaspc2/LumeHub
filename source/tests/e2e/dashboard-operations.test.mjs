@@ -15,16 +15,62 @@ test('dashboard surfaces watchdog and host companion state clearly', async () =>
       adminConfig: {
         async getSettings() {
           return {
+            commands: {
+              assistantEnabled: true,
+              schedulingEnabled: true,
+              ownerTerminalEnabled: true,
+              autoReplyEnabled: true,
+              directRepliesEnabled: false,
+              allowPrivateAssistant: true,
+              authorizedGroupJids: ['120363400000000001@g.us'],
+              authorizedPrivateJids: ['351910000099@s.whatsapp.net'],
+            },
+            whatsapp: {
+              enabled: true,
+              sharedAuthWithCodex: true,
+              groupDiscoveryEnabled: true,
+              conversationDiscoveryEnabled: true,
+            },
+            llm: {
+              enabled: false,
+              provider: 'codex-oauth',
+              model: 'gpt-5.4',
+              streamingEnabled: true,
+            },
             ui: {
               defaultNotificationRules: [],
             },
+            updatedAt: '2026-03-26T12:00:00.000Z',
           };
         },
         async updateUiSettings(update) {
           return {
+            commands: {
+              assistantEnabled: true,
+              schedulingEnabled: true,
+              ownerTerminalEnabled: true,
+              autoReplyEnabled: true,
+              directRepliesEnabled: false,
+              allowPrivateAssistant: true,
+              authorizedGroupJids: ['120363400000000001@g.us'],
+              authorizedPrivateJids: ['351910000099@s.whatsapp.net'],
+            },
+            whatsapp: {
+              enabled: true,
+              sharedAuthWithCodex: true,
+              groupDiscoveryEnabled: true,
+              conversationDiscoveryEnabled: true,
+            },
+            llm: {
+              enabled: false,
+              provider: 'codex-oauth',
+              model: 'gpt-5.4',
+              streamingEnabled: true,
+            },
             ui: {
               defaultNotificationRules: update.defaultNotificationRules ?? [],
             },
+            updatedAt: '2026-03-26T12:00:00.000Z',
           };
         },
       },
@@ -211,6 +257,58 @@ test('dashboard surfaces watchdog and host companion state clearly', async () =>
           ];
         },
       },
+      peopleMemory: {
+        async listPeople() {
+          return [
+            {
+              personId: 'person-app-owner',
+              displayName: 'Dono da App',
+              identifiers: [
+                {
+                  kind: 'whatsapp_jid',
+                  value: '351910000099@s.whatsapp.net',
+                },
+              ],
+              globalRoles: ['app_owner'],
+              createdAt: '2026-03-26T09:00:00.000Z',
+              updatedAt: '2026-03-26T09:00:00.000Z',
+            },
+            {
+              personId: 'person-owner',
+              displayName: 'Ana Formadora',
+              identifiers: [
+                {
+                  kind: 'whatsapp_jid',
+                  value: '351910000001@s.whatsapp.net',
+                },
+              ],
+              globalRoles: ['member'],
+              createdAt: '2026-03-26T09:00:00.000Z',
+              updatedAt: '2026-03-26T09:00:00.000Z',
+            },
+          ];
+        },
+        async upsertByIdentifiers(input) {
+          return {
+            personId: input.personId ?? 'person-created',
+            displayName: input.displayName,
+            identifiers: input.identifiers,
+            globalRoles: input.globalRoles ?? ['member'],
+            createdAt: '2026-03-26T09:00:00.000Z',
+            updatedAt: '2026-03-26T09:00:00.000Z',
+          };
+        },
+        async updatePersonRoles(personId, globalRoles) {
+          return {
+            personId,
+            displayName: 'Pessoa Atualizada',
+            identifiers: [],
+            globalRoles,
+            createdAt: '2026-03-26T09:00:00.000Z',
+            updatedAt: '2026-03-26T09:00:00.000Z',
+          };
+        },
+      },
       systemPower: {
         async getPowerStatus() {
           return {
@@ -264,10 +362,15 @@ test('dashboard surfaces watchdog and host companion state clearly', async () =>
   });
   const pages = await app.router.renderPages();
   const dashboardPage = pages.find((page) => page.route === '/dashboard');
+  const whatsappPage = pages.find((page) => page.route === '/whatsapp');
 
   assert.ok(dashboardPage);
+  assert.ok(whatsappPage);
   assert.equal(dashboardPage.sections.some((section) => section.title === 'Host Companion'), true);
   assert.equal(dashboardPage.sections.some((section) => section.title === 'Watchdog'), true);
   assert.equal(JSON.stringify(dashboardPage).includes('host_id=host-kubuntu'), true);
   assert.equal(JSON.stringify(dashboardPage).includes('Job atrasado ha 6 minutos.'), true);
+  assert.equal(JSON.stringify(whatsappPage).includes('Dono da App'), true);
+  assert.equal(JSON.stringify(whatsappPage).includes('assistant_access=allowed'), true);
+  assert.equal(JSON.stringify(whatsappPage).includes('private_access=allowed'), true);
 });

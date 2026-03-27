@@ -7,6 +7,7 @@ export interface PeopleMemoryModuleContract {
   findPersonById(personId: string): Promise<Person | undefined>;
   findByIdentifiers(identifiers: readonly PersonIdentifier[]): Promise<Person | undefined>;
   upsertByIdentifiers(input: PersonUpsertInput): Promise<Person>;
+  updatePersonRoles(personId: string, globalRoles: readonly import('../../domain/entities/Person.js').PersonRole[]): Promise<Person>;
   appendImportantNote(personId: string, text: string): Promise<PersonNote>;
   listImportantNotes(personId: string): Promise<readonly PersonNote[]>;
   isAppOwner(personId: string): Promise<boolean>;

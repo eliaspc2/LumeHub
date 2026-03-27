@@ -15,6 +15,7 @@
     "@lume-hub/queue-console": "workspace:*",
     "@lume-hub/settings-center": "workspace:*",
     "@lume-hub/shared-ui": "workspace:*",
+    "@lume-hub/whatsapp-console": "workspace:*",
     "@lume-hub/watchdog-inbox": "workspace:*"
   }
 }

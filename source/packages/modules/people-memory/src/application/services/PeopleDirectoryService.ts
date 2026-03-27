@@ -50,6 +50,28 @@ export class PeopleDirectoryService {
     return nextPerson;
   }
 
+  async updatePersonRoles(personId: string, globalRoles: readonly PersonRole[], now = new Date()): Promise<Person> {
+    const current = await this.repository.read();
+    const existing = current.people.find((person) => person.personId === personId);
+
+    if (!existing) {
+      throw new Error(`Unknown person '${personId}'.`);
+    }
+
+    const nextPerson: Person = {
+      ...existing,
+      globalRoles: dedupeRoles(globalRoles),
+      updatedAt: now.toISOString(),
+    };
+
+    await this.repository.save({
+      ...current,
+      people: current.people.map((person) => (person.personId === personId ? nextPerson : person)),
+    });
+
+    return nextPerson;
+  }
+
   async isAppOwner(personId: string): Promise<boolean> {
     return (await this.findPersonById(personId))?.globalRoles.includes('app_owner') ?? false;
   }

@@ -56,6 +56,9 @@ importers:
       '@lume-hub/watchdog-inbox':
         specifier: workspace:*
         version: link:../../packages/ui-modules/watchdog-inbox
+      '@lume-hub/whatsapp-console':
+        specifier: workspace:*
+        version: link:../../packages/ui-modules/whatsapp-console
 
   packages/adapters/frontend-api-client:
     dependencies:
@@ -80,6 +83,9 @@ importers:
       '@lume-hub/instruction-queue':
         specifier: workspace:*
         version: link:../../modules/instruction-queue
+      '@lume-hub/people-memory':
+        specifier: workspace:*
+        version: link:../../modules/people-memory
       '@lume-hub/system-power':
         specifier: workspace:*
         version: link:../../modules/system-power
@@ -110,6 +116,9 @@ importers:
       '@lume-hub/instruction-queue':
         specifier: workspace:*
         version: link:../../modules/instruction-queue
+      '@lume-hub/people-memory':
+        specifier: workspace:*
+        version: link:../../modules/people-memory
       '@lume-hub/system-power':
         specifier: workspace:*
         version: link:../../modules/system-power
@@ -595,6 +604,15 @@ importers:
         version: link:../shared-ui
 
   packages/ui-modules/week-planner: {}
+
+  packages/ui-modules/whatsapp-console:
+    dependencies:
+      '@lume-hub/frontend-api-client':
+        specifier: workspace:*
+        version: link:../../adapters/frontend-api-client
+      '@lume-hub/shared-ui':
+        specifier: workspace:*
+        version: link:../shared-ui
 
 packages:
 

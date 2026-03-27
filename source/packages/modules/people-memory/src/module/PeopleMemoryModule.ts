@@ -1,6 +1,6 @@
 import { BaseModule } from '@lume-hub/kernel';
 
-import type { PersonIdentifier, PersonUpsertInput } from '../domain/entities/Person.js';
+import type { PersonIdentifier, PersonRole, PersonUpsertInput } from '../domain/entities/Person.js';
 import { ImportantMemoryService } from '../application/services/ImportantMemoryService.js';
 import { PeopleDirectoryService } from '../application/services/PeopleDirectoryService.js';
 import { PersonIdentityMatcher } from '../domain/services/PersonIdentityMatcher.js';
@@ -45,6 +45,10 @@ export class PeopleMemoryModule extends BaseModule implements PeopleMemoryModule
 
   async upsertByIdentifiers(input: PersonUpsertInput) {
     return this.service.upsertByIdentifiers(input);
+  }
+
+  async updatePersonRoles(personId: string, globalRoles: readonly PersonRole[]) {
+    return this.service.updatePersonRoles(personId, globalRoles);
   }
 
   async appendImportantNote(personId: string, text: string) {

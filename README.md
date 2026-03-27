@@ -109,6 +109,17 @@ O runtime em `runtime/` deve ser tratado como destino de build/publicacao, nao c
   - `read`
   - `read_write`
 
+## Consola WhatsApp
+
+- a UI operacional inclui uma pagina `WhatsApp`
+- essa pagina deve concentrar:
+  - estado da sessao/auth usada pelo bot
+  - grupos WhatsApp conhecidos pelo sistema
+  - conversas privadas/pessoas conhecidas com `whatsapp_jid`
+  - permissoes efetivas por grupo e por pessoa
+  - `app owners`, `group owners` e ACL do calendario por grupo
+- o backend deve expor um snapshot unico de workspace WhatsApp para esta pagina, em vez de obrigar a UI a compor varios endpoints sem contexto
+
 ## Estrutura principal
 
 - `docs/architecture/`

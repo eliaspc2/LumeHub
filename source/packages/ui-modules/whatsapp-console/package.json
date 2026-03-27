@@ -1,0 +1,23 @@
+{
+  "name": "@lume-hub/whatsapp-console",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/ui-modules/whatsapp-console/src/index.js",
+  "types": "./dist/ui-modules/whatsapp-console/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/ui-modules/whatsapp-console/src/index.d.ts",
+      "default": "./dist/ui-modules/whatsapp-console/src/index.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "test": "node -e \"console.log('No tests yet for @lume-hub/whatsapp-console.')\""
+  },
+  "dependencies": {
+    "@lume-hub/frontend-api-client": "workspace:*",
+    "@lume-hub/shared-ui": "workspace:*"
+  }
+}

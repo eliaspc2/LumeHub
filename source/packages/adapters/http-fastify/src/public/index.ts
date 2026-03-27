@@ -1,12 +1,23 @@
 import { randomUUID } from 'node:crypto';
 
-import type { AdminConfigModuleContract } from '@lume-hub/admin-config';
+import {
+  DEFAULT_ADMIN_SETTINGS,
+  type AdminConfigModuleContract,
+  type AdminSettings,
+  type CommandsPolicySettings,
+  type WhatsAppSettings,
+} from '@lume-hub/admin-config';
 import type { AudienceRoutingModuleContract } from '@lume-hub/audience-routing';
 import type { CodexAuthRouterModuleContract } from '@lume-hub/codex-auth-router';
-import type { GroupCalendarAccessPolicy, GroupDirectoryModuleContract } from '@lume-hub/group-directory';
+import {
+  DEFAULT_GROUP_CALENDAR_ACCESS_POLICY,
+  type GroupCalendarAccessPolicy,
+  type GroupDirectoryModuleContract,
+} from '@lume-hub/group-directory';
 import type { HealthMonitorModuleContract } from '@lume-hub/health-monitor';
 import type { HostLifecycleModuleContract } from '@lume-hub/host-lifecycle';
 import type { Instruction, InstructionQueueModuleContract } from '@lume-hub/instruction-queue';
+import type { PeopleMemoryModuleContract, Person, PersonRole, PersonUpsertInput } from '@lume-hub/people-memory';
 import type { SystemPowerModuleContract } from '@lume-hub/system-power';
 import type { WatchdogModuleContract } from '@lume-hub/watchdog';
 
@@ -53,7 +64,8 @@ export interface UiEventPublisherLike {
 }
 
 export interface HttpApiModules {
-  readonly adminConfig: Pick<AdminConfigModuleContract, 'getSettings' | 'updateUiSettings'>;
+  readonly adminConfig: Pick<AdminConfigModuleContract, 'getSettings' | 'updateUiSettings'> &
+    Partial<Pick<AdminConfigModuleContract, 'updateCommandsSettings' | 'updateWhatsAppSettings'>>;
   readonly audienceRouting: Pick<AudienceRoutingModuleContract, 'listSenderAudienceRules' | 'upsertSenderAudienceRule'>;
   readonly codexAuthRouter?: Pick<CodexAuthRouterModuleContract, 'forceSwitch' | 'getStatus'>;
   readonly groupDirectory: Pick<
@@ -66,6 +78,7 @@ export interface HttpApiModules {
     'enableStartWithSystem' | 'disableStartWithSystem' | 'getHostCompanionStatus'
   >;
   readonly instructionQueue: Pick<InstructionQueueModuleContract, 'listInstructions'>;
+  readonly peopleMemory?: Pick<PeopleMemoryModuleContract, 'listPeople' | 'upsertByIdentifiers' | 'updatePersonRoles'>;
   readonly systemPower: Pick<SystemPowerModuleContract, 'getPowerStatus' | 'updatePowerPolicy'>;
   readonly watchdog: Pick<WatchdogModuleContract, 'listIssues' | 'resolveIssue'>;
 }
@@ -183,6 +196,46 @@ export class RouteRegistrar {
       handler: async () => this.modules.groupDirectory.listGroups(),
     });
     server.registerRoute({
+      method: 'GET',
+      path: '/api/people',
+      handler: async () => {
+        if (!this.modules.peopleMemory) {
+          throw new ApiError(404, 'People memory is not configured.');
+        }
+
+        return this.modules.peopleMemory.listPeople();
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/people',
+      handler: async (context) => {
+        if (!this.modules.peopleMemory) {
+          throw new ApiError(404, 'People memory is not configured.');
+        }
+
+        const person = await this.modules.peopleMemory.upsertByIdentifiers(readPersonUpsertBody(context.body));
+        this.publish('people.updated', person);
+        return person;
+      },
+    });
+    server.registerRoute({
+      method: 'PUT',
+      path: '/api/people/:personId/roles',
+      handler: async (context) => {
+        if (!this.modules.peopleMemory) {
+          throw new ApiError(404, 'People memory is not configured.');
+        }
+
+        const person = await this.modules.peopleMemory.updatePersonRoles(
+          context.params.personId,
+          readPersonRolesBody(context.body),
+        );
+        this.publish('people.roles.updated', person);
+        return person;
+      },
+    });
+    server.registerRoute({
       method: 'PUT',
       path: '/api/groups/:groupJid/owners',
       handler: async (context) => {
@@ -235,6 +288,11 @@ export class RouteRegistrar {
     });
     server.registerRoute({
       method: 'GET',
+      path: '/api/whatsapp/workspace',
+      handler: async () => this.getWhatsAppWorkspaceSnapshot(),
+    });
+    server.registerRoute({
+      method: 'GET',
       path: '/api/watchdog/issues',
       handler: async () => this.modules.watchdog.listIssues(),
     });
@@ -251,6 +309,32 @@ export class RouteRegistrar {
       method: 'GET',
       path: '/api/settings',
       handler: async () => this.getSettingsSnapshot(),
+    });
+    server.registerRoute({
+      method: 'PATCH',
+      path: '/api/settings/commands',
+      handler: async (context) => {
+        if (!this.modules.adminConfig.updateCommandsSettings) {
+          throw new ApiError(404, 'Command settings are not configurable.');
+        }
+
+        const settings = await this.modules.adminConfig.updateCommandsSettings(readCommandsSettingsBody(context.body));
+        this.publish('settings.commands.updated', settings.commands);
+        return settings;
+      },
+    });
+    server.registerRoute({
+      method: 'PATCH',
+      path: '/api/settings/whatsapp',
+      handler: async (context) => {
+        if (!this.modules.adminConfig.updateWhatsAppSettings) {
+          throw new ApiError(404, 'WhatsApp settings are not configurable.');
+        }
+
+        const settings = await this.modules.adminConfig.updateWhatsAppSettings(readWhatsAppSettingsBody(context.body));
+        this.publish('settings.whatsapp.updated', settings.whatsapp);
+        return settings;
+      },
     });
     server.registerRoute({
       method: 'PATCH',
@@ -410,16 +494,231 @@ export class RouteRegistrar {
     ]);
 
     return {
-      adminSettings,
+      adminSettings: normaliseAdminSettings(adminSettings),
       powerStatus,
       hostStatus,
       authRouterStatus,
     };
   }
 
+  private async getWhatsAppWorkspaceSnapshot() {
+    const [adminSettingsInput, groups, people, hostStatus, authRouterStatus] = await Promise.all([
+      this.modules.adminConfig.getSettings(),
+      this.modules.groupDirectory.listGroups(),
+      this.modules.peopleMemory?.listPeople() ?? Promise.resolve([]),
+      this.modules.hostLifecycle.getHostCompanionStatus(),
+      this.modules.codexAuthRouter?.getStatus() ?? Promise.resolve(null),
+    ]);
+    const adminSettings = normaliseAdminSettings(adminSettingsInput);
+    const peopleById = new Map(people.map((person) => [person.personId, person]));
+    const ownedGroupsByPersonId = new Map<string, string[]>();
+
+    for (const group of groups) {
+      for (const owner of group.groupOwners) {
+        const ownedGroups = ownedGroupsByPersonId.get(owner.personId) ?? [];
+        ownedGroups.push(group.groupJid);
+        ownedGroupsByPersonId.set(owner.personId, ownedGroups);
+      }
+    }
+
+    const allowAllGroups = adminSettings.commands.authorizedGroupJids.length === 0;
+    const allowAllPrivateChats = adminSettings.commands.authorizedPrivateJids.length === 0;
+    const knownGroupJids = new Set(groups.map((group) => group.groupJid));
+    const knownPrivateJids = new Set<string>();
+    const groupSummaries = groups.map((group) => ({
+      groupJid: group.groupJid,
+      preferredSubject: group.preferredSubject,
+      aliases: group.aliases,
+      courseId: group.courseId,
+      ownerPersonIds: group.groupOwners.map((owner) => owner.personId),
+      ownerLabels: group.groupOwners.map((owner) => peopleById.get(owner.personId)?.displayName ?? owner.personId),
+      assistantAuthorized:
+        adminSettings.commands.assistantEnabled &&
+        (allowAllGroups || adminSettings.commands.authorizedGroupJids.includes(group.groupJid)),
+      calendarAccessPolicy: group.calendarAccessPolicy,
+      lastRefreshedAt: group.lastRefreshedAt,
+      knownToBot: true,
+    }));
+
+    for (const groupJid of adminSettings.commands.authorizedGroupJids) {
+      if (knownGroupJids.has(groupJid)) {
+        continue;
+      }
+
+      groupSummaries.push({
+        groupJid,
+        preferredSubject: groupJid,
+        aliases: [],
+        courseId: null,
+        ownerPersonIds: [],
+        ownerLabels: [],
+        assistantAuthorized: adminSettings.commands.assistantEnabled,
+        calendarAccessPolicy: DEFAULT_GROUP_CALENDAR_ACCESS_POLICY,
+        lastRefreshedAt: null,
+        knownToBot: false,
+      });
+    }
+
+    const appOwners = people
+      .filter((person) => person.globalRoles.includes('app_owner'))
+      .map((person) => mapConversationSummary(person, ownedGroupsByPersonId, adminSettings.commands, allowAllPrivateChats));
+
+    const conversations = people
+      .filter((person) => person.identifiers.some((identifier) => identifier.kind === 'whatsapp_jid'))
+      .map((person) => {
+        const summary = mapConversationSummary(person, ownedGroupsByPersonId, adminSettings.commands, allowAllPrivateChats);
+
+        for (const whatsappJid of summary.whatsappJids) {
+          knownPrivateJids.add(whatsappJid);
+        }
+
+        return summary;
+      });
+
+    for (const chatJid of adminSettings.commands.authorizedPrivateJids) {
+      if (knownPrivateJids.has(chatJid)) {
+        continue;
+      }
+
+      conversations.push({
+        personId: null,
+        displayName: chatJid,
+        whatsappJids: [chatJid],
+        globalRoles: ['member'],
+        privateAssistantAuthorized:
+          adminSettings.commands.assistantEnabled && adminSettings.commands.allowPrivateAssistant,
+        ownedGroupJids: [],
+        knownToBot: false,
+      });
+    }
+
+    groupSummaries.sort(compareByLabel);
+    conversations.sort(compareByLabel);
+    appOwners.sort(compareByLabel);
+
+    return {
+      settings: {
+        commands: adminSettings.commands,
+        whatsapp: adminSettings.whatsapp,
+      },
+      host: {
+        authFilePath: hostStatus.auth.filePath,
+        canonicalAuthFilePath: authRouterStatus?.canonicalAuthFilePath ?? hostStatus.auth.filePath,
+        authExists: hostStatus.auth.exists,
+        sameAsCodexCanonical: hostStatus.auth.sameAsCodexCanonical,
+        autostartEnabled: hostStatus.autostart.enabled,
+        lastHeartbeatAt: hostStatus.runtime.lastHeartbeatAt,
+      },
+      groups: groupSummaries,
+      conversations,
+      appOwners,
+      permissionSummary: {
+        knownGroups: groupSummaries.filter((group) => group.knownToBot).length,
+        authorizedGroups: groupSummaries.filter((group) => group.assistantAuthorized).length,
+        knownPrivateConversations: conversations.filter((conversation) => conversation.knownToBot).length,
+        authorizedPrivateConversations: conversations.filter((conversation) => conversation.privateAssistantAuthorized).length,
+        appOwners: appOwners.length,
+      },
+    };
+  }
+
   private publish(topic: string, payload: unknown): void {
     this.uiEventPublisher?.publish(topic, payload);
   }
+}
+
+function normaliseAdminSettings(input: Partial<AdminSettings>): AdminSettings {
+  return {
+    schemaVersion: 1,
+    commands: normaliseCommandsSettings(input.commands),
+    whatsapp: normaliseWhatsAppSettings(input.whatsapp),
+    llm: {
+      ...DEFAULT_ADMIN_SETTINGS.llm,
+      ...(input.llm ?? {}),
+    },
+    ui: {
+      ...DEFAULT_ADMIN_SETTINGS.ui,
+      ...(input.ui ?? {}),
+      defaultNotificationRules: Array.isArray(input.ui?.defaultNotificationRules)
+        ? input.ui.defaultNotificationRules
+        : DEFAULT_ADMIN_SETTINGS.ui.defaultNotificationRules,
+    },
+    updatedAt: input.updatedAt ?? DEFAULT_ADMIN_SETTINGS.updatedAt,
+  };
+}
+
+function normaliseCommandsSettings(input: Partial<CommandsPolicySettings> | undefined): CommandsPolicySettings {
+  const legacy = (input ?? {}) as Partial<CommandsPolicySettings> & {
+    readonly autoReplyInGroup?: boolean;
+  };
+
+  return {
+    assistantEnabled: legacy.assistantEnabled ?? DEFAULT_ADMIN_SETTINGS.commands.assistantEnabled,
+    schedulingEnabled: legacy.schedulingEnabled ?? DEFAULT_ADMIN_SETTINGS.commands.schedulingEnabled,
+    ownerTerminalEnabled: legacy.ownerTerminalEnabled ?? DEFAULT_ADMIN_SETTINGS.commands.ownerTerminalEnabled,
+    autoReplyEnabled:
+      legacy.autoReplyEnabled ?? legacy.autoReplyInGroup ?? DEFAULT_ADMIN_SETTINGS.commands.autoReplyEnabled,
+    directRepliesEnabled: legacy.directRepliesEnabled ?? DEFAULT_ADMIN_SETTINGS.commands.directRepliesEnabled,
+    allowPrivateAssistant: legacy.allowPrivateAssistant ?? DEFAULT_ADMIN_SETTINGS.commands.allowPrivateAssistant,
+    authorizedGroupJids: normaliseStringArray(
+      legacy.authorizedGroupJids ?? DEFAULT_ADMIN_SETTINGS.commands.authorizedGroupJids,
+    ),
+    authorizedPrivateJids: normaliseStringArray(
+      legacy.authorizedPrivateJids ?? DEFAULT_ADMIN_SETTINGS.commands.authorizedPrivateJids,
+    ),
+  };
+}
+
+function normaliseWhatsAppSettings(input: Partial<WhatsAppSettings> | undefined): WhatsAppSettings {
+  return {
+    enabled: input?.enabled ?? DEFAULT_ADMIN_SETTINGS.whatsapp.enabled,
+    sharedAuthWithCodex: input?.sharedAuthWithCodex ?? DEFAULT_ADMIN_SETTINGS.whatsapp.sharedAuthWithCodex,
+    groupDiscoveryEnabled: input?.groupDiscoveryEnabled ?? DEFAULT_ADMIN_SETTINGS.whatsapp.groupDiscoveryEnabled,
+    conversationDiscoveryEnabled:
+      input?.conversationDiscoveryEnabled ?? DEFAULT_ADMIN_SETTINGS.whatsapp.conversationDiscoveryEnabled,
+  };
+}
+
+function mapConversationSummary(
+  person: Person,
+  ownedGroupsByPersonId: ReadonlyMap<string, readonly string[]>,
+  commands: CommandsPolicySettings,
+  allowAllPrivateChats: boolean,
+): {
+  readonly personId: string | null;
+  readonly displayName: string;
+  readonly whatsappJids: readonly string[];
+  readonly globalRoles: readonly PersonRole[];
+  readonly privateAssistantAuthorized: boolean;
+  readonly ownedGroupJids: readonly string[];
+  readonly knownToBot: boolean;
+} {
+  const whatsappJids = person.identifiers
+    .filter((identifier) => identifier.kind === 'whatsapp_jid')
+    .map((identifier) => identifier.value);
+
+  return {
+    personId: person.personId,
+    displayName: person.displayName,
+    whatsappJids,
+    globalRoles: person.globalRoles,
+    privateAssistantAuthorized:
+      commands.assistantEnabled &&
+      commands.allowPrivateAssistant &&
+      whatsappJids.length > 0 &&
+      (allowAllPrivateChats || whatsappJids.some((chatJid) => commands.authorizedPrivateJids.includes(chatJid))),
+    ownedGroupJids: ownedGroupsByPersonId.get(person.personId) ?? [],
+    knownToBot: whatsappJids.length > 0,
+  };
+}
+
+function compareByLabel(
+  left: { readonly displayName?: string; readonly preferredSubject?: string },
+  right: { readonly displayName?: string; readonly preferredSubject?: string },
+): number {
+  const leftLabel = left.displayName ?? left.preferredSubject ?? '';
+  const rightLabel = right.displayName ?? right.preferredSubject ?? '';
+  return leftLabel.localeCompare(rightLabel, 'pt-PT');
 }
 
 function matchRoute(
@@ -514,6 +813,39 @@ function readOwnersBody(body: unknown): readonly { readonly personId: string; re
   });
 }
 
+function readPersonUpsertBody(body: unknown): PersonUpsertInput {
+  const payload = readBodyObject(body, 'Person payload must be an object.');
+  const displayName = readRequiredStringValue(payload.displayName, 'displayName');
+
+  if (!Array.isArray(payload.identifiers)) {
+    throw new ApiError(400, 'identifiers must be an array.');
+  }
+
+  const identifiers = payload.identifiers.map((identifier) => {
+    if (!identifier || typeof identifier !== 'object') {
+      throw new ApiError(400, 'each identifier must be an object.');
+    }
+
+    return {
+      kind: readRequiredStringValue((identifier as Record<string, unknown>).kind, 'identifier.kind'),
+      value: readRequiredStringValue((identifier as Record<string, unknown>).value, 'identifier.value'),
+    };
+  });
+
+  return {
+    personId:
+      typeof payload.personId === 'string' && payload.personId.trim().length > 0 ? payload.personId.trim() : undefined,
+    displayName,
+    identifiers,
+    globalRoles: payload.globalRoles === undefined ? undefined : readRolesArray(payload.globalRoles),
+  };
+}
+
+function readPersonRolesBody(body: unknown): readonly PersonRole[] {
+  const payload = readBodyObject(body, 'Person roles payload must be an object.');
+  return readRolesArray(payload.globalRoles);
+}
+
 function readCalendarAccessBody(body: unknown): Partial<GroupCalendarAccessPolicy> {
   if (!body || typeof body !== 'object') {
     throw new ApiError(400, 'calendar access payload must be an object.');
@@ -528,6 +860,35 @@ function readCalendarAccessBody(body: unknown): Partial<GroupCalendarAccessPolic
   }
 
   return update;
+}
+
+function readCommandsSettingsBody(body: unknown): Partial<CommandsPolicySettings> {
+  const payload = readBodyObject(body, 'Command settings payload must be an object.');
+
+  return {
+    assistantEnabled: readOptionalBooleanValue(payload.assistantEnabled, 'assistantEnabled'),
+    schedulingEnabled: readOptionalBooleanValue(payload.schedulingEnabled, 'schedulingEnabled'),
+    ownerTerminalEnabled: readOptionalBooleanValue(payload.ownerTerminalEnabled, 'ownerTerminalEnabled'),
+    autoReplyEnabled: readOptionalBooleanValue(payload.autoReplyEnabled, 'autoReplyEnabled'),
+    directRepliesEnabled: readOptionalBooleanValue(payload.directRepliesEnabled, 'directRepliesEnabled'),
+    allowPrivateAssistant: readOptionalBooleanValue(payload.allowPrivateAssistant, 'allowPrivateAssistant'),
+    authorizedGroupJids: readOptionalStringArrayValue(payload.authorizedGroupJids, 'authorizedGroupJids'),
+    authorizedPrivateJids: readOptionalStringArrayValue(payload.authorizedPrivateJids, 'authorizedPrivateJids'),
+  };
+}
+
+function readWhatsAppSettingsBody(body: unknown): Partial<WhatsAppSettings> {
+  const payload = readBodyObject(body, 'WhatsApp settings payload must be an object.');
+
+  return {
+    enabled: readOptionalBooleanValue(payload.enabled, 'enabled'),
+    sharedAuthWithCodex: readOptionalBooleanValue(payload.sharedAuthWithCodex, 'sharedAuthWithCodex'),
+    groupDiscoveryEnabled: readOptionalBooleanValue(payload.groupDiscoveryEnabled, 'groupDiscoveryEnabled'),
+    conversationDiscoveryEnabled: readOptionalBooleanValue(
+      payload.conversationDiscoveryEnabled,
+      'conversationDiscoveryEnabled',
+    ),
+  };
 }
 
 function readBooleanBodyField(body: unknown, fieldName: string): boolean {
@@ -550,6 +911,82 @@ function readStringBodyField(body: unknown, fieldName: string): string {
   }
 
   return value.trim();
+}
+
+function readBodyObject(body: unknown, message: string): Record<string, unknown> {
+  if (!body || typeof body !== 'object') {
+    throw new ApiError(400, message);
+  }
+
+  return body as Record<string, unknown>;
+}
+
+function readRequiredStringValue(value: unknown, fieldName: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new ApiError(400, `${fieldName} must be a non-empty string.`);
+  }
+
+  return value.trim();
+}
+
+function readOptionalBooleanValue(value: unknown, fieldName: string): boolean | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== 'boolean') {
+    throw new ApiError(400, `${fieldName} must be a boolean.`);
+  }
+
+  return value;
+}
+
+function readOptionalStringArrayValue(value: unknown, fieldName: string): readonly string[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    throw new ApiError(400, `${fieldName} must be an array of strings.`);
+  }
+
+  return normaliseStringArray(
+    value.map((entry) => {
+      if (typeof entry !== 'string') {
+        throw new ApiError(400, `${fieldName} must be an array of strings.`);
+      }
+
+      return entry;
+    }),
+  );
+}
+
+function readRolesArray(value: unknown): readonly PersonRole[] {
+  if (!Array.isArray(value)) {
+    throw new ApiError(400, 'globalRoles must be an array.');
+  }
+
+  return normaliseRoles(
+    value.map((entry) => {
+      if (!isPersonRole(entry)) {
+        throw new ApiError(400, "globalRoles entries must be 'member' or 'app_owner'.");
+      }
+
+      return entry;
+    }),
+  );
+}
+
+function normaliseRoles(roles: readonly PersonRole[]): readonly PersonRole[] {
+  return [...new Set<PersonRole>(roles.length > 0 ? [...roles] : ['member'])];
+}
+
+function normaliseStringArray(values: readonly string[]): readonly string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function isPersonRole(value: unknown): value is PersonRole {
+  return value === 'member' || value === 'app_owner';
 }
 
 function mapInstruction(instruction: Instruction) {

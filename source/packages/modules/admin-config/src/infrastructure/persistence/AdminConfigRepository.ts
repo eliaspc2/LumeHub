@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 import { AtomicJsonWriter } from '@lume-hub/persistence-group-files';
 
-import type { AdminSettings } from '../../domain/entities/AdminConfig.js';
+import type { AdminSettings, CommandsPolicySettings, WhatsAppSettings } from '../../domain/entities/AdminConfig.js';
 import { DEFAULT_ADMIN_SETTINGS } from '../../domain/entities/AdminConfig.js';
 
 export interface AdminConfigRepositoryConfig {
@@ -47,10 +47,8 @@ export class AdminConfigRepository {
 function normaliseSettings(input: Partial<AdminSettings>): AdminSettings {
   return {
     schemaVersion: 1,
-    commands: {
-      ...DEFAULT_ADMIN_SETTINGS.commands,
-      ...(input.commands ?? {}),
-    },
+    commands: normaliseCommandsSettings(input.commands),
+    whatsapp: normaliseWhatsAppSettings(input.whatsapp),
     llm: {
       ...DEFAULT_ADMIN_SETTINGS.llm,
       ...(input.llm ?? {}),
@@ -64,6 +62,42 @@ function normaliseSettings(input: Partial<AdminSettings>): AdminSettings {
     },
     updatedAt: input.updatedAt ?? DEFAULT_ADMIN_SETTINGS.updatedAt,
   };
+}
+
+function normaliseCommandsSettings(input: Partial<CommandsPolicySettings> | undefined): CommandsPolicySettings {
+  const legacy = (input ?? {}) as Partial<CommandsPolicySettings> & {
+    readonly autoReplyInGroup?: boolean;
+  };
+
+  return {
+    assistantEnabled: legacy.assistantEnabled ?? DEFAULT_ADMIN_SETTINGS.commands.assistantEnabled,
+    schedulingEnabled: legacy.schedulingEnabled ?? DEFAULT_ADMIN_SETTINGS.commands.schedulingEnabled,
+    ownerTerminalEnabled: legacy.ownerTerminalEnabled ?? DEFAULT_ADMIN_SETTINGS.commands.ownerTerminalEnabled,
+    autoReplyEnabled:
+      legacy.autoReplyEnabled ?? legacy.autoReplyInGroup ?? DEFAULT_ADMIN_SETTINGS.commands.autoReplyEnabled,
+    directRepliesEnabled: legacy.directRepliesEnabled ?? DEFAULT_ADMIN_SETTINGS.commands.directRepliesEnabled,
+    allowPrivateAssistant: legacy.allowPrivateAssistant ?? DEFAULT_ADMIN_SETTINGS.commands.allowPrivateAssistant,
+    authorizedGroupJids: normaliseStringList(
+      legacy.authorizedGroupJids ?? DEFAULT_ADMIN_SETTINGS.commands.authorizedGroupJids,
+    ),
+    authorizedPrivateJids: normaliseStringList(
+      legacy.authorizedPrivateJids ?? DEFAULT_ADMIN_SETTINGS.commands.authorizedPrivateJids,
+    ),
+  };
+}
+
+function normaliseWhatsAppSettings(input: Partial<WhatsAppSettings> | undefined): WhatsAppSettings {
+  return {
+    enabled: input?.enabled ?? DEFAULT_ADMIN_SETTINGS.whatsapp.enabled,
+    sharedAuthWithCodex: input?.sharedAuthWithCodex ?? DEFAULT_ADMIN_SETTINGS.whatsapp.sharedAuthWithCodex,
+    groupDiscoveryEnabled: input?.groupDiscoveryEnabled ?? DEFAULT_ADMIN_SETTINGS.whatsapp.groupDiscoveryEnabled,
+    conversationDiscoveryEnabled:
+      input?.conversationDiscoveryEnabled ?? DEFAULT_ADMIN_SETTINGS.whatsapp.conversationDiscoveryEnabled,
+  };
+}
+
+function normaliseStringList(values: readonly string[]): readonly string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

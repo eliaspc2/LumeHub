@@ -3,6 +3,7 @@ import type {
   CommandsPolicySettings,
   LlmRuntimeSettings,
   UiSettings,
+  WhatsAppSettings,
 } from '../../domain/entities/AdminConfig.js';
 import { AdminConfigRepository } from '../../infrastructure/persistence/AdminConfigRepository.js';
 
@@ -20,10 +21,7 @@ export class AdminConfigService {
     const current = await this.getSettings();
     return this.repository.saveSettings({
       ...current,
-      commands: {
-        ...current.commands,
-        ...update,
-      },
+      commands: mergeDefined(current.commands, update),
       updatedAt: now.toISOString(),
     });
   }
@@ -40,6 +38,15 @@ export class AdminConfigService {
     });
   }
 
+  async updateWhatsAppSettings(update: Partial<WhatsAppSettings>, now = new Date()): Promise<AdminSettings> {
+    const current = await this.getSettings();
+    return this.repository.saveSettings({
+      ...current,
+      whatsapp: mergeDefined(current.whatsapp, update),
+      updatedAt: now.toISOString(),
+    });
+  }
+
   async updateUiSettings(update: Partial<UiSettings>, now = new Date()): Promise<AdminSettings> {
     const current = await this.getSettings();
     return this.repository.saveSettings({
@@ -52,4 +59,12 @@ export class AdminConfigService {
       updatedAt: now.toISOString(),
     });
   }
+}
+
+function mergeDefined<T extends object>(current: T, update: Partial<T>): T {
+  const nextEntries = Object.entries(update).filter(([, value]) => value !== undefined);
+  return {
+    ...current,
+    ...Object.fromEntries(nextEntries),
+  } as T;
 }
