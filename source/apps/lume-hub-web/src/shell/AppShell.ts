@@ -32,6 +32,10 @@ import type { WebAppBootstrap } from '../app/WebAppBootstrap.js';
 
 type PreviewState = 'none' | 'loading' | 'empty' | 'offline' | 'error';
 type ScreenState = 'loading' | 'ready' | 'empty' | 'offline' | 'error';
+type ActionDataset = Readonly<Record<string, string | undefined>>;
+
+const ADVANCED_DETAILS_STORAGE_KEY = 'lumehub.web.advanced_details';
+const UX_TELEMETRY_STORAGE_KEY = 'lumehub.web.ux_telemetry';
 
 interface GuidedScheduleDraft {
   readonly groupJid: string;
@@ -52,16 +56,19 @@ interface GuidedDistributionDraft {
 interface AppShellState {
   readonly mode: FrontendTransportMode;
   readonly previewState: PreviewState;
+  readonly advancedDetailsEnabled: boolean;
   readonly route: string;
   readonly screenState: ScreenState;
   readonly page: UiPage | null;
   readonly errorMessage: string | null;
   readonly liveEvents: readonly FrontendUiEvent[];
+  readonly uxTelemetry: readonly UxTelemetryEntry[];
   readonly lastLoadedAt: string | null;
   readonly scheduleDraft: GuidedScheduleDraft;
   readonly distributionDraft: GuidedDistributionDraft;
   readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
   readonly whatsappQrPreviewVisible: boolean;
+  readonly pendingConfirmation: PendingConfirmation | null;
   readonly dismissedWatchdogIssueIds: readonly string[];
   readonly flowFeedback: {
     readonly tone: UiTone;
@@ -81,6 +88,23 @@ interface WorkspacePersonView {
   readonly knownToBot: boolean;
 }
 
+interface UxTelemetryEntry {
+  readonly telemetryId: string;
+  readonly tone: UiTone;
+  readonly message: string;
+  readonly recordedAt: string;
+}
+
+interface PendingConfirmation {
+  readonly key: string;
+  readonly action: string;
+  readonly dataset: ActionDataset;
+  readonly title: string;
+  readonly description: string;
+  readonly confirmLabel: string;
+  readonly tone: UiTone;
+}
+
 export class AppShell {
   private root: HTMLElement | null = null;
   private readonly bootstraps = new Map<FrontendTransportMode, WebAppBootstrap>();
@@ -94,14 +118,18 @@ export class AppShell {
     private readonly createBootstrap: (mode: FrontendTransportMode) => WebAppBootstrap,
     initialMode: FrontendTransportMode,
   ) {
+    const search = window.location.search;
+
     this.state = {
       mode: initialMode,
-      previewState: this.readPreviewState(window.location.search),
+      previewState: this.readPreviewState(search),
+      advancedDetailsEnabled: this.readAdvancedDetailsPreference(search),
       route: '/today',
       screenState: 'loading',
       page: null,
       errorMessage: null,
       liveEvents: [],
+      uxTelemetry: readStoredUxTelemetry(),
       lastLoadedAt: null,
       scheduleDraft: {
         groupJid: '',
@@ -119,6 +147,7 @@ export class AppShell {
       },
       whatsappRepairFocus: 'auth',
       whatsappQrPreviewVisible: false,
+      pendingConfirmation: null,
       dismissedWatchdogIssueIds: [],
       flowFeedback: null,
     };
@@ -132,6 +161,7 @@ export class AppShell {
     };
 
     window.addEventListener('popstate', this.handlePopState);
+    window.addEventListener('keydown', this.handleGlobalKeyDown);
     void this.loadCurrentRoute({ replaceHistory: true });
   }
 
@@ -140,10 +170,83 @@ export class AppShell {
       ...this.state,
       mode: this.readMode(window.location.search),
       previewState: this.readPreviewState(window.location.search),
+      advancedDetailsEnabled: this.readAdvancedDetailsPreference(window.location.search),
       route: this.currentRouter().normalizeRoute(window.location.pathname),
     };
     void this.loadCurrentRoute({ replaceHistory: true });
   };
+
+  private readonly handleGlobalKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === 'Escape' && this.state.pendingConfirmation) {
+      event.preventDefault();
+      this.dismissPendingConfirmation('Confirmacao cancelada nesta sessao.');
+      return;
+    }
+
+    if (event.altKey && event.key.toLowerCase() === 'd') {
+      event.preventDefault();
+      this.setAdvancedDetailsEnabled(!this.state.advancedDetailsEnabled);
+    }
+  };
+
+  private setAdvancedDetailsEnabled(enabled: boolean): void {
+    this.state = {
+      ...this.state,
+      advancedDetailsEnabled: enabled,
+      pendingConfirmation: null,
+      flowFeedback: {
+        tone: 'neutral',
+        message: enabled
+          ? 'Dados avancados visiveis. Vais ver IDs, JIDs e detalhes tecnicos extra.'
+          : 'Voltaste ao modo essencial para uma leitura mais limpa.',
+      },
+    };
+    writeStoredAdvancedDetailsPreference(enabled);
+    this.recordUxEvent(
+      'neutral',
+      enabled ? 'Modo de detalhes avancados ligado.' : 'Modo de detalhes avancados desligado.',
+    );
+    this.syncUrl(true);
+    this.render();
+  }
+
+  private recordUxEvent(tone: UiTone, message: string): void {
+    const nextTelemetry = [
+      {
+        telemetryId: `ux-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        tone,
+        message,
+        recordedAt: new Date().toISOString(),
+      },
+      ...this.state.uxTelemetry,
+    ].slice(0, 8);
+
+    this.state = {
+      ...this.state,
+      uxTelemetry: nextTelemetry,
+    };
+    writeStoredUxTelemetry(nextTelemetry);
+  }
+
+  private dismissPendingConfirmation(message?: string): void {
+    this.state = {
+      ...this.state,
+      pendingConfirmation: null,
+      flowFeedback: message
+        ? {
+            tone: 'neutral',
+            message,
+          }
+        : this.state.flowFeedback,
+    };
+    this.render();
+  }
+
+  private focusMainContent(): void {
+    window.requestAnimationFrame(() => {
+      this.root?.querySelector<HTMLElement>('#main-content')?.focus();
+    });
+  }
 
   private currentRouter(): AppRouter {
     return this.getBootstrap(this.state.mode).router;
@@ -195,7 +298,9 @@ export class AppShell {
         errorMessage: this.state.previewState === 'error' ? 'Falha simulada para validar a linguagem do erro.' : null,
         lastLoadedAt: new Date().toISOString(),
       };
+      this.recordUxEvent('warning', `Estado de preview ${this.state.previewState} aberto em ${route.label}.`);
       this.render();
+      this.focusMainContent();
       return;
     }
 
@@ -222,7 +327,9 @@ export class AppShell {
         errorMessage: null,
         lastLoadedAt: new Date().toISOString(),
       };
+      this.recordUxEvent('positive', `${route.label} carregado em modo ${this.state.mode}.`);
       this.render();
+      this.focusMainContent();
     } catch (error) {
       if (token !== this.requestToken) {
         return;
@@ -237,7 +344,9 @@ export class AppShell {
         errorMessage: message,
         lastLoadedAt: new Date().toISOString(),
       };
+      this.recordUxEvent('danger', `Falha ao abrir ${route.label}: ${summarizeTelemetryMessage(message)}.`);
       this.render();
+      this.focusMainContent();
     }
   }
 
@@ -258,6 +367,7 @@ export class AppShell {
 
     document.title = `LumeHub | ${currentRoute.label}`;
     this.root.innerHTML = `
+      <a class="skip-link" href="#main-content">Saltar para o conteudo principal</a>
       <div class="app-shell">
         <aside class="shell-nav">
           <section class="surface brand-card">
@@ -277,6 +387,7 @@ export class AppShell {
                     href="${escapeHtml(item.route)}"
                     data-route="${escapeHtml(item.route)}"
                     class="nav-link ${item.route === currentRoute.route ? 'is-active' : ''}"
+                    ${item.route === currentRoute.route ? 'aria-current="page"' : ''}
                   >
                     <span>
                       <span class="nav-link-label">${escapeHtml(item.label)}</span>
@@ -292,7 +403,7 @@ export class AppShell {
         <div class="shell-main">
           <header class="surface shell-header surface--strong">
             <div class="header-copy">
-              <p class="eyebrow">Wave 15</p>
+              <p class="eyebrow">Wave 16</p>
               <h1>${escapeHtml(currentRoute.label)}</h1>
               <p>${escapeHtml(currentRoute.description)}</p>
             </div>
@@ -309,8 +420,9 @@ export class AppShell {
             </div>
           </header>
 
-          <main class="page-stack">
-            ${this.state.flowFeedback ? `<section class="surface flow-feedback flow-feedback--${this.state.flowFeedback.tone}"><p>${escapeHtml(this.state.flowFeedback.message)}</p></section>` : ''}
+          <main class="page-stack" id="main-content" tabindex="-1">
+            ${this.state.pendingConfirmation ? this.renderPendingConfirmationCard() : ''}
+            ${this.state.flowFeedback ? `<section class="surface flow-feedback flow-feedback--${this.state.flowFeedback.tone}" role="status" aria-live="polite"><p>${escapeHtml(this.state.flowFeedback.message)}</p></section>` : ''}
             ${this.renderMainContent(currentRoute)}
           </main>
         </div>
@@ -323,6 +435,29 @@ export class AppShell {
               ${renderUiToggleButton({ label: 'Demo', value: 'demo', active: this.state.mode === 'demo', kind: 'mode' })}
               ${renderUiToggleButton({ label: 'Live', value: 'live', active: this.state.mode === 'live', kind: 'mode' })}
             </div>
+          </section>
+
+          <section class="surface rail-card">
+            <h3>Modo de visualizacao</h3>
+            <p>Usa a leitura essencial no dia a dia e ativa detalhes avancados so quando precisares de contexto tecnico.</p>
+            <div class="control-row">
+              ${renderUiToggleButton({
+                label: 'Essencial',
+                value: 'essential',
+                active: !this.state.advancedDetailsEnabled,
+                kind: 'details-mode',
+              })}
+              ${renderUiToggleButton({
+                label: 'Advanced',
+                value: 'advanced',
+                active: this.state.advancedDetailsEnabled,
+                kind: 'details-mode',
+              })}
+            </div>
+            <ul>
+              <li>Alt + D alterna este modo sem saires do teclado.</li>
+              <li>Esc cancela uma confirmacao sensivel que esteja aberta.</li>
+            </ul>
           </section>
 
           <section class="surface rail-card">
@@ -340,18 +475,44 @@ export class AppShell {
           <section class="surface rail-card">
             <h3>Foco desta wave</h3>
             <p>
-              Nesta wave queremos tornar ownership, ACL e configuracao WhatsApp claros para pessoas com pouco contexto tecnico.
+              Nesta wave queremos fechar a experiencia diaria: foco visivel, confirmacoes seguras, historico claro e detalhes avancados sem poluir o fluxo principal.
             </p>
             <ul>
-              <li>Ver se e obvio quem e app owner, quem e group owner e o que muda entre leitura e leitura com escrita.</li>
-              <li>Confirmar que a ligacao WhatsApp mostra estado, causa provavel e proximo passo sugerido.</li>
-              <li>Validar se grupos e conversas aparecem com nomes humanos e acoes diretas.</li>
+              <li>Ver se consegues navegar com teclado, perceber o foco e usar a app sem te perderes.</li>
+              <li>Confirmar que acoes sensiveis pedem uma confirmacao clara antes de mexer em ownership ou acessos.</li>
+              <li>Perceber se o historico local e os estados do sistema transmitem confianca em linguagem humana.</li>
             </ul>
           </section>
 
           <section class="surface rail-card">
-            <h3>Feed recente</h3>
-            <p>Pequenos sinais para testar contexto lateral e estados de apoio.</p>
+            <h3>Historico desta sessao</h3>
+            <p>Pequenos sinais locais para perceber erros recorrentes, trocas de modo e o que acabou de acontecer.</p>
+            <div class="timeline">
+              ${
+                this.state.uxTelemetry.length > 0
+                  ? this.state.uxTelemetry
+                      .map(
+                        (entry) => `
+                          <div class="timeline-item timeline-item--${entry.tone}">
+                            <strong>${escapeHtml(entry.message)}</strong>
+                            <time>${escapeHtml(formatShortDateTime(entry.recordedAt))}</time>
+                          </div>
+                        `,
+                      )
+                      .join('')
+                  : `
+                    <div class="timeline-item">
+                      <strong>Sem historico local ainda</strong>
+                      <time>Assim que mudares de pagina ou aplicares uma acao, este historico passa a ajudar.</time>
+                    </div>
+                  `
+              }
+            </div>
+          </section>
+
+          <section class="surface rail-card">
+            <h3>Eventos do backend</h3>
+            <p>Atividade emitida pelo canal de eventos da API quando houver ligacao com dados reais ou demo mutavel.</p>
             <div class="timeline">
               ${
                 this.state.liveEvents.length > 0
@@ -367,8 +528,8 @@ export class AppShell {
                       .join('')
                   : `
                     <div class="timeline-item">
-                      <strong>Sem eventos ainda</strong>
-                      <time>O rail vai ganhar mais atividade quando houver ligacao live.</time>
+                      <strong>Sem eventos do backend ainda</strong>
+                      <time>Quando houver mutacoes ou ligacao live, este feed mostra os sinais mais recentes.</time>
                     </div>
                   `
               }
@@ -379,6 +540,33 @@ export class AppShell {
     `;
 
     this.bindInteractions();
+  }
+
+  private renderPendingConfirmationCard(): string {
+    if (!this.state.pendingConfirmation) {
+      return '';
+    }
+
+    return `
+      <section class="surface confirmation-card confirmation-card--${this.state.pendingConfirmation.tone}" role="alertdialog" aria-live="assertive">
+        <div>
+          <p class="eyebrow">Confirmacao sensivel</p>
+          <h3>${escapeHtml(this.state.pendingConfirmation.title)}</h3>
+          <p>${escapeHtml(this.state.pendingConfirmation.description)}</p>
+        </div>
+        <div class="action-row">
+          ${renderUiActionButton({
+            label: this.state.pendingConfirmation.confirmLabel,
+            dataAttributes: { 'confirm-action': 'accept' },
+          })}
+          ${renderUiActionButton({
+            label: 'Cancelar',
+            variant: 'secondary',
+            dataAttributes: { 'confirm-action': 'cancel' },
+          })}
+        </div>
+      </section>
+    `;
   }
 
   private renderMainContent(currentRoute: AppRouteDefinition): string {
@@ -844,8 +1032,8 @@ export class AppShell {
                     <li>Alias: ${escapeHtml(group.aliases.join(', ') || 'sem alias')}</li>
                   </ul>
                 `,
-                detailsSummary: 'Detalhes tecnicos',
-                detailsHtml: `<p>JID: ${escapeHtml(group.groupJid)}</p>`,
+                detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
+                detailsHtml: this.state.advancedDetailsEnabled ? `<p>JID: ${escapeHtml(group.groupJid)}</p>` : undefined,
               }),
           )
           .join('')}
@@ -880,7 +1068,7 @@ export class AppShell {
             contentHtml: `<p>${escapeHtml(
               snapshot.host.authExists
                 ? 'Auth encontrado e pronto para partilhar o mesmo login do Codex.'
-                : 'Nao encontrámos auth live. Vale a pena reparar isto antes de confiar no canal.',
+                : 'Nao encontramos auth live. Vale a pena reparar isto antes de confiar no canal.',
             )}</p>`,
           })}
           ${renderUiPanelCard({
@@ -1058,11 +1246,13 @@ export class AppShell {
                       }
                     </div>
                   `,
-                  detailsSummary: 'Detalhes tecnicos',
-                  detailsHtml: `
-                    <p>JIDs: ${escapeHtml(person.whatsappJids.join(', ') || 'sem JID')}</p>
-                    <p>Conhecido pelo bot: ${person.knownToBot ? 'sim' : 'nao'}</p>
-                  `,
+                  detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
+                  detailsHtml: this.state.advancedDetailsEnabled
+                    ? `
+                        <p>JIDs: ${escapeHtml(person.whatsappJids.join(', ') || 'sem JID')}</p>
+                        <p>Conhecido pelo bot: ${person.knownToBot ? 'sim' : 'nao'}</p>
+                      `
+                    : undefined,
                 }),
               )
               .join('')}
@@ -1138,11 +1328,13 @@ export class AppShell {
                         </div>
                       </div>
                     `,
-                    detailsSummary: 'Detalhes tecnicos',
-                    detailsHtml: `
-                      <p>JID: ${escapeHtml(group.groupJid)}</p>
-                      <p>Alias: ${escapeHtml(group.aliases.join(', ') || 'sem alias')}</p>
-                    `,
+                    detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
+                    detailsHtml: this.state.advancedDetailsEnabled
+                      ? `
+                          <p>JID: ${escapeHtml(group.groupJid)}</p>
+                          <p>Alias: ${escapeHtml(group.aliases.join(', ') || 'sem alias')}</p>
+                        `
+                      : undefined,
                   })}
                 `,
               )
@@ -1165,11 +1357,13 @@ export class AppShell {
                         : 'Sem grupos associados',
                     badgeLabel: conversation.privateAssistantAuthorized ? 'Acesso privado' : 'Sem acesso',
                     badgeTone: conversation.privateAssistantAuthorized ? 'positive' : 'warning',
-                    detailsSummary: 'Detalhes tecnicos',
-                    detailsHtml: `
-                      <p>JIDs: ${escapeHtml(conversation.whatsappJids.join(', ') || 'sem JID')}</p>
-                      <p>Roles globais: ${escapeHtml(conversation.globalRoles.join(', '))}</p>
-                    `,
+                    detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
+                    detailsHtml: this.state.advancedDetailsEnabled
+                      ? `
+                          <p>JIDs: ${escapeHtml(conversation.whatsappJids.join(', ') || 'sem JID')}</p>
+                          <p>Roles globais: ${escapeHtml(conversation.globalRoles.join(', '))}</p>
+                        `
+                      : undefined,
                   })}
                 `,
               )
@@ -1355,11 +1549,13 @@ export class AppShell {
                         <li>${distribution.actionCounts.failed} falhados</li>
                       </ul>
                     `,
-                    detailsSummary: 'Detalhes tecnicos',
-                    detailsHtml: `
-                      <p>Instruction ID: ${escapeHtml(distribution.instructionId)}</p>
-                      <p>Source message: ${escapeHtml(distribution.sourceMessageId ?? 'manual')}</p>
-                    `,
+                    detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
+                    detailsHtml: this.state.advancedDetailsEnabled
+                      ? `
+                          <p>Instruction ID: ${escapeHtml(distribution.instructionId)}</p>
+                          <p>Source message: ${escapeHtml(distribution.sourceMessageId ?? 'manual')}</p>
+                        `
+                      : undefined,
                   }),
               )
               .join('')}
@@ -1506,7 +1702,7 @@ export class AppShell {
             ${snapshot.adminSettings.ui.defaultNotificationRules
               .map(
                 (rule) =>
-                  `<li>${escapeHtml(rule.label ?? rule.kind)} · ${escapeHtml(rule.localTime ?? `${rule.daysBeforeEvent ?? 0}d / ${rule.offsetMinutesBeforeEvent ?? 0}m`)}</li>`,
+                  `<li>${escapeHtml(rule.label ?? rule.kind)} - ${escapeHtml(rule.localTime ?? `${rule.daysBeforeEvent ?? 0}d / ${rule.offsetMinutesBeforeEvent ?? 0}m`)}</li>`,
               )
               .join('')}
           </ul>
@@ -1534,11 +1730,17 @@ export class AppShell {
             <li>Mesmo auth do Codex: ${snapshot.hostStatus.auth.sameAsCodexCanonical ? 'sim' : 'nao'}</li>
             <li>Heartbeat: ${escapeHtml(formatShortDateTime(snapshot.hostStatus.runtime.lastHeartbeatAt))}</li>
           </ul>
-          <details class="details">
-            <summary>Detalhes tecnicos</summary>
-            <p>Auth file: ${escapeHtml(snapshot.hostStatus.auth.filePath)}</p>
-            <p>Service: ${escapeHtml(snapshot.hostStatus.autostart.serviceName)}</p>
-          </details>
+          ${
+            this.state.advancedDetailsEnabled
+              ? `
+                  <details class="details">
+                    <summary>Detalhes avancados</summary>
+                    <p>Auth file: ${escapeHtml(snapshot.hostStatus.auth.filePath)}</p>
+                    <p>Service: ${escapeHtml(snapshot.hostStatus.autostart.serviceName)}</p>
+                  </details>
+                `
+              : ''
+          }
         </article>
       </section>
     `;
@@ -1657,6 +1859,7 @@ export class AppShell {
           message: 'Rascunho de agendamento guardado nesta sessao para continuares a validacao do fluxo.',
         },
       };
+      this.recordUxEvent('positive', 'Rascunho de agendamento guardado na sessao.');
       this.render();
       return;
     }
@@ -1677,6 +1880,7 @@ export class AppShell {
           message: 'Formulario de agendamento limpo. Podes testar o fluxo outra vez.',
         },
       };
+      this.recordUxEvent('neutral', 'Formulario de agendamento limpo.');
       this.render();
       return;
     }
@@ -1710,6 +1914,7 @@ export class AppShell {
           message: `Preenchemos o fluxo com um exemplo base para ${group.preferredSubject}.`,
         },
       };
+      this.recordUxEvent('positive', `Exemplo carregado para ${group.preferredSubject}.`);
       this.render();
       return;
     }
@@ -1719,9 +1924,10 @@ export class AppShell {
         ...this.state,
         flowFeedback: {
           tone: 'positive',
-          message: 'Preview de distribuicao preparado. Revê os grupos alvo antes de passar a execucao real.',
+          message: 'Preview de distribuicao preparado. Reve os grupos alvo antes de passar a execucao real.',
         },
       };
+      this.recordUxEvent('positive', 'Preview de distribuicao preparado.');
       this.render();
       return;
     }
@@ -1740,6 +1946,7 @@ export class AppShell {
           message: 'Fluxo de distribuicao limpo para um novo teste.',
         },
       };
+      this.recordUxEvent('neutral', 'Fluxo de distribuicao limpo.');
       this.render();
       return;
     }
@@ -1750,6 +1957,7 @@ export class AppShell {
         whatsappRepairFocus: value,
         flowFeedback: null,
       };
+      this.recordUxEvent('neutral', `Foco da reparacao WhatsApp mudado para ${value}.`);
       this.render();
       return;
     }
@@ -1767,6 +1975,7 @@ export class AppShell {
           message: 'Issue marcada como revista nesta sessao. A fila ficou mais clara para continuares.',
         },
       };
+      this.recordUxEvent('positive', `Issue ${value} marcada como revista.`);
       this.render();
     }
   }
@@ -1784,6 +1993,7 @@ export class AppShell {
   private async runWhatsAppMutation(task: () => Promise<void>, successMessage: string): Promise<void> {
     this.state = {
       ...this.state,
+      pendingConfirmation: null,
       flowFeedback: {
         tone: 'neutral',
         message: 'A aplicar alteracao nesta area para poderes validar logo o resultado.',
@@ -1796,31 +2006,48 @@ export class AppShell {
       await this.refreshCurrentRouteData();
       this.state = {
         ...this.state,
+        pendingConfirmation: null,
         flowFeedback: {
           tone: 'positive',
           message: successMessage,
         },
       };
+      this.recordUxEvent('positive', successMessage);
     } catch (error) {
+      const message = `Nao foi possivel atualizar esta configuracao. ${readErrorMessage(error)}`;
       this.state = {
         ...this.state,
+        pendingConfirmation: null,
         flowFeedback: {
           tone: 'danger',
-          message: `Nao foi possivel atualizar esta configuracao. ${readErrorMessage(error)}`,
+          message,
         },
       };
+      this.recordUxEvent('danger', summarizeTelemetryMessage(message));
     }
 
     this.render();
   }
 
-  private async handleWhatsAppAction(action: string, dataset: DOMStringMap): Promise<void> {
+  private async handleWhatsAppAction(
+    action: string,
+    dataset: ActionDataset,
+    options: {
+      readonly confirmed?: boolean;
+    } = {},
+  ): Promise<void> {
     if (action === 'toggle-qr-preview') {
+      const nextQrPreviewVisible = !this.state.whatsappQrPreviewVisible;
       this.state = {
         ...this.state,
-        whatsappQrPreviewVisible: !this.state.whatsappQrPreviewVisible,
+        whatsappQrPreviewVisible: nextQrPreviewVisible,
+        pendingConfirmation: null,
         flowFeedback: null,
       };
+      this.recordUxEvent(
+        'neutral',
+        nextQrPreviewVisible ? 'Preview QR aberto.' : 'Preview QR fechado.',
+      );
       this.render();
       return;
     }
@@ -1833,6 +2060,23 @@ export class AppShell {
 
     const snapshot = pageData.workspace;
     const people = buildWorkspacePeople(pageData);
+    const pendingConfirmation = !options.confirmed
+      ? this.buildWhatsAppConfirmation(action, dataset, snapshot, people)
+      : null;
+
+    if (pendingConfirmation) {
+      this.state = {
+        ...this.state,
+        pendingConfirmation,
+        flowFeedback: {
+          tone: 'warning',
+          message: pendingConfirmation.description,
+        },
+      };
+      this.recordUxEvent('warning', `Confirmacao pedida: ${pendingConfirmation.title}`);
+      this.render();
+      return;
+    }
 
     if (action === 'toggle-whatsapp-enabled') {
       await this.runWhatsAppMutation(
@@ -2054,6 +2298,120 @@ export class AppShell {
     }
   }
 
+  private buildWhatsAppConfirmation(
+    action: string,
+    dataset: ActionDataset,
+    snapshot: WhatsAppWorkspaceSnapshot,
+    people: readonly WorkspacePersonView[],
+  ): PendingConfirmation | null {
+    if (action === 'toggle-whatsapp-enabled' && snapshot.settings.whatsapp.enabled) {
+      return {
+        key: 'toggle-whatsapp-enabled',
+        action,
+        dataset,
+        title: 'Desligar o canal WhatsApp?',
+        description: 'Isto para o canal inteiro ate voltares a liga-lo. Faz sentido confirmar antes de mexer numa operacao tao sensivel.',
+        confirmLabel: 'Desligar canal',
+        tone: 'danger',
+      };
+    }
+
+    if (action === 'toggle-private-assistant-global' && snapshot.settings.commands.allowPrivateAssistant) {
+      return {
+        key: 'toggle-private-assistant-global',
+        action,
+        dataset,
+        title: 'Bloquear todos os privados?',
+        description: 'Esta acao corta o assistente privado para todos os chats conhecidos. Confirma so se for mesmo intencional.',
+        confirmLabel: 'Bloquear privados',
+        tone: 'warning',
+      };
+    }
+
+    if (action === 'toggle-app-owner') {
+      const person = people.find((candidate) => candidate.personId === dataset.personId);
+
+      if (person?.globalRoles.includes('app_owner')) {
+        return {
+          key: `toggle-app-owner:${person.personId}`,
+          action,
+          dataset,
+          title: `Remover ${person.displayName} como app owner?`,
+          description: 'Esta pessoa perde controlo global da app. Confirma antes de retirar este nivel de acesso.',
+          confirmLabel: 'Remover app owner',
+          tone: 'warning',
+        };
+      }
+    }
+
+    if (action === 'toggle-private-person') {
+      const person = people.find((candidate) => candidate.personId === dataset.personId);
+
+      if (person?.privateAssistantAuthorized) {
+        return {
+          key: `toggle-private-person:${person.personId}`,
+          action,
+          dataset,
+          title: `Bloquear o privado de ${person.displayName}?`,
+          description: 'A partir daqui o assistente deixa de responder neste contacto privado.',
+          confirmLabel: 'Bloquear privado',
+          tone: 'warning',
+        };
+      }
+    }
+
+    if (action === 'toggle-group-authorized') {
+      const group = snapshot.groups.find((candidate) => candidate.groupJid === dataset.groupJid);
+
+      if (group?.assistantAuthorized) {
+        return {
+          key: `toggle-group-authorized:${group.groupJid}`,
+          action,
+          dataset,
+          title: `Bloquear ${group.preferredSubject}?`,
+          description: 'Este grupo deixa de poder usar o assistente. Vale a pena confirmar antes de cortar acesso operacional.',
+          confirmLabel: 'Bloquear grupo',
+          tone: 'warning',
+        };
+      }
+    }
+
+    if (action === 'clear-group-owners') {
+      const group = snapshot.groups.find((candidate) => candidate.groupJid === dataset.groupJid);
+
+      if (group) {
+        return {
+          key: `clear-group-owners:${group.groupJid}`,
+          action,
+          dataset,
+          title: `Limpar owners de ${group.preferredSubject}?`,
+          description: 'O grupo fica sem owner definido. Faz sentido so se estiveres a preparar uma reatribuicao logo a seguir.',
+          confirmLabel: 'Limpar owners',
+          tone: 'danger',
+        };
+      }
+    }
+
+    if (action === 'toggle-group-owner') {
+      const group = snapshot.groups.find((candidate) => candidate.groupJid === dataset.groupJid);
+      const person = people.find((candidate) => candidate.personId === dataset.personId);
+
+      if (group && person && group.ownerPersonIds.includes(person.personId ?? '')) {
+        return {
+          key: `toggle-group-owner:${group.groupJid}:${person.personId}`,
+          action,
+          dataset,
+          title: `Remover ${person.displayName} como owner?`,
+          description: `${person.displayName} deixa de gerir ${group.preferredSubject}. Confirma antes de retirar esta responsabilidade.`,
+          confirmLabel: 'Remover owner',
+          tone: 'warning',
+        };
+      }
+    }
+
+    return null;
+  }
+
   private async handleWhatsAppAclChange(
     groupJid: string,
     scope: string,
@@ -2080,6 +2438,28 @@ export class AppShell {
     );
   }
 
+  private async handlePendingConfirmation(action: 'accept' | 'cancel'): Promise<void> {
+    if (action === 'cancel') {
+      this.dismissPendingConfirmation('Confirmacao cancelada nesta sessao.');
+      this.recordUxEvent('neutral', 'Confirmacao sensivel cancelada.');
+      return;
+    }
+
+    const pendingConfirmation = this.state.pendingConfirmation;
+
+    if (!pendingConfirmation) {
+      return;
+    }
+
+    this.state = {
+      ...this.state,
+      pendingConfirmation: null,
+    };
+    await this.handleWhatsAppAction(pendingConfirmation.action, pendingConfirmation.dataset, {
+      confirmed: true,
+    });
+  }
+
   private bindInteractions(): void {
     if (!this.root) {
       return;
@@ -2096,6 +2476,7 @@ export class AppShell {
 
         this.state = {
           ...this.state,
+          pendingConfirmation: null,
           route: this.currentRouter().normalizeRoute(nextRoute),
         };
         void this.loadCurrentRoute();
@@ -2113,8 +2494,10 @@ export class AppShell {
         this.state = {
           ...this.state,
           mode: nextMode,
+          pendingConfirmation: null,
           liveEvents: [],
         };
+        this.recordUxEvent('neutral', `Modo de dados trocado para ${nextMode}.`);
         void this.loadCurrentRoute({ replaceHistory: true });
       });
     }
@@ -2130,8 +2513,31 @@ export class AppShell {
         this.state = {
           ...this.state,
           previewState: nextPreview,
+          pendingConfirmation: null,
         };
+        this.recordUxEvent('neutral', `Estado de preview trocado para ${nextPreview}.`);
         void this.loadCurrentRoute({ replaceHistory: true });
+      });
+    }
+
+    for (const button of this.root.querySelectorAll<HTMLButtonElement>('[data-details-mode]')) {
+      button.addEventListener('click', () => {
+        const nextMode = button.dataset.detailsMode;
+
+        if (nextMode === 'essential') {
+          if (!this.state.advancedDetailsEnabled) {
+            return;
+          }
+          this.setAdvancedDetailsEnabled(false);
+          return;
+        }
+
+        if (nextMode === 'advanced') {
+          if (this.state.advancedDetailsEnabled) {
+            return;
+          }
+          this.setAdvancedDetailsEnabled(true);
+        }
       });
     }
 
@@ -2187,6 +2593,17 @@ export class AppShell {
         void this.handleWhatsAppAclChange(groupJid, scope, field.value);
       });
     }
+
+    for (const button of this.root.querySelectorAll<HTMLButtonElement>('[data-confirm-action]')) {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        const action = button.dataset.confirmAction;
+
+        if (action === 'accept' || action === 'cancel') {
+          void this.handlePendingConfirmation(action);
+        }
+      });
+    }
   }
 
   private syncUrl(replaceHistory: boolean): void {
@@ -2198,6 +2615,10 @@ export class AppShell {
 
     if (this.state.previewState !== 'none') {
       params.set('state', this.state.previewState);
+    }
+
+    if (this.state.advancedDetailsEnabled) {
+      params.set('details', 'advanced');
     }
 
     const nextPath = this.currentRouter().resolveRoute(this.state.route).route;
@@ -2213,6 +2634,16 @@ export class AppShell {
 
   private readMode(search: string): FrontendTransportMode {
     return new URLSearchParams(search).get('mode') === 'live' ? 'live' : 'demo';
+  }
+
+  private readAdvancedDetailsPreference(search: string): boolean {
+    const value = new URLSearchParams(search).get('details');
+
+    if (value === 'advanced') {
+      return true;
+    }
+
+    return readStoredAdvancedDetailsPreference();
   }
 
   private readPreviewState(search: string): PreviewState {
@@ -2561,6 +2992,50 @@ function dedupePersonRoles(values: readonly PersonRole[]): PersonRole[] {
 
 function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function summarizeTelemetryMessage(message: string): string {
+  return message.replace(/\s+/gu, ' ').trim().slice(0, 140);
+}
+
+function readStoredAdvancedDetailsPreference(): boolean {
+  try {
+    return window.localStorage.getItem(ADVANCED_DETAILS_STORAGE_KEY) === 'advanced';
+  } catch {
+    return false;
+  }
+}
+
+function writeStoredAdvancedDetailsPreference(enabled: boolean): void {
+  try {
+    if (enabled) {
+      window.localStorage.setItem(ADVANCED_DETAILS_STORAGE_KEY, 'advanced');
+      return;
+    }
+
+    window.localStorage.removeItem(ADVANCED_DETAILS_STORAGE_KEY);
+  } catch {}
+}
+
+function readStoredUxTelemetry(): readonly UxTelemetryEntry[] {
+  try {
+    const raw = window.localStorage.getItem(UX_TELEMETRY_STORAGE_KEY);
+
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw) as readonly UxTelemetryEntry[];
+    return parsed.slice(0, 8);
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredUxTelemetry(entries: readonly UxTelemetryEntry[]): void {
+  try {
+    window.localStorage.setItem(UX_TELEMETRY_STORAGE_KEY, JSON.stringify(entries.slice(0, 8)));
+  } catch {}
 }
 
 function renderScreenStateLabel(screenState: ScreenState): string {

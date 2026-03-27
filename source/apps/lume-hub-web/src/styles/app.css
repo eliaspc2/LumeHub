@@ -46,6 +46,23 @@ body {
   color: var(--ink-strong);
 }
 
+.skip-link {
+  position: absolute;
+  top: 12px;
+  left: 18px;
+  z-index: 20;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--accent-strong);
+  color: #ffffff;
+  transform: translateY(-150%);
+  transition: transform 140ms ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 a {
   color: inherit;
   text-decoration: none;
@@ -185,7 +202,8 @@ textarea {
   background: var(--surface-subtle);
   border-color: var(--line-soft);
   color: var(--ink-strong);
-  outline: none;
+  outline: 3px solid rgba(105, 138, 87, 0.22);
+  outline-offset: 2px;
 }
 
 .nav-link.is-active {
@@ -289,6 +307,33 @@ textarea {
 
 .flow-feedback--neutral {
   background: var(--neutral-soft);
+}
+
+.confirmation-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px 22px;
+}
+
+.confirmation-card h3 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.confirmation-card p {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  line-height: 1.65;
+}
+
+.confirmation-card--warning {
+  border-color: rgba(211, 154, 69, 0.22);
+  background: var(--warning-soft);
+}
+
+.confirmation-card--danger {
+  border-color: rgba(201, 107, 99, 0.22);
+  background: var(--danger-soft);
 }
 
 .hero,
@@ -523,9 +568,10 @@ textarea {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
-.ui-control:focus {
+.ui-control:focus,
+.ui-control:focus-visible {
   border-color: rgba(105, 138, 87, 0.46);
-  outline: 2px solid rgba(105, 138, 87, 0.12);
+  outline: 3px solid rgba(105, 138, 87, 0.18);
   outline-offset: 0;
 }
 
@@ -704,7 +750,8 @@ textarea {
 .toggle-button:focus-visible {
   border-color: rgba(105, 138, 87, 0.35);
   background: var(--surface-subtle);
-  outline: none;
+  outline: 3px solid rgba(105, 138, 87, 0.18);
+  outline-offset: 2px;
 }
 
 .ui-toggle.is-active,
@@ -740,7 +787,8 @@ textarea {
 .action-button:focus-visible {
   background: var(--accent-strong);
   border-color: rgba(85, 112, 69, 0.38);
-  outline: none;
+  outline: 3px solid rgba(105, 138, 87, 0.18);
+  outline-offset: 2px;
 }
 
 .ui-button--secondary,
@@ -797,6 +845,21 @@ textarea {
   border: 1px solid var(--line-soft);
   border-radius: 16px;
   background: var(--surface-subtle);
+}
+
+.timeline-item--positive {
+  background: var(--accent-soft);
+  border-color: rgba(105, 138, 87, 0.18);
+}
+
+.timeline-item--warning {
+  background: var(--warning-soft);
+  border-color: rgba(211, 154, 69, 0.18);
+}
+
+.timeline-item--danger {
+  background: var(--danger-soft);
+  border-color: rgba(201, 107, 99, 0.18);
 }
 
 .timeline-item strong {

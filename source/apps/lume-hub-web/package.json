@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "vite build",
+    "build": "vite build && tsc -p tsconfig.runtime.json",
     "dev": "vite",
     "preview": "vite preview",
     "test": "node -e \"console.log('No tests yet for @lume-hub/lume-hub-web.')\""

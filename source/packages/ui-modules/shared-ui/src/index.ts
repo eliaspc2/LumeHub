@@ -136,7 +136,7 @@ export function renderUiBadge(spec: UiBadgeSpec): string {
 }
 
 export function renderUiToggleButton(spec: UiToggleButtonSpec): string {
-  return `<button class="ui-toggle ${spec.active ? 'is-active' : ''}" data-${escapeHtml(spec.kind)}="${escapeHtml(spec.value)}">${escapeHtml(spec.label)}</button>`;
+  return `<button class="ui-toggle ${spec.active ? 'is-active' : ''}" type="button" aria-pressed="${spec.active ? 'true' : 'false'}" data-${escapeHtml(spec.kind)}="${escapeHtml(spec.value)}">${escapeHtml(spec.label)}</button>`;
 }
 
 export function renderUiActionButton(spec: UiActionButtonSpec): string {

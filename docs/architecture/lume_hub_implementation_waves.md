@@ -6,7 +6,7 @@ Serve para uma LLM ou equipa executar o projeto por fases, sem misturar fundamen
 Regra editorial:
 - este ficheiro deve manter apenas waves ainda por executar
 - waves ja concluidas devem sair daqui para o plano ativo ficar curto e legivel
-- neste momento, as `Wave 0` a `Wave 15` ja foram executadas e por isso deixaram de aparecer neste ficheiro
+- neste momento, as `Wave 0` a `Wave 16` ja foram executadas e por isso deixaram de aparecer neste ficheiro
 
 ## Regras de leitura
 
@@ -84,50 +84,6 @@ Se a wave tocar browser/app web:
 Se a wave tocar backend, HTTP, WS ou runtime:
 - smoke test dedicado da wave
 - validar que a UI continua a abrir e a consumir a API esperada
-
-## Wave 16 - Polimento, acessibilidade e confianca operacional
-
-Objetivo:
-- fechar a experiencia para uso real diario
-
-Entregaveis:
-- acessibilidade base
-- refinamento visual
-- microcopy final
-- modo `advanced details`
-- telemetria UX local suficiente para perceber erros frequentes
-
-Checklist obrigatoria:
-- contraste suficiente
-- foco visivel
-- navegacao por teclado razoavel
-- labels e feedback claros
-- confirmacoes para operacoes sensiveis
-- historico e estado operacional explicados em linguagem simples
-
-Criterios de aceitacao:
-- uma pessoa com pouco conhecimento tecnico consegue usar a app para tarefas frequentes
-- o modo avancado existe sem poluir a experiencia principal
-- o frontend transmite confianca operacional e clareza
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run test:e2e`
-- `corepack pnpm run validate:wave16`
-
-Melhor momento para testar:
-- testar aqui um uso diario mais realista
-- e a melhor wave para validar acessibilidade base, microcopy, confianca e pontos de friccao pequenos que so aparecem no uso continuo
-- a pergunta pratica desta wave e: `isto ja parece um produto seguro para usar todos os dias?`
-
-O que testar:
-- usar a app durante uma sessao mais longa, como se fosse operacao real
-- navegar por teclado nas areas principais
-- confirmar contraste, foco e legibilidade
-- procurar textos ambiguos, assustadores ou tecnicos demais
-- verificar se o modo avancado ajuda sem atrapalhar a experiencia principal
-- validar se watchdog, entregas e historico inspiram confianca
 
 ## Wave 17 - Limpeza final e remocao de legado inutil
 

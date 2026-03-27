@@ -360,12 +360,11 @@ test('dashboard surfaces watchdog and host companion state clearly', async () =>
   const app = new WebAppBootstrap({
     transport: new InMemoryFrontendApiTransport(server),
   });
-  const pages = await app.router.renderPages();
-  const dashboardPage = pages.find((page) => page.route === '/dashboard');
-  const whatsappPage = pages.find((page) => page.route === '/whatsapp');
+  const dashboardPage = await app.router.renderRoute('/today');
+  const whatsappPage = await app.router.renderRoute('/whatsapp');
 
-  assert.ok(dashboardPage);
-  assert.ok(whatsappPage);
+  assert.equal(dashboardPage.route, '/today');
+  assert.equal(whatsappPage.route, '/whatsapp');
   assert.equal(dashboardPage.sections.some((section) => section.title === 'Host Companion'), true);
   assert.equal(dashboardPage.sections.some((section) => section.title === 'Watchdog'), true);
   assert.equal(JSON.stringify(dashboardPage).includes('host_id=host-kubuntu'), true);
