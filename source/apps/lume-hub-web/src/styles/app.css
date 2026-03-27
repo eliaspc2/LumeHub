@@ -486,9 +486,14 @@ textarea {
   gap: 14px 16px;
 }
 
+.ui-form-grid > * {
+  align-self: start;
+}
+
 .ui-field {
   display: grid;
   gap: 8px;
+  align-content: start;
 }
 
 .ui-field__label {
