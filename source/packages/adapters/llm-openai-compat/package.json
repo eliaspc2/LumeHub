@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/adapters/llm-openai-compat/src/public/index.js",
+  "types": "./dist/adapters/llm-openai-compat/src/public/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "./dist/adapters/llm-openai-compat/src/public/index.d.ts",
+      "default": "./dist/adapters/llm-openai-compat/src/public/index.js"
     }
   },
   "scripts": {
@@ -16,5 +16,7 @@
     "build": "tsc -p tsconfig.json",
     "test": "node -e \"console.log('No tests yet for @lume-hub/llm-openai-compat.')\""
   },
-  "dependencies": {}
+  "dependencies": {
+    "@lume-hub/llm-orchestrator": "workspace:*"
+  }
 }

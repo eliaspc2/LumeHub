@@ -11,12 +11,27 @@ export interface RawBaileysMessageEnvelope {
     readonly conversation?: string;
     readonly extendedTextMessage?: {
       readonly text?: string;
+      readonly contextInfo?: {
+        readonly mentionedJid?: readonly string[];
+        readonly participant?: string;
+        readonly stanzaId?: string;
+      };
     };
     readonly imageMessage?: {
       readonly caption?: string;
+      readonly contextInfo?: {
+        readonly mentionedJid?: readonly string[];
+        readonly participant?: string;
+        readonly stanzaId?: string;
+      };
     };
     readonly videoMessage?: {
       readonly caption?: string;
+      readonly contextInfo?: {
+        readonly mentionedJid?: readonly string[];
+        readonly participant?: string;
+        readonly stanzaId?: string;
+      };
     };
   };
   readonly messageTimestamp?: number | string | { readonly low?: number };
@@ -33,6 +48,9 @@ export interface NormalizedInboundMessage {
   readonly timestamp: string;
   readonly semanticFingerprint: string;
   readonly pushName?: string;
+  readonly mentionedJids?: readonly string[];
+  readonly quotedMessageId?: string;
+  readonly quotedParticipantJid?: string;
 }
 
 export interface OutboundObservationSignal {

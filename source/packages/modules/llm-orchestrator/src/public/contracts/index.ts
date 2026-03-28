@@ -11,4 +11,7 @@ export interface LlmOrchestratorModuleContract {
     input: import('../../domain/entities/LlmOrchestrator.js').WeeklyPromptPlanningInput,
   ): Promise<import('../../domain/entities/LlmOrchestrator.js').WeeklyPromptPlan>;
   listModels(): readonly import('../../domain/entities/LlmOrchestrator.js').LlmModelDescriptor[];
+  refreshModels(
+    providerId?: string,
+  ): Promise<readonly import('../../domain/entities/LlmOrchestrator.js').LlmModelCatalogRefreshResult[]>;
 }

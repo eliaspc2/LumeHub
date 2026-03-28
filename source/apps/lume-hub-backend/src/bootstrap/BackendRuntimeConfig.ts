@@ -47,6 +47,11 @@ export interface BackendRuntimeConfig {
   readonly whatsappAutoConnect?: boolean;
   readonly whatsappSocketFactory?: BaileysSocketFactory;
   readonly whatsappVersionResolver?: BaileysVersionResolver;
+  readonly llmFetch?: typeof fetch;
+  readonly llmCodexClientVersion?: string;
+  readonly openAiCompatBaseUrl?: string;
+  readonly openAiCompatApiKey?: string;
+  readonly openAiCompatDefaultModel?: string;
 }
 
 export interface BackendRuntimePaths {

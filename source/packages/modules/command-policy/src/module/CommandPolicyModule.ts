@@ -22,7 +22,8 @@ export class CommandPolicyModule extends BaseModule implements CommandPolicyModu
     const groupDirectory = config.groupDirectory ?? new GroupDirectoryModule();
     const peopleMemory = config.peopleMemory ?? new PeopleMemoryModule();
 
-    this.service = config.service ?? new CommandPolicyService(groupDirectory, peopleMemory, config.settings);
+    this.service =
+      config.service ?? new CommandPolicyService(groupDirectory, peopleMemory, config.settings, config.settingsResolver);
   }
 
   async canUseAssistant(context: PolicyActorContext) {

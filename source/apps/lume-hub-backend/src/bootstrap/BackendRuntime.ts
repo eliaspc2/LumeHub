@@ -1,15 +1,22 @@
 import type { AdminConfigModule } from '@lume-hub/admin-config';
+import type { AgentRuntimeModule } from '@lume-hub/agent-runtime';
+import type { AssistantContextModule } from '@lume-hub/assistant-context';
 import type { AudienceRoutingModule } from '@lume-hub/audience-routing';
 import type { CodexAuthRouterModule } from '@lume-hub/codex-auth-router';
+import type { CommandPolicyModule } from '@lume-hub/command-policy';
+import type { ConversationModule } from '@lume-hub/conversation';
 import type { DisciplineCatalogModule } from '@lume-hub/discipline-catalog';
 import type { GroupDirectoryModule } from '@lume-hub/group-directory';
 import type { HealthMonitorModule } from '@lume-hub/health-monitor';
 import type { HostLifecycleModule } from '@lume-hub/host-lifecycle';
 import type { FastifyHttpServer, HttpListeningAddress, HttpRequest, HttpResponse } from '@lume-hub/http-fastify';
 import type { InstructionQueueModule } from '@lume-hub/instruction-queue';
+import type { IntentClassifierModule } from '@lume-hub/intent-classifier';
 import type { ApplicationKernel, IModule, ModuleContext, ModuleRegistration } from '@lume-hub/kernel';
+import type { LlmOrchestratorModule } from '@lume-hub/llm-orchestrator';
 import type { NotificationJobsModule } from '@lume-hub/notification-jobs';
 import type { NotificationRulesModule } from '@lume-hub/notification-rules';
+import type { OwnerControlModule } from '@lume-hub/owner-control';
 import type { PeopleMemoryModule } from '@lume-hub/people-memory';
 import type { ScheduleEventsModule } from '@lume-hub/schedule-events';
 import type { ScheduleWeeksModule } from '@lume-hub/schedule-weeks';
@@ -18,6 +25,7 @@ import type { WatchdogModule } from '@lume-hub/watchdog';
 import type { WebSocketGateway } from '@lume-hub/ws-fastify';
 
 import type { BackendRuntimePaths } from './BackendRuntimeConfig.js';
+import type { ConversationPipelineRuntime } from './ConversationPipelineRuntime.js';
 import type { WhatsAppWorkspaceRuntime } from './WhatsAppWorkspaceRuntime.js';
 
 export interface BackendRuntimeModules {
@@ -36,6 +44,13 @@ export interface BackendRuntimeModules {
   readonly hostLifecycleModule: HostLifecycleModule;
   readonly watchdogModule: WatchdogModule;
   readonly healthMonitorModule: HealthMonitorModule;
+  readonly assistantContextModule: AssistantContextModule;
+  readonly commandPolicyModule: CommandPolicyModule;
+  readonly intentClassifierModule: IntentClassifierModule;
+  readonly llmOrchestratorModule: LlmOrchestratorModule;
+  readonly ownerControlModule: OwnerControlModule;
+  readonly agentRuntimeModule: AgentRuntimeModule;
+  readonly conversationModule: ConversationModule;
   readonly modules: readonly IModule[];
 }
 
@@ -68,6 +83,7 @@ export interface BackendRuntimeOptions {
   readonly moduleGraph: BackendModuleGraph;
   readonly paths: BackendRuntimePaths;
   readonly whatsAppWorkspaceRuntime: WhatsAppWorkspaceRuntime;
+  readonly conversationPipelineRuntime: ConversationPipelineRuntime;
   readonly operationalTickIntervalMs?: number;
 }
 
@@ -122,6 +138,7 @@ export class BackendRuntime {
     await this.options.kernel.start();
     this.kernelStarted = true;
     await this.options.whatsAppWorkspaceRuntime.start();
+    await this.options.conversationPipelineRuntime.start();
 
     try {
       await this.performOperationalTick();
@@ -142,6 +159,7 @@ export class BackendRuntime {
       this.operationalTimer = undefined;
     }
 
+    await this.options.conversationPipelineRuntime.stop();
     await this.options.whatsAppWorkspaceRuntime.stop();
     await this.options.webSocketGateway.close();
     await this.options.httpServer.close();

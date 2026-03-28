@@ -27,6 +27,12 @@ function extractText(payload: RawBaileysMessageEnvelope): string | undefined {
     ?? payload.message?.videoMessage?.caption;
 }
 
+function extractContextInfo(payload: RawBaileysMessageEnvelope) {
+  return payload.message?.extendedTextMessage?.contextInfo
+    ?? payload.message?.imageMessage?.contextInfo
+    ?? payload.message?.videoMessage?.contextInfo;
+}
+
 function fingerprintFor(participantJid: string, text: string): string {
   return `${participantJid}:${text}`
     .toLowerCase()
@@ -48,6 +54,8 @@ export class InboundMessageNormalizer {
 
     const isGroup = chatJid.endsWith('@g.us');
     const participantJid = (payload.key?.participant?.trim() || chatJid);
+    const contextInfo = extractContextInfo(payload);
+    const mentionedJids = dedupeStrings(contextInfo?.mentionedJid ?? []);
 
     return {
       messageId,
@@ -59,6 +67,13 @@ export class InboundMessageNormalizer {
       timestamp: normalizeTimestamp(payload.messageTimestamp),
       semanticFingerprint: fingerprintFor(participantJid, text),
       pushName: payload.pushName?.trim() || undefined,
+      ...(mentionedJids.length > 0 ? { mentionedJids } : {}),
+      ...(contextInfo?.stanzaId?.trim() ? { quotedMessageId: contextInfo.stanzaId.trim() } : {}),
+      ...(contextInfo?.participant?.trim() ? { quotedParticipantJid: contextInfo.participant.trim() } : {}),
     };
   }
+}
+
+function dedupeStrings(values: readonly string[]): readonly string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }

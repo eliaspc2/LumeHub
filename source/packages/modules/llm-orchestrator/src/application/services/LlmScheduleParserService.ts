@@ -7,10 +7,11 @@ export class LlmScheduleParserService {
     private readonly registry: LlmProviderRegistry,
     private readonly runLogger: LlmRunLogger,
     private readonly providerId?: string,
+    private readonly providerResolver?: () => Promise<string | null | undefined> | string | null | undefined,
   ) {}
 
   async parseSchedules(input: LlmScheduleParseInput): Promise<LlmScheduleParseResult> {
-    const provider = this.registry.resolve(this.providerId);
+    const provider = this.registry.resolve(await resolveProviderId(this.providerId, this.providerResolver));
     const result = await provider.parseSchedules(input);
 
     await this.runLogger.log({
@@ -25,4 +26,12 @@ export class LlmScheduleParserService {
 
     return result;
   }
+}
+
+async function resolveProviderId(
+  providerId: string | undefined,
+  providerResolver?: () => Promise<string | null | undefined> | string | null | undefined,
+): Promise<string | undefined> {
+  const resolved = providerResolver ? await providerResolver() : undefined;
+  return resolved ?? providerId;
 }

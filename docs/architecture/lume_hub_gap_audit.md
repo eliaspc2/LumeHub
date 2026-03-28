@@ -1,16 +1,17 @@
 # Lume Hub Gap Audit
 
-Data: `2026-03-27`
+Data: `2026-03-28`
 
 Objetivo:
-- descrever apenas os gaps reais que restam depois das `Wave 0` a `Wave 20`
+- descrever apenas os gaps reais que restam depois das `Wave 0` a `Wave 21`
 - evitar backlog preso a estado antigo do frontend ou a scaffolds ja removidos
 
 ## Resumo executivo
 
 Conclusao curta:
-- as `Wave 0` a `Wave 20` ficaram executadas e validadas
+- as `Wave 0` a `Wave 21` ficaram executadas e validadas
 - a `Wave 20` fechou o canal WhatsApp live com QR, descoberta e envio observavel
+- a `Wave 21` fechou o pipeline conversacional live e os providers LLM reais
 - o frontend operacional ja existe e a limpeza final do repositorio foi feita
 - o modo `Live` ja usa backend HTTP real, WebSocket real e launcher local sem servidor provisório
 - o backlog restante voltou a estar organizado em waves ativas
@@ -18,8 +19,6 @@ Conclusao curta:
 
 Plano ativo de fecho:
 
-- `Wave 21`
-  - pipeline conversacional e providers LLM reais
 - `Wave 22`
   - API operacional completa e `weekly-planner` real
 - `Wave 23`
@@ -60,34 +59,7 @@ As seguintes areas existem com base razoavel:
 
 ## Gaps reais por prioridade
 
-### 1. O pipeline inbound -> conversa -> reply -> envio nao esta ligado no runtime
-
-Estado atual:
-- `conversation`, `assistant-context` e `agent-runtime` existem
-- falta a composicao do backend que liga inbound do WhatsApp ao fluxo conversacional e ao envio de replies
-
-Onde fechar:
-- `source/apps/lume-hub-backend`
-- `source/packages/modules/conversation`
-- `source/packages/modules/assistant-context`
-- `source/packages/modules/agent-runtime`
-- `source/packages/adapters/whatsapp-baileys`
-
-### 2. Os providers LLM reais ainda sao stubs
-
-Estado atual:
-- `llm-codex-oauth` e `llm-openai-compat` ainda expõem apenas `describe()`
-
-Impacto:
-- o runtime conversacional continua sem provider real de producao
-
-Onde fechar:
-- `source/packages/adapters/llm-codex-oauth`
-- `source/packages/adapters/llm-openai-compat`
-- `source/packages/modules/llm-orchestrator`
-- `source/packages/modules/codex-auth-router`
-
-### 3. A API do produto continua parcial
+### 1. A API do produto continua parcial
 
 Estado atual:
 - existem endpoints e runtime reais para dashboard, groups, people, routing, watchdog, settings e workspace WhatsApp
@@ -105,7 +77,7 @@ Onde fechar:
 - `source/packages/adapters/http-fastify`
 - modulos de scheduling, instruction queue, conversation e llm
 
-### 4. `weekly-planner` do dominio ainda esta minimo
+### 2. `weekly-planner` do dominio ainda esta minimo
 
 Estado atual:
 - `source/packages/modules/weekly-planner` continua a ser um modulo estrutural sem comportamento real
@@ -117,7 +89,7 @@ Onde fechar:
 - `source/packages/modules/weekly-planner`
 - depois ligar a `source/packages/ui-modules/week-planner`
 
-### 5. A cobertura de testes continua curta para o produto final
+### 3. A cobertura de testes continua curta para o produto final
 
 Estado atual:
 - continuam a existir poucos testes centrais:
@@ -132,7 +104,7 @@ Onde fechar:
 - `source/tests/*`
 - e idealmente suites locais em packages criticos
 
-### 6. `alerts` e `automations` sairam do workspace ativo
+### 4. `alerts` e `automations` sairam do workspace ativo
 
 Estado atual:
 - os antigos packages `source/packages/modules/alerts` e `source/packages/modules/automations` eram stubs vazios
@@ -144,10 +116,9 @@ Regra daqui para a frente:
 
 ## Ordem recomendada para o backlog restante
 
-1. `Wave 21`
-2. `Wave 22`
-3. `Wave 23`
-4. `Wave 24`
+1. `Wave 22`
+2. `Wave 23`
+3. `Wave 24`
 
 ## Nota final
 
@@ -156,5 +127,5 @@ Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
 
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
 - nao
-- o que falta ja nao e scaffold nem limpeza
-- falta sobretudo wiring conversacional/LLM, API operacional completa e reforco de testes
+- o que falta ja nao e scaffold nem wiring conversacional basico
+- falta sobretudo API operacional completa, `weekly-planner` real e reforco de testes

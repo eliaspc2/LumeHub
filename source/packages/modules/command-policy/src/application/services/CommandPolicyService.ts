@@ -8,10 +8,10 @@ import { OwnerPolicy } from '../../domain/services/OwnerPolicy.js';
 import { SenderAuthorizationPolicy } from '../../domain/services/SenderAuthorizationPolicy.js';
 
 export class CommandPolicyService {
-  readonly settings: CommandPolicySettings;
   private readonly ownerPolicy: OwnerPolicy;
   private readonly senderPolicy: SenderAuthorizationPolicy;
   private readonly calendarAccessAuthorizer: CalendarAccessAuthorizer;
+  private readonly baseSettings: Partial<CommandPolicySettings>;
 
   constructor(
     groupDirectory: Pick<
@@ -20,29 +20,25 @@ export class CommandPolicyService {
     >,
     peopleMemory: Pick<PeopleMemoryModuleContract, 'isAppOwner'>,
     settings: Partial<CommandPolicySettings> = {},
+    private readonly settingsResolver?: () => Promise<Partial<CommandPolicySettings> | undefined> | Partial<CommandPolicySettings> | undefined,
   ) {
-    this.settings = {
-      ...DEFAULT_COMMAND_POLICY_SETTINGS,
-      ...settings,
-      authorizedGroupJids: dedupe(settings.authorizedGroupJids ?? DEFAULT_COMMAND_POLICY_SETTINGS.authorizedGroupJids),
-      authorizedPrivateJids: dedupe(
-        settings.authorizedPrivateJids ?? DEFAULT_COMMAND_POLICY_SETTINGS.authorizedPrivateJids,
-      ),
-    };
+    this.baseSettings = settings;
     this.ownerPolicy = new OwnerPolicy(peopleMemory, groupDirectory);
     this.senderPolicy = new SenderAuthorizationPolicy(this.ownerPolicy);
     this.calendarAccessAuthorizer = new CalendarAccessAuthorizer(groupDirectory, this.ownerPolicy);
   }
 
   async canUseAssistant(context: PolicyActorContext): Promise<boolean> {
-    return this.senderPolicy.canUseAssistant(context, this.settings);
+    return this.senderPolicy.canUseAssistant(context, await this.readSettings());
   }
 
   async canUseScheduling(
     context: PolicyActorContext,
     requiredMode: CalendarAccessMode = 'read_write',
   ): Promise<boolean> {
-    if (!this.settings.schedulingEnabled || !context.groupJid) {
+    const settings = await this.readSettings();
+
+    if (!settings.schedulingEnabled || !context.groupJid) {
       return false;
     }
 
@@ -62,11 +58,31 @@ export class CommandPolicyService {
   }
 
   async canUseOwnerTerminal(personId: string | null): Promise<boolean> {
-    return this.senderPolicy.canUseOwnerTerminal(personId, this.settings);
+    return this.senderPolicy.canUseOwnerTerminal(personId, await this.readSettings());
   }
 
   async canAutoReplyInGroup(context: PolicyActorContext): Promise<boolean> {
-    return this.senderPolicy.canAutoReplyInGroup(context, this.settings);
+    return this.senderPolicy.canAutoReplyInGroup(context, await this.readSettings());
+  }
+
+  private async readSettings(): Promise<CommandPolicySettings> {
+    const dynamicSettings = this.settingsResolver ? await this.settingsResolver() : undefined;
+
+    return {
+      ...DEFAULT_COMMAND_POLICY_SETTINGS,
+      ...this.baseSettings,
+      ...(dynamicSettings ?? {}),
+      authorizedGroupJids: dedupe(
+        dynamicSettings?.authorizedGroupJids
+          ?? this.baseSettings.authorizedGroupJids
+          ?? DEFAULT_COMMAND_POLICY_SETTINGS.authorizedGroupJids,
+      ),
+      authorizedPrivateJids: dedupe(
+        dynamicSettings?.authorizedPrivateJids
+          ?? this.baseSettings.authorizedPrivateJids
+          ?? DEFAULT_COMMAND_POLICY_SETTINGS.authorizedPrivateJids,
+      ),
+    };
   }
 }
 

@@ -26,6 +26,12 @@ importers:
       '@lume-hub/admin-config':
         specifier: workspace:*
         version: link:../../packages/modules/admin-config
+      '@lume-hub/agent-runtime':
+        specifier: workspace:*
+        version: link:../../packages/modules/agent-runtime
+      '@lume-hub/assistant-context':
+        specifier: workspace:*
+        version: link:../../packages/modules/assistant-context
       '@lume-hub/audience-routing':
         specifier: workspace:*
         version: link:../../packages/modules/audience-routing
@@ -35,6 +41,12 @@ importers:
       '@lume-hub/codex-auth-router':
         specifier: workspace:*
         version: link:../../packages/modules/codex-auth-router
+      '@lume-hub/command-policy':
+        specifier: workspace:*
+        version: link:../../packages/modules/command-policy
+      '@lume-hub/conversation':
+        specifier: workspace:*
+        version: link:../../packages/modules/conversation
       '@lume-hub/discipline-catalog':
         specifier: workspace:*
         version: link:../../packages/modules/discipline-catalog
@@ -53,15 +65,30 @@ importers:
       '@lume-hub/instruction-queue':
         specifier: workspace:*
         version: link:../../packages/modules/instruction-queue
+      '@lume-hub/intent-classifier':
+        specifier: workspace:*
+        version: link:../../packages/modules/intent-classifier
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../packages/foundation/kernel
+      '@lume-hub/llm-codex-oauth':
+        specifier: workspace:*
+        version: link:../../packages/adapters/llm-codex-oauth
+      '@lume-hub/llm-openai-compat':
+        specifier: workspace:*
+        version: link:../../packages/adapters/llm-openai-compat
+      '@lume-hub/llm-orchestrator':
+        specifier: workspace:*
+        version: link:../../packages/modules/llm-orchestrator
       '@lume-hub/notification-jobs':
         specifier: workspace:*
         version: link:../../packages/modules/notification-jobs
       '@lume-hub/notification-rules':
         specifier: workspace:*
         version: link:../../packages/modules/notification-rules
+      '@lume-hub/owner-control':
+        specifier: workspace:*
+        version: link:../../packages/modules/owner-control
       '@lume-hub/people-memory':
         specifier: workspace:*
         version: link:../../packages/modules/people-memory
@@ -208,9 +235,20 @@ importers:
         specifier: workspace:*
         version: link:../whatsapp-baileys
 
-  packages/adapters/llm-codex-oauth: {}
+  packages/adapters/llm-codex-oauth:
+    dependencies:
+      '@lume-hub/codex-auth-router':
+        specifier: workspace:*
+        version: link:../../modules/codex-auth-router
+      '@lume-hub/llm-orchestrator':
+        specifier: workspace:*
+        version: link:../../modules/llm-orchestrator
 
-  packages/adapters/llm-openai-compat: {}
+  packages/adapters/llm-openai-compat:
+    dependencies:
+      '@lume-hub/llm-orchestrator':
+        specifier: workspace:*
+        version: link:../../modules/llm-orchestrator
 
   packages/adapters/persistence-group-files:
     dependencies:

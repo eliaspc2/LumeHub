@@ -10,12 +10,11 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 20` ja foram executadas e validadas.
+As `Wave 0` a `Wave 21` ja foram executadas e validadas.
 O backlog restante continua organizado em waves de fecho para runtime real.
 
 As waves ativas passam a ser:
 
-- `Wave 21`
 - `Wave 22`
 - `Wave 23`
 - `Wave 24`
@@ -89,39 +88,6 @@ Se tocar backend, HTTP, WS ou runtime:
 - validar que a UI continua a abrir e a consumir a API esperada
 
 ## Waves ativas
-
-## Wave 21 - Pipeline conversacional e providers LLM reais
-
-Objetivo:
-- fechar o fluxo inbound -> contexto -> LLM -> reply -> envio
-
-Entregaveis:
-- wiring do inbound WhatsApp para `ConversationService`
-- replies privados e em grupo ligados ao runtime real
-- `llm-codex-oauth` real
-- `llm-openai-compat` real
-- `llm-orchestrator` a usar providers reais e catalogo de modelos
-- integracao efetiva com `codex-auth-router`
-
-Criterios de aceitacao:
-- mensagens inbound reais passam pelo fluxo conversacional completo
-- o assistente consegue responder segundo politica e contexto
-- o roteamento de auth/modelo funciona sem hacks paralelos
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave21`
-
-Melhor momento para testar:
-- testar aqui e crucial, porque e o primeiro ponto em que o comportamento do bot fica realmente proximo do uso diario
-
-O que testar:
-- mensagem privada ao assistente
-- mensagem em grupo com reply permitido
-- follow-up contextual
-- troca/control plane do provider LLM
-- comportamento do `app owner` e regras de owner control
 
 ## Wave 22 - API operacional completa e weekly planner real
 

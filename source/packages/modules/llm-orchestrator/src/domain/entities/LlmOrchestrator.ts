@@ -84,3 +84,12 @@ export interface LlmProvider {
   planWeeklyPrompts(input: WeeklyPromptPlanningInput): Promise<WeeklyPromptPlan>;
   listModels(): readonly LlmModelDescriptor[];
 }
+
+export interface LlmModelCatalogRefreshResult {
+  readonly providerId: string;
+  readonly models: readonly LlmModelDescriptor[];
+}
+
+export interface LlmRefreshableProvider extends LlmProvider {
+  refreshModels(): Promise<LlmModelCatalogRefreshResult>;
+}

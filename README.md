@@ -217,7 +217,7 @@ Na `Wave 12`, o fluxo canónico passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 20` ja foram executadas e validadas.
+As `Wave 0` a `Wave 21` ja foram executadas e validadas.
 Neste momento:
 
 - o frontend operacional das `Wave 13` a `Wave 16` ficou fechado
@@ -225,9 +225,14 @@ Neste momento:
 - a `Wave 18` fechou a composition root e o runtime real de backend em memoria
 - a `Wave 19` fechou HTTP real, WebSocket real e o `Live` verdadeiro servido pelo backend
 - a `Wave 20` fechou WhatsApp live com QR, descoberta de grupos/conversas e envio live com sinais de entrega
-- o backlog restante ficou agora em `Wave 21` a `Wave 24`
+- a `Wave 21` fechou o pipeline conversacional live com:
+  - `llm-codex-oauth` real
+  - `llm-openai-compat` real
+  - `codex-auth-router` a preparar/reportar auth no provider OAuth
+  - inbound WhatsApp ligado a `ConversationService`, reply policy e envio live
+  - catalogo de modelos exposto em `/api/llm/models`
+- o backlog restante ficou agora em `Wave 22` a `Wave 24`
 - essas waves focam:
-  - providers LLM reais
   - API operacional completa
   - hardening e cutover
   - limpeza final da ronda

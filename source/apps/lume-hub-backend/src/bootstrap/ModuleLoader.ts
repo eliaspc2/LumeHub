@@ -1,14 +1,27 @@
 import { AdminConfigModule } from '@lume-hub/admin-config';
+import { AgentRuntimeModule } from '@lume-hub/agent-runtime';
+import { AssistantContextModule } from '@lume-hub/assistant-context';
 import { AudienceRoutingModule } from '@lume-hub/audience-routing';
 import { CodexAuthRouterModule } from '@lume-hub/codex-auth-router';
+import { CommandPolicyModule } from '@lume-hub/command-policy';
+import { ConversationModule } from '@lume-hub/conversation';
 import { DisciplineCatalogModule } from '@lume-hub/discipline-catalog';
 import { GroupDirectoryModule } from '@lume-hub/group-directory';
 import { HealthMonitorModule } from '@lume-hub/health-monitor';
 import { HostLifecycleModule } from '@lume-hub/host-lifecycle';
 import { FastifyHttpServer } from '@lume-hub/http-fastify';
 import { InstructionQueueModule } from '@lume-hub/instruction-queue';
+import { IntentClassifierModule } from '@lume-hub/intent-classifier';
+import { CodexOauthLlmProvider } from '@lume-hub/llm-codex-oauth';
+import { OpenAiCompatLlmProvider } from '@lume-hub/llm-openai-compat';
+import {
+  DeterministicLlmProvider,
+  LlmOrchestratorModule,
+  LlmProviderRegistry,
+} from '@lume-hub/llm-orchestrator';
 import { NotificationJobsModule } from '@lume-hub/notification-jobs';
 import { NotificationRulesModule } from '@lume-hub/notification-rules';
+import { OwnerControlModule } from '@lume-hub/owner-control';
 import { PeopleMemoryModule } from '@lume-hub/people-memory';
 import { ScheduleEventsModule } from '@lume-hub/schedule-events';
 import { ScheduleWeeksModule } from '@lume-hub/schedule-weeks';
@@ -19,6 +32,7 @@ import { WebSocketGateway } from '@lume-hub/ws-fastify';
 
 import type { BackendRuntimeModules } from './BackendRuntime.js';
 import { resolveBackendRuntimePaths, type BackendRuntimeConfig, type BackendRuntimePaths } from './BackendRuntimeConfig.js';
+import { ConversationPipelineRuntime } from './ConversationPipelineRuntime.js';
 import { WhatsAppWorkspaceRuntime } from './WhatsAppWorkspaceRuntime.js';
 
 export interface LoadedBackendComposition {
@@ -27,6 +41,7 @@ export interface LoadedBackendComposition {
   readonly httpServer: FastifyHttpServer;
   readonly webSocketGateway: WebSocketGateway;
   readonly whatsAppWorkspaceRuntime: WhatsAppWorkspaceRuntime;
+  readonly conversationPipelineRuntime: ConversationPipelineRuntime;
 }
 
 export class ModuleLoader {
@@ -127,6 +142,64 @@ export class ModuleLoader {
       dataRootPath: paths.dataRootPath,
       clock: this.config.clock,
     });
+    const assistantContextModule = new AssistantContextModule({
+      dataRootPath: paths.dataRootPath,
+      groupDirectory: groupDirectoryModule,
+      peopleMemory: peopleMemoryModule,
+    });
+    const commandPolicyModule = new CommandPolicyModule({
+      groupDirectory: groupDirectoryModule,
+      peopleMemory: peopleMemoryModule,
+      settingsResolver: async () => (await adminConfigModule.getSettings()).commands,
+    });
+    const intentClassifierModule = new IntentClassifierModule();
+    const deterministicProvider = new DeterministicLlmProvider();
+    const llmProviderRegistry = new LlmProviderRegistry([
+      deterministicProvider,
+      new CodexOauthLlmProvider({
+        authFilePath: paths.canonicalCodexAuthFile,
+        authRouter: codexAuthRouterModule,
+        clientVersion: this.config.llmCodexClientVersion,
+        modelResolver: async () => (await adminConfigModule.getSettings()).llm.model,
+        fetchImpl: this.config.llmFetch,
+      }),
+      new OpenAiCompatLlmProvider({
+        baseUrl: this.config.openAiCompatBaseUrl,
+        apiKey: this.config.openAiCompatApiKey,
+        defaultModelId: this.config.openAiCompatDefaultModel,
+        modelResolver: async () => (await adminConfigModule.getSettings()).llm.model,
+        fetchImpl: this.config.llmFetch,
+      }),
+    ]);
+    const llmOrchestratorModule = new LlmOrchestratorModule({
+      dataRootPath: paths.dataRootPath,
+      providerRegistry: llmProviderRegistry,
+      providerResolver: async () => {
+        const settings = await adminConfigModule.getSettings();
+        return settings.llm.enabled ? settings.llm.provider : deterministicProvider.providerId;
+      },
+    });
+    const ownerControlModule = new OwnerControlModule({
+      commandPolicy: commandPolicyModule,
+      peopleMemory: peopleMemoryModule,
+      groupDirectory: groupDirectoryModule,
+      instructionQueue: instructionQueueModule,
+    });
+    const agentRuntimeModule = new AgentRuntimeModule({
+      assistantContext: assistantContextModule,
+      audienceRouting: audienceRoutingModule,
+      commandPolicy: commandPolicyModule,
+      instructionQueue: instructionQueueModule,
+      intentClassifier: intentClassifierModule,
+      llmOrchestrator: llmOrchestratorModule,
+      ownerControl: ownerControlModule,
+    });
+    const conversationModule = new ConversationModule({
+      dataRootPath: paths.dataRootPath,
+      agentRuntime: agentRuntimeModule,
+      assistantContext: assistantContextModule,
+      commandPolicy: commandPolicyModule,
+    });
 
     const moduleList: BackendRuntimeModules['modules'][number][] = [];
     const healthMonitorModule = new HealthMonitorModule({
@@ -162,6 +235,13 @@ export class ModuleLoader {
       hostLifecycleModule,
       watchdogModule,
       healthMonitorModule,
+      assistantContextModule,
+      commandPolicyModule,
+      intentClassifierModule,
+      llmOrchestratorModule,
+      ownerControlModule,
+      agentRuntimeModule,
+      conversationModule,
       modules: [
         adminConfigModule,
         groupDirectoryModule,
@@ -178,6 +258,13 @@ export class ModuleLoader {
         hostLifecycleModule,
         watchdogModule,
         healthMonitorModule,
+        assistantContextModule,
+        commandPolicyModule,
+        intentClassifierModule,
+        llmOrchestratorModule,
+        ownerControlModule,
+        agentRuntimeModule,
+        conversationModule,
       ],
     };
 
@@ -197,6 +284,13 @@ export class ModuleLoader {
       hostLifecycleModule,
       watchdogModule,
       healthMonitorModule,
+      assistantContextModule,
+      commandPolicyModule,
+      intentClassifierModule,
+      llmOrchestratorModule,
+      ownerControlModule,
+      agentRuntimeModule,
+      conversationModule,
     );
 
     const webSocketGateway = new WebSocketGateway();
@@ -227,7 +321,15 @@ export class ModuleLoader {
         systemPower: systemPowerModule,
         watchdog: watchdogModule,
         whatsappRuntime: whatsAppWorkspaceRuntime,
+        llmOrchestrator: llmOrchestratorModule,
       },
+      uiEventPublisher: webSocketGateway.publisher,
+    });
+    const conversationPipelineRuntime = new ConversationPipelineRuntime({
+      inboundSource: whatsAppWorkspaceRuntime.gateway,
+      whatsAppRuntime: whatsAppWorkspaceRuntime,
+      peopleMemory: peopleMemoryModule,
+      conversation: conversationModule,
       uiEventPublisher: webSocketGateway.publisher,
     });
 
@@ -237,6 +339,7 @@ export class ModuleLoader {
       httpServer,
       webSocketGateway,
       whatsAppWorkspaceRuntime,
+      conversationPipelineRuntime,
     };
   }
 

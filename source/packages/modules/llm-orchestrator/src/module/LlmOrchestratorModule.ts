@@ -35,11 +35,15 @@ export class LlmOrchestratorModule extends BaseModule implements LlmOrchestrator
     const runLogger = config.runLogger ?? new LlmRunLogger(repository);
 
     this.providerRegistry = providerRegistry;
-    this.chatService = config.chatService ?? new LlmChatService(providerRegistry, runLogger, config.providerId);
+    this.chatService =
+      config.chatService ??
+      new LlmChatService(providerRegistry, runLogger, config.providerId, config.providerResolver);
     this.scheduleParserService =
-      config.scheduleParserService ?? new LlmScheduleParserService(providerRegistry, runLogger, config.providerId);
+      config.scheduleParserService ??
+      new LlmScheduleParserService(providerRegistry, runLogger, config.providerId, config.providerResolver);
     this.weeklyPlannerService =
-      config.weeklyPlannerService ?? new LlmWeeklyPlannerService(providerRegistry, runLogger, config.providerId);
+      config.weeklyPlannerService ??
+      new LlmWeeklyPlannerService(providerRegistry, runLogger, config.providerId, config.providerResolver);
   }
 
   async chat(input: Parameters<LlmChatService['chat']>[0]) {
@@ -56,5 +60,9 @@ export class LlmOrchestratorModule extends BaseModule implements LlmOrchestrator
 
   listModels() {
     return this.providerRegistry.listModels();
+  }
+
+  async refreshModels(providerId?: string) {
+    return this.providerRegistry.refreshModels(providerId);
   }
 }

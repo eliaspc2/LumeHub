@@ -22,6 +22,7 @@ export class KernelFactory {
       .register('adapter:http-server', loaded.httpServer)
       .register('adapter:ws-gateway', loaded.webSocketGateway)
       .register('runtime:whatsapp-workspace', loaded.whatsAppWorkspaceRuntime)
+      .register('runtime:conversation-pipeline', loaded.conversationPipelineRuntime)
       .register('adapter:whatsapp-gateway', loaded.whatsAppWorkspaceRuntime.gateway)
       .register('backend.paths', loaded.paths)
       .register('backend.module-graph', moduleGraph);
@@ -42,6 +43,7 @@ export class KernelFactory {
       moduleGraph,
       paths: loaded.paths,
       whatsAppWorkspaceRuntime: loaded.whatsAppWorkspaceRuntime,
+      conversationPipelineRuntime: loaded.conversationPipelineRuntime,
       operationalTickIntervalMs: runtimeConfig.operationalTickIntervalMs,
     });
 

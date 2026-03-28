@@ -20,6 +20,7 @@ import {
 import type { HealthMonitorModuleContract } from '@lume-hub/health-monitor';
 import type { HostLifecycleModuleContract } from '@lume-hub/host-lifecycle';
 import type { Instruction, InstructionQueueModuleContract } from '@lume-hub/instruction-queue';
+import type { LlmOrchestratorModuleContract } from '@lume-hub/llm-orchestrator';
 import type { PeopleMemoryModuleContract, Person, PersonRole, PersonUpsertInput } from '@lume-hub/people-memory';
 import type { SystemPowerModuleContract } from '@lume-hub/system-power';
 import type { WatchdogModuleContract } from '@lume-hub/watchdog';
@@ -69,7 +70,7 @@ export interface UiEventPublisherLike {
 
 export interface HttpApiModules {
   readonly adminConfig: Pick<AdminConfigModuleContract, 'getSettings' | 'updateUiSettings'> &
-    Partial<Pick<AdminConfigModuleContract, 'updateCommandsSettings' | 'updateWhatsAppSettings'>>;
+    Partial<Pick<AdminConfigModuleContract, 'updateCommandsSettings' | 'updateLlmSettings' | 'updateWhatsAppSettings'>>;
   readonly audienceRouting: Pick<AudienceRoutingModuleContract, 'listSenderAudienceRules' | 'upsertSenderAudienceRule'>;
   readonly codexAuthRouter?: Pick<CodexAuthRouterModuleContract, 'forceSwitch' | 'getStatus'>;
   readonly groupDirectory: Pick<
@@ -82,6 +83,7 @@ export interface HttpApiModules {
     'enableStartWithSystem' | 'disableStartWithSystem' | 'getHostCompanionStatus'
   >;
   readonly instructionQueue: Pick<InstructionQueueModuleContract, 'listInstructions'>;
+  readonly llmOrchestrator?: Pick<LlmOrchestratorModuleContract, 'listModels' | 'refreshModels'>;
   readonly peopleMemory?: Pick<PeopleMemoryModuleContract, 'listPeople' | 'upsertByIdentifiers' | 'updatePersonRoles'>;
   readonly systemPower: Pick<SystemPowerModuleContract, 'getPowerStatus' | 'updatePowerPolicy'>;
   readonly watchdog: Pick<WatchdogModuleContract, 'listIssues' | 'resolveIssue'>;
@@ -574,6 +576,24 @@ export class RouteRegistrar {
       handler: async () => this.getSettingsSnapshot(),
     });
     server.registerRoute({
+      method: 'GET',
+      path: '/api/llm/models',
+      handler: async (context) => {
+        if (!this.modules.llmOrchestrator) {
+          throw new ApiError(404, 'LLM orchestrator is not configured.');
+        }
+
+        const refresh = readOptionalBooleanQuery(context.query, 'refresh');
+        const providerId = readOptionalQueryString(context.query, 'providerId');
+
+        if (refresh !== false) {
+          await this.modules.llmOrchestrator.refreshModels(providerId ?? undefined);
+        }
+
+        return this.modules.llmOrchestrator.listModels();
+      },
+    });
+    server.registerRoute({
       method: 'PATCH',
       path: '/api/settings/commands',
       handler: async (context) => {
@@ -583,6 +603,19 @@ export class RouteRegistrar {
 
         const settings = await this.modules.adminConfig.updateCommandsSettings(readCommandsSettingsBody(context.body));
         this.publish('settings.commands.updated', settings.commands);
+        return settings;
+      },
+    });
+    server.registerRoute({
+      method: 'PATCH',
+      path: '/api/settings/llm',
+      handler: async (context) => {
+        if (!this.modules.adminConfig.updateLlmSettings) {
+          throw new ApiError(404, 'LLM settings are not configurable.');
+        }
+
+        const settings = await this.modules.adminConfig.updateLlmSettings(readLlmSettingsBody(context.body));
+        this.publish('settings.llm.updated', settings.llm);
         return settings;
       },
     });
@@ -1280,6 +1313,17 @@ function readCommandsSettingsBody(body: unknown): Partial<CommandsPolicySettings
   };
 }
 
+function readLlmSettingsBody(body: unknown): Partial<AdminSettings['llm']> {
+  const payload = readBodyObject(body, 'LLM settings payload must be an object.');
+
+  return {
+    enabled: readOptionalBooleanValue(payload.enabled, 'enabled'),
+    provider: readOptionalTrimmedStringValue(payload.provider, 'provider'),
+    model: readOptionalTrimmedStringValue(payload.model, 'model'),
+    streamingEnabled: readOptionalBooleanValue(payload.streamingEnabled, 'streamingEnabled'),
+  };
+}
+
 function readWhatsAppSettingsBody(body: unknown): Partial<WhatsAppSettings> {
   const payload = readBodyObject(body, 'WhatsApp settings payload must be an object.');
 
@@ -1335,6 +1379,42 @@ function readOptionalStringBodyField(body: unknown, fieldName: string): string |
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function readOptionalQueryString(
+  query: Record<string, string | readonly string[]>,
+  fieldName: string,
+): string | undefined {
+  const value = query[fieldName];
+  const candidate = Array.isArray(value) ? value[0] : value;
+
+  if (candidate === undefined) {
+    return undefined;
+  }
+
+  const trimmed = candidate.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function readOptionalBooleanQuery(
+  query: Record<string, string | readonly string[]>,
+  fieldName: string,
+): boolean | undefined {
+  const value = readOptionalQueryString(query, fieldName);
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === '1' || value.toLowerCase() === 'true') {
+    return true;
+  }
+
+  if (value === '0' || value.toLowerCase() === 'false') {
+    return false;
+  }
+
+  throw new ApiError(400, `${fieldName} must be true or false when provided.`);
+}
+
 function readBodyObject(body: unknown, message: string): Record<string, unknown> {
   if (!body || typeof body !== 'object') {
     throw new ApiError(400, message);
@@ -1361,6 +1441,19 @@ function readOptionalBooleanValue(value: unknown, fieldName: string): boolean | 
   }
 
   return value;
+}
+
+function readOptionalTrimmedStringValue(value: unknown, fieldName: string): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== 'string') {
+    throw new ApiError(400, `${fieldName} must be a string when provided.`);
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }
 
 function readOptionalStringArrayValue(value: unknown, fieldName: string): readonly string[] | undefined {
