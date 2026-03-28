@@ -249,6 +249,9 @@ Neste momento:
 - nova ronda aberta:
   - `Wave 25` a `Wave 29` para instrucoes LLM e knowledge base por grupo
   - objetivo: separar storage canonico de policy, instrucoes LLM e conhecimento documental local por grupo
+- ronda seguinte prevista:
+  - `Wave 30` a `Wave 34` para media recebida, biblioteca de assets e distribuicao multi-grupo de video
+  - objetivo: guardar um video recebido uma vez e depois distribui-lo com queue, dedupe e tracking por grupo
 - regra de processo:
   - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
 - o runtime `Live` atual fica tratado como estado canonico do produto neste scope

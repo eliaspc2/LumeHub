@@ -98,6 +98,36 @@ Estado atual:
 Impacto:
 - falta confianca operacional quando houver grupos parecidos com normas divergentes
 
+## Gaps ativos da ronda seguinte prevista
+
+### 1. Media recebida ainda nao e guardada como asset distribuivel
+
+Estado atual:
+- o runtime conhece mensagens inbound com `videoMessage` e `imageMessage`
+- mas o caminho operacional real continua centrado em `sendText()`
+- nao existe repositorio canonico de assets recebidos
+
+Impacto:
+- se um operador mandar um video por WhatsApp, o sistema hoje nao o consegue guardar como asset reutilizavel e depois distribuir por varios grupos
+
+### 2. Nao existe fan-out de media com tracking forte
+
+Estado atual:
+- queue, dedupe e tracking existem para texto
+- nao existe `sendMedia()` nem acao de queue propria para media
+
+Impacto:
+- falta o fluxo "guardar video uma vez e distribuir para N grupos com retry e confirmacao"
+
+### 3. Falta biblioteca operacional de media recebida
+
+Estado atual:
+- nao ha listagem de assets media recebidos
+- nao ha preview de origem, caption ou metadata tecnica minima
+
+Impacto:
+- o operador nao tem como recuperar um video recebido e reutiliza-lo mais tarde no produto
+
 ## Trabalho futuro fora do scope atual
 
 ### 1. `alerts` e `automations`
@@ -120,3 +150,4 @@ Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
 - para o runtime operacional base, sim
 - para a nova feature de memoria e instrucoes LLM por grupo, ainda nao
+- para media recebida e distribuicao multi-grupo de video, ainda nao
