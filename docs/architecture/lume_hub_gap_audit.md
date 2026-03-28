@@ -68,7 +68,8 @@ Os gaps ativos desta serie sao de experiencia de uso, nao de runtime base:
 
 - a shell global ja ficou bastante mais limpa na `Wave 35`
 - a `Wave 36` ja encurtou `Hoje`, `WhatsApp`, `Grupos` e `Media`, com menos cartoes e menos leitura lateral
-- o gap ativo que sobra nesta ronda e sobretudo mover configuracao avancada e detalhe tecnico ainda mais para segundo plano
+- a `Wave 37` ja empurrou configuracao avancada e detalhe tecnico para superficies secundarias
+- o gap ativo que sobra nesta ronda e apenas a limpeza final de copy, helpers e validadores residuais
 
 O storage canonico da serie de inteligencia por grupo continua fechado em:
 

@@ -1800,31 +1800,6 @@ export class AppShell {
                     </div>
                   </div>
                   <div class="span-8">
-                    <div class="ui-form-grid ui-form-grid--triple">
-                      ${renderUiInputField({
-                        label: 'Document ID',
-                        value: this.state.groupManagementDraft.knowledgeDocument.documentId,
-                        dataKey: 'group.documentId',
-                        placeholder: 'ex.: aula-1-ballet',
-                        hint: 'Identificador estavel para preview e auditoria.',
-                      })}
-                      ${renderUiInputField({
-                        label: 'Ficheiro relativo',
-                        value: this.state.groupManagementDraft.knowledgeDocument.filePath,
-                        dataKey: 'group.filePath',
-                        placeholder: 'ex.: aulas/aula-1.md',
-                        hint: 'Caminho relativo dentro de knowledge/.',
-                      })}
-                      ${renderUiSelectField({
-                        label: 'Estado',
-                        value: this.state.groupManagementDraft.knowledgeDocument.enabled,
-                        dataKey: 'group.enabled',
-                        options: [
-                          { value: 'enabled', label: 'Ativo' },
-                          { value: 'disabled', label: 'Desligado' },
-                        ],
-                      })}
-                    </div>
                     <div class="ui-form-grid">
                       ${renderUiInputField({
                         label: 'Titulo humano',
@@ -1838,21 +1813,53 @@ export class AppShell {
                         dataKey: 'group.summary',
                         placeholder: 'Resumo curto para identificar este documento.',
                       })}
-                      ${renderUiInputField({
-                        label: 'Aliases',
-                        value: this.state.groupManagementDraft.knowledgeDocument.aliases,
-                        dataKey: 'group.aliases',
-                        placeholder: 'Ex.: Aula 1, Ballet Basico',
-                        hint: 'Separados por virgula.',
-                      })}
-                      ${renderUiInputField({
-                        label: 'Tags',
-                        value: this.state.groupManagementDraft.knowledgeDocument.tags,
-                        dataKey: 'group.tags',
-                        placeholder: 'Ex.: ballet, iniciacao',
-                        hint: 'Separadas por virgula.',
-                      })}
                     </div>
+                    <details class="ui-details">
+                      <summary>Metadados do documento</summary>
+                      <div class="ui-details__content">
+                        <div class="ui-form-grid ui-form-grid--triple">
+                          ${renderUiInputField({
+                            label: 'Document ID',
+                            value: this.state.groupManagementDraft.knowledgeDocument.documentId,
+                            dataKey: 'group.documentId',
+                            placeholder: 'ex.: aula-1-ballet',
+                            hint: 'Identificador estavel para preview e auditoria.',
+                          })}
+                          ${renderUiInputField({
+                            label: 'Ficheiro relativo',
+                            value: this.state.groupManagementDraft.knowledgeDocument.filePath,
+                            dataKey: 'group.filePath',
+                            placeholder: 'ex.: aulas/aula-1.md',
+                            hint: 'Caminho relativo dentro de knowledge/.',
+                          })}
+                          ${renderUiSelectField({
+                            label: 'Estado',
+                            value: this.state.groupManagementDraft.knowledgeDocument.enabled,
+                            dataKey: 'group.enabled',
+                            options: [
+                              { value: 'enabled', label: 'Ativo' },
+                              { value: 'disabled', label: 'Desligado' },
+                            ],
+                          })}
+                        </div>
+                        <div class="ui-form-grid">
+                          ${renderUiInputField({
+                            label: 'Aliases',
+                            value: this.state.groupManagementDraft.knowledgeDocument.aliases,
+                            dataKey: 'group.aliases',
+                            placeholder: 'Ex.: Aula 1, Ballet Basico',
+                            hint: 'Separados por virgula.',
+                          })}
+                          ${renderUiInputField({
+                            label: 'Tags',
+                            value: this.state.groupManagementDraft.knowledgeDocument.tags,
+                            dataKey: 'group.tags',
+                            placeholder: 'Ex.: ballet, iniciacao',
+                            hint: 'Separadas por virgula.',
+                          })}
+                        </div>
+                      </div>
+                    </details>
                     ${renderUiTextAreaField({
                       label: 'Conteudo markdown',
                       value: this.state.groupManagementDraft.knowledgeDocument.content,
@@ -1966,21 +1973,21 @@ export class AppShell {
                 <p><strong>Depois do scan</strong>: confirmar sessao ligada, grupos descobertos e permissoes base.</p>
               </div>
             `}
-            <div class="action-row">
-              ${renderUiActionButton({
-                label: snapshot.settings.whatsapp.enabled ? 'Desligar canal' : 'Ligar canal',
-                variant: snapshot.settings.whatsapp.enabled ? 'secondary' : 'primary',
-                dataAttributes: { 'whatsapp-action': 'toggle-whatsapp-enabled' },
-              })}
-              ${renderUiActionButton({
-                label: snapshot.settings.commands.allowPrivateAssistant ? 'Bloquear privados' : 'Permitir privados',
-                variant: 'secondary',
-                dataAttributes: { 'whatsapp-action': 'toggle-private-assistant-global' },
-              })}
-            </div>
             <details class="ui-details">
-              <summary>Ajustes menos frequentes</summary>
+              <summary>Mais controlos do canal</summary>
               <div class="ui-details__content">
+                <div class="action-row">
+                  ${renderUiActionButton({
+                    label: snapshot.settings.whatsapp.enabled ? 'Desligar canal' : 'Ligar canal',
+                    variant: snapshot.settings.whatsapp.enabled ? 'secondary' : 'primary',
+                    dataAttributes: { 'whatsapp-action': 'toggle-whatsapp-enabled' },
+                  })}
+                  ${renderUiActionButton({
+                    label: snapshot.settings.commands.allowPrivateAssistant ? 'Bloquear privados' : 'Permitir privados',
+                    variant: 'secondary',
+                    dataAttributes: { 'whatsapp-action': 'toggle-private-assistant-global' },
+                  })}
+                </div>
                 <div class="ui-card__chips">
                   ${renderUiBadge({ label: snapshot.runtime.session.sessionPresent ? 'Sessao presente' : 'Sessao em falta', tone: snapshot.runtime.session.sessionPresent ? 'positive' : 'warning', style: 'chip' })}
                   ${renderUiBadge({ label: snapshot.runtime.qr.available ? 'QR publicado' : 'Sem QR ativo', tone: snapshot.runtime.qr.available ? 'positive' : 'neutral', style: 'chip' })}
@@ -2031,32 +2038,44 @@ export class AppShell {
                             ? `${person.whatsappJids.length} contacto(s) WhatsApp conhecido(s) • ${person.privateAssistantAuthorized ? 'privado permitido' : 'privado bloqueado'}`
                             : 'Sem contacto WhatsApp conhecido',
                         )}</p>
-                        <div class="action-row">
-                          ${
-                            person.personId
-                              ? renderUiActionButton({
-                                  label: person.globalRoles.includes('app_owner') ? 'Remover app owner' : 'Tornar app owner',
-                                  variant: person.globalRoles.includes('app_owner') ? 'secondary' : 'primary',
-                                  dataAttributes: {
-                                    'whatsapp-action': 'toggle-app-owner',
-                                    'person-id': person.personId,
-                                  },
-                                })
-                              : ''
-                          }
-                          ${
-                            person.personId && person.whatsappJids.length > 0
-                              ? renderUiActionButton({
-                                  label: person.privateAssistantAuthorized ? 'Bloquear privado' : 'Permitir privado',
-                                  variant: 'secondary',
-                                  dataAttributes: {
-                                    'whatsapp-action': 'toggle-private-person',
-                                    'person-id': person.personId,
-                                  },
-                                })
-                              : ''
-                          }
-                        </div>
+                        ${
+                          person.personId
+                            ? `
+                                <details class="ui-details">
+                                  <summary>Gerir esta pessoa</summary>
+                                  <div class="ui-details__content">
+                                    <div class="action-row">
+                                      ${renderUiActionButton({
+                                        label: person.globalRoles.includes('app_owner') ? 'Remover app owner' : 'Tornar app owner',
+                                        variant: person.globalRoles.includes('app_owner') ? 'secondary' : 'primary',
+                                        dataAttributes: {
+                                          'whatsapp-action': 'toggle-app-owner',
+                                          'person-id': person.personId,
+                                        },
+                                      })}
+                                      ${
+                                        person.whatsappJids.length > 0
+                                          ? renderUiActionButton({
+                                              label: person.privateAssistantAuthorized ? 'Bloquear privado' : 'Permitir privado',
+                                              variant: 'secondary',
+                                              dataAttributes: {
+                                                'whatsapp-action': 'toggle-private-person',
+                                                'person-id': person.personId,
+                                              },
+                                            })
+                                          : ''
+                                      }
+                                    </div>
+                                    <p>${escapeHtml(
+                                      person.ownedGroupJids.length > 0
+                                        ? `${person.ownedGroupJids.length} grupo(s) associado(s).`
+                                        : 'Sem grupos associados neste momento.',
+                                    )}</p>
+                                  </div>
+                                </details>
+                              `
+                            : ''
+                        }
                       </article>
                     `,
                   )
@@ -2500,71 +2519,105 @@ export class AppShell {
 
   private renderSettingsPage(page: UiPage<SettingsSnapshot>): string {
     const snapshot = page.data;
+    const defaultRuleSummary =
+      snapshot.adminSettings.ui.defaultNotificationRules.length > 0
+        ? snapshot.adminSettings.ui.defaultNotificationRules
+            .map((rule) => rule.label ?? rule.kind)
+            .slice(0, 2)
+            .join(', ')
+        : 'Sem regras default';
 
     return `
       <section class="surface hero surface--strong">
         <div>
-          <p class="eyebrow">Configuracao</p>
-          <h2>Defaults, energia, host e auth organizados com mais clareza visual.</h2>
+          <p class="eyebrow">Configuracao avancada</p>
+          <h2>Zona secundaria para o que raramente precisas de mexer no dia a dia.</h2>
           <p>${escapeHtml(page.description)}</p>
         </div>
         <div class="hero-panel">
           ${renderUiPanelCard({
-            title: 'Defaults ativos',
-            badgeLabel: `${snapshot.adminSettings.ui.defaultNotificationRules.length} regras`,
+            title: 'Resumo rapido',
+            badgeLabel: 'Sob demanda',
             badgeTone: 'neutral',
-            contentHtml: '<p>As regras default continuam visiveis sem obrigar a ler ficheiros ou JSON.</p>',
+            contentHtml: '<p>Usa esta pagina so quando precisares de defaults, energia, host ou auth. O fluxo principal continua fora daqui.</p>',
           })}
         </div>
       </section>
+      <section class="card-grid">
+        ${renderUiMetricCard({
+          title: 'Avisos default',
+          value: String(snapshot.adminSettings.ui.defaultNotificationRules.length),
+          tone: snapshot.adminSettings.ui.defaultNotificationRules.length > 0 ? 'positive' : 'neutral',
+          description: defaultRuleSummary,
+        })}
+        ${renderUiMetricCard({
+          title: 'Energia',
+          value: snapshot.powerStatus.inhibitorActive ? 'Ativa' : 'Normal',
+          tone: snapshot.powerStatus.inhibitorActive ? 'warning' : 'neutral',
+          description: snapshot.powerStatus.policy.enabled ? 'A politica de energia esta ligada.' : 'A politica de energia esta desligada.',
+        })}
+        ${renderUiMetricCard({
+          title: 'Host e auth',
+          value: snapshot.hostStatus.auth.sameAsCodexCanonical ? 'Partilhado' : 'Isolado',
+          tone: snapshot.hostStatus.auth.sameAsCodexCanonical ? 'positive' : 'warning',
+          description: snapshot.hostStatus.autostart.enabled ? 'Autostart ligado no host companion.' : 'Autostart desligado no host companion.',
+        })}
+      </section>
       <section class="content-grid">
-        <article class="surface content-card span-4">
+        <article class="surface content-card span-12">
           <div class="card-header">
-            <h3>Avisos default</h3>
+            <div>
+              <h3>Ajustes avancados</h3>
+              <p>Abre so a secao de que precisas. O resto pode continuar fora do teu caminho.</p>
+            </div>
+            ${renderUiBadge({ label: 'Secundario', tone: 'neutral' })}
           </div>
-          <ul>
-            ${snapshot.adminSettings.ui.defaultNotificationRules
-              .map(
-                (rule) =>
-                  `<li>${escapeHtml(rule.label ?? rule.kind)} - ${escapeHtml(rule.localTime ?? `${rule.daysBeforeEvent ?? 0}d / ${rule.offsetMinutesBeforeEvent ?? 0}m`)}</li>`,
-              )
-              .join('')}
-          </ul>
-        </article>
-
-        <article class="surface content-card span-4">
-          <div class="card-header">
-            <h3>Energia</h3>
-            ${renderUiBadge({ label: snapshot.powerStatus.inhibitorActive ? 'A impedir sleep' : 'Sem inibicao', tone: snapshot.powerStatus.inhibitorActive ? 'warning' : 'neutral' })}
-          </div>
-          <ul>
-            <li>Modo: ${escapeHtml(snapshot.powerStatus.policy.mode)}</li>
-            <li>Politica ativa: ${snapshot.powerStatus.policy.enabled ? 'sim' : 'nao'}</li>
-            <li>Razoes: ${escapeHtml(snapshot.powerStatus.reasons.join(', ') || 'nenhuma')}</li>
-          </ul>
-        </article>
-
-        <article class="surface content-card span-4">
-          <div class="card-header">
-            <h3>Host e auth</h3>
-            ${renderUiBadge({ label: snapshot.hostStatus.autostart.enabled ? 'Autostart ligado' : 'Autostart desligado', tone: snapshot.hostStatus.autostart.enabled ? 'positive' : 'warning' })}
-          </div>
-          <ul>
-            <li>Auth live presente: ${snapshot.hostStatus.auth.exists ? 'sim' : 'nao'}</li>
-            <li>Mesmo auth do Codex: ${snapshot.hostStatus.auth.sameAsCodexCanonical ? 'sim' : 'nao'}</li>
-            <li>Heartbeat: ${escapeHtml(formatShortDateTime(snapshot.hostStatus.runtime.lastHeartbeatAt))}</li>
-          </ul>
-          ${
-            this.state.advancedDetailsEnabled
-              ? `
-                  <details class="details">
-                    <summary>Detalhes avancados</summary>
-                    <p>Auth file: ${escapeHtml(snapshot.hostStatus.auth.filePath)}</p>
-                    <p>Service: ${escapeHtml(snapshot.hostStatus.autostart.serviceName)}</p>
-                  </details>
-                `
-              : ''
-          }
+          <details class="ui-details">
+            <summary>Avisos default</summary>
+            <div class="ui-details__content">
+              <ul>
+                ${snapshot.adminSettings.ui.defaultNotificationRules
+                  .map(
+                    (rule) =>
+                      `<li>${escapeHtml(rule.label ?? rule.kind)} - ${escapeHtml(rule.localTime ?? `${rule.daysBeforeEvent ?? 0}d / ${rule.offsetMinutesBeforeEvent ?? 0}m`)}</li>`,
+                  )
+                  .join('')}
+              </ul>
+            </div>
+          </details>
+          <details class="ui-details">
+            <summary>Energia</summary>
+            <div class="ui-details__content">
+              <ul>
+                <li>Modo: ${escapeHtml(snapshot.powerStatus.policy.mode)}</li>
+                <li>Politica ativa: ${snapshot.powerStatus.policy.enabled ? 'sim' : 'nao'}</li>
+                <li>Razoes: ${escapeHtml(snapshot.powerStatus.reasons.join(', ') || 'nenhuma')}</li>
+              </ul>
+            </div>
+          </details>
+          <details class="ui-details">
+            <summary>Host e auth</summary>
+            <div class="ui-details__content">
+              <ul>
+                <li>Auth live presente: ${snapshot.hostStatus.auth.exists ? 'sim' : 'nao'}</li>
+                <li>Mesmo auth do Codex: ${snapshot.hostStatus.auth.sameAsCodexCanonical ? 'sim' : 'nao'}</li>
+                <li>Heartbeat: ${escapeHtml(formatShortDateTime(snapshot.hostStatus.runtime.lastHeartbeatAt))}</li>
+              </ul>
+              ${
+                this.state.advancedDetailsEnabled
+                  ? `
+                      <details class="ui-details">
+                        <summary>Detalhes avancados</summary>
+                        <div class="ui-details__content">
+                          <p>Auth file: ${escapeHtml(snapshot.hostStatus.auth.filePath)}</p>
+                          <p>Service: ${escapeHtml(snapshot.hostStatus.autostart.serviceName)}</p>
+                        </div>
+                      </details>
+                    `
+                  : ''
+              }
+            </div>
+          </details>
         </article>
       </section>
     `;

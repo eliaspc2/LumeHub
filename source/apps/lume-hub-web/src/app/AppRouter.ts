@@ -303,7 +303,7 @@ export class AppRouter {
       {
         route: this.settings.config.route,
         label: this.settings.config.label,
-        description: 'Centro de configuracao para defaults, energia, host e auth do Codex.',
+        description: 'Area secundaria para defaults, energia, host companion e auth.',
         render: async () => this.settings.render(await this.readQuery('settings', () => this.client.getSettings())),
       },
     ];

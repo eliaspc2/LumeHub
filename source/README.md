@@ -36,13 +36,14 @@ Decisao de storage:
 
 ## Estado
 
-A base do monorepo ja existe e as `Wave 0` a `Wave 36` foram executadas.
+A base do monorepo ja existe e as `Wave 0` a `Wave 37` foram executadas.
 Hoje esta pasta ja contem:
 
 - `apps/lume-hub-backend`, `apps/lume-hub-web` e `apps/lume-hub-host`
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
+  - `validate:wave37`
   - `validate:wave36`
   - `validate:wave35`
   - `validate:wave34`
@@ -52,7 +53,7 @@ Hoje esta pasta ja contem:
 
 A ronda de inteligencia por grupo ficou fechada, o storage canonico de media recebida tambem, o ingest live com biblioteca operacional ficou concluido, a distribuicao multi-grupo de media ja existe no runtime, e o fluxo guiado da pagina `Media` ja esta funcional.
 A ronda de media distribuida tambem ficou fechada com limpeza final de docs, naming e validadores.
-A ronda atual de simplificacao do GUI ja fechou a shell minima e a simplificacao das paginas principais; o foco que sobra esta em esconder melhor a configuracao avancada.
+A ronda atual de simplificacao do GUI ja fechou a shell minima, a simplificacao das paginas principais e a configuracao avancada sob demanda; o foco que sobra esta apenas na limpeza final da ronda.
 
 Nota operacional:
 

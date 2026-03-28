@@ -39,36 +39,8 @@ O fluxo guiado desta ronda tambem ja ficou aberto com:
 ## Ronda ativa
 
 Existe agora uma ronda ativa de simplificacao forte do GUI.
-
-### Wave 37 - Configuracao avancada sob demanda
-
-Objetivo:
-- mover detalhe tecnico e configuracao menos frequente para superfícies secundarias
-- manter o fluxo diario limpo sem perder capacidade
-
-Entregaveis:
-- detalhes avancados escondidos por defeito
-- acoes menos frequentes agrupadas em zonas secundarias
-- linguagem mais curta e menos termos internos expostos
-
-Criterios de aceitacao:
-- o fluxo diario nao obriga a atravessar configuracao
-- o utilizador consegue operar sem ver ids, estados internos ou nomenclatura tecnica
-- o detalhe continua acessivel quando realmente preciso
-
-Rebuild e validacao minima:
-- `corepack pnpm --filter @lume-hub/lume-hub-web typecheck`
-- `corepack pnpm --filter @lume-hub/lume-hub-web build`
-- reload headless das rotas mexidas
-
-Melhor momento para testar:
-- no fim desta wave
-- aqui deves confirmar se a app ja parece produto final e nao ferramenta de setup
-
-O que testar:
-- se o fluxo do dia a dia continua completo sem entrares em configuracao
-- se as opcoes avancadas ainda aparecem quando precisas
-- se a linguagem ficou mais humana
+As `Wave 35` a `Wave 37` ja foram executadas e validadas.
+O fluxo principal ficou mais curto, e a configuracao avancada passou para superficies secundarias sob demanda.
 
 ### Wave 38 - Limpeza final da ronda de simplificacao do GUI
 
