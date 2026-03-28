@@ -25,6 +25,7 @@ export interface BackendRuntimeConfig {
   readonly inhibitorStatePath?: string;
   readonly hostStateFilePath?: string;
   readonly backendStateFilePath?: string;
+  readonly backendRuntimeStateFilePath?: string;
   readonly systemdUserPath?: string;
   readonly hostServiceName?: string;
   readonly hostWorkingDirectory?: string;
@@ -70,6 +71,7 @@ export interface BackendRuntimePaths {
   readonly inhibitorStatePath: string;
   readonly hostStateFilePath: string;
   readonly backendStateFilePath: string;
+  readonly backendRuntimeStateFilePath: string;
   readonly systemdUserPath: string;
   readonly codexAuthFile: string;
   readonly canonicalCodexAuthFile: string;
@@ -128,6 +130,8 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
     hostStateFilePath:
       config.hostStateFilePath ?? resolve(projectRoot, 'runtime', 'host', 'state', 'host-runtime-state.json'),
     backendStateFilePath: config.backendStateFilePath ?? resolve(runtimeRootPath, 'host-state.json'),
+    backendRuntimeStateFilePath:
+      config.backendRuntimeStateFilePath ?? resolve(runtimeRootPath, 'backend-runtime-state.json'),
     systemdUserPath: config.systemdUserPath ?? resolve(projectRoot, 'runtime', 'host', 'systemd-user'),
     codexAuthFile,
     canonicalCodexAuthFile,

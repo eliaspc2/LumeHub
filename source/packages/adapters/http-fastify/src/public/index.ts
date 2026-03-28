@@ -102,6 +102,9 @@ export interface HttpApiModules {
   };
   readonly llmOrchestrator?: Pick<LlmOrchestratorModuleContract, 'chat' | 'listModels' | 'refreshModels'>;
   readonly peopleMemory?: Pick<PeopleMemoryModuleContract, 'listPeople' | 'upsertByIdentifiers' | 'updatePersonRoles'>;
+  readonly runtimeDiagnostics?: {
+    getSnapshot(): Promise<unknown>;
+  };
   readonly systemPower: Pick<SystemPowerModuleContract, 'getPowerStatus' | 'updatePowerPolicy'>;
   readonly watchdog: Pick<WatchdogModuleContract, 'listIssues' | 'resolveIssue'>;
   readonly weeklyPlanner?: Pick<WeeklyPlannerModuleContract, 'deleteSchedule' | 'getWeekSnapshot' | 'saveSchedule'>;
@@ -435,6 +438,17 @@ export class RouteRegistrar {
       method: 'GET',
       path: '/api/status',
       handler: async () => this.getStatusSnapshot(),
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/runtime/diagnostics',
+      handler: async () => {
+        if (!this.modules.runtimeDiagnostics) {
+          throw new ApiError(404, 'Runtime diagnostics are not configured.');
+        }
+
+        return this.modules.runtimeDiagnostics.getSnapshot();
+      },
     });
     server.registerRoute({
       method: 'GET',

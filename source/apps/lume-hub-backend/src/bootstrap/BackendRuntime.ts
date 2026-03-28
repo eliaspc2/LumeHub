@@ -26,6 +26,11 @@ import type { WeeklyPlannerModule } from '@lume-hub/weekly-planner';
 import type { WebSocketGateway } from '@lume-hub/ws-fastify';
 
 import type { BackendRuntimePaths } from './BackendRuntimeConfig.js';
+import type {
+  BackendRuntimeDiagnosticsState,
+  BackendRuntimePhase,
+} from './BackendRuntimeStateRepository.js';
+import { BackendRuntimeStateRepository } from './BackendRuntimeStateRepository.js';
 import type { ConversationPipelineRuntime } from './ConversationPipelineRuntime.js';
 import type { WhatsAppWorkspaceRuntime } from './WhatsAppWorkspaceRuntime.js';
 
@@ -86,6 +91,7 @@ export interface BackendRuntimeOptions {
   readonly paths: BackendRuntimePaths;
   readonly whatsAppWorkspaceRuntime: WhatsAppWorkspaceRuntime;
   readonly conversationPipelineRuntime: ConversationPipelineRuntime;
+  readonly diagnosticsRepository: BackendRuntimeStateRepository;
   readonly operationalTickIntervalMs?: number;
 }
 
@@ -96,6 +102,12 @@ export class BackendRuntime {
   private operationalTimer?: ReturnType<typeof setInterval>;
   private kernelStarted = false;
   private listeningAddress?: HttpListeningAddress;
+  private detachWhatsAppDiagnostics?: () => void;
+  private startedAt: string | null = null;
+  private listeningAt: string | null = null;
+  private stoppedAt: string | null = null;
+  private lastTickSnapshot: BackendOperationalTickSnapshot | null = null;
+  private lastOperationalError: string | null = null;
 
   constructor(private readonly options: BackendRuntimeOptions) {
     this.operationalTickIntervalMs = Math.max(
@@ -137,17 +149,23 @@ export class BackendRuntime {
       return;
     }
 
+    const now = new Date();
+    this.startedAt = this.startedAt ?? now.toISOString();
+    this.stoppedAt = null;
+    await this.writeDiagnostics('starting', now);
+
     await this.options.kernel.start();
     this.kernelStarted = true;
     await this.options.whatsAppWorkspaceRuntime.start();
     await this.options.conversationPipelineRuntime.start();
+    this.detachWhatsAppDiagnostics = this.options.whatsAppWorkspaceRuntime.gateway.subscribeRuntime(() => {
+      void this.writeDiagnostics(this.lastOperationalError ? 'degraded' : 'running', new Date()).catch(() => undefined);
+    });
 
     try {
-      await this.performOperationalTick();
+      await this.runOperationalTick();
       this.operationalTimer = setInterval(() => {
-        void this.performOperationalTick().catch((error) => {
-          console.error('Backend operational tick failed.', error);
-        });
+        void this.runOperationalTick();
       }, this.operationalTickIntervalMs);
     } catch (error) {
       await this.stop();
@@ -156,10 +174,15 @@ export class BackendRuntime {
   }
 
   async stop(): Promise<void> {
+    const now = new Date();
+
     if (this.operationalTimer) {
       clearInterval(this.operationalTimer);
       this.operationalTimer = undefined;
     }
+
+    this.detachWhatsAppDiagnostics?.();
+    this.detachWhatsAppDiagnostics = undefined;
 
     await this.options.conversationPipelineRuntime.stop();
     await this.options.whatsAppWorkspaceRuntime.stop();
@@ -168,11 +191,19 @@ export class BackendRuntime {
     this.listeningAddress = undefined;
 
     if (!this.kernelStarted) {
+      this.listeningAddress = undefined;
+      this.listeningAt = null;
+      this.stoppedAt = now.toISOString();
+      await this.writeDiagnostics('stopped', now);
       return;
     }
 
     this.kernelStarted = false;
     await this.options.kernel.stop();
+    this.listeningAddress = undefined;
+    this.listeningAt = null;
+    this.stoppedAt = now.toISOString();
+    await this.writeDiagnostics('stopped', now);
   }
 
   async inject<T = unknown>(request: HttpRequest): Promise<HttpResponse<T>> {
@@ -209,6 +240,8 @@ export class BackendRuntime {
       },
     });
 
+    this.listeningAt = new Date().toISOString();
+    await this.writeDiagnostics(this.lastOperationalError ? 'degraded' : 'running', new Date());
     return this.listeningAddress;
   }
 
@@ -245,6 +278,173 @@ export class BackendRuntime {
 
       throw error;
     }
+  }
+
+  async getRuntimeDiagnostics(): Promise<BackendRuntimeDiagnosticsState> {
+    return this.options.diagnosticsRepository.readState(this.createFallbackDiagnosticsState());
+  }
+
+  private async runOperationalTick(): Promise<void> {
+    try {
+      const snapshot = await this.performOperationalTick();
+      this.lastTickSnapshot = snapshot;
+      this.lastOperationalError = null;
+      await this.writeDiagnostics('running', new Date());
+    } catch (error) {
+      this.lastOperationalError = toErrorMessage(error);
+      await this.writeDiagnostics('degraded', new Date());
+      console.error('Backend operational tick failed.', error);
+    }
+  }
+
+  private async writeDiagnostics(phase: BackendRuntimePhase, now: Date): Promise<void> {
+    const state = await this.createDiagnosticsState(phase, now);
+    await this.options.diagnosticsRepository.saveState(state);
+  }
+
+  private async createDiagnosticsState(
+    phase: BackendRuntimePhase,
+    now: Date,
+  ): Promise<BackendRuntimeDiagnosticsState> {
+    const fallback = this.createFallbackDiagnosticsState(now, phase);
+
+    if (!this.kernelStarted) {
+      return fallback;
+    }
+
+    const [healthSnapshot, whatsAppRuntime, hostStatus] = await Promise.all([
+      this.options.modules.healthMonitorModule.getHealthSnapshot().catch(() => null),
+      this.options.whatsAppWorkspaceRuntime.getRuntimeSnapshot().catch(() => null),
+      this.options.modules.hostLifecycleModule.getHostCompanionStatus().catch(() => null),
+    ]);
+
+    if (!healthSnapshot || !whatsAppRuntime || !hostStatus) {
+      return {
+        ...fallback,
+        phase: phase === 'running' ? 'degraded' : phase,
+        operational: {
+          ...fallback.operational,
+          lastError: this.lastOperationalError ?? fallback.operational.lastError,
+        },
+      };
+    }
+
+    return {
+      ...fallback,
+      readiness: {
+        ready: healthSnapshot.ready,
+        status: healthSnapshot.status,
+      },
+      health: {
+        status: healthSnapshot.status,
+        jobs: {
+          pending: healthSnapshot.jobs.pending,
+          waitingConfirmation: healthSnapshot.jobs.waitingConfirmation,
+          sent: healthSnapshot.jobs.sent,
+        },
+        watchdog: {
+          openIssues: healthSnapshot.watchdog.openIssues,
+        },
+        modules: healthSnapshot.modules.map((module) => ({
+          name: typeof module.details?.module === 'string' ? module.details.module : 'unknown',
+          status: module.status,
+          details: module.details ?? null,
+        })),
+      },
+      host: {
+        lastHeartbeatAt: hostStatus.runtime.lastHeartbeatAt,
+        lastError: hostStatus.runtime.lastError,
+      },
+      whatsapp: {
+        session: {
+          phase: whatsAppRuntime.session.phase,
+          connected: whatsAppRuntime.session.connected,
+          loginRequired: whatsAppRuntime.session.loginRequired,
+          lastConnectedAt: whatsAppRuntime.session.lastConnectedAt,
+          lastDisconnectAt: whatsAppRuntime.session.lastDisconnectAt,
+          lastDisconnectReason: whatsAppRuntime.session.lastDisconnectReason,
+          lastError: whatsAppRuntime.session.lastError,
+        },
+        discoveredGroups: whatsAppRuntime.groups.length,
+        discoveredConversations: whatsAppRuntime.conversations.length,
+      },
+      webSocket: {
+        sessionCount: this.options.webSocketGateway.getSessionCount(),
+      },
+    };
+  }
+
+  private createFallbackDiagnosticsState(
+    now = new Date(),
+    phase: BackendRuntimePhase = this.lastOperationalError ? 'degraded' : this.kernelStarted ? 'running' : 'stopped',
+  ): BackendRuntimeDiagnosticsState {
+    const performedAt = this.lastTickSnapshot?.performedAt ?? null;
+
+    return {
+      schemaVersion: 1,
+      stateFilePath: this.options.diagnosticsRepository.getStateFilePath(),
+      phase,
+      startedAt: this.startedAt,
+      listeningAt: this.listeningAt,
+      stoppedAt: phase === 'stopped' ? (this.stoppedAt ?? now.toISOString()) : this.stoppedAt,
+      updatedAt: now.toISOString(),
+      baseUrl: this.baseUrl,
+      http: {
+        host: this.paths.httpHost,
+        port: this.paths.httpPort,
+        webSocketPath: this.paths.webSocketPath,
+      },
+      frontend: {
+        defaultMode: this.paths.frontendDefaultMode,
+        distRootPath: this.paths.webDistRootPath,
+      },
+      moduleGraph: {
+        moduleCount: this.moduleGraph.loadOrder.length,
+        loadOrder: this.moduleGraph.loadOrder,
+      },
+      readiness: {
+        ready: false,
+        status: phase === 'starting' ? 'starting' : phase === 'stopped' ? 'stopped' : 'degraded',
+      },
+      health: {
+        status: phase === 'starting' ? 'starting' : phase === 'running' ? 'healthy' : phase,
+        jobs: {
+          pending: 0,
+          waitingConfirmation: 0,
+          sent: 0,
+        },
+        watchdog: {
+          openIssues: 0,
+        },
+        modules: [],
+      },
+      operational: {
+        lastTickAt: performedAt,
+        lastError: this.lastOperationalError,
+        watchdogRaised: this.lastTickSnapshot?.watchdog.raised ?? 0,
+        watchdogResolved: this.lastTickSnapshot?.watchdog.resolved ?? 0,
+      },
+      host: {
+        lastHeartbeatAt: this.lastTickSnapshot?.hostHeartbeatAt ?? null,
+        lastError: this.lastOperationalError,
+      },
+      whatsapp: {
+        session: {
+          phase: this.kernelStarted ? 'idle' : 'closed',
+          connected: false,
+          loginRequired: false,
+          lastConnectedAt: null,
+          lastDisconnectAt: null,
+          lastDisconnectReason: null,
+          lastError: this.lastOperationalError,
+        },
+        discoveredGroups: 0,
+        discoveredConversations: 0,
+      },
+      webSocket: {
+        sessionCount: this.options.webSocketGateway.getSessionCount(),
+      },
+    };
   }
 }
 

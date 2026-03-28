@@ -217,7 +217,7 @@ Na `Wave 12`, o fluxo canónico passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 22` ja foram executadas e validadas.
+As `Wave 0` a `Wave 23` ja foram executadas e validadas.
 Neste momento:
 
 - o frontend operacional das `Wave 13` a `Wave 16` ficou fechado
@@ -235,10 +235,14 @@ Neste momento:
   - `weekly-planner` real no dominio
   - `Semana` ligada ao backend real
   - endpoints live para schedules, queue, logs, LLM e `send`
-- o backlog restante ficou agora em `Wave 23` e `Wave 24`
-- essas waves focam:
-  - hardening e cutover
-  - limpeza final da ronda
+- a `Wave 23` fechou:
+  - diagnostico persistido de runtime em `runtime/backend-runtime-state.json`
+  - endpoint `GET /api/runtime/diagnostics`
+  - launcher com readiness, phase, ultimo tick e sinais WhatsApp
+  - checklist de operacao real em `docs/deployment/lume_hub_live_cutover_checklist.md`
+  - malha minima de regressao com testes unit, integration e e2e
+- o backlog restante ficou agora concentrado na `Wave 24`
+- essa wave foca limpeza final da ronda
 - regra de processo:
   - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
 - o objetivo explicito desta nova ronda e chegar a runtime `Live` funcional como substituicao do sistema anterior

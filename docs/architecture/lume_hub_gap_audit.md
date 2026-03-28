@@ -3,25 +3,29 @@
 Data: `2026-03-28`
 
 Objetivo:
-- descrever apenas os gaps reais que restam depois das `Wave 0` a `Wave 22`
+- descrever apenas os gaps reais que restam depois das `Wave 0` a `Wave 23`
 - evitar backlog preso a estado antigo do frontend ou a scaffolds ja removidos
 
 ## Resumo executivo
 
 Conclusao curta:
-- as `Wave 0` a `Wave 22` ficaram executadas e validadas
+- as `Wave 0` a `Wave 23` ficaram executadas e validadas
 - a `Wave 20` fechou o canal WhatsApp live com QR, descoberta e envio observavel
 - a `Wave 21` fechou o pipeline conversacional live e os providers LLM reais
 - a `Wave 22` fechou a API operacional principal e o `weekly-planner` real
 - o frontend operacional ja existe e a limpeza final do repositorio foi feita
 - o modo `Live` ja usa backend HTTP real, WebSocket real e launcher local sem servidor provisório
 - o backlog restante voltou a estar organizado em waves ativas
-- o backlog restante esta concentrado em robustez, cobertura e fecho limpo da ronda
+- a `Wave 23` fechou o hardening principal com:
+  - diagnostico persistido de runtime
+  - `GET /api/runtime/diagnostics`
+  - launcher com resumo operacional real
+  - checklist de cutover em `docs/deployment/lume_hub_live_cutover_checklist.md`
+  - testes novos de unit, integration e e2e
+- o backlog restante ficou reduzido a limpeza final da ronda
 
 Plano ativo de fecho:
 
-- `Wave 23`
-  - hardening, cobertura e cutover para uso real
 - `Wave 24`
   - limpeza final da ronda de runtime real
 
@@ -58,43 +62,22 @@ As seguintes areas existem com base razoavel:
 
 ## Gaps reais por prioridade
 
-### 1. A cobertura de testes continua curta para o produto final
+### 1. Falta fechar a limpeza final da ronda
 
 Estado atual:
-- continuam a existir poucos testes centrais:
-  - `source/tests/unit/notification-job-cleanup-policy.test.mjs`
-  - `source/tests/integration/wave11-hardening.test.mjs`
-  - `source/tests/e2e/dashboard-operations.test.mjs`
-
-Impacto:
-- as validacoes por wave sao uteis, mas a malha de regressao ainda e pequena para producao
-
-Onde fechar:
-- `source/tests/*`
-- e idealmente suites locais em packages criticos
-
-### 2. O cutover para uso real ainda precisa de hardening operacional
-
-Estado atual:
-- o modo `Live` ja permite:
-  - criar e editar agendamentos reais
-  - preparar e enfileirar distribuicoes reais
-  - consultar queue, diagnostics e logs
-  - usar o `Assistente` com providers reais
-- continua em falta fechar a ronda com:
-  - testes de restart e recover mais fortes
-  - validacao de sessoes longas em `Live`
-  - checklist clara de cutover
-  - observabilidade minima para suporte
+- a parte funcional do cutover ficou fechada na `Wave 23`
+- o que resta ja nao e wiring principal nem hardening base
+- continua por fazer a poda final da ronda:
+  - remover notas temporarias
+  - decidir se sobram validadores ou wiring de transicao
+  - alinhar docs principais ao estado resultante
 
 Onde fechar:
-- `source/tests/*`
-- `source/apps/lume-hub-backend`
-- `source/apps/lume-hub-host`
-- `runtime/`
-- `docs/deployment/`
+- `docs/*`
+- `source/scripts/*`
+- `runtime/*`
 
-### 3. `alerts` e `automations` sairam do workspace ativo
+### 2. `alerts` e `automations` sairam do workspace ativo
 
 Estado atual:
 - os antigos packages `source/packages/modules/alerts` e `source/packages/modules/automations` eram stubs vazios
@@ -106,16 +89,14 @@ Regra daqui para a frente:
 
 ## Ordem recomendada para o backlog restante
 
-1. `Wave 23`
-2. `Wave 24`
+1. `Wave 24`
 
 ## Nota final
 
 Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
 - nao
-- continuam abertas `Wave 23` e `Wave 24`
+- continua aberta `Wave 24`
 
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
-- nao
-- o que falta ja nao e scaffold nem wiring operacional principal
-- falta sobretudo reforco de testes, hardening e fecho de cutover
+- ainda falta a limpeza final da ronda
+- mas o hardening, o cutover e a malha minima de regressao ficaram fechados na `Wave 23`

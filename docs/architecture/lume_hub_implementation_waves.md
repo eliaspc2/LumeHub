@@ -10,12 +10,11 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 22` ja foram executadas e validadas.
+As `Wave 0` a `Wave 23` ja foram executadas e validadas.
 O backlog restante continua organizado em waves de fecho para runtime real.
 
 As waves ativas passam a ser:
 
-- `Wave 23`
 - `Wave 24`
 
 Objetivo desta nova ronda:
@@ -87,39 +86,6 @@ Se tocar backend, HTTP, WS ou runtime:
 - validar que a UI continua a abrir e a consumir a API esperada
 
 ## Waves ativas
-
-## Wave 23 - Hardening, cobertura e cutover para uso real
-
-Objetivo:
-- fechar a ronda com robustez suficiente para substituicao real do sistema antigo
-
-Entregaveis:
-- reforco forte de testes unitarios, integracao e e2e
-- validacoes de restart, recover e resiliencia
-- checklist de operacao real e cutover
-- observabilidade minima suficiente para suporte operacional
-- afinacao final de packaging/launcher/runtime para uso diario
-
-Criterios de aceitacao:
-- a app pode ser usada em `Live` como substituicao funcional do sistema anterior
-- restart, reconnect e recuperacao nao deixam o operador cego
-- existe cobertura minima para evitar regressao imediata nas areas criticas
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run test`
-- `corepack pnpm run validate:wave23`
-
-Melhor momento para testar:
-- este e o melhor ponto para piloto serio ou cutover, porque aqui ja faz sentido perguntar se o produto substitui o fluxo antigo sem reservas operacionais grandes
-
-O que testar:
-- uso em `Live` durante uma sessao longa
-- restart do backend e do host companion
-- reconnect do WhatsApp
-- fluxos completos de agendamento, distribuicao, conversa e permissao
-- verificacao do launcher, da pagina web e dos sinais operacionais
 
 ## Wave 24 - Limpeza final da ronda de runtime real
 

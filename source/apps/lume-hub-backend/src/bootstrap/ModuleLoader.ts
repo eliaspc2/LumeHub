@@ -34,6 +34,7 @@ import { WebSocketGateway } from '@lume-hub/ws-fastify';
 import { ConversationAuditRepository } from '@lume-hub/conversation';
 
 import type { BackendRuntimeModules } from './BackendRuntime.js';
+import { BackendRuntimeStateRepository } from './BackendRuntimeStateRepository.js';
 import { resolveBackendRuntimePaths, type BackendRuntimeConfig, type BackendRuntimePaths } from './BackendRuntimeConfig.js';
 import { ConversationPipelineRuntime } from './ConversationPipelineRuntime.js';
 import { WhatsAppWorkspaceRuntime } from './WhatsAppWorkspaceRuntime.js';
@@ -45,6 +46,7 @@ export interface LoadedBackendComposition {
   readonly webSocketGateway: WebSocketGateway;
   readonly whatsAppWorkspaceRuntime: WhatsAppWorkspaceRuntime;
   readonly conversationPipelineRuntime: ConversationPipelineRuntime;
+  readonly diagnosticsRepository: BackendRuntimeStateRepository;
 }
 
 export class ModuleLoader {
@@ -309,6 +311,7 @@ export class ModuleLoader {
     );
 
     const webSocketGateway = new WebSocketGateway();
+    const diagnosticsRepository = new BackendRuntimeStateRepository(paths.backendRuntimeStateFilePath);
     const whatsAppGateway = new BaileysWhatsAppGateway({
       enabled: this.config.whatsappEnabled,
       autoConnect: this.config.whatsappAutoConnect,
@@ -356,6 +359,9 @@ export class ModuleLoader {
         weeklyPlanner: weeklyPlannerModule,
         whatsappRuntime: whatsAppWorkspaceRuntime,
         llmOrchestrator: llmOrchestratorModule,
+        runtimeDiagnostics: {
+          getSnapshot: async () => diagnosticsRepository.readState(),
+        },
       },
       uiEventPublisher: webSocketGateway.publisher,
     });
@@ -374,6 +380,7 @@ export class ModuleLoader {
       webSocketGateway,
       whatsAppWorkspaceRuntime,
       conversationPipelineRuntime,
+      diagnosticsRepository,
     };
   }
 

@@ -133,6 +133,10 @@ export class WebSocketGateway {
   getPath(): string {
     return this.attachPath;
   }
+
+  getSessionCount(): number {
+    return this.registry.listSessionIds().length;
+  }
 }
 
 function normaliseAttachPath(path = '/ws'): string {

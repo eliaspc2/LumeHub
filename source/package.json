@@ -9,7 +9,7 @@
   "scripts": {
     "typecheck": "corepack pnpm -r --if-present typecheck",
     "build": "corepack pnpm -r --if-present build",
-    "test": "corepack pnpm -r --if-present test",
+    "test": "corepack pnpm -r --if-present test && corepack pnpm run test:unit && corepack pnpm run test:integration && corepack pnpm run test:e2e",
     "test:unit": "node --test ./tests/unit",
     "test:integration": "node --test ./tests/integration",
     "test:e2e": "node --test ./tests/e2e",
@@ -35,7 +35,8 @@
     "validate:wave19": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave19.mjs",
     "validate:wave20": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave20.mjs",
     "validate:wave21": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave21.mjs",
-    "validate:wave22": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave22.mjs"
+    "validate:wave22": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave22.mjs",
+    "validate:wave23": "corepack pnpm run typecheck && corepack pnpm run build && corepack pnpm run test && node ./scripts/validate-wave23.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",
