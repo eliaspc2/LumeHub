@@ -1,5 +1,6 @@
 import { BaseModule } from '@lume-hub/kernel';
 import { GroupDirectoryModule } from '@lume-hub/group-directory';
+import { GroupKnowledgeModule } from '@lume-hub/group-knowledge';
 import { PeopleMemoryModule } from '@lume-hub/people-memory';
 
 import { AssistantContextBuilder } from '../application/services/AssistantContextBuilder.js';
@@ -19,7 +20,7 @@ export class AssistantContextModule extends BaseModule implements AssistantConte
     super({
       name: 'assistant-context',
       version: '0.1.0',
-      dependencies: ['group-directory', 'people-memory'],
+      dependencies: ['group-directory', 'group-knowledge', 'people-memory'],
     });
 
     const groupDirectory =
@@ -28,6 +29,12 @@ export class AssistantContextModule extends BaseModule implements AssistantConte
         dataRootPath: config.dataRootPath,
       });
     const peopleMemory = config.peopleMemory ?? new PeopleMemoryModule();
+    const groupKnowledge =
+      config.groupKnowledge ??
+      new GroupKnowledgeModule({
+        dataRootPath: config.dataRootPath,
+        groupDirectory,
+      });
     const repository =
       config.repository ??
       new ConversationHistoryRepository({
@@ -48,6 +55,7 @@ export class AssistantContextModule extends BaseModule implements AssistantConte
         activeReferenceResolver,
         peopleMemory,
         groupDirectory,
+        groupKnowledge,
         scheduleContextProvider,
       );
   }

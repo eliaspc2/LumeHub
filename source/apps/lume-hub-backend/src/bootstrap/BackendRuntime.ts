@@ -7,6 +7,7 @@ import type { CommandPolicyModule } from '@lume-hub/command-policy';
 import type { ConversationModule } from '@lume-hub/conversation';
 import type { DisciplineCatalogModule } from '@lume-hub/discipline-catalog';
 import type { GroupDirectoryModule } from '@lume-hub/group-directory';
+import type { GroupKnowledgeModule } from '@lume-hub/group-knowledge';
 import type { HealthMonitorModule } from '@lume-hub/health-monitor';
 import type { HostLifecycleModule } from '@lume-hub/host-lifecycle';
 import type { FastifyHttpServer, HttpListeningAddress, HttpRequest, HttpResponse } from '@lume-hub/http-fastify';
@@ -37,6 +38,7 @@ import type { WhatsAppWorkspaceRuntime } from './WhatsAppWorkspaceRuntime.js';
 export interface BackendRuntimeModules {
   readonly adminConfigModule: AdminConfigModule;
   readonly groupDirectoryModule: GroupDirectoryModule;
+  readonly groupKnowledgeModule: GroupKnowledgeModule;
   readonly peopleMemoryModule: PeopleMemoryModule;
   readonly disciplineCatalogModule: DisciplineCatalogModule;
   readonly audienceRoutingModule: AudienceRoutingModule;

@@ -7,6 +7,7 @@ import { CommandPolicyModule } from '@lume-hub/command-policy';
 import { ConversationModule } from '@lume-hub/conversation';
 import { DisciplineCatalogModule } from '@lume-hub/discipline-catalog';
 import { GroupDirectoryModule } from '@lume-hub/group-directory';
+import { GroupKnowledgeModule } from '@lume-hub/group-knowledge';
 import { HealthMonitorModule } from '@lume-hub/health-monitor';
 import { HostLifecycleModule } from '@lume-hub/host-lifecycle';
 import { FastifyHttpServer } from '@lume-hub/http-fastify';
@@ -63,6 +64,10 @@ export class ModuleLoader {
     });
     const peopleMemoryModule = new PeopleMemoryModule({
       peopleFilePath: paths.peopleFilePath,
+    });
+    const groupKnowledgeModule = new GroupKnowledgeModule({
+      dataRootPath: paths.dataRootPath,
+      groupDirectory: groupDirectoryModule,
     });
     const disciplineCatalogModule = new DisciplineCatalogModule({
       catalogFilePath: paths.catalogFilePath,
@@ -159,6 +164,7 @@ export class ModuleLoader {
     const assistantContextModule = new AssistantContextModule({
       dataRootPath: paths.dataRootPath,
       groupDirectory: groupDirectoryModule,
+      groupKnowledge: groupKnowledgeModule,
       peopleMemory: peopleMemoryModule,
     });
     const commandPolicyModule = new CommandPolicyModule({
@@ -236,6 +242,7 @@ export class ModuleLoader {
     const modules: BackendRuntimeModules = {
       adminConfigModule,
       groupDirectoryModule,
+      groupKnowledgeModule,
       peopleMemoryModule,
       disciplineCatalogModule,
       audienceRoutingModule,
@@ -260,6 +267,7 @@ export class ModuleLoader {
       modules: [
         adminConfigModule,
         groupDirectoryModule,
+        groupKnowledgeModule,
         peopleMemoryModule,
         disciplineCatalogModule,
         audienceRoutingModule,
@@ -287,6 +295,7 @@ export class ModuleLoader {
     moduleList.push(
       adminConfigModule,
       groupDirectoryModule,
+      groupKnowledgeModule,
       peopleMemoryModule,
       disciplineCatalogModule,
       audienceRoutingModule,

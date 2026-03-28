@@ -10,42 +10,10 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 25` ja foram executadas e validadas.
+As `Wave 0` a `Wave 26` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional, mas foi aberta uma nova ronda para memoria e instrucoes LLM por grupo.
 
 ## Ronda ativa
-
-### Wave 26 - Knowledge base por grupo e retrieval isolado
-
-Objetivo:
-- dar a cada grupo uma base de conhecimento propria
-- impedir que referencias parecidas entre grupos contaminem o contexto umas das outras
-
-Entregaveis:
-- modulo ou servico de `group knowledge` com repositorio por grupo
-- suporte a documentos markdown e indice simples em `knowledge/index.json`
-- retrieval local por grupo para snippets relevantes
-- `assistant-context` a incluir:
-  - instrucoes LLM do grupo
-  - snippets relevantes da knowledge base do grupo
-  - nunca snippets de outro grupo
-
-Criterios de aceitacao:
-- duas conversas sobre "Aula 1" em grupos diferentes devolvem contexto diferente quando o conhecimento do grupo divergir
-- o contexto enviado a LLM passa a ter fontes de grupo rastreaveis
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave26`
-
-Melhor momento para testar:
-- aqui, porque e o ponto certo para validar ambiguidade entre grupos parecidos
-
-O que testar:
-- criar knowledge docs diferentes em dois grupos com referencias semelhantes
-- confirmar que o assistente usa o conhecimento certo em cada grupo
-- confirmar que um grupo sem knowledge docs continua a responder sem crash
 
 ### Wave 27 - API e UI para gerir instrucoes e conhecimento por grupo
 

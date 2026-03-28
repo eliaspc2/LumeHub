@@ -1,4 +1,5 @@
 import type { GroupDirectoryModuleContract } from '@lume-hub/group-directory';
+import type { GroupKnowledgeModuleContract } from '@lume-hub/group-knowledge';
 import type { PeopleMemoryModuleContract } from '@lume-hub/people-memory';
 
 import type { AssistantContextBuilder } from '../application/services/AssistantContextBuilder.js';
@@ -13,6 +14,7 @@ export interface AssistantContextModuleConfig {
   readonly dataRootPath?: string;
   readonly historyFilePath?: string;
   readonly groupDirectory?: GroupDirectoryModuleContract;
+  readonly groupKnowledge?: Pick<GroupKnowledgeModuleContract, 'retrieveRelevantSnippets'>;
   readonly peopleMemory?: Pick<
     PeopleMemoryModuleContract,
     'findPersonById' | 'listImportantNotes'

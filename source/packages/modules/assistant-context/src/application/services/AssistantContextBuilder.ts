@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { GroupDirectoryModuleContract } from '@lume-hub/group-directory';
+import type { GroupKnowledgeModuleContract } from '@lume-hub/group-knowledge';
 import type { PeopleMemoryModuleContract } from '@lume-hub/people-memory';
 
 import type {
@@ -29,6 +30,7 @@ export class AssistantContextBuilder {
       GroupDirectoryModuleContract,
       'findByJid' | 'getGroupLlmInstructions' | 'getGroupPolicy'
     >,
+    private readonly groupKnowledge: Pick<GroupKnowledgeModuleContract, 'retrieveRelevantSnippets'>,
     private readonly scheduleContextProvider: ScheduleContextProvider,
   ) {}
 
@@ -68,6 +70,12 @@ export class AssistantContextBuilder {
     const group = resolvedGroupJid ? await this.groupDirectory.findByJid(resolvedGroupJid) : undefined;
     const personNotes = input.personId ? await this.peopleMemory.listImportantNotes(input.personId) : [];
     const groupInstructions = group ? await this.groupDirectory.getGroupLlmInstructions(group.groupJid) : null;
+    const groupKnowledgeSnippets = group
+      ? await this.groupKnowledge.retrieveRelevantSnippets({
+          groupJid: group.groupJid,
+          query: input.text,
+        })
+      : [];
     const groupPolicy = group ? await this.groupDirectory.getGroupPolicy(group.groupJid) : null;
 
     return {
@@ -91,6 +99,7 @@ export class AssistantContextBuilder {
       personNotes,
       groupInstructions: groupInstructions?.content ?? null,
       groupInstructionsSource: groupInstructions?.source ?? 'missing',
+      groupKnowledgeSnippets,
       groupPrompt: groupInstructions?.content ?? null,
       groupPolicy: groupPolicy?.value ?? null,
       generatedAt: now.toISOString(),

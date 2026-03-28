@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@lume-hub/group-directory": "workspace:*",
+    "@lume-hub/group-knowledge": "workspace:*",
     "@lume-hub/kernel": "workspace:*",
     "@lume-hub/people-memory": "workspace:*",
     "@lume-hub/persistence-group-files": "workspace:*"

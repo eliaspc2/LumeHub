@@ -1,0 +1,23 @@
+{
+  "name": "@lume-hub/group-knowledge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/modules/group-knowledge/src/public/index.js",
+  "types": "./dist/modules/group-knowledge/src/public/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/modules/group-knowledge/src/public/index.d.ts",
+      "default": "./dist/modules/group-knowledge/src/public/index.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "test": "node -e \"console.log('No tests yet for @lume-hub/group-knowledge.')\""
+  },
+  "dependencies": {
+    "@lume-hub/group-directory": "workspace:*",
+    "@lume-hub/kernel": "workspace:*"
+  }
+}

@@ -217,7 +217,7 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 25` ja foram executadas e validadas.
+As `Wave 0` a `Wave 26` ja foram executadas e validadas.
 O storage canonico de inteligencia por grupo ja ficou aberto com:
 
 - `data/groups/<jid>/llm/instructions.md`
@@ -225,6 +225,7 @@ O storage canonico de inteligencia por grupo ja ficou aberto com:
 - `data/groups/<jid>/knowledge/index.json`
 
 O `assistant-context` ja usa `llm/instructions.md` como fonte primaria e mantem fallback legacy para `prompt.md` enquanto durar a migracao.
+Tambem ja existe retrieval isolado por grupo a partir de `knowledge/index.json` e documentos markdown da pasta `knowledge/`, para evitar mistura de contexto entre grupos com referencias parecidas.
 Neste momento:
 
 - o frontend operacional das `Wave 13` a `Wave 16` ficou fechado

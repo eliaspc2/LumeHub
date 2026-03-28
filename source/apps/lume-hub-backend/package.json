@@ -19,6 +19,7 @@
     "@lume-hub/conversation": "workspace:*",
     "@lume-hub/discipline-catalog": "workspace:*",
     "@lume-hub/group-directory": "workspace:*",
+    "@lume-hub/group-knowledge": "workspace:*",
     "@lume-hub/health-monitor": "workspace:*",
     "@lume-hub/host-lifecycle": "workspace:*",
     "@lume-hub/http-fastify": "workspace:*",

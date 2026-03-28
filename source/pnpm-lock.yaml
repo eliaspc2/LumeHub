@@ -53,6 +53,9 @@ importers:
       '@lume-hub/group-directory':
         specifier: workspace:*
         version: link:../../packages/modules/group-directory
+      '@lume-hub/group-knowledge':
+        specifier: workspace:*
+        version: link:../../packages/modules/group-knowledge
       '@lume-hub/health-monitor':
         specifier: workspace:*
         version: link:../../packages/modules/health-monitor
@@ -377,6 +380,9 @@ importers:
       '@lume-hub/group-directory':
         specifier: workspace:*
         version: link:../group-directory
+      '@lume-hub/group-knowledge':
+        specifier: workspace:*
+        version: link:../group-knowledge
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
@@ -479,6 +485,15 @@ importers:
       '@lume-hub/persistence-group-files':
         specifier: workspace:*
         version: link:../../adapters/persistence-group-files
+
+  packages/modules/group-knowledge:
+    dependencies:
+      '@lume-hub/group-directory':
+        specifier: workspace:*
+        version: link:../group-directory
+      '@lume-hub/kernel':
+        specifier: workspace:*
+        version: link:../../foundation/kernel
 
   packages/modules/health-monitor:
     dependencies:
