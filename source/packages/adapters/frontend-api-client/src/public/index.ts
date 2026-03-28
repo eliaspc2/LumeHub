@@ -509,6 +509,7 @@ export class FrontendApiClient {
     readonly personId?: string;
     readonly identifiers?: readonly { readonly kind: string; readonly value: string }[];
     readonly messageText?: string;
+    readonly targetGroupJids?: readonly string[];
   }): Promise<DistributionPlan> {
     return this.expectOk(
       await this.transport.request<DistributionPlan>({
@@ -526,6 +527,7 @@ export class FrontendApiClient {
     readonly messageText?: string;
     readonly assetId?: string;
     readonly caption?: string | null;
+    readonly targetGroupJids?: readonly string[];
     readonly mode: Instruction['mode'];
   }): Promise<DistributionExecutionResult> {
     return this.expectOk(

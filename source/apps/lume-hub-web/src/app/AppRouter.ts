@@ -5,6 +5,7 @@ import type {
   FrontendApiClient,
   GroupContextPreviewSnapshot,
   GroupIntelligenceSnapshot,
+  Instruction,
   MediaAssetSnapshot,
   SettingsSnapshot,
 } from '@lume-hub/frontend-api-client';
@@ -44,6 +45,8 @@ export interface GroupManagementPageData {
 
 export interface MediaLibraryPageData {
   readonly assets: readonly MediaAssetSnapshot[];
+  readonly groups: readonly import('@lume-hub/frontend-api-client').Group[];
+  readonly instructions: readonly Instruction[];
 }
 
 export class AppRouter {
@@ -267,7 +270,11 @@ export class AppRouter {
         label: 'Media',
         description: 'Biblioteca operacional da media recebida por WhatsApp, pronta para identificar origem e preparar distribuicao.',
         render: async () => {
-          const assets = await this.readQuery('media-assets', () => this.client.listMediaAssets());
+          const [assets, groups, instructionQueue] = await Promise.all([
+            this.readQuery('media-assets', () => this.client.listMediaAssets()),
+            this.readQuery('groups', () => this.client.listGroups()),
+            this.readQuery('instruction-queue', () => this.client.listInstructionQueue()),
+          ]);
 
           return {
             route: '/media',
@@ -285,6 +292,8 @@ export class AppRouter {
             ],
             data: {
               assets,
+              groups,
+              instructions: instructionQueue.filter(isMediaInstruction),
             } satisfies MediaLibraryPageData,
           };
         },
@@ -401,4 +410,11 @@ function describeConversationMemory(
   ]
     .filter((value): value is string => Boolean(value))
     .join(' | ');
+}
+
+function isMediaInstruction(instruction: Instruction): boolean {
+  return instruction.actions.some((action) => {
+    const payload = action.payload as { readonly kind?: unknown } | undefined;
+    return payload?.kind === 'media';
+  });
 }

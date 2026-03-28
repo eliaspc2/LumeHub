@@ -10,7 +10,7 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 32` ja foram executadas e validadas.
+As `Wave 0` a `Wave 33` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
 O storage canonico da ronda de media ja ficou aberto com:
@@ -29,39 +29,14 @@ O inbound live de media tambem ja ficou fechado com:
 - retry apenas dos alvos falhados
 - auditoria por alvo na queue
 
+O fluxo guiado desta ronda tambem ja ficou aberto com:
+
+- escolha direta do video recebido na pagina `Media`
+- selecao explicita de grupos com master switch e switches por grupo
+- `dry_run` e envio `confirmed` a partir da mesma pagina
+- visao recente de entrega por grupo sem sair do fluxo
+
 ## Ronda ativa
-
-### Wave 33 - UI e fluxo guiado para distribuir video recebido
-
-Objetivo:
-- dar um fluxo simples para o operador escolher um video recebido e espalha-lo por grupos sem mexer em payloads tecnicos
-
-Entregaveis:
-- pagina ou secao de media no frontend
-- selecao de asset recebido
-- preview dos grupos alvo
-- envio `dry_run` e `confirmed`
-- visao do estado de entrega por grupo
-
-Criterios de aceitacao:
-- um operador pouco tecnico consegue:
-  - encontrar o video recebido
-  - escolher os grupos
-  - disparar a distribuicao
-  - perceber o que ficou entregue e o que falhou
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave33`
-
-Melhor momento para testar:
-- aqui, porque a feature ja fica utilizavel de ponta a ponta no produto
-
-O que testar:
-- fluxo completo de "receber video -> guardar -> selecionar -> distribuir"
-- browser headless sem ecras brancos nem erros de runtime
-- clareza da UI para operador nao tecnico
 
 ### Wave 34 - Limpeza final da ronda de media distribuida
 

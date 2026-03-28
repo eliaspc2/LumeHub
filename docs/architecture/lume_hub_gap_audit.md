@@ -23,6 +23,7 @@ Conclusao curta:
 - a `Wave 30` ja fechou o storage canonico de media recebida em `data/runtime/media/`
 - a `Wave 31` ja fechou o ingest live de media inbound, a API da biblioteca e a pagina operacional `/media`
 - a `Wave 32` ja fechou a distribuicao multi-grupo de media com queue, dedupe e retry por alvo
+- a `Wave 33` ja fechou o fluxo guiado de UI para escolher video, grupos, `dry_run` e envio real com leitura por grupo
 
 Em particular, ja nao faz sentido falar de:
 
@@ -70,16 +71,8 @@ O storage canonico desta serie fica fechado em:
 
 ## Gaps ativos da ronda de media
 
-### 1. Falta o fluxo guiado final para distribuir media sem expor payload tecnico
-
-Estado atual:
-- o runtime ja aceita `assetId` na `instruction-queue`
-- o gateway WhatsApp live ja expõe `sendMedia()`
-- o retry ja reenfila apenas os grupos falhados
-- a queue ja audita `contentKind`, `mediaAssetId`, `caption` e resultados por alvo
-
-Impacto:
-- a feature de media ja existe no runtime, mas ainda falta a UX mais simples para operador pouco tecnico
+Nao restam gaps funcionais ativos nesta ronda.
+O que falta agora e apenas a `Wave 34` de limpeza final do repo, docs e residuos transitórios.
 
 ## Trabalho futuro fora do scope atual
 
@@ -105,4 +98,4 @@ Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resp
 - para a nova feature de memoria e instrucoes LLM por grupo, sim
 - para media recebida com storage canonico, ingest live e biblioteca operacional visivel, sim
 - para distribuicao multi-grupo de video no runtime, sim
-- para o fluxo guiado final dessa feature no frontend, ainda nao
+- para o fluxo guiado final dessa feature no frontend, sim

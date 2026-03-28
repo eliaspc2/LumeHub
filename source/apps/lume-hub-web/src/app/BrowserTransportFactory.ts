@@ -2005,6 +2005,33 @@ function upsertDemoSchedule(state: DemoState, payload: Record<string, unknown>):
 }
 
 function buildDemoDistributionPlan(state: DemoState, payload: Record<string, unknown>): DistributionPlan {
+  const targetGroupJids = readDemoTargetGroupJids(payload);
+
+  if (targetGroupJids.length > 0) {
+    return {
+      sourceMessageId:
+        typeof payload.sourceMessageId === 'string' && payload.sourceMessageId.length > 0
+          ? payload.sourceMessageId
+          : `preview-${Date.now()}`,
+      senderPersonId: typeof payload.personId === 'string' && payload.personId.trim() ? payload.personId.trim() : null,
+      senderDisplayName: null,
+      matchedRuleIds: [],
+      matchedDisciplineCodes: [],
+      requiresConfirmation: false,
+      targetCount: targetGroupJids.length,
+      targets: targetGroupJids.map((groupJid) => {
+        const group = state.groups.find((candidate) => candidate.groupJid === groupJid);
+        return {
+          groupJid,
+          preferredSubject: group?.preferredSubject ?? groupJid,
+          courseId: group?.courseId ?? null,
+          reasons: ['manual_group_selection'],
+          dedupeKey: `${payload.sourceMessageId ?? 'preview'}:${groupJid}`,
+        };
+      }),
+    };
+  }
+
   const ruleId = typeof payload.ruleId === 'string' && payload.ruleId.length > 0 ? payload.ruleId : state.routingRules[0]?.ruleId;
   const rule = state.routingRules.find((candidate) => candidate.ruleId === ruleId) ?? state.routingRules[0];
 
@@ -2037,6 +2064,9 @@ function createDemoDistribution(state: DemoState, payload: Record<string, unknow
   const plan = buildDemoDistributionPlan(state, payload);
   const mode = payload.mode === 'confirmed' ? 'confirmed' : 'dry_run';
   const nowIso = new Date().toISOString();
+  const assetId = typeof payload.assetId === 'string' && payload.assetId.trim() ? payload.assetId.trim() : null;
+  const caption = typeof payload.caption === 'string' && payload.caption.trim() ? payload.caption.trim() : null;
+  const messageText = typeof payload.messageText === 'string' ? payload.messageText : '';
   const summary: DistributionSummary = {
     instructionId: `instruction-demo-${Date.now()}`,
     sourceType: 'manual_distribution',
@@ -2044,6 +2074,10 @@ function createDemoDistribution(state: DemoState, payload: Record<string, unknow
     mode,
     status: mode === 'confirmed' ? 'queued' : 'queued',
     targetGroupJids: plan.targets.map((target) => target.groupJid),
+    contentKind: assetId ? 'media' : 'text',
+    mediaAssetId: assetId,
+    caption,
+    messagePreview: assetId ? null : messageText,
     actionCounts: {
       pending: plan.targets.length,
       running: 0,
@@ -2069,10 +2103,18 @@ function createDemoDistribution(state: DemoState, payload: Record<string, unknow
       type: 'distribution_delivery',
       dedupeKey: target.dedupeKey,
       targetGroupJid: target.groupJid,
-      payload: {
-        targetLabel: target.preferredSubject,
-        messageText: String(payload.messageText ?? ''),
-      },
+      payload: assetId
+        ? {
+            kind: 'media',
+            targetLabel: target.preferredSubject,
+            assetId,
+            caption,
+          }
+        : {
+            kind: 'text',
+            targetLabel: target.preferredSubject,
+            messageText,
+          },
       status: 'pending',
       attemptCount: 0,
       lastError: null,
@@ -2112,6 +2154,16 @@ function createDemoLlmChatResult(state: DemoState, payload: LlmChatInput): LlmCh
   });
 
   return result;
+}
+
+function readDemoTargetGroupJids(payload: Record<string, unknown>): string[] {
+  const value = payload.targetGroupJids;
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return [...new Set(value.filter((entry): entry is string => typeof entry === 'string').map((entry) => entry.trim()).filter(Boolean))];
 }
 
 function readRecentDemoEntries<T>(entries: readonly T[], pathname: string, fallbackLimit: number): readonly T[] {

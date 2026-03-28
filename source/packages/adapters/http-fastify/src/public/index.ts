@@ -713,11 +713,7 @@ export class RouteRegistrar {
       path: '/api/routing/preview',
       handler: async (context) => {
         const input = readDistributionPreviewBody(context.body);
-        return this.modules.audienceRouting.previewDistributionPlan(input.sourceMessageId, {
-          personId: input.personId ?? undefined,
-          identifiers: input.identifiers,
-          messageText: input.messageText,
-        });
+        return this.resolveDistributionPlan(input);
       },
     });
     server.registerRoute({
@@ -730,10 +726,12 @@ export class RouteRegistrar {
       path: '/api/routing/distributions',
       handler: async (context) => {
         const input = readDistributionExecutionBody(context.body);
-        const preview = await this.modules.audienceRouting.previewDistributionPlan(input.sourceMessageId, {
-          personId: input.personId ?? undefined,
+        const preview = await this.resolveDistributionPlan({
+          sourceMessageId: input.sourceMessageId,
+          personId: input.personId,
           identifiers: input.identifiers,
           messageText: input.content.kind === 'text' ? input.content.messageText : undefined,
+          targetGroupJids: input.targetGroupJids,
         });
         const instruction = await this.modules.instructionQueue.enqueueDistributionPlan({
           plan: preview,
@@ -1399,6 +1397,68 @@ export class RouteRegistrar {
     };
   }
 
+  private async resolveDistributionPlan(input: {
+    readonly sourceMessageId: string;
+    readonly personId?: string;
+    readonly identifiers?: readonly { readonly kind: string; readonly value: string }[];
+    readonly messageText?: string;
+    readonly targetGroupJids?: readonly string[];
+  }) {
+    const targetGroupJids = dedupeStringArray(input.targetGroupJids ?? []);
+
+    if (targetGroupJids.length > 0) {
+      return this.buildManualDistributionPlan(input.sourceMessageId, targetGroupJids, input.personId);
+    }
+
+    return this.modules.audienceRouting.previewDistributionPlan(input.sourceMessageId, {
+      personId: input.personId ?? undefined,
+      identifiers: input.identifiers,
+      messageText: input.messageText,
+    });
+  }
+
+  private async buildManualDistributionPlan(
+    sourceMessageId: string,
+    targetGroupJids: readonly string[],
+    personId?: string,
+  ) {
+    const groups = await this.modules.groupDirectory.listGroups();
+    const groupsByJid = new Map(groups.map((group) => [group.groupJid, group]));
+    const missingGroupJids = targetGroupJids.filter((groupJid) => !groupsByJid.has(groupJid));
+
+    if (missingGroupJids.length > 0) {
+      throw new ApiError(400, `Unknown targetGroupJids: ${missingGroupJids.join(', ')}.`);
+    }
+
+    let senderDisplayName: string | null = null;
+
+    if (personId && this.modules.peopleMemory) {
+      const people = await this.modules.peopleMemory.listPeople();
+      senderDisplayName = people.find((person) => person.personId === personId)?.displayName ?? null;
+    }
+
+    return {
+      sourceMessageId,
+      senderPersonId: personId ?? null,
+      senderDisplayName,
+      matchedRuleIds: [],
+      matchedDisciplineCodes: [],
+      requiresConfirmation: false,
+      targetCount: targetGroupJids.length,
+      targets: targetGroupJids.map((groupJid) => {
+        const group = groupsByJid.get(groupJid);
+
+        return {
+          groupJid,
+          preferredSubject: group?.preferredSubject ?? groupJid,
+          courseId: group?.courseId ?? null,
+          reasons: ['manual_group_selection'],
+          dedupeKey: `${sourceMessageId}:${groupJid}`,
+        };
+      }),
+    };
+  }
+
   private publish(topic: string, payload: unknown): void {
     this.uiEventPublisher?.publish(topic, payload);
   }
@@ -1822,6 +1882,7 @@ function readDistributionPreviewBody(body: unknown): {
   readonly personId?: string;
   readonly identifiers?: readonly { readonly kind: string; readonly value: string }[];
   readonly messageText?: string;
+  readonly targetGroupJids?: readonly string[];
 } {
   const payload = readBodyObject(body, 'Distribution preview payload must be an object.');
 
@@ -1832,6 +1893,7 @@ function readDistributionPreviewBody(body: unknown): {
     personId: readOptionalTrimmedStringValue(payload.personId, 'personId'),
     identifiers: readOptionalIdentifiers(payload.identifiers, 'identifiers'),
     messageText: readOptionalTrimmedStringValue(payload.messageText, 'messageText'),
+    targetGroupJids: readOptionalStringArrayValue(payload.targetGroupJids, 'targetGroupJids'),
   };
 }
 
@@ -1839,6 +1901,7 @@ function readDistributionExecutionBody(body: unknown): {
   readonly sourceMessageId: string;
   readonly personId?: string;
   readonly identifiers?: readonly { readonly kind: string; readonly value: string }[];
+  readonly targetGroupJids?: readonly string[];
   readonly content: DistributionContentInput;
   readonly mode: 'dry_run' | 'confirmed';
 } {
@@ -1854,6 +1917,7 @@ function readDistributionExecutionBody(body: unknown): {
 
   return {
     ...preview,
+    targetGroupJids: preview.targetGroupJids,
     content: assetId
       ? {
           kind: 'media',

@@ -5,6 +5,7 @@ import type {
   FrontendUiEvent,
   Group,
   GroupIntelligenceSnapshot,
+  Instruction,
   MediaAssetSnapshot,
   PersonRole,
   SettingsSnapshot,
@@ -63,6 +64,12 @@ interface GuidedDistributionDraft {
   readonly confirmationMode: string;
 }
 
+interface GuidedMediaDistributionDraft {
+  readonly assetId: string | null;
+  readonly caption: string;
+  readonly targetGroupJids: readonly string[];
+}
+
 interface GroupKnowledgeDraft {
   readonly documentId: string;
   readonly filePath: string;
@@ -95,6 +102,7 @@ interface AppShellState {
   readonly lastLoadedAt: string | null;
   readonly scheduleDraft: GuidedScheduleDraft;
   readonly distributionDraft: GuidedDistributionDraft;
+  readonly mediaDistributionDraft: GuidedMediaDistributionDraft;
   readonly groupManagementDraft: GroupManagementDraft;
   readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
   readonly whatsappQrPreviewVisible: boolean;
@@ -189,6 +197,7 @@ export class AppShell {
         urgency: 'normal',
         confirmationMode: 'rule_default',
       },
+      mediaDistributionDraft: createEmptyMediaDistributionDraft(),
       groupManagementDraft: createEmptyGroupManagementDraft(),
       whatsappRepairFocus: 'auth',
       whatsappQrPreviewVisible: false,
@@ -448,9 +457,24 @@ export class AppShell {
   }
 
   private syncRouteDraftState(page: UiPage): void {
+    if (page.route === '/media') {
+      this.syncMediaDistributionDraft(page as UiPage<MediaLibraryPageData>);
+    }
+
     if (page.route === '/groups') {
       this.syncGroupManagementDraft(page as UiPage<GroupManagementPageData>);
     }
+  }
+
+  private syncMediaDistributionDraft(page: UiPage<MediaLibraryPageData>): void {
+    this.state = {
+      ...this.state,
+      mediaDistributionDraft: resolveMediaDistributionDraft(
+        this.state.mediaDistributionDraft,
+        page.data.assets,
+        page.data.groups,
+      ),
+    };
   }
 
   private syncGroupManagementDraft(page: UiPage<GroupManagementPageData>): void {
@@ -1196,17 +1220,23 @@ export class AppShell {
 
   private renderMediaPage(page: UiPage<MediaLibraryPageData>): string {
     const assets = page.data.assets;
+    const groups = page.data.groups;
+    const mediaInstructions = page.data.instructions;
+    const draft = resolveMediaDistributionDraft(this.state.mediaDistributionDraft, assets, groups);
     const latestAsset = assets[0] ?? null;
+    const selectedAsset = assets.find((asset) => asset.assetId === draft.assetId) ?? null;
+    const videoAssets = assets.filter((asset) => asset.mediaType === 'video');
     const videoCount = assets.filter((asset) => asset.mediaType === 'video').length;
-    const documentCount = assets.filter((asset) => asset.mediaType === 'document').length;
-    const imageCount = assets.filter((asset) => asset.mediaType === 'image').length;
-    const sourceChatCount = new Set(assets.map((asset) => asset.sourceChatJid)).size;
+    const selectedGroups = groups.filter((group) => draft.targetGroupJids.includes(group.groupJid));
+    const allGroupsSelected = groups.length > 0 && selectedGroups.length === groups.length;
+    const recentInstructions = mediaInstructions.slice(0, 6);
+    const failedGroupCount = recentInstructions.flatMap((instruction) => instruction.actions).filter((action) => action.status === 'failed').length;
 
     return `
       <section class="surface hero surface--strong">
         <div>
           <p class="eyebrow">Biblioteca operacional</p>
-          <h2>Media recebida por WhatsApp, guardada uma vez e pronta para rastrear origem antes da distribuicao.</h2>
+          <h2>Escolher um video recebido, selecionar os grupos e disparar a distribuicao sem tocar em payloads tecnicos.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
@@ -1256,45 +1286,67 @@ export class AppShell {
           title: 'Videos',
           value: String(videoCount),
           tone: videoCount > 0 ? 'positive' : 'neutral',
-          description: 'Videos prontos para futura distribuicao multi-grupo.',
+          description: 'Videos recebidos que ja podem entrar no fluxo guiado de distribuicao.',
         })}
         ${renderUiMetricCard({
-          title: 'Documentos',
-          value: String(documentCount),
-          tone: documentCount > 0 ? 'positive' : 'neutral',
-          description: 'PDFs e outros documentos recebidos no canal.',
+          title: 'Grupos selecionados',
+          value: `${selectedGroups.length}/${groups.length}`,
+          tone: selectedGroups.length > 0 ? 'positive' : 'warning',
+          description: 'Cobertura atual do fan-out manual para o video escolhido.',
         })}
         ${renderUiMetricCard({
-          title: 'Imagens',
-          value: String(imageCount),
-          tone: imageCount > 0 ? 'positive' : 'neutral',
-          description: 'Imagens recebidas e ja rastreaveis por origem.',
+          title: 'Distribuicoes media',
+          value: String(mediaInstructions.length),
+          tone: mediaInstructions.length > 0 ? 'positive' : 'neutral',
+          description: 'Runs de media ja registados na queue com tracking por grupo.',
         })}
         ${renderUiMetricCard({
-          title: 'Chats de origem',
-          value: String(sourceChatCount),
-          tone: sourceChatCount > 0 ? 'neutral' : 'warning',
-          description: 'Numero de chats/grupos distintos que ja alimentaram esta biblioteca.',
+          title: 'Falhas por grupo',
+          value: String(failedGroupCount),
+          tone: failedGroupCount > 0 ? 'warning' : 'positive',
+          description: 'Alvos que ainda ficaram falhados nas ultimas distribuicoes de media.',
         })}
       </section>
 
       <section class="content-grid">
-        <article class="surface content-card span-12">
+        <article class="surface content-card span-5">
           <div class="card-header">
-            <div>
-              <h3>Assets recentes</h3>
-              <p>Cada registo mostra o tipo, a caption, o tamanho e a origem exata da mensagem recebida.</p>
-            </div>
+            <h3>Passo 1. Escolher video recebido</h3>
             ${renderUiBadge({
-              label: `${assets.length} asset${assets.length === 1 ? '' : 's'}`,
-              tone: assets.length > 0 ? 'positive' : 'warning',
+              label: selectedAsset ? 'Video pronto' : 'Falta escolher video',
+              tone: selectedAsset ? 'positive' : 'warning',
             })}
           </div>
           ${
             assets.length > 0
               ? `
+                <div class="ui-form-grid">
+                  ${renderUiSelectField({
+                    label: videoAssets.length > 0 ? 'Video recebido' : 'Asset recebido',
+                    value: draft.assetId ?? '',
+                    dataKey: 'media.assetId',
+                    options: (videoAssets.length > 0 ? videoAssets : assets).map((asset) => ({
+                      value: asset.assetId,
+                      label: `${readableMediaType(asset.mediaType)} • ${asset.caption ?? readableSourceChat(asset.sourceChatJid)}`,
+                    })),
+                    hint: 'Escolhe primeiro o video recebido que queres reaproveitar para esta distribuicao.',
+                  })}
+                </div>
+                ${
+                  selectedAsset
+                    ? `
+                      <div class="guide-preview">
+                        <p><strong>Origem</strong>: ${escapeHtml(readableSourceChat(selectedAsset.sourceChatJid))}</p>
+                        <p><strong>Recebido</strong>: ${escapeHtml(formatShortDateTime(selectedAsset.storedAt))}</p>
+                        <p><strong>Tipo</strong>: ${escapeHtml(readableMediaType(selectedAsset.mediaType))} • ${escapeHtml(selectedAsset.mimeType)}</p>
+                        <p><strong>Tamanho</strong>: ${escapeHtml(formatFileSize(selectedAsset.fileSize))}</p>
+                      </div>
+                    `
+                    : ''
+                }
                 <div class="card-grid">
-                  ${assets
+                  ${(videoAssets.length > 0 ? videoAssets : assets)
+                    .slice(0, 6)
                     .map((asset) =>
                       renderUiRecordCard({
                         title: asset.caption ?? `${readableMediaType(asset.mediaType)} sem caption`,
@@ -1319,6 +1371,16 @@ export class AppShell {
                           <p><strong>Origem</strong>: ${escapeHtml(readableSourceChat(asset.sourceChatJid))}</p>
                           <p><strong>Mensagem</strong>: ${escapeHtml(asset.sourceMessageId)}</p>
                           <p><strong>Recebido</strong>: ${escapeHtml(formatShortDateTime(asset.storedAt))}</p>
+                          <div class="action-row">
+                            ${renderUiActionButton({
+                              label: asset.assetId === draft.assetId ? 'Video em uso' : 'Usar este video',
+                              variant: asset.assetId === draft.assetId ? 'secondary' : 'primary',
+                              dataAttributes: {
+                                'flow-action': 'media-select-asset',
+                                'flow-value': asset.assetId,
+                              },
+                            })}
+                          </div>
                         `,
                         detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
                         detailsHtml: this.state.advancedDetailsEnabled
@@ -1338,6 +1400,190 @@ export class AppShell {
                 <div class="timeline-item">
                   <strong>Sem media ainda</strong>
                   <time>Envia um video, imagem ou documento para o bot e volta aqui para confirmar a ingestao.</time>
+                </div>
+              `
+          }
+        </article>
+
+        <article class="surface content-card span-7">
+          <div class="card-header">
+            <h3>Passo 2. Escolher grupos alvo</h3>
+            ${renderUiBadge({
+              label: `${selectedGroups.length}/${groups.length} grupos`,
+              tone: selectedGroups.length > 0 ? 'positive' : 'warning',
+            })}
+          </div>
+          ${
+            groups.length > 0
+              ? `
+                <div class="action-row">
+                  ${renderUiSwitch({
+                    label: 'Master switch dos grupos deste envio',
+                    checked: allGroupsSelected,
+                    description: allGroupsSelected
+                      ? 'Neste momento todos os grupos desta lista vao receber o video.'
+                      : 'Liga para selecionar todos de uma vez, ou usa os switches individuais.',
+                    dataAttributes: {
+                      'flow-action': 'media-toggle-all-groups',
+                    },
+                  })}
+                </div>
+                <div class="card-grid">
+                  ${groups
+                    .map((group) =>
+                      renderUiSwitch({
+                        label: group.preferredSubject,
+                        checked: draft.targetGroupJids.includes(group.groupJid),
+                        description: group.aliases.length > 0
+                          ? `${group.aliases.join(', ')}${group.groupOwners.length > 0 ? ` • ${group.groupOwners.length} owner(s)` : ''}`
+                          : group.groupOwners.length > 0
+                            ? `${group.groupOwners.length} owner(s) associados`
+                            : 'Sem aliases nem owners mapeados',
+                        dataAttributes: {
+                          'flow-action': 'media-toggle-group',
+                          'flow-value': group.groupJid,
+                        },
+                      }),
+                    )
+                    .join('')}
+                </div>
+              `
+              : `
+                <div class="timeline-item">
+                  <strong>Sem grupos conhecidos</strong>
+                  <time>Quando o runtime descobrir ou mapeares grupos, este passo passa a ficar disponivel.</time>
+                </div>
+              `
+          }
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-12">
+          <div class="card-header">
+            <h3>Passo 3. Confirmar e distribuir</h3>
+            ${renderUiBadge({
+              label: selectedAsset && selectedGroups.length > 0 ? 'Pronto a testar' : 'Faltam escolhas',
+              tone: selectedAsset && selectedGroups.length > 0 ? 'positive' : 'warning',
+            })}
+          </div>
+          <div class="content-grid">
+            <div class="span-5">
+              <div class="ui-form-grid">
+                ${renderUiTextAreaField({
+                  label: 'Caption para distribuir',
+                  value: draft.caption,
+                  dataKey: 'media.caption',
+                  rows: 4,
+                  placeholder: 'Ex.: Video da coreografia final. Confirmem rececao no grupo.',
+                  hint: 'Podes reaproveitar a caption original ou ajustar o texto para esta distribuicao.',
+                })}
+              </div>
+            </div>
+            <div class="span-7">
+              <div class="guide-preview">
+                <p><strong>Video</strong>: ${escapeHtml(
+                  selectedAsset?.caption ?? (selectedAsset ? `${readableMediaType(selectedAsset.mediaType)} sem caption` : 'Escolhe primeiro um video'),
+                )}</p>
+                <p><strong>Origem</strong>: ${escapeHtml(
+                  selectedAsset ? readableSourceChat(selectedAsset.sourceChatJid) : 'Sem origem selecionada',
+                )}</p>
+                <p><strong>Caption final</strong>: ${escapeHtml(draft.caption || 'Sem caption adicional. O asset vai seguir sem texto extra.')}</p>
+                <p><strong>Grupos alvo</strong>: ${escapeHtml(
+                  selectedGroups.length > 0
+                    ? selectedGroups.map((group) => group.preferredSubject).join(', ')
+                    : 'Ainda nao escolheste grupos.',
+                )}</p>
+              </div>
+              <div class="action-row">
+                ${renderUiActionButton({
+                  label: 'Criar dry run',
+                  dataAttributes: { 'flow-action': 'media-distribute-dry-run' },
+                })}
+                ${renderUiActionButton({
+                  label: 'Distribuir agora',
+                  variant: 'secondary',
+                  dataAttributes: { 'flow-action': 'media-distribute-confirmed' },
+                })}
+                ${renderUiActionButton({
+                  label: 'Limpar fluxo',
+                  variant: 'secondary',
+                  dataAttributes: { 'flow-action': 'media-clear' },
+                })}
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-12">
+          <div class="card-header">
+            <div>
+              <h3>Estado de entrega por grupo</h3>
+              <p>Visao recente das distribuicoes de media, com estados por grupo para perceber logo o que entregou e o que falhou.</p>
+            </div>
+            ${renderUiBadge({
+              label: `${recentInstructions.length} run${recentInstructions.length === 1 ? '' : 's'}`,
+              tone: recentInstructions.length > 0 ? 'positive' : 'warning',
+            })}
+          </div>
+          ${
+            recentInstructions.length > 0
+              ? `
+                <div class="card-grid">
+                  ${recentInstructions
+                    .map((instruction) => {
+                      const payload = readMediaInstructionPayload(instruction);
+                      const asset = payload ? assets.find((candidate) => candidate.assetId === payload.assetId) ?? null : null;
+
+                      return renderUiRecordCard({
+                        title: payload?.caption ?? asset?.caption ?? 'Distribuicao de video sem caption',
+                        subtitle: `${instruction.mode === 'confirmed' ? 'Envio confirmado' : 'Dry run'} • ${formatShortDateTime(instruction.updatedAt)}`,
+                        badgeLabel: instruction.status,
+                        badgeTone: toneFromDistribution(instruction.status),
+                        chips: [
+                          {
+                            label: `${instruction.actions.length} grupos`,
+                            tone: 'neutral',
+                          },
+                          {
+                            label: asset ? readableMediaType(asset.mediaType) : 'Media',
+                            tone: 'positive',
+                          },
+                        ],
+                        bodyHtml: `
+                          <ul>
+                            ${instruction.actions
+                              .map((action) => {
+                                const targetGroup = groups.find((group) => group.groupJid === action.targetGroupJid);
+                                const label =
+                                  targetGroup?.preferredSubject ??
+                                  ((action.payload as { readonly targetLabel?: unknown } | undefined)?.targetLabel as string | undefined) ??
+                                  action.targetGroupJid ??
+                                  'Grupo sem nome';
+                                return `<li><strong>${escapeHtml(label)}</strong> - ${escapeHtml(readableInstructionActionStatus(action.status))}${action.lastError ? ` (${escapeHtml(action.lastError)})` : ''}</li>`;
+                              })
+                              .join('')}
+                          </ul>
+                        `,
+                        detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
+                        detailsHtml: this.state.advancedDetailsEnabled
+                          ? `
+                              <p>Instruction ID: ${escapeHtml(instruction.instructionId)}</p>
+                              <p>Asset ID: ${escapeHtml(payload?.assetId ?? 'desconhecido')}</p>
+                              <p>Source message: ${escapeHtml(instruction.sourceMessageId ?? 'manual')}</p>
+                            `
+                          : undefined,
+                      });
+                    })
+                    .join('')}
+                </div>
+              `
+              : `
+                <div class="timeline-item">
+                  <strong>Sem distribuicoes de media ainda</strong>
+                  <time>Assim que criares um dry run ou um envio confirmado, esta vista passa a mostrar o estado por grupo.</time>
                 </div>
               `
           }
@@ -2642,6 +2888,32 @@ export class AppShell {
         };
         this.render();
         return;
+      case 'media.assetId': {
+        const page = this.readMediaPageData();
+        const asset = page?.data.assets.find((candidate) => candidate.assetId === value) ?? null;
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          mediaDistributionDraft: {
+            ...this.state.mediaDistributionDraft,
+            assetId: value || null,
+            caption: asset?.caption ?? '',
+          },
+        };
+        this.render();
+        return;
+      }
+      case 'media.caption':
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          mediaDistributionDraft: {
+            ...this.state.mediaDistributionDraft,
+            caption: value,
+          },
+        };
+        this.render();
+        return;
       case 'group.instructions':
       case 'group.previewText':
         this.state = {
@@ -2824,6 +3096,174 @@ export class AppShell {
       return;
     }
 
+    if (action === 'media-select-asset' && value) {
+      const page = this.readMediaPageData();
+      const asset = page?.data.assets.find((candidate) => candidate.assetId === value) ?? null;
+
+      this.state = {
+        ...this.state,
+        flowFeedback: asset
+          ? {
+              tone: 'positive',
+              message: `${readableMediaType(asset.mediaType)} carregado no fluxo guiado para distribuicao.`,
+            }
+          : null,
+        mediaDistributionDraft: {
+          ...this.state.mediaDistributionDraft,
+          assetId: value,
+          caption: asset?.caption ?? '',
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'media-toggle-group' && value) {
+      const page = this.readMediaPageData();
+
+      if (!page || !page.data.groups.some((group) => group.groupJid === value)) {
+        return;
+      }
+
+      const nextTargetGroupJids = this.state.mediaDistributionDraft.targetGroupJids.includes(value)
+        ? this.state.mediaDistributionDraft.targetGroupJids.filter((groupJid) => groupJid !== value)
+        : dedupeStringList([...this.state.mediaDistributionDraft.targetGroupJids, value]);
+
+      this.state = {
+        ...this.state,
+        flowFeedback: null,
+        mediaDistributionDraft: {
+          ...this.state.mediaDistributionDraft,
+          targetGroupJids: nextTargetGroupJids,
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'media-toggle-all-groups') {
+      const page = this.readMediaPageData();
+
+      if (!page) {
+        return;
+      }
+
+      const allGroupJids = page.data.groups.map((group) => group.groupJid);
+      const allSelected =
+        allGroupJids.length > 0 &&
+        allGroupJids.every((groupJid) => this.state.mediaDistributionDraft.targetGroupJids.includes(groupJid));
+
+      this.state = {
+        ...this.state,
+        flowFeedback: null,
+        mediaDistributionDraft: {
+          ...this.state.mediaDistributionDraft,
+          targetGroupJids: allSelected ? [] : allGroupJids,
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'media-clear') {
+      const page = this.readMediaPageData();
+      this.state = {
+        ...this.state,
+        mediaDistributionDraft: page
+          ? resolveMediaDistributionDraft(createEmptyMediaDistributionDraft(), page.data.assets, page.data.groups)
+          : createEmptyMediaDistributionDraft(),
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'Fluxo de video limpo. Podes escolher outro asset e outro conjunto de grupos.',
+        },
+      };
+      this.recordUxEvent('neutral', 'Fluxo de distribuicao de video limpo.');
+      this.render();
+      return;
+    }
+
+    if (action === 'media-distribute-dry-run' || action === 'media-distribute-confirmed') {
+      const page = this.readMediaPageData();
+
+      if (!page) {
+        return;
+      }
+
+      const draft = resolveMediaDistributionDraft(this.state.mediaDistributionDraft, page.data.assets, page.data.groups);
+      const asset = page.data.assets.find((candidate) => candidate.assetId === draft.assetId) ?? null;
+
+      if (!asset) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message: 'Escolhe primeiro o video recebido antes de tentares distribuir.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      if (draft.targetGroupJids.length === 0) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message: 'Escolhe pelo menos um grupo antes de criar o dry run ou o envio real.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      const mode = action === 'media-distribute-confirmed' ? 'confirmed' : 'dry_run';
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message:
+            mode === 'confirmed'
+              ? 'A criar um envio real deste video para os grupos escolhidos.'
+              : 'A criar um dry run deste video para rever a distribuicao.',
+        },
+      };
+      this.render();
+
+      try {
+        const result = await this.currentClient().createDistribution({
+          sourceMessageId: `manual-media-${Date.now()}`,
+          assetId: asset.assetId,
+          caption: draft.caption,
+          targetGroupJids: draft.targetGroupJids,
+          mode,
+        });
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'positive',
+            message:
+              result.instruction.mode === 'confirmed'
+                ? `Video colocado em distribuicao real para ${result.plan.targetCount} grupos.`
+                : `Dry run deste video criado para ${result.plan.targetCount} grupos.`,
+          },
+        };
+        this.recordUxEvent('positive', `Distribuicao de video ${result.instruction.instructionId} criada.`);
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel criar a distribuicao de video. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
     if (action === 'distribution-save') {
       const page = this.readRoutingPageData();
 
@@ -2956,6 +3396,16 @@ export class AppShell {
     const page = this.state.page as UiPage<RoutingConsoleSnapshot> | null;
 
     if (!page || page.route !== '/distributions') {
+      return null;
+    }
+
+    return page;
+  }
+
+  private readMediaPageData(): UiPage<MediaLibraryPageData> | null {
+    const page = this.state.page as UiPage<MediaLibraryPageData> | null;
+
+    if (!page || page.route !== '/media') {
       return null;
     }
 
@@ -4136,6 +4586,14 @@ function createEmptyScheduleDraft(): GuidedScheduleDraft {
   };
 }
 
+function createEmptyMediaDistributionDraft(): GuidedMediaDistributionDraft {
+  return {
+    assetId: null,
+    caption: '',
+    targetGroupJids: [],
+  };
+}
+
 function mapScheduleEventToDraft(
   event: Pick<WeekPlannerSnapshot['events'][number], 'eventId' | 'groupJid' | 'title' | 'dayLabel' | 'startTime' | 'durationMinutes' | 'notes'>,
 ): GuidedScheduleDraft {
@@ -4203,6 +4661,27 @@ function resolveDistributionDraft(
     messageSummary: draft.messageSummary,
     urgency: draft.urgency,
     confirmationMode: draft.confirmationMode,
+  };
+}
+
+function resolveMediaDistributionDraft(
+  draft: GuidedMediaDistributionDraft,
+  assets: readonly MediaAssetSnapshot[],
+  groups: readonly Group[],
+): GuidedMediaDistributionDraft {
+  const preferredAssets = assets.filter((asset) => asset.mediaType === 'video');
+  const availableAssets = preferredAssets.length > 0 ? preferredAssets : assets;
+  const selectedAsset =
+    availableAssets.find((asset) => asset.assetId === draft.assetId) ??
+    assets.find((asset) => asset.assetId === draft.assetId) ??
+    availableAssets[0] ??
+    null;
+  const knownGroupJids = new Set(groups.map((group) => group.groupJid));
+
+  return {
+    assetId: selectedAsset?.assetId ?? null,
+    caption: draft.caption.trim().length > 0 ? draft.caption : selectedAsset?.caption ?? '',
+    targetGroupJids: dedupeStringList(draft.targetGroupJids.filter((groupJid) => knownGroupJids.has(groupJid))),
   };
 }
 
@@ -4331,6 +4810,10 @@ function toneForSessionPhase(phase: WhatsAppWorkspaceSnapshot['runtime']['sessio
 function shouldAutoRefreshRoute(route: string, topic: string): boolean {
   if (topic.startsWith('media.')) {
     return route === '/media' || route === '/whatsapp';
+  }
+
+  if (topic.startsWith('routing.') || topic.startsWith('instruction.')) {
+    return route === '/media' || route === '/distributions' || route === '/today';
   }
 
   if (topic.startsWith('whatsapp.')) {
@@ -4557,6 +5040,45 @@ function readableMediaType(mediaType: MediaAssetSnapshot['mediaType']): string {
       return 'Audio';
     default:
       return 'Media';
+  }
+}
+
+function readMediaInstructionPayload(
+  instruction: Instruction,
+): { readonly assetId: string; readonly caption: string | null } | null {
+  const payload = instruction.actions.find((action) => {
+    const candidate = action.payload as { readonly kind?: unknown } | undefined;
+    return candidate?.kind === 'media';
+  })?.payload as
+    | {
+        readonly kind?: unknown;
+        readonly assetId?: unknown;
+        readonly caption?: unknown;
+      }
+    | undefined;
+
+  if (payload?.kind !== 'media' || typeof payload.assetId !== 'string' || !payload.assetId.trim()) {
+    return null;
+  }
+
+  return {
+    assetId: payload.assetId.trim(),
+    caption: typeof payload.caption === 'string' && payload.caption.trim() ? payload.caption.trim() : null,
+  };
+}
+
+function readableInstructionActionStatus(status: Instruction['actions'][number]['status']): string {
+  switch (status) {
+    case 'pending':
+      return 'pendente';
+    case 'running':
+      return 'a enviar';
+    case 'completed':
+      return 'entregue';
+    case 'failed':
+      return 'falhou';
+    case 'skipped':
+      return 'ignorado';
   }
 }
 

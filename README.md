@@ -243,6 +243,12 @@ O inbound live de media recebida tambem ja esta fechado com:
   - envio live por `sendMedia()`
   - retry apenas dos grupos falhados
   - auditoria por alvo na `instruction-queue`
+- fluxo guiado na pagina `Media` para:
+  - escolher o video recebido
+  - selecionar grupos manualmente
+  - criar `dry_run`
+  - disparar envio confirmado
+  - rever estado por grupo
 
 Neste momento:
 
@@ -276,8 +282,8 @@ Neste momento:
   - `Wave 25` a `Wave 29` para instrucoes LLM e knowledge base por grupo
   - objetivo: separar storage canonico de policy, instrucoes LLM e conhecimento documental local por grupo e fechar o uso live auditavel dessa memoria
 - ronda seguinte prevista:
-  - `Wave 33` a `Wave 34` para fechar a UX de distribuicao multi-grupo de media e a limpeza final da ronda
-  - objetivo: usar a biblioteca canonica ja existente para um fluxo guiado simples no frontend
+  - `Wave 34` para limpeza final da ronda de media distribuida
+  - objetivo: podar residuos tecnicos e deixar docs/comandos alinhados ao fluxo final
 - regra de processo:
   - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
 - o runtime `Live` atual fica tratado como estado canonico do produto neste scope
