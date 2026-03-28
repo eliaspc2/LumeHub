@@ -2351,7 +2351,7 @@ export class AppShell {
 
         <article class="surface content-card span-12">
           <div class="card-header">
-            <h3>Grupos, group owners e ACL do calendario</h3>
+            <h3>Grupos, responsaveis e acesso ao calendario</h3>
             ${renderUiBadge({ label: 'Gestao visual direta', tone: 'positive' })}
           </div>
           <div class="card-grid">
@@ -2360,17 +2360,26 @@ export class AppShell {
                 (group) => `
                   ${renderUiRecordCard({
                     title: group.preferredSubject,
-                    subtitle: group.ownerLabels.join(', ') || 'Sem owner definido',
+                    subtitle: group.ownerLabels.join(', ') || 'Sem responsavel definido',
                     badgeLabel: group.assistantAuthorized ? 'Assistente ativo' : 'Acesso bloqueado',
                     badgeTone: group.assistantAuthorized ? 'positive' : 'warning',
                     chips: [
-                      { label: `Grupo ${group.calendarAccessPolicy.group}`, tone: 'positive' },
-                      { label: `Owner ${group.calendarAccessPolicy.groupOwner}`, tone: 'warning' },
-                      { label: `App ${group.calendarAccessPolicy.appOwner}`, tone: 'neutral' },
+                      {
+                        label: `${readableCalendarScopeLabel('group')}: ${readableCalendarAccessMode(group.calendarAccessPolicy.group)}`,
+                        tone: toneForCalendarAccessMode(group.calendarAccessPolicy.group),
+                      },
+                      {
+                        label: `${readableCalendarScopeLabel('groupOwner')}: ${readableCalendarAccessMode(group.calendarAccessPolicy.groupOwner)}`,
+                        tone: toneForCalendarAccessMode(group.calendarAccessPolicy.groupOwner),
+                      },
+                      {
+                        label: `${readableCalendarScopeLabel('appOwner')}: ${readableCalendarAccessMode(group.calendarAccessPolicy.appOwner)}`,
+                        tone: toneForCalendarAccessMode(group.calendarAccessPolicy.appOwner),
+                      },
                     ],
                     bodyHtml: `
                       <div class="ui-card__content">
-                        <p><strong>Owners atuais</strong>: ${escapeHtml(group.ownerLabels.join(', ') || 'nenhum')}</p>
+                        <p><strong>Responsaveis atuais</strong>: ${escapeHtml(group.ownerLabels.join(', ') || 'nenhum')}</p>
                         <div class="action-row">
                           ${renderUiActionButton({
                             label: group.assistantAuthorized ? 'Bloquear grupo' : 'Autorizar grupo',
@@ -2382,7 +2391,7 @@ export class AppShell {
                           })}
                           ${group.ownerPersonIds.length > 0
                             ? renderUiActionButton({
-                                label: 'Limpar owners',
+                                label: 'Limpar responsaveis',
                                 variant: 'secondary',
                                 dataAttributes: {
                                   'whatsapp-action': 'clear-group-owners',
@@ -2411,10 +2420,14 @@ export class AppShell {
                             )
                             .join('')}
                         </div>
-                        <div class="ui-form-grid ui-form-grid--triple">
-                          ${renderWhatsAppAclField(group.groupJid, 'group', group.calendarAccessPolicy.group, 'Acesso do grupo')}
-                          ${renderWhatsAppAclField(group.groupJid, 'groupOwner', group.calendarAccessPolicy.groupOwner, 'Acesso do owner')}
-                          ${renderWhatsAppAclField(group.groupJid, 'appOwner', group.calendarAccessPolicy.appOwner, 'Acesso do app owner')}
+                        <div class="acl-access-note">
+                          <strong>Quem pode mexer neste calendario</strong>
+                          <p><strong>So ver</strong> deixa consultar o calendario. <strong>Ver e editar</strong> deixa criar, alterar ou apagar eventos deste grupo.</p>
+                        </div>
+                        <div class="acl-access-grid">
+                          ${renderWhatsAppAclField(group.groupJid, 'group', group.calendarAccessPolicy.group)}
+                          ${renderWhatsAppAclField(group.groupJid, 'groupOwner', group.calendarAccessPolicy.groupOwner)}
+                          ${renderWhatsAppAclField(group.groupJid, 'appOwner', group.calendarAccessPolicy.appOwner)}
                         </div>
                       </div>
                     `,
@@ -5486,21 +5499,33 @@ function renderWhatsAppAclField(
   groupJid: string,
   scope: CalendarAccessScope,
   currentValue: CalendarAccessMode,
-  label: string,
 ): string {
   return `
-    <label class="ui-field">
-      <span class="ui-field__label">${escapeHtml(label)}</span>
-      <select
-        class="ui-control"
-        data-whatsapp-acl-group-jid="${escapeHtml(groupJid)}"
-        data-whatsapp-acl-scope="${escapeHtml(scope)}"
-      >
-        <option value="read"${currentValue === 'read' ? ' selected' : ''}>Leitura</option>
-        <option value="read_write"${currentValue === 'read_write' ? ' selected' : ''}>Leitura e escrita</option>
-      </select>
-      <span class="ui-field__hint">${escapeHtml(describeCalendarScope(scope))}</span>
-    </label>
+    <div class="acl-access-card acl-access-card--${escapeHtml(currentValue)}">
+      <div class="acl-access-card__header">
+        <div class="acl-access-card__copy">
+          <span class="ui-field__label">${escapeHtml(readableCalendarScopeLabel(scope))}</span>
+          <p class="acl-access-card__summary">${escapeHtml(describeCalendarScope(scope))}</p>
+        </div>
+        ${renderUiBadge({
+          label: readableCalendarAccessMode(currentValue),
+          tone: toneForCalendarAccessMode(currentValue),
+          style: 'chip',
+        })}
+      </div>
+      <label class="ui-field">
+        <span class="ui-field__label">Nivel de acesso</span>
+        <select
+          class="ui-control"
+          data-whatsapp-acl-group-jid="${escapeHtml(groupJid)}"
+          data-whatsapp-acl-scope="${escapeHtml(scope)}"
+        >
+          <option value="read"${currentValue === 'read' ? ' selected' : ''}>So ver</option>
+          <option value="read_write"${currentValue === 'read_write' ? ' selected' : ''}>Ver e editar</option>
+        </select>
+        <span class="ui-field__hint">${escapeHtml(describeCalendarAccessModeHint(currentValue))}</span>
+      </label>
+    </div>
   `;
 }
 
@@ -5552,7 +5577,28 @@ function isCalendarAccessMode(value: string): value is CalendarAccessMode {
 }
 
 function readableCalendarAccessMode(value: CalendarAccessMode): string {
-  return value === 'read_write' ? 'leitura e escrita' : 'leitura';
+  return value === 'read_write' ? 'ver e editar' : 'so ver';
+}
+
+function toneForCalendarAccessMode(value: CalendarAccessMode): UiTone {
+  return value === 'read_write' ? 'positive' : 'neutral';
+}
+
+function readableCalendarScopeLabel(scope: CalendarAccessScope): string {
+  switch (scope) {
+    case 'group':
+      return 'Pessoas normais do grupo';
+    case 'groupOwner':
+      return 'Responsavel deste grupo';
+    case 'appOwner':
+      return 'Administrador da app';
+  }
+}
+
+function describeCalendarAccessModeHint(value: CalendarAccessMode): string {
+  return value === 'read_write'
+    ? 'Pode consultar, criar, alterar e apagar eventos neste calendario.'
+    : 'Pode consultar o calendario, mas nao consegue alterar eventos.';
 }
 
 function readableMediaType(mediaType: MediaAssetSnapshot['mediaType']): string {
@@ -5649,11 +5695,11 @@ function formatFileSize(value: number): string {
 function describeCalendarScope(scope: CalendarAccessScope): string {
   switch (scope) {
     case 'group':
-      return 'Define se o grupo pode apenas ver ou tambem editar o calendario.';
+      return 'Permissao para quem participa neste grupo sem ser responsavel.';
     case 'groupOwner':
-      return 'Define o nivel de acesso do owner deste grupo ao calendario.';
+      return 'Permissao para a pessoa responsavel por este grupo.';
     case 'appOwner':
-      return 'Define o acesso global do app owner ao calendario deste grupo.';
+      return 'Permissao para o administrador global do LumeHub neste grupo.';
   }
 }
 

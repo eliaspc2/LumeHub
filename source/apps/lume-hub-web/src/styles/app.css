@@ -688,6 +688,65 @@ textarea {
   line-height: 1.5;
 }
 
+.acl-access-note {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+  background: var(--surface-subtle);
+}
+
+.acl-access-note strong {
+  color: var(--ink-strong);
+}
+
+.acl-access-note p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+.acl-access-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.acl-access-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.acl-access-card--read_write {
+  border-color: rgba(105, 138, 87, 0.24);
+  background: linear-gradient(180deg, #ffffff 0%, #f6fbf3 100%);
+}
+
+.acl-access-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.acl-access-card__copy {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.acl-access-card__summary {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  font-size: 0.92rem;
+}
+
 .ui-control {
   width: 100%;
   min-height: 48px;
@@ -1288,6 +1347,10 @@ textarea {
 
   .status-strip {
     justify-content: flex-start;
+  }
+
+  .acl-access-grid {
+    grid-template-columns: 1fr;
   }
 }
 
