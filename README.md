@@ -197,9 +197,9 @@ O ponto importante e este: o projeto deve gerir o mesmo ficheiro live que o Code
 5. O container `LXD` consome apenas o artefacto publicado, nao o source tree inteiro como local de edicao.
 6. Dados persistentes do runtime ficam separados do source.
 
-Na `Wave 12`, o fluxo canónico passa por:
+O fluxo canónico de release passa por:
 
-- `pnpm run validate:wave12`
+- `pnpm run validate:release`
 - backend publicado em `runtime/lxd/host-mounts/app-release/current/`
 - bundle versionado em `runtime/lxd/release-bundles/`
 - host companion publicado em `runtime/host/current/`
@@ -217,7 +217,7 @@ Na `Wave 12`, o fluxo canónico passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 23` ja foram executadas e validadas.
+As `Wave 0` a `Wave 24` ja foram executadas e validadas.
 Neste momento:
 
 - o frontend operacional das `Wave 13` a `Wave 16` ficou fechado
@@ -241,8 +241,11 @@ Neste momento:
   - launcher com readiness, phase, ultimo tick e sinais WhatsApp
   - checklist de operacao real em `docs/deployment/lume_hub_live_cutover_checklist.md`
   - malha minima de regressao com testes unit, integration e e2e
-- o backlog restante ficou agora concentrado na `Wave 24`
-- essa wave foca limpeza final da ronda
+- a `Wave 24` fechou:
+  - limpeza final da ronda de runtime real
+  - poda dos validadores historicos supersedidos
+  - simplificacao dos comandos operacionais para release e validacao final
+  - alinhamento final de docs e backlog ao estado real
 - regra de processo:
   - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
-- o objetivo explicito desta nova ronda e chegar a runtime `Live` funcional como substituicao do sistema anterior
+- o runtime `Live` atual fica tratado como estado canonico do produto neste scope

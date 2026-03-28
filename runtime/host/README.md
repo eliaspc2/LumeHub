@@ -30,7 +30,7 @@ Guardar e preparar o lado host do projeto, separado do source tree e separado do
 - ownership do mesmo ficheiro OAuth live usado pelo Codex
 - publicar heartbeat para `runtime/lxd/host-mounts/data/runtime/host-state.json`
 
-## Artefactos da Wave 12
+## Artefactos da release
 
 - `current/bin/lume-hub-host`
   - entrypoint publicado para o host

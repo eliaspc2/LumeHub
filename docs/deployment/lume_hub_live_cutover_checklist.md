@@ -12,7 +12,7 @@ Objetivo:
 - correr em `source/`:
   - `corepack pnpm run typecheck`
   - `corepack pnpm run build`
-  - `corepack pnpm run validate:wave23`
+  - `corepack pnpm run validate:wave24`
 - abrir o launcher `LumeHub`
 - validar `KubuntuLTS/scripts/lumehub-launch.sh status`
   - `runtime running`

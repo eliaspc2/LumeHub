@@ -6,16 +6,16 @@ import { dirname, join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { packageWave12 } from './package-wave12.mjs';
+import { packageRelease } from './package-release.mjs';
 
 const SOURCE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO_ROOT = resolve(SOURCE_ROOT, '..');
 
-const sandboxPath = await mkdtemp(join(tmpdir(), 'lume-hub-wave12-'));
+const sandboxPath = await mkdtemp(join(tmpdir(), 'lume-hub-release-'));
 
 try {
   const runtimeRoot = resolve(sandboxPath, 'runtime');
-  const result = await packageWave12({
+  const result = await packageRelease({
     repoRoot: REPO_ROOT,
     sourceRoot: SOURCE_ROOT,
     runtimeRoot,
@@ -49,7 +49,7 @@ try {
 
   const authFilePath = resolve(sandboxPath, 'auth', 'auth.json');
   await mkdir(dirname(authFilePath), { recursive: true });
-  await writeFile(authFilePath, '{"account":"validation","token":"wave12"}\n', 'utf8');
+  await writeFile(authFilePath, '{"account":"validation","token":"release"}\n', 'utf8');
 
   const hostProcess = spawn(result.host.entrypointPath, {
     cwd: result.host.stagePath,
@@ -71,7 +71,7 @@ try {
   const serviceContents = await readFile(result.host.servicePath, 'utf8');
   assert.equal(serviceContents.includes(result.host.entrypointPath), true);
 
-  console.log(`Wave 12 validation passed in ${sandboxPath}`);
+  console.log(`Release validation passed in ${sandboxPath}`);
 } finally {
   await rm(sandboxPath, { recursive: true, force: true });
 }

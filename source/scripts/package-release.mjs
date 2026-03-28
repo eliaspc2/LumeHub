@@ -11,7 +11,7 @@ const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const SOURCE_ROOT = resolve(dirname(SCRIPT_PATH), '..');
 const DEFAULT_REPO_ROOT = resolve(SOURCE_ROOT, '..');
 
-export async function packageWave12(options = {}) {
+export async function packageRelease(options = {}) {
   const repoRoot = options.repoRoot ?? DEFAULT_REPO_ROOT;
   const sourceRoot = options.sourceRoot ?? resolve(repoRoot, 'source');
   const runtimeRoot = options.runtimeRoot ?? resolve(repoRoot, 'runtime');
@@ -364,7 +364,7 @@ async function createTarballFromStage(stagePath, bundleFilePath, bundleRootName)
   await mkdir(dirname(bundleFilePath), { recursive: true });
   await rm(bundleFilePath, { force: true });
 
-  const temporaryRoot = await mkdtemp(join(tmpdir(), 'lume-hub-wave12-bundle-'));
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'lume-hub-release-bundle-'));
   const bundleRootPath = resolve(temporaryRoot, bundleRootName);
 
   try {
@@ -418,7 +418,7 @@ async function populateRuntimeNodeModules(stagePath, sourceRoot) {
     }
   }
 
-  const workspaceRequire = createRequire(resolve(sourceRoot, 'scripts', 'package-wave12.mjs'));
+  const workspaceRequire = createRequire(resolve(sourceRoot, 'scripts', 'package-release.mjs'));
   const visitedDependencies = new Set();
 
   for (const dependencyName of externalDependencies) {
@@ -534,7 +534,7 @@ async function resolveReleaseId(repoRoot) {
 }
 
 async function main() {
-  const result = await packageWave12();
+  const result = await packageRelease();
   console.log(JSON.stringify(result, null, 2));
 }
 

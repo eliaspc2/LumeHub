@@ -10,19 +10,10 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 23` ja foram executadas e validadas.
-O backlog restante continua organizado em waves de fecho para runtime real.
+As `Wave 0` a `Wave 24` ja foram executadas e validadas.
+Nao ha waves ativas neste momento.
 
-As waves ativas passam a ser:
-
-- `Wave 24`
-
-Objetivo desta nova ronda:
-
-- fechar a ronda de runtime real com robustez suficiente para uso serio
-- chegar a cutover operacional e limpeza final sem lixo tecnico
-
-## Regras de leitura
+## Como reabrir uma ronda
 
 Antes de abrir uma wave nova, ler:
 
@@ -32,31 +23,6 @@ Antes de abrir uma wave nova, ler:
 4. `/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_modular_implementation_spec.md`
 5. este ficheiro
 6. `/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_gap_audit.md`
-
-## Pontos que continuam fechados
-
-1. timezone explicita
-   - default `Europe/Lisbon`
-   - guardada em settings e visivel na UI
-2. schema version por ficheiro de calendario por grupo
-   - cada `calendar/YYYY-MM.json` inclui `schemaVersion`
-3. escrita atomica e lock
-   - nao escrever ficheiros canonicos diretamente sem lock
-4. reconciliacao apos restart
-   - jobs em `waiting_confirmation` devem ser revistos no arranque
-5. supressao granular
-   - deve ser possivel desativar um aviso sem apagar o evento base
-6. cleanup com arquivo
-   - eventos/avisos passados saem da vista ativa com politica clara de arquivo
-7. heartbeat entre `lume-hub-backend` e `lume-hub-host`
-8. modo de teste
-   - deve existir forma de testar entregas sem mexer na regra real de producao
-9. escala multi-grupo
-   - nao assumir um conjunto pequeno fixo de grupos
-10. fan-out por pessoa/remetente
-11. idempotencia por `mensagem origem + grupo destino`
-12. falha parcial controlada
-13. ACL explicita do calendario com `group`, `group_owner` e `app_owner`
 
 ## Regra para waves futuras
 
@@ -85,40 +51,7 @@ Se tocar backend, HTTP, WS ou runtime:
 - smoke test dedicado da wave
 - validar que a UI continua a abrir e a consumir a API esperada
 
-## Waves ativas
-
-## Wave 24 - Limpeza final da ronda de runtime real
-
-Objetivo:
-- fechar a ronda `Wave 18` a `Wave 23` sem lixo tecnico nem documental
-
-Entregaveis:
-- remocao de stubs, adaptadores temporarios e validadores supersedidos pela ronda
-- poda de notas, docs e backlog que tenham ficado ultrapassados
-- limpeza de wiring temporario que tenha sido usado para migrar entre fases
-- alinhamento final de `README.md`, `AGENTS.md`, `gap_audit` e plano de waves ao estado real
-
-Criterios de aceitacao:
-- o repositorio fica sem restos de transicao desnecessarios desta ronda
-- o backlog final descreve apenas o que continuar realmente por fazer
-- a documentacao principal descreve o sistema resultante e nao o caminho intermedio
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run test`
-- `corepack pnpm run validate:wave24`
-
-Melhor momento para testar:
-- testar aqui a regressao final depois do cutover, para confirmar que a limpeza nao retirou nada importante
-
-O que testar:
-- arranque normal do produto em `Live`
-- repeticao rapida dos fluxos principais das `Wave 18` a `Wave 23`
-- verificacao da documentacao principal e do launcher
-- confirmacao de que o repositorio ficou mais claro e nao mais opaco
-
-## Fora de scope destas waves
+## Fora de scope por defeito
 
 - reintroduzir `alerts` e `automations` no workspace
 

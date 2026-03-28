@@ -64,7 +64,7 @@ test('live cutover pages mount cleanly with real backend data', async () => {
             dayLabel: 'sexta-feira',
             startTime: '18:30',
             durationMinutes: 75,
-            notes: 'Sessao criada no teste e2e da Wave 23.',
+            notes: 'Sessao criada no teste e2e de cutover live.',
             timeZone: 'Europe/Lisbon',
           },
         }),

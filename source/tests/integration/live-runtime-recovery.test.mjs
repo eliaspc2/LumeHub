@@ -68,7 +68,7 @@ test('live runtime persists diagnostics and recovers across reconnect and restar
     assert.equal(diagnosticsBeforeReconnect.readiness.ready, true);
     assert.equal(diagnosticsBeforeReconnect.moduleGraph.loadOrder.length > 0, true);
 
-    socketCoordinator.latestSocket.closeWithReason(500, 'Transient reconnect for Wave 23');
+    socketCoordinator.latestSocket.closeWithReason(500, 'Transient reconnect during runtime recovery validation');
     await waitUntil(() => socketCoordinator.sockets.length >= 2);
     socketCoordinator.latestSocket.openSession();
 

@@ -28,7 +28,7 @@ O desenho ideal deste projeto inclui um `host companion` fora do container.
 ## Fluxo operacional esperado
 
 1. o source tree gera build
-2. `pnpm run validate:wave12` valida e publica o backend para:
+2. `pnpm run validate:release` valida e publica o backend para:
    - `release-bundles/`
    - `host-mounts/app-release/current/`
 3. o container arranca a partir do artefacto publicado
@@ -52,7 +52,7 @@ Idealmente, quem o gere e o `lume-hub-host` no host, nao o backend dentro do con
 Nao editar o codigo publicado aqui manualmente.
 Se houver uma alteracao, ela deve acontecer em `source/` e voltar a ser publicada.
 
-## Artefactos da Wave 12
+## Artefactos da release
 
 - `host-mounts/app-release/current/bin/lume-hub-backend`
   - entrypoint publicado para o container

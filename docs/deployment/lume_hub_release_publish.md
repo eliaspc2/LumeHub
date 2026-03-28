@@ -1,13 +1,13 @@
 # Lume Hub Release Publish Guide
 
-Guia canonico da `Wave 12` para gerar e publicar os artefactos do `Lume Hub`.
+Guia canonico para gerar e publicar os artefactos do `Lume Hub`.
 
 ## Comando principal
 
 No source tree:
 
 ```bash
-PATH=/opt/node-v20-current/bin:$PATH /opt/node-v20-current/bin/corepack pnpm run validate:wave12
+PATH=/opt/node-v20-current/bin:$PATH /opt/node-v20-current/bin/corepack pnpm run validate:release
 ```
 
 Este comando faz:
@@ -61,7 +61,7 @@ Unit file de utilizador:
 
 ## Publicacao final recomendada
 
-1. Gerar a release com `pnpm run validate:wave12`.
+1. Gerar a release com `pnpm run validate:release`.
 2. Montar `runtime/lxd/host-mounts/app-release` em `/srv/lume-hub/app`.
 3. Montar `runtime/lxd/host-mounts/data` em `/srv/lume-hub/data`.
 4. Montar `runtime/lxd/host-mounts/logs` em `/srv/lume-hub/logs`.

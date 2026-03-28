@@ -52,6 +52,9 @@ Ponto de entrada para qualquer agente/LLM que trabalhe neste novo projeto.
   - apagar documentacao obsoleta
   - retirar artefactos, helpers e codigo morto que ja nao acrescentem valor
   - garantir que o repositorio fecha cada ronda mais limpo do que abriu
+- Quando nao houver waves ativas em `docs/architecture/lume_hub_implementation_waves.md`, nao ressuscitar waves antigas:
+  - abrir uma ronda nova apenas se existir backlog real novo
+  - manter o ficheiro de waves curto e sem historico concluido
 
 ## Regras sobre o legado
 
