@@ -16,6 +16,7 @@ import { CodexOauthLlmProvider } from '@lume-hub/llm-codex-oauth';
 import { OpenAiCompatLlmProvider } from '@lume-hub/llm-openai-compat';
 import {
   DeterministicLlmProvider,
+  LlmRunLogRepository,
   LlmOrchestratorModule,
   LlmProviderRegistry,
 } from '@lume-hub/llm-orchestrator';
@@ -27,8 +28,10 @@ import { ScheduleEventsModule } from '@lume-hub/schedule-events';
 import { ScheduleWeeksModule } from '@lume-hub/schedule-weeks';
 import { SystemPowerModule } from '@lume-hub/system-power';
 import { WatchdogModule } from '@lume-hub/watchdog';
+import { WeeklyPlannerModule } from '@lume-hub/weekly-planner';
 import { BaileysWhatsAppGateway } from '@lume-hub/whatsapp-baileys';
 import { WebSocketGateway } from '@lume-hub/ws-fastify';
+import { ConversationAuditRepository } from '@lume-hub/conversation';
 
 import type { BackendRuntimeModules } from './BackendRuntime.js';
 import { resolveBackendRuntimePaths, type BackendRuntimeConfig, type BackendRuntimePaths } from './BackendRuntimeConfig.js';
@@ -88,6 +91,15 @@ export class ModuleLoader {
       clock: this.config.clock,
       scheduleEventService: scheduleEventsModule.service,
       notificationRuleService: notificationRulesModule.service,
+    });
+    const weeklyPlannerModule = new WeeklyPlannerModule({
+      dataRootPath: paths.dataRootPath,
+      adminConfig: adminConfigModule,
+      groupDirectory: groupDirectoryModule,
+      notificationJobs: notificationJobsModule,
+      notificationRules: notificationRulesModule,
+      scheduleEvents: scheduleEventsModule,
+      scheduleWeeks: scheduleWeeksModule,
     });
     const instructionQueueModule = new InstructionQueueModule({
       dataRootPath: paths.dataRootPath,
@@ -229,6 +241,7 @@ export class ModuleLoader {
       scheduleEventsModule,
       notificationRulesModule,
       notificationJobsModule,
+      weeklyPlannerModule,
       instructionQueueModule,
       systemPowerModule,
       codexAuthRouterModule,
@@ -252,6 +265,7 @@ export class ModuleLoader {
         scheduleEventsModule,
         notificationRulesModule,
         notificationJobsModule,
+        weeklyPlannerModule,
         instructionQueueModule,
         systemPowerModule,
         codexAuthRouterModule,
@@ -278,6 +292,7 @@ export class ModuleLoader {
       scheduleEventsModule,
       notificationRulesModule,
       notificationJobsModule,
+      weeklyPlannerModule,
       instructionQueueModule,
       systemPowerModule,
       codexAuthRouterModule,
@@ -308,18 +323,37 @@ export class ModuleLoader {
       peopleMemory: peopleMemoryModule,
       uiEventPublisher: webSocketGateway.publisher,
     });
+    const conversationAuditRepository = new ConversationAuditRepository({
+      dataRootPath: paths.dataRootPath,
+    });
+    const llmRunLogRepository = new LlmRunLogRepository({
+      dataRootPath: paths.dataRootPath,
+    });
     const httpServer = new FastifyHttpServer({
       modules: {
         adminConfig: adminConfigModule,
         audienceRouting: audienceRoutingModule,
+        conversationLogs: {
+          readRecent: async (limit) => {
+            const audit = await conversationAuditRepository.read();
+            return audit.entries.slice(Math.max(0, audit.entries.length - (limit ?? 20))).reverse();
+          },
+        },
         codexAuthRouter: codexAuthRouterModule,
         groupDirectory: groupDirectoryModule,
         healthMonitor: healthMonitorModule,
         hostLifecycle: hostLifecycleModule,
         instructionQueue: instructionQueueModule,
+        llmLogs: {
+          readRecent: async (limit) => {
+            const log = await llmRunLogRepository.read();
+            return log.entries.slice(Math.max(0, log.entries.length - (limit ?? 20))).reverse();
+          },
+        },
         peopleMemory: peopleMemoryModule,
         systemPower: systemPowerModule,
         watchdog: watchdogModule,
+        weeklyPlanner: weeklyPlannerModule,
         whatsappRuntime: whatsAppWorkspaceRuntime,
         llmOrchestrator: llmOrchestratorModule,
       },

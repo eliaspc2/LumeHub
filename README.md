@@ -217,7 +217,7 @@ Na `Wave 12`, o fluxo canónico passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 21` ja foram executadas e validadas.
+As `Wave 0` a `Wave 22` ja foram executadas e validadas.
 Neste momento:
 
 - o frontend operacional das `Wave 13` a `Wave 16` ficou fechado
@@ -231,9 +231,12 @@ Neste momento:
   - `codex-auth-router` a preparar/reportar auth no provider OAuth
   - inbound WhatsApp ligado a `ConversationService`, reply policy e envio live
   - catalogo de modelos exposto em `/api/llm/models`
-- o backlog restante ficou agora em `Wave 22` a `Wave 24`
+- a `Wave 22` fechou:
+  - `weekly-planner` real no dominio
+  - `Semana` ligada ao backend real
+  - endpoints live para schedules, queue, logs, LLM e `send`
+- o backlog restante ficou agora em `Wave 23` e `Wave 24`
 - essas waves focam:
-  - API operacional completa
   - hardening e cutover
   - limpeza final da ronda
 - regra de processo:

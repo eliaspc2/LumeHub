@@ -20,12 +20,15 @@
     "@lume-hub/admin-config": "workspace:*",
     "@lume-hub/audience-routing": "workspace:*",
     "@lume-hub/codex-auth-router": "workspace:*",
+    "@lume-hub/conversation": "workspace:*",
     "@lume-hub/group-directory": "workspace:*",
     "@lume-hub/health-monitor": "workspace:*",
     "@lume-hub/host-lifecycle": "workspace:*",
     "@lume-hub/instruction-queue": "workspace:*",
+    "@lume-hub/llm-orchestrator": "workspace:*",
     "@lume-hub/people-memory": "workspace:*",
     "@lume-hub/system-power": "workspace:*",
-    "@lume-hub/watchdog": "workspace:*"
+    "@lume-hub/watchdog": "workspace:*",
+    "@lume-hub/weekly-planner": "workspace:*"
   }
 }

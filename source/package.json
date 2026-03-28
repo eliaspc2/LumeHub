@@ -34,7 +34,8 @@
     "validate:wave18": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave18.mjs",
     "validate:wave19": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave19.mjs",
     "validate:wave20": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave20.mjs",
-    "validate:wave21": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave21.mjs"
+    "validate:wave21": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave21.mjs",
+    "validate:wave22": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave22.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",

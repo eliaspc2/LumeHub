@@ -1,7 +1,10 @@
 import type {
   AdminSettings,
   CommandsPolicySettings,
+  ConversationAuditRecord,
   DashboardSnapshot,
+  DistributionExecutionResult,
+  DistributionPlan,
   DistributionSummary,
   FrontendApiRequest,
   FrontendApiResponse,
@@ -10,14 +13,22 @@ import type {
   Group,
   GroupCalendarAccessPolicy,
   GroupOwnerAssignmentInput,
+  Instruction,
+  LlmChatInput,
+  LlmChatResult,
+  LlmModelDescriptor,
+  LlmRunLogEntry,
   Person,
   PersonRole,
   SettingsSnapshot,
   SenderAudienceRule,
+  StatusSnapshot,
   WhatsAppWorkspaceSnapshot,
   WhatsAppConversationSummary,
   WhatsAppGroupSummary,
   WatchdogIssue,
+  WeeklyPlannerEventSummary,
+  WeeklyPlannerSnapshot,
 } from '@lume-hub/frontend-api-client';
 
 export type FrontendTransportMode = 'demo' | 'live';
@@ -239,6 +250,24 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       return this.ok(buildDashboardSnapshot(this.state));
     }
 
+    if (request.method === 'GET' && pathname === '/api/status') {
+      return this.ok(buildStatusSnapshot(this.state));
+    }
+
+    if (request.method === 'GET' && pathname === '/api/schedules') {
+      return this.ok(buildWeeklyPlannerSnapshot(this.state));
+    }
+
+    if (request.method === 'POST' && pathname === '/api/schedules') {
+      const schedule = upsertDemoSchedule(this.state, request.body as Record<string, unknown>);
+      this.emit('schedules.updated', {
+        eventId: schedule.eventId,
+        groupJid: schedule.groupJid,
+        weekId: schedule.weekId,
+      });
+      return this.ok(schedule);
+    }
+
     if (request.method === 'GET' && pathname === '/api/groups') {
       return this.ok(this.state.groups);
     }
@@ -251,12 +280,36 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       return this.ok(this.state.routingRules);
     }
 
+    if (request.method === 'POST' && pathname === '/api/routing/preview') {
+      return this.ok(buildDemoDistributionPlan(this.state, request.body as Record<string, unknown>));
+    }
+
     if (request.method === 'GET' && pathname === '/api/routing/distributions') {
       return this.ok(this.state.distributions);
     }
 
+    if (request.method === 'POST' && pathname === '/api/routing/distributions') {
+      const result = createDemoDistribution(this.state, request.body as Record<string, unknown>);
+      this.emit('routing.distribution.created', result.instruction);
+      return this.ok(result);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/instruction-queue') {
+      return this.ok(this.state.instructionQueue);
+    }
+
     if (request.method === 'GET' && pathname === '/api/whatsapp/workspace') {
       return this.ok(buildWhatsAppWorkspaceSnapshot(this.state));
+    }
+
+    if (request.method === 'GET' && pathname === '/api/qr') {
+      return this.ok(buildWhatsAppWorkspaceSnapshot(this.state).runtime.qr);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/qr.svg') {
+      return this.ok({
+        svg: buildWhatsAppWorkspaceSnapshot(this.state).runtime.qr.svg,
+      });
     }
 
     if (request.method === 'POST' && pathname === '/api/whatsapp/refresh') {
@@ -272,6 +325,28 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
 
     if (request.method === 'GET' && pathname === '/api/settings') {
       return this.ok(this.state.settings);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/llm/models') {
+      return this.ok(this.state.llmModels);
+    }
+
+    if (request.method === 'POST' && pathname === '/api/llm/chat') {
+      const result = createDemoLlmChatResult(this.state, request.body as LlmChatInput);
+      this.emit('llm.chat.completed', {
+        runId: result.runId,
+        providerId: result.providerId,
+        modelId: result.modelId,
+      });
+      return this.ok(result);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/logs/llm') {
+      return this.ok(readRecentDemoEntries(this.state.llmRuns, request.path, 20));
+    }
+
+    if (request.method === 'GET' && pathname === '/api/logs/conversations') {
+      return this.ok(readRecentDemoEntries(this.state.conversationAudit, request.path, 20));
     }
 
     if (request.method === 'PATCH' && pathname === '/api/settings/whatsapp') {
@@ -356,6 +431,8 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
     }
 
     const groupAccessMatch = matchParameterizedPath(pathname, '/api/groups/:groupJid/calendar-access');
+    const scheduleMatch = matchParameterizedPath(pathname, '/api/schedules/:eventId');
+    const instructionRetryMatch = matchParameterizedPath(pathname, '/api/instruction-queue/:instructionId/retry');
 
     if (request.method === 'PATCH' && groupAccessMatch) {
       const groupIndex = this.state.groups.findIndex((group) => group.groupJid === groupAccessMatch.groupJid);
@@ -378,6 +455,80 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
         calendarAccessPolicy: nextPolicy,
       });
       return this.ok(nextPolicy);
+    }
+
+    if (request.method === 'PATCH' && scheduleMatch) {
+      const schedule = upsertDemoSchedule(this.state, {
+        ...(request.body as Record<string, unknown>),
+        eventId: scheduleMatch.eventId,
+      });
+      this.emit('schedules.updated', {
+        eventId: schedule.eventId,
+        groupJid: schedule.groupJid,
+        weekId: schedule.weekId,
+      });
+      return this.ok(schedule);
+    }
+
+    if (request.method === 'DELETE' && scheduleMatch) {
+      const index = this.state.scheduleEvents.findIndex((event) => event.eventId === scheduleMatch.eventId);
+      const deleted = index >= 0;
+
+      if (deleted) {
+        this.state.scheduleEvents.splice(index, 1);
+      }
+
+      this.emit('schedules.deleted', {
+        eventId: scheduleMatch.eventId,
+        deleted,
+      });
+      return this.ok({ deleted });
+    }
+
+    if (request.method === 'POST' && instructionRetryMatch) {
+      const index = this.state.instructionQueue.findIndex(
+        (instruction) => instruction.instructionId === instructionRetryMatch.instructionId,
+      );
+
+      if (index < 0) {
+        return this.error(404, `Demo instruction ${instructionRetryMatch.instructionId} not found.`);
+      }
+
+      const instruction = this.state.instructionQueue[index];
+      const retriedInstruction: Instruction = {
+        ...instruction,
+        status: 'queued',
+        actions: instruction.actions.map((action) =>
+          action.status === 'failed'
+            ? {
+                ...action,
+                status: 'pending',
+                lastError: null,
+                result: null,
+                completedAt: null,
+              }
+            : action,
+        ),
+        updatedAt: new Date().toISOString(),
+      };
+      this.state.instructionQueue.splice(index, 1, retriedInstruction);
+      this.emit('instruction.retry.accepted', {
+        instructionId: retriedInstruction.instructionId,
+        status: retriedInstruction.status,
+      });
+      return this.ok(retriedInstruction);
+    }
+
+    if (request.method === 'POST' && pathname === '/api/send') {
+      const payload = request.body as Record<string, unknown>;
+      const sendResult = {
+        messageId: `demo-send-${Date.now()}`,
+        chatJid: String(payload.chatJid ?? ''),
+        acceptedAt: new Date().toISOString(),
+        ...(typeof payload.idempotencyKey === 'string' ? { idempotencyKey: payload.idempotencyKey } : {}),
+      };
+      this.emit('send.accepted', sendResult);
+      return this.ok(sendResult);
     }
 
     return this.error(404, `Demo transport has no handler for ${request.method} ${pathname}.`);
@@ -425,7 +576,12 @@ interface DemoState {
   people: Person[];
   routingRules: SenderAudienceRule[];
   distributions: DistributionSummary[];
+  instructionQueue: Instruction[];
+  scheduleEvents: WeeklyPlannerEventSummary[];
   watchdogIssues: WatchdogIssue[];
+  llmModels: readonly LlmModelDescriptor[];
+  llmRuns: LlmRunLogEntry[];
+  conversationAudit: ConversationAuditRecord[];
   readonly externalPrivateConversations: readonly WhatsAppConversationSummary[];
   settings: SettingsSnapshot;
 }
@@ -771,6 +927,172 @@ function createDemoState(): DemoState {
     },
   };
 
+  const scheduleEvents: WeeklyPlannerEventSummary[] = [
+    {
+      eventId: 'event-ballet-001',
+      weekId: '2026-W13',
+      groupJid: groups[0].groupJid,
+      groupLabel: groups[0].preferredSubject,
+      title: 'Aula regular de sexta',
+      eventAt: iso(60 * 24),
+      localDate: '2026-03-27',
+      dayLabel: 'sexta-feira',
+      startTime: '18:30',
+      durationMinutes: 60,
+      notes: 'Levar musica e confirmar sala 2.',
+      notificationRuleLabels: ['24h antes', '30 min antes'],
+      notifications: {
+        pending: 1,
+        waitingConfirmation: 1,
+        sent: 0,
+        total: 2,
+      },
+    },
+    {
+      eventId: 'event-pilates-001',
+      weekId: '2026-W13',
+      groupJid: groups[2].groupJid,
+      groupLabel: groups[2].preferredSubject,
+      title: 'Pilates reforco',
+      eventAt: iso(60 * 48),
+      localDate: '2026-03-28',
+      dayLabel: 'sabado',
+      startTime: '10:00',
+      durationMinutes: 75,
+      notes: 'Reforcar material de apoio e confirmar presencas.',
+      notificationRuleLabels: ['24h antes'],
+      notifications: {
+        pending: 1,
+        waitingConfirmation: 0,
+        sent: 1,
+        total: 2,
+      },
+    },
+  ];
+
+  const instructionQueue = distributions.map((distribution, index): Instruction => ({
+    instructionId: distribution.instructionId,
+    sourceType: distribution.sourceType,
+    sourceMessageId: distribution.sourceMessageId,
+    mode: distribution.mode,
+    status: distribution.status,
+    metadata: {
+      preview: 'demo',
+      order: index + 1,
+    },
+    actions: distribution.targetGroupJids.map((groupJid, actionIndex) => ({
+      actionId: `${distribution.instructionId}-action-${actionIndex + 1}`,
+      type: 'distribution_delivery',
+      dedupeKey: `${distribution.sourceMessageId ?? distribution.instructionId}:${groupJid}`,
+      targetGroupJid: groupJid,
+      payload: {
+        targetGroupJid: groupJid,
+      },
+      status:
+        distribution.status === 'queued'
+          ? 'pending'
+          : distribution.status === 'running'
+            ? 'running'
+            : distribution.status === 'partial_failed' && actionIndex === distribution.targetGroupJids.length - 1
+              ? 'failed'
+              : 'completed',
+      attemptCount: distribution.status === 'queued' ? 0 : 1,
+      lastError:
+        distribution.status === 'partial_failed' && actionIndex === distribution.targetGroupJids.length - 1
+          ? 'falha simulada de entrega'
+          : null,
+      result:
+        distribution.status === 'queued'
+          ? null
+          : {
+              note: distribution.mode === 'dry_run' ? 'dry-run' : 'demo-send',
+              externalMessageId: distribution.sourceMessageId,
+              metadata: {},
+            },
+      lastAttemptAt: distribution.updatedAt,
+      completedAt: distribution.status === 'queued' || distribution.status === 'running' ? null : distribution.updatedAt,
+    })),
+    createdAt: distribution.createdAt,
+    updatedAt: distribution.updatedAt,
+  }));
+
+  const llmModels: readonly LlmModelDescriptor[] = [
+    {
+      providerId: 'codex-oauth',
+      modelId: 'gpt-5.4',
+      label: 'Codex GPT-5.4',
+      capabilities: {
+        chat: true,
+        scheduling: true,
+        weeklyPlanning: true,
+        streaming: true,
+      },
+    },
+    {
+      providerId: 'openai-compat',
+      modelId: 'gpt-4o-mini',
+      label: 'OpenAI compat GPT-4o mini',
+      capabilities: {
+        chat: true,
+        scheduling: true,
+        weeklyPlanning: false,
+        streaming: true,
+      },
+    },
+  ];
+
+  const llmRuns: LlmRunLogEntry[] = [
+    {
+      runId: 'run-demo-001',
+      operation: 'chat',
+      providerId: 'codex-oauth',
+      modelId: 'gpt-5.4',
+      inputSummary: 'pedido de resumo para turma',
+      outputSummary: 'resposta curta preparada para o operador',
+      createdAt: iso(-14),
+    },
+    {
+      runId: 'run-demo-002',
+      operation: 'plan_weekly_prompts',
+      providerId: 'codex-oauth',
+      modelId: 'gpt-5.4',
+      inputSummary: 'planeamento semanal com 2 eventos',
+      outputSummary: '3 prompts sugeridos para esta semana',
+      createdAt: iso(-55),
+    },
+  ];
+
+  const conversationAudit: ConversationAuditRecord[] = [
+    {
+      auditId: 'audit-demo-001',
+      messageId: 'wamid.demo.private.001',
+      chatJid: '351910000001@s.whatsapp.net',
+      chatType: 'private',
+      personId: 'person-ana',
+      intent: 'casual_chat',
+      selectedTools: ['chat_reply'],
+      replyMode: 'private',
+      replyText: 'Resposta demo preparada para a operadora.',
+      targetChatType: 'private',
+      targetChatJid: '351910000001@s.whatsapp.net',
+      createdAt: iso(-16),
+    },
+    {
+      auditId: 'audit-demo-002',
+      messageId: 'wamid.demo.group.002',
+      chatJid: groups[0].groupJid,
+      chatType: 'group',
+      personId: 'person-ana',
+      intent: 'scheduling_request',
+      selectedTools: ['schedule_parse', 'chat_reply'],
+      replyMode: 'private',
+      replyText: 'Mudei para privado para evitar ruido no grupo.',
+      targetChatType: 'private',
+      targetChatJid: '351910000001@s.whatsapp.net',
+      createdAt: iso(-44),
+    },
+  ];
+
   return {
     groups,
     people: [
@@ -825,7 +1147,12 @@ function createDemoState(): DemoState {
     ],
     routingRules,
     distributions,
+    instructionQueue,
+    scheduleEvents,
     watchdogIssues,
+    llmModels,
+    llmRuns,
+    conversationAudit,
     settings,
     externalPrivateConversations: [
       {
@@ -912,6 +1239,54 @@ function buildDashboardSnapshot(state: DemoState): DashboardSnapshot {
       discoveredConversations:
         state.people.filter((person) => person.identifiers.some((identifier) => identifier.kind === 'whatsapp_jid')).length +
         state.externalPrivateConversations.length,
+    },
+  };
+}
+
+function buildStatusSnapshot(state: DemoState): StatusSnapshot {
+  const dashboard = buildDashboardSnapshot(state);
+
+  return {
+    readiness: dashboard.readiness,
+    health: dashboard.health,
+    groups: dashboard.groups,
+    routing: dashboard.routing,
+    distributions: dashboard.distributions,
+    watchdog: dashboard.watchdog,
+    hostCompanion: dashboard.hostCompanion,
+    whatsapp: dashboard.whatsapp,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+function buildWeeklyPlannerSnapshot(state: DemoState): WeeklyPlannerSnapshot {
+  const events = [...state.scheduleEvents].sort(
+    (left, right) => left.eventAt.localeCompare(right.eventAt) || left.eventId.localeCompare(right.eventId),
+  );
+
+  return {
+    timezone: 'Europe/Lisbon',
+    focusWeekLabel: '2026-W13',
+    focusWeekRangeLabel: '2026-03-23 ate 2026-03-29',
+    groupsKnown: state.groups.length,
+    groups: state.groups.map((group) => ({
+      groupJid: group.groupJid,
+      preferredSubject: group.preferredSubject,
+      courseId: group.courseId,
+      ownerLabels: group.groupOwners.map((owner) => owner.personId),
+    })),
+    defaultNotificationRuleLabels: state.settings.adminSettings.ui.defaultNotificationRules.map(
+      (rule) => rule.label ?? rule.kind,
+    ),
+    events,
+    diagnostics: {
+      eventCount: events.length,
+      pendingNotifications: events.reduce((sum, event) => sum + event.notifications.pending, 0),
+      waitingConfirmationNotifications: events.reduce(
+        (sum, event) => sum + event.notifications.waitingConfirmation,
+        0,
+      ),
+      sentNotifications: events.reduce((sum, event) => sum + event.notifications.sent, 0),
     },
   };
 }
@@ -1026,6 +1401,195 @@ function buildWhatsAppWorkspaceSnapshot(state: DemoState): WhatsAppWorkspaceSnap
       appOwners: appOwners.length,
     },
   };
+}
+
+function upsertDemoSchedule(state: DemoState, payload: Record<string, unknown>): WeeklyPlannerEventSummary {
+  const eventId = typeof payload.eventId === 'string' && payload.eventId.length > 0 ? payload.eventId : `event-demo-${Date.now()}`;
+  const groupJid = String(payload.groupJid ?? '');
+  const group = state.groups.find((candidate) => candidate.groupJid === groupJid) ?? state.groups[0];
+  const title = String(payload.title ?? 'Novo agendamento');
+  const dayLabel = String(payload.dayLabel ?? 'sexta-feira');
+  const localDate = String(payload.localDate ?? resolveDemoLocalDate(dayLabel));
+  const startTime = String(payload.startTime ?? '18:30');
+  const durationMinutes =
+    typeof payload.durationMinutes === 'number' && Number.isFinite(payload.durationMinutes)
+      ? payload.durationMinutes
+      : 60;
+  const notes = typeof payload.notes === 'string' ? payload.notes : '';
+  const notificationRuleLabels = Array.isArray(payload.notificationRules)
+    ? payload.notificationRules
+        .map((rule) => (rule && typeof rule === 'object' && 'label' in rule ? String((rule as { label?: unknown }).label ?? '') : ''))
+        .filter((label) => label.length > 0)
+    : state.settings.adminSettings.ui.defaultNotificationRules.map((rule) => rule.label ?? rule.kind);
+  const eventAt = `${localDate}T${startTime}:00.000Z`;
+  const nextEvent: WeeklyPlannerEventSummary = {
+    eventId,
+    weekId: '2026-W13',
+    groupJid: group.groupJid,
+    groupLabel: group.preferredSubject,
+    title,
+    eventAt,
+    localDate,
+    dayLabel,
+    startTime,
+    durationMinutes,
+    notes,
+    notificationRuleLabels,
+    notifications: {
+      pending: notificationRuleLabels.length,
+      waitingConfirmation: 0,
+      sent: 0,
+      total: notificationRuleLabels.length,
+    },
+  };
+  const existingIndex = state.scheduleEvents.findIndex((event) => event.eventId === eventId);
+
+  if (existingIndex >= 0) {
+    state.scheduleEvents.splice(existingIndex, 1, nextEvent);
+  } else {
+    state.scheduleEvents.unshift(nextEvent);
+  }
+
+  return nextEvent;
+}
+
+function buildDemoDistributionPlan(state: DemoState, payload: Record<string, unknown>): DistributionPlan {
+  const ruleId = typeof payload.ruleId === 'string' && payload.ruleId.length > 0 ? payload.ruleId : state.routingRules[0]?.ruleId;
+  const rule = state.routingRules.find((candidate) => candidate.ruleId === ruleId) ?? state.routingRules[0];
+
+  return {
+    sourceMessageId:
+      typeof payload.sourceMessageId === 'string' && payload.sourceMessageId.length > 0
+        ? payload.sourceMessageId
+        : `preview-${Date.now()}`,
+    senderPersonId: rule?.personId ?? null,
+    senderDisplayName: state.people.find((person) => person.personId === rule?.personId)?.displayName ?? null,
+    matchedRuleIds: rule ? [rule.ruleId] : [],
+    matchedDisciplineCodes: rule?.targetDisciplineCodes ?? [],
+    requiresConfirmation: rule?.requiresConfirmation ?? true,
+    targetCount: rule?.targetGroupJids.length ?? 0,
+    targets:
+      rule?.targetGroupJids.map((groupJid) => {
+        const group = state.groups.find((candidate) => candidate.groupJid === groupJid);
+        return {
+          groupJid,
+          preferredSubject: group?.preferredSubject ?? groupJid,
+          courseId: group?.courseId ?? null,
+          reasons: ['demo_rule_match'],
+          dedupeKey: `${payload.sourceMessageId ?? 'preview'}:${groupJid}`,
+        };
+      }) ?? [],
+  };
+}
+
+function createDemoDistribution(state: DemoState, payload: Record<string, unknown>): DistributionExecutionResult {
+  const plan = buildDemoDistributionPlan(state, payload);
+  const mode = payload.mode === 'confirmed' ? 'confirmed' : 'dry_run';
+  const nowIso = new Date().toISOString();
+  const summary: DistributionSummary = {
+    instructionId: `instruction-demo-${Date.now()}`,
+    sourceType: 'manual_distribution',
+    sourceMessageId: plan.sourceMessageId,
+    mode,
+    status: mode === 'confirmed' ? 'queued' : 'queued',
+    targetGroupJids: plan.targets.map((target) => target.groupJid),
+    actionCounts: {
+      pending: plan.targets.length,
+      running: 0,
+      completed: 0,
+      failed: 0,
+      skipped: 0,
+    },
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  };
+  const instruction: Instruction = {
+    instructionId: summary.instructionId,
+    sourceType: summary.sourceType,
+    sourceMessageId: summary.sourceMessageId,
+    mode,
+    status: 'queued',
+    metadata: {
+      targetCount: plan.targetCount,
+      matchedRuleIds: plan.matchedRuleIds,
+    },
+    actions: plan.targets.map((target, index) => ({
+      actionId: `${summary.instructionId}-action-${index + 1}`,
+      type: 'distribution_delivery',
+      dedupeKey: target.dedupeKey,
+      targetGroupJid: target.groupJid,
+      payload: {
+        targetLabel: target.preferredSubject,
+        messageText: String(payload.messageText ?? ''),
+      },
+      status: 'pending',
+      attemptCount: 0,
+      lastError: null,
+      result: null,
+      lastAttemptAt: null,
+      completedAt: null,
+    })),
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  };
+
+  state.distributions.unshift(summary);
+  state.instructionQueue.unshift(instruction);
+
+  return {
+    plan,
+    instruction: summary,
+  };
+}
+
+function createDemoLlmChatResult(state: DemoState, payload: LlmChatInput): LlmChatResult {
+  const result: LlmChatResult = {
+    runId: `run-demo-${Date.now()}`,
+    providerId: state.settings.adminSettings.llm.provider,
+    modelId: state.settings.adminSettings.llm.model,
+    text: `Resposta demo: ${payload.text.slice(0, 80)}`,
+  };
+
+  state.llmRuns.unshift({
+    runId: result.runId,
+    operation: 'chat',
+    providerId: result.providerId,
+    modelId: result.modelId,
+    inputSummary: payload.text.slice(0, 120),
+    outputSummary: result.text,
+    createdAt: new Date().toISOString(),
+  });
+
+  return result;
+}
+
+function readRecentDemoEntries<T>(entries: readonly T[], pathname: string, fallbackLimit: number): readonly T[] {
+  const url = new URL(pathname, 'http://lumehub.preview');
+  const limit = Number.parseInt(url.searchParams.get('limit') ?? String(fallbackLimit), 10);
+  const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : fallbackLimit;
+  return entries.slice(0, safeLimit);
+}
+
+function resolveDemoLocalDate(dayLabel: string): string {
+  switch (dayLabel) {
+    case 'segunda-feira':
+      return '2026-03-23';
+    case 'terca-feira':
+    case 'terça-feira':
+      return '2026-03-24';
+    case 'quarta-feira':
+      return '2026-03-25';
+    case 'quinta-feira':
+      return '2026-03-26';
+    case 'sabado':
+    case 'sábado':
+      return '2026-03-28';
+    case 'domingo':
+      return '2026-03-29';
+    case 'sexta-feira':
+    default:
+      return '2026-03-27';
+  }
 }
 
 function mapPersonToConversationSummary(

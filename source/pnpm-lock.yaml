@@ -104,6 +104,9 @@ importers:
       '@lume-hub/watchdog':
         specifier: workspace:*
         version: link:../../packages/modules/watchdog
+      '@lume-hub/weekly-planner':
+        specifier: workspace:*
+        version: link:../../packages/modules/weekly-planner
       '@lume-hub/whatsapp-baileys':
         specifier: workspace:*
         version: link:../../packages/adapters/whatsapp-baileys
@@ -177,6 +180,9 @@ importers:
       '@lume-hub/codex-auth-router':
         specifier: workspace:*
         version: link:../../modules/codex-auth-router
+      '@lume-hub/conversation':
+        specifier: workspace:*
+        version: link:../../modules/conversation
       '@lume-hub/group-directory':
         specifier: workspace:*
         version: link:../../modules/group-directory
@@ -189,6 +195,9 @@ importers:
       '@lume-hub/instruction-queue':
         specifier: workspace:*
         version: link:../../modules/instruction-queue
+      '@lume-hub/llm-orchestrator':
+        specifier: workspace:*
+        version: link:../../modules/llm-orchestrator
       '@lume-hub/people-memory':
         specifier: workspace:*
         version: link:../../modules/people-memory
@@ -198,6 +207,9 @@ importers:
       '@lume-hub/watchdog':
         specifier: workspace:*
         version: link:../../modules/watchdog
+      '@lume-hub/weekly-planner':
+        specifier: workspace:*
+        version: link:../../modules/weekly-planner
 
   packages/adapters/http-fastify:
     dependencies:
@@ -222,6 +234,9 @@ importers:
       '@lume-hub/instruction-queue':
         specifier: workspace:*
         version: link:../../modules/instruction-queue
+      '@lume-hub/llm-orchestrator':
+        specifier: workspace:*
+        version: link:../../modules/llm-orchestrator
       '@lume-hub/people-memory':
         specifier: workspace:*
         version: link:../../modules/people-memory
@@ -231,6 +246,9 @@ importers:
       '@lume-hub/watchdog':
         specifier: workspace:*
         version: link:../../modules/watchdog
+      '@lume-hub/weekly-planner':
+        specifier: workspace:*
+        version: link:../../modules/weekly-planner
       '@lume-hub/whatsapp-baileys':
         specifier: workspace:*
         version: link:../whatsapp-baileys
@@ -671,9 +689,27 @@ importers:
 
   packages/modules/weekly-planner:
     dependencies:
+      '@lume-hub/admin-config':
+        specifier: workspace:*
+        version: link:../admin-config
+      '@lume-hub/group-directory':
+        specifier: workspace:*
+        version: link:../group-directory
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
+      '@lume-hub/notification-jobs':
+        specifier: workspace:*
+        version: link:../notification-jobs
+      '@lume-hub/notification-rules':
+        specifier: workspace:*
+        version: link:../notification-rules
+      '@lume-hub/schedule-events':
+        specifier: workspace:*
+        version: link:../schedule-events
+      '@lume-hub/schedule-weeks':
+        specifier: workspace:*
+        version: link:../schedule-weeks
 
   packages/ui-modules/assistant-console: {}
 

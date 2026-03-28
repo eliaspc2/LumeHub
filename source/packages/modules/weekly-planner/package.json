@@ -17,6 +17,12 @@
     "test": "node -e \"console.log('No tests yet for @lume-hub/weekly-planner.')\""
   },
   "dependencies": {
-    "@lume-hub/kernel": "workspace:*"
+    "@lume-hub/admin-config": "workspace:*",
+    "@lume-hub/group-directory": "workspace:*",
+    "@lume-hub/kernel": "workspace:*",
+    "@lume-hub/notification-jobs": "workspace:*",
+    "@lume-hub/notification-rules": "workspace:*",
+    "@lume-hub/schedule-events": "workspace:*",
+    "@lume-hub/schedule-weeks": "workspace:*"
   }
 }

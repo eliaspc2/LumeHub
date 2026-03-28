@@ -38,6 +38,7 @@ const ADVANCED_DETAILS_STORAGE_KEY = 'lumehub.web.advanced_details';
 const UX_TELEMETRY_STORAGE_KEY = 'lumehub.web.ux_telemetry';
 
 interface GuidedScheduleDraft {
+  readonly eventId: string | null;
   readonly groupJid: string;
   readonly title: string;
   readonly dayLabel: string;
@@ -133,6 +134,7 @@ export class AppShell {
       uxTelemetry: readStoredUxTelemetry(),
       lastLoadedAt: null,
       scheduleDraft: {
+        eventId: null,
         groupJid: '',
         title: '',
         dayLabel: 'sexta-feira',
@@ -826,6 +828,7 @@ export class AppShell {
     const groups = page.data.groups;
     const draft = resolveScheduleDraft(this.state.scheduleDraft, groups);
     const selectedGroup = groups.find((group) => group.groupJid === draft.groupJid) ?? null;
+    const editingEvent = page.data.events.find((event) => event.eventId === draft.eventId) ?? null;
     const notificationLabels = page.data.defaultNotificationRuleLabels.length > 0
       ? page.data.defaultNotificationRuleLabels
       : ['24h antes', '30 min antes'];
@@ -849,7 +852,7 @@ export class AppShell {
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
-              label: 'Guardar rascunho',
+              label: editingEvent ? 'Guardar alteracoes' : 'Criar agendamento',
               dataAttributes: { 'flow-action': 'schedule-save' },
             })}
             ${renderUiActionButton({
@@ -864,13 +867,15 @@ export class AppShell {
             title: 'Semana em foco',
             badgeLabel: page.data.focusWeekLabel,
             badgeTone: 'neutral',
-            contentHtml: `<p>${escapeHtml(`Timezone ${page.data.timezone}. ${groups.length} grupos prontos para usar neste fluxo.`)}</p>`,
+            contentHtml: `<p>${escapeHtml(`${page.data.focusWeekRangeLabel}. Timezone ${page.data.timezone}. ${groups.length} grupos prontos para usar neste fluxo.`)}</p>`,
           })}
           ${renderUiPanelCard({
-            title: 'Como validar',
-            badgeLabel: 'Preview antes de gravar',
-            badgeTone: 'positive',
-            contentHtml: '<p>Preenche grupo, hora e notas. O preview humano mostra logo o que vai acontecer e quais os avisos associados.</p>',
+            title: 'Estado live',
+            badgeLabel: `${page.data.diagnostics.eventCount} eventos`,
+            badgeTone: page.data.diagnostics.eventCount > 0 ? 'positive' : 'neutral',
+            contentHtml: `<p>${escapeHtml(
+              `${page.data.diagnostics.pendingNotifications} avisos pendentes, ${page.data.diagnostics.waitingConfirmationNotifications} a aguardar confirmacao e ${page.data.diagnostics.sentNotifications} enviados.`,
+            )}</p>`,
           })}
         </div>
       </section>
@@ -879,7 +884,10 @@ export class AppShell {
         <article class="surface content-card span-7">
           <div class="card-header">
             <h3>Passo 1. Dados base do agendamento</h3>
-            ${renderUiBadge({ label: selectedGroup ? 'Pronto para preview' : 'Escolhe um grupo', tone: selectedGroup ? 'positive' : 'warning' })}
+            ${renderUiBadge({
+              label: editingEvent ? 'A editar evento real' : selectedGroup ? 'Pronto para gravar' : 'Escolhe um grupo',
+              tone: editingEvent || selectedGroup ? 'positive' : 'warning',
+            })}
           </div>
           <div class="ui-form-grid">
             ${renderUiSelectField({
@@ -943,7 +951,7 @@ export class AppShell {
         <article class="surface content-card span-5">
           <div class="card-header">
             <h3>Passo 2. Preview humano</h3>
-            ${renderUiBadge({ label: 'Antes de confirmar', tone: 'neutral' })}
+            ${renderUiBadge({ label: editingEvent ? 'Edicao live' : 'Antes de confirmar', tone: editingEvent ? 'positive' : 'neutral' })}
           </div>
           <div class="guide-preview">
             <p><strong>Grupo</strong>: ${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe um grupo')}</p>
@@ -956,47 +964,119 @@ export class AppShell {
                   : 'sem owner definido'
                 : 'sem owner definido',
             )}</p>
-            <p><strong>Mensagem interna</strong>: ${escapeHtml(draft.notes || 'Sem nota adicional. Vais poder rever isto antes de gravar de forma real numa wave posterior.')}</p>
+            <p><strong>Mensagem interna</strong>: ${escapeHtml(draft.notes || 'Sem nota adicional.')}</p>
             <div class="ui-card__chips">
               ${notificationLabels.map((label) => renderUiBadge({ label, tone: 'positive', style: 'chip' })).join('')}
             </div>
           </div>
           <ul>
-            <li>O fluxo ja elimina IDs e JIDs da operacao principal.</li>
-            <li>O proximo passo de produto sera ligar este formulario aos eventos reais do calendario.</li>
-            <li>Para ja, o objetivo e validar compreensao, preview e seguranca de uso.</li>
+            <li>O fluxo continua a esconder JIDs e IDs da operacao principal.</li>
+            <li>Este botao ja grava no backend real da semana atual.</li>
+            <li>Podes carregar um evento da agenda abaixo para o editar sem sair desta pagina.</li>
           </ul>
         </article>
       </section>
 
-      <section class="card-grid">
-        ${examples
-          .map((example) =>
-            renderUiRecordCard({
-              title: example.title,
-              subtitle: example.notes,
-              badgeLabel: example.preview.dayLabel,
-              badgeTone: 'neutral',
-              bodyHtml: `
-                <ul>
-                  <li>Grupo: ${escapeHtml(example.preview.groupLabel)}</li>
-                  <li>Hora: ${escapeHtml(example.preview.startTime)}</li>
-                  <li>Duracao: ${escapeHtml(example.preview.durationMinutes)} min</li>
-                </ul>
-                <div class="action-row">
-                  ${renderUiActionButton({
-                    label: 'Usar como base',
-                    variant: 'secondary',
-                    dataAttributes: {
-                      'flow-action': 'schedule-load-example',
-                      'flow-value': example.key,
-                    },
-                  })}
+      <section class="content-grid">
+        <article class="surface content-card span-8">
+          <div class="card-header">
+            <h3>Agenda live desta semana</h3>
+            ${renderUiBadge({ label: `${page.data.events.length} eventos`, tone: page.data.events.length > 0 ? 'positive' : 'neutral' })}
+          </div>
+          ${
+            page.data.events.length > 0
+              ? `
+                <div class="card-grid">
+                  ${page.data.events
+                    .map((event) =>
+                      renderUiRecordCard({
+                        title: event.title,
+                        subtitle: `${event.groupLabel} | ${event.dayLabel}, ${event.startTime}`,
+                        badgeLabel:
+                          event.notifications.waitingConfirmation > 0
+                            ? 'A aguardar confirmacao'
+                            : event.notifications.pending > 0
+                              ? 'Com avisos pendentes'
+                              : 'Estavel',
+                        badgeTone:
+                          event.notifications.waitingConfirmation > 0
+                            ? 'warning'
+                            : event.notifications.pending > 0
+                              ? 'neutral'
+                              : 'positive',
+                        chips: [
+                          { label: `${event.durationMinutes} min`, tone: 'neutral' },
+                          { label: `${event.notificationRuleLabels.length} avisos`, tone: 'positive' },
+                        ],
+                        bodyHtml: `
+                          <ul>
+                            <li>Notas: ${escapeHtml(event.notes || 'sem nota')}</li>
+                            <li>Pendentes: ${event.notifications.pending}</li>
+                            <li>Waiting confirmation: ${event.notifications.waitingConfirmation}</li>
+                            <li>Enviados: ${event.notifications.sent}</li>
+                          </ul>
+                          <div class="action-row">
+                            ${renderUiActionButton({
+                              label: 'Editar',
+                              variant: 'secondary',
+                              dataAttributes: {
+                                'flow-action': 'schedule-load-event',
+                                'flow-value': event.eventId,
+                              },
+                            })}
+                          </div>
+                        `,
+                      }),
+                    )
+                    .join('')}
                 </div>
-              `,
-            }),
-          )
-          .join('')}
+              `
+              : `
+                <section class="surface placeholder-card">
+                  <div>
+                    <p class="eyebrow">Agenda vazia</p>
+                    <h3>Ainda nao ha eventos gravados nesta semana</h3>
+                    <p>Usa o formulario acima para criar o primeiro agendamento real.</p>
+                  </div>
+                </section>
+              `
+          }
+        </article>
+
+        <article class="surface content-card span-4">
+          <div class="card-header">
+            <h3>Bases rapidas</h3>
+          </div>
+          <div class="card-grid">
+            ${examples
+              .map((example) =>
+                renderUiRecordCard({
+                  title: example.title,
+                  subtitle: example.notes,
+                  badgeLabel: example.preview.dayLabel,
+                  badgeTone: 'neutral',
+                  bodyHtml: `
+                    <ul>
+                      <li>Grupo: ${escapeHtml(example.preview.groupLabel)}</li>
+                      <li>Hora: ${escapeHtml(example.preview.startTime)}</li>
+                      <li>Duracao: ${escapeHtml(example.preview.durationMinutes)} min</li>
+                    </ul>
+                    <div class="action-row">
+                      ${renderUiActionButton({
+                        label: 'Usar como base',
+                        variant: 'secondary',
+                        dataAttributes: {
+                          'flow-action': 'schedule-load-example',
+                          'flow-value': example.key,
+                        },
+                      })}
+                    </div>
+                  `,
+                }),
+              )
+              .join('')}
+          </div>
+        </article>
       </section>
     `;
   }
@@ -1527,7 +1607,7 @@ export class AppShell {
           <ul>
             <li>O preview ajuda a travar fan-out precipitado para grupos errados.</li>
             <li>Se houver confirmacao, a mensagem continua a chegar ao operador antes da distribuicao final.</li>
-            <li>O passo seguinte desta area e ligar este preview a execucao real por destino.</li>
+            <li>O botao acima ja cria preview real ou distribuicao real na fila, conforme o modo escolhido.</li>
           </ul>
         </article>
       </section>
@@ -1787,7 +1867,7 @@ export class AppShell {
           ${renderUiPanelCard({
             title: 'Objetivo desta pagina',
             contentHtml:
-              '<p>Nesta wave, estamos a validar presenca no menu, clareza visual e uso correto do espaco antes de aprofundar o comportamento.</p>',
+              '<p>Esta pagina resume o estado atual desta area sem exigir leitura tecnica para perceber o essencial.</p>',
           })}
         </div>
       </section>
@@ -1879,31 +1959,79 @@ export class AppShell {
     }
   }
 
-  private handleFlowAction(action: string, value?: string): void {
+  private async handleFlowAction(action: string, value?: string): Promise<void> {
     if (action === 'schedule-save') {
+      const page = this.readWeekPageData();
+
+      if (!page) {
+        return;
+      }
+
+      const draft = resolveScheduleDraft(this.state.scheduleDraft, page.data.groups);
+
+      if (!draft.groupJid || !draft.title.trim()) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message: 'Falta escolher um grupo e dar um titulo claro antes de gravar.',
+          },
+        };
+        this.render();
+        return;
+      }
+
       this.state = {
         ...this.state,
         flowFeedback: {
-          tone: 'positive',
-          message: 'Rascunho de agendamento guardado nesta sessao para continuares a validacao do fluxo.',
+          tone: 'neutral',
+          message: 'A gravar este agendamento no backend real para atualizares logo a agenda da semana.',
         },
       };
-      this.recordUxEvent('positive', 'Rascunho de agendamento guardado na sessao.');
       this.render();
+
+      try {
+        const saved = await this.currentClient().saveWeeklySchedule({
+          eventId: draft.eventId ?? undefined,
+          groupJid: draft.groupJid,
+          title: draft.title,
+          dayLabel: draft.dayLabel,
+          startTime: draft.startTime,
+          durationMinutes: Number.parseInt(draft.durationMinutes, 10),
+          notes: draft.notes,
+          timeZone: page.data.timezone,
+        });
+        this.state = {
+          ...this.state,
+          scheduleDraft: mapScheduleEventToDraft(saved),
+          flowFeedback: {
+            tone: 'positive',
+            message: draft.eventId
+              ? `Agendamento ${saved.title} atualizado na semana ${saved.weekId}.`
+              : `Agendamento ${saved.title} criado na semana ${saved.weekId}.`,
+          },
+        };
+        this.recordUxEvent('positive', `Agendamento ${saved.title} gravado em live.`);
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel gravar o agendamento. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
       return;
     }
 
     if (action === 'schedule-clear') {
       this.state = {
         ...this.state,
-        scheduleDraft: {
-          groupJid: '',
-          title: '',
-          dayLabel: 'sexta-feira',
-          startTime: '18:30',
-          durationMinutes: '60',
-          notes: '',
-        },
+        scheduleDraft: createEmptyScheduleDraft(),
         flowFeedback: {
           tone: 'neutral',
           message: 'Formulario de agendamento limpo. Podes testar o fluxo outra vez.',
@@ -1915,9 +2043,9 @@ export class AppShell {
     }
 
     if (action === 'schedule-load-example') {
-      const page = this.state.page as UiPage<WeekPlannerSnapshot> | null;
+      const page = this.readWeekPageData();
 
-      if (!page || page.route !== '/week' || !value) {
+      if (!page || !value) {
         return;
       }
 
@@ -1931,6 +2059,7 @@ export class AppShell {
       this.state = {
         ...this.state,
         scheduleDraft: {
+          eventId: null,
           groupJid: group.groupJid,
           title: example.title,
           dayLabel: example.dayLabel,
@@ -1948,16 +2077,99 @@ export class AppShell {
       return;
     }
 
+    if (action === 'schedule-load-event') {
+      const page = this.readWeekPageData();
+
+      if (!page || !value) {
+        return;
+      }
+
+      const event = page.data.events.find((candidate) => candidate.eventId === value);
+
+      if (!event) {
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        scheduleDraft: mapScheduleEventToDraft(event),
+        flowFeedback: {
+          tone: 'positive',
+          message: `Carregamos ${event.title} no formulario para o editares em contexto.`,
+        },
+      };
+      this.recordUxEvent('positive', `Evento ${event.title} carregado para edicao.`);
+      this.render();
+      return;
+    }
+
     if (action === 'distribution-save') {
+      const page = this.readRoutingPageData();
+
+      if (!page) {
+        return;
+      }
+
+      const draft = resolveDistributionDraft(this.state.distributionDraft, page.data.rules);
+      const selectedRule = page.data.rules.find((rule) => rule.ruleId === draft.ruleId) ?? null;
+
+      if (!selectedRule || !draft.messageSummary.trim()) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message: 'Escolhe uma regra e escreve a mensagem antes de preparar a distribuicao.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      const mode = resolveDistributionExecutionMode(draft.confirmationMode, selectedRule.requiresConfirmation);
       this.state = {
         ...this.state,
         flowFeedback: {
-          tone: 'positive',
-          message: 'Preview de distribuicao preparado. Reve os grupos alvo antes de passar a execucao real.',
+          tone: 'neutral',
+          message:
+            mode === 'dry_run'
+              ? 'A criar um preview real de distribuicao para poderes rever os alvos.'
+              : 'A criar uma distribuicao real na fila operacional.',
         },
       };
-      this.recordUxEvent('positive', 'Preview de distribuicao preparado.');
       this.render();
+
+      try {
+        const result = await this.currentClient().createDistribution({
+          sourceMessageId: `manual-${Date.now()}`,
+          personId: selectedRule.personId ?? undefined,
+          identifiers: selectedRule.identifiers,
+          messageText: draft.messageSummary,
+          mode,
+        });
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'positive',
+            message:
+              result.instruction.mode === 'dry_run'
+                ? `Preview real criado para ${result.plan.targetCount} grupos alvo.`
+                : `Distribuicao real criada para ${result.plan.targetCount} grupos alvo.`,
+          },
+        };
+        this.recordUxEvent('positive', `Distribuicao ${result.instruction.instructionId} criada.`);
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel criar a distribuicao. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
       return;
     }
 
@@ -2007,6 +2219,26 @@ export class AppShell {
       this.recordUxEvent('positive', `Issue ${value} marcada como revista.`);
       this.render();
     }
+  }
+
+  private readWeekPageData(): UiPage<WeekPlannerSnapshot> | null {
+    const page = this.state.page as UiPage<WeekPlannerSnapshot> | null;
+
+    if (!page || page.route !== '/week') {
+      return null;
+    }
+
+    return page;
+  }
+
+  private readRoutingPageData(): UiPage<RoutingConsoleSnapshot> | null {
+    const page = this.state.page as UiPage<RoutingConsoleSnapshot> | null;
+
+    if (!page || page.route !== '/distributions') {
+      return null;
+    }
+
+    return page;
   }
 
   private readWhatsAppPageData(): WhatsAppManagementPageData | null {
@@ -2603,7 +2835,7 @@ export class AppShell {
           return;
         }
 
-        this.handleFlowAction(action, element.dataset.flowValue);
+        void this.handleFlowAction(action, element.dataset.flowValue);
       });
     }
 
@@ -2733,12 +2965,39 @@ function resolveScheduleDraft(
     fallbackGroup;
 
   return {
+    eventId: draft.eventId,
     groupJid: selectedGroup?.groupJid ?? '',
     title: draft.title || (selectedGroup ? `Sessao ${selectedGroup.preferredSubject}` : ''),
     dayLabel: draft.dayLabel,
     startTime: draft.startTime,
     durationMinutes: draft.durationMinutes,
     notes: draft.notes,
+  };
+}
+
+function createEmptyScheduleDraft(): GuidedScheduleDraft {
+  return {
+    eventId: null,
+    groupJid: '',
+    title: '',
+    dayLabel: 'sexta-feira',
+    startTime: '18:30',
+    durationMinutes: '60',
+    notes: '',
+  };
+}
+
+function mapScheduleEventToDraft(
+  event: Pick<WeekPlannerSnapshot['events'][number], 'eventId' | 'groupJid' | 'title' | 'dayLabel' | 'startTime' | 'durationMinutes' | 'notes'>,
+): GuidedScheduleDraft {
+  return {
+    eventId: event.eventId,
+    groupJid: event.groupJid,
+    title: event.title,
+    dayLabel: event.dayLabel,
+    startTime: event.startTime,
+    durationMinutes: String(event.durationMinutes),
+    notes: event.notes,
   };
 }
 
@@ -2807,6 +3066,21 @@ function readableConfirmationMode(mode: string, requiresConfirmation: boolean): 
     default:
       return requiresConfirmation ? 'Usar confirmacao da regra' : 'Usar distribuicao direta da regra';
   }
+}
+
+function resolveDistributionExecutionMode(
+  confirmationMode: string,
+  requiresConfirmation: boolean,
+): 'dry_run' | 'confirmed' {
+  if (confirmationMode === 'force_confirmation') {
+    return 'dry_run';
+  }
+
+  if (confirmationMode === 'direct') {
+    return 'confirmed';
+  }
+
+  return requiresConfirmation ? 'dry_run' : 'confirmed';
 }
 
 function readableRepairFocus(value: 'auth' | 'groups' | 'permissions'): string {

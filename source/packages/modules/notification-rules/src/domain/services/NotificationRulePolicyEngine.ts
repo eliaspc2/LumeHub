@@ -11,16 +11,22 @@ function defaultLabelForRule(kind: NotificationRuleKind, input: NotificationRule
     return input.label;
   }
 
-  if (kind === 'relative_before_event' && input.offsetMinutesBeforeEvent) {
-    if (input.offsetMinutesBeforeEvent === 1_440) {
+  if (kind === 'relative_before_event') {
+    const totalOffsetMinutes = resolveRelativeOffsetMinutes(input, false);
+
+    if (!totalOffsetMinutes) {
+      return null;
+    }
+
+    if (totalOffsetMinutes === 1_440) {
       return '24h before';
     }
 
-    if (input.offsetMinutesBeforeEvent === 30) {
+    if (totalOffsetMinutes === 30) {
       return '30m before';
     }
 
-    return `${input.offsetMinutesBeforeEvent}m before`;
+    return `${totalOffsetMinutes}m before`;
   }
 
   if (kind === 'fixed_local_time' && input.daysBeforeEvent !== undefined && input.localTime) {
@@ -36,7 +42,7 @@ function defaultRuleId(eventId: string, input: NotificationRuleDefinitionInput, 
   }
 
   if (input.kind === 'relative_before_event') {
-    return `rule-${eventId}-before-${input.offsetMinutesBeforeEvent ?? index}`;
+    return `rule-${eventId}-before-${resolveRelativeOffsetMinutes(input, false) ?? index}`;
   }
 
   return `rule-${eventId}-fixed-${input.daysBeforeEvent ?? 0}-${input.localTime ?? index}`;
@@ -70,8 +76,10 @@ export class NotificationRulePolicyEngine {
     index: number,
   ): NotificationRule {
     if (definition.kind === 'relative_before_event') {
-      if (!definition.offsetMinutesBeforeEvent || definition.offsetMinutesBeforeEvent <= 0) {
-        throw new Error('relative_before_event rules require a positive offsetMinutesBeforeEvent.');
+      const totalOffsetMinutes = resolveRelativeOffsetMinutes(definition, true);
+
+      if (!totalOffsetMinutes || totalOffsetMinutes <= 0) {
+        throw new Error('relative_before_event rules require a positive combined offset.');
       }
 
       return {
@@ -81,7 +89,7 @@ export class NotificationRulePolicyEngine {
         kind: definition.kind,
         enabled: definition.enabled ?? true,
         label: defaultLabelForRule(definition.kind, definition),
-        offsetMinutesBeforeEvent: definition.offsetMinutesBeforeEvent,
+        offsetMinutesBeforeEvent: totalOffsetMinutes,
         daysBeforeEvent: null,
         localTime: null,
       };
@@ -107,4 +115,30 @@ export class NotificationRulePolicyEngine {
       localTime: definition.localTime,
     };
   }
+}
+
+function resolveRelativeOffsetMinutes(
+  input: NotificationRuleDefinitionInput,
+  validate = true,
+): number | null {
+  const daysBeforeEvent = input.daysBeforeEvent ?? 0;
+  const offsetMinutesBeforeEvent = input.offsetMinutesBeforeEvent ?? 0;
+
+  if (!validate) {
+    if (daysBeforeEvent < 0 || offsetMinutesBeforeEvent < 0) {
+      return null;
+    }
+
+    return (daysBeforeEvent * 1_440) + offsetMinutesBeforeEvent;
+  }
+
+  if (!Number.isInteger(daysBeforeEvent) || daysBeforeEvent < 0) {
+    throw new Error('relative_before_event rules require daysBeforeEvent >= 0 when provided.');
+  }
+
+  if (!Number.isInteger(offsetMinutesBeforeEvent) || offsetMinutesBeforeEvent < 0) {
+    throw new Error('relative_before_event rules require offsetMinutesBeforeEvent >= 0 when provided.');
+  }
+
+  return (daysBeforeEvent * 1_440) + offsetMinutesBeforeEvent;
 }

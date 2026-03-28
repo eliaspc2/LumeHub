@@ -10,19 +10,18 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 21` ja foram executadas e validadas.
+As `Wave 0` a `Wave 22` ja foram executadas e validadas.
 O backlog restante continua organizado em waves de fecho para runtime real.
 
 As waves ativas passam a ser:
 
-- `Wave 22`
 - `Wave 23`
 - `Wave 24`
 
 Objetivo desta nova ronda:
 
-- sair de `demo shell + wiring parcial`
-- chegar a backend real, API real, WhatsApp live, LLM real e cutover operacional
+- fechar a ronda de runtime real com robustez suficiente para uso serio
+- chegar a cutover operacional e limpeza final sem lixo tecnico
 
 ## Regras de leitura
 
@@ -88,36 +87,6 @@ Se tocar backend, HTTP, WS ou runtime:
 - validar que a UI continua a abrir e a consumir a API esperada
 
 ## Waves ativas
-
-## Wave 22 - API operacional completa e weekly planner real
-
-Objetivo:
-- fechar o missing surface de API e o backend real dos fluxos de planeamento
-
-Entregaveis:
-- endpoints operacionais em falta para schedules, queue, logs, LLM e send
-- `weekly-planner` do dominio com comportamento real
-- integracao da UI de `Semana` com backend real
-- diagnostics e views operacionais consumidas pela UI sem dependencias de demo
-
-Criterios de aceitacao:
-- os fluxos principais de operacao deixam de depender de dados mockados/demo
-- `Semana` passa a usar backend real
-- queue, logs e diagnostics ficam acessiveis pelo produto
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave22`
-
-Melhor momento para testar:
-- testar aqui um fluxo operacional completo, porque ja deves conseguir criar, rever e acompanhar trabalho real dentro da app
-
-O que testar:
-- criar e editar agendamentos
-- preview e confirmacao de distribuicoes
-- leitura de queue, diagnostics e logs
-- fluxos principais da homepage sem fallback de demo
 
 ## Wave 23 - Hardening, cobertura e cutover para uso real
 

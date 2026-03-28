@@ -82,28 +82,7 @@ export class AppRouter {
         label: this.weekPlanner.config.label,
         description: 'Area semanal preparada para crescer com uma visao de agenda mais visual.',
         legacyRoutes: ['/week-planner'],
-        render: async () =>
-          {
-            const [groups, settings] = await Promise.all([
-              this.readQuery('groups', () => this.client.listGroups()),
-              this.readQuery('settings', () => this.client.getSettings()),
-            ]);
-
-            return this.weekPlanner.render({
-              timezone: 'Europe/Lisbon',
-              focusWeekLabel: formatCurrentIsoWeek(new Date()),
-              groupsKnown: groups.length,
-              groups: groups.map((group) => ({
-                groupJid: group.groupJid,
-                preferredSubject: group.preferredSubject,
-                courseId: group.courseId,
-                ownerLabels: group.groupOwners.map((owner) => owner.personId),
-              })),
-              defaultNotificationRuleLabels: settings.adminSettings.ui.defaultNotificationRules.map(
-                (rule) => rule.label ?? rule.kind,
-              ),
-            });
-          },
+        render: async () => this.weekPlanner.render(await this.readQuery('weekly-planner', () => this.client.getWeeklyPlanner())),
       },
       {
         route: this.assistant.config.route,
@@ -111,13 +90,39 @@ export class AppRouter {
         description: 'Entrada dedicada ao assistente, com linguagem simples e espaco para contexto.',
         legacyRoutes: ['/assistant-console'],
         render: async () => {
-          const settings = await this.readQuery('settings', () => this.client.getSettings());
+          const [settings, models, recentRuns, recentConversationAudit] = await Promise.all([
+            this.readQuery('settings', () => this.client.getSettings()),
+            this.readQuery('llm-models', () => this.client.listLlmModels({ refresh: false })),
+            this.readQuery('llm-logs', () => this.client.listLlmLogs(8)),
+            this.readQuery('conversation-logs', () => this.client.listConversationLogs(8)),
+          ]);
 
           return this.assistant.render({
             provider: settings.adminSettings.llm.provider,
             model: settings.adminSettings.llm.model,
             assistantEnabled: settings.adminSettings.commands.assistantEnabled,
             directRepliesEnabled: settings.adminSettings.commands.directRepliesEnabled,
+            availableModels: models.map((model) => ({
+              providerId: model.providerId,
+              modelId: model.modelId,
+              label: model.label,
+            })),
+            recentRuns: recentRuns.map((entry) => ({
+              runId: entry.runId,
+              operation: entry.operation,
+              providerId: entry.providerId,
+              modelId: entry.modelId,
+              createdAt: entry.createdAt,
+              outputSummary: entry.outputSummary,
+            })),
+            recentConversationAudit: recentConversationAudit.map((entry) => ({
+              auditId: entry.auditId,
+              chatJid: entry.chatJid,
+              intent: entry.intent,
+              replyMode: entry.replyMode,
+              createdAt: entry.createdAt,
+              replyText: entry.replyText,
+            })),
           });
         },
       },
@@ -224,13 +229,4 @@ export class AppRouter {
       ['/delivery-monitor', '/deliveries'],
     ]);
   }
-}
-
-function formatCurrentIsoWeek(value: Date): string {
-  const date = new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()));
-  const day = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-  const week = Math.ceil((((date.getTime() - yearStart.getTime()) / 86_400_000) + 1) / 7);
-  return `${date.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
 }

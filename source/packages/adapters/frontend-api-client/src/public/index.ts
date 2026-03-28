@@ -5,6 +5,7 @@ import type {
   SenderAudienceRuleUpsertInput,
 } from '@lume-hub/audience-routing';
 import type { CodexAuthRouterStatus } from '@lume-hub/codex-auth-router';
+import type { ConversationAuditRecord } from '@lume-hub/conversation';
 import type { HealthSnapshot } from '@lume-hub/health-monitor';
 import type { HostCompanionStatus } from '@lume-hub/host-lifecycle';
 import type { Instruction } from '@lume-hub/instruction-queue';
@@ -15,9 +16,16 @@ import type {
   GroupOwnerAssignment,
   GroupOwnerAssignmentInput,
 } from '@lume-hub/group-directory';
+import type { LlmChatInput, LlmChatResult, LlmModelDescriptor, LlmRunLogEntry } from '@lume-hub/llm-orchestrator';
 import type { Person, PersonRole, PersonUpsertInput } from '@lume-hub/people-memory';
 import type { PowerPolicyUpdate, PowerStatus } from '@lume-hub/system-power';
 import type { WatchdogIssue } from '@lume-hub/watchdog';
+import type {
+  WeeklyPlannerEventSummary,
+  WeeklyPlannerQuery,
+  WeeklyPlannerSnapshot,
+  WeeklyPlannerUpsertInput,
+} from '@lume-hub/weekly-planner';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -110,6 +118,18 @@ export interface DashboardSnapshot {
   };
 }
 
+export interface StatusSnapshot {
+  readonly readiness: DashboardSnapshot['readiness'];
+  readonly health: DashboardSnapshot['health'];
+  readonly groups: DashboardSnapshot['groups'];
+  readonly routing: DashboardSnapshot['routing'];
+  readonly distributions: DashboardSnapshot['distributions'];
+  readonly watchdog: DashboardSnapshot['watchdog'];
+  readonly hostCompanion: DashboardSnapshot['hostCompanion'];
+  readonly whatsapp: DashboardSnapshot['whatsapp'];
+  readonly generatedAt: string;
+}
+
 export interface SettingsSnapshot {
   readonly adminSettings: AdminSettings;
   readonly powerStatus: PowerStatus;
@@ -190,6 +210,11 @@ export interface WhatsAppWorkspaceSnapshot {
   };
 }
 
+export interface DistributionExecutionResult {
+  readonly plan: DistributionPlan;
+  readonly instruction: DistributionSummary;
+}
+
 export class InMemoryFrontendApiTransport implements FrontendApiTransport {
   constructor(
     private readonly server: FrontendApiServerLike,
@@ -210,6 +235,54 @@ export class FrontendApiClient {
 
   async getDashboard(): Promise<DashboardSnapshot> {
     return this.expectOk(await this.transport.request<DashboardSnapshot>({ method: 'GET', path: '/api/dashboard' }));
+  }
+
+  async getStatus(): Promise<StatusSnapshot> {
+    return this.expectOk(await this.transport.request<StatusSnapshot>({ method: 'GET', path: '/api/status' }));
+  }
+
+  async getWeeklyPlanner(query: WeeklyPlannerQuery = {}): Promise<WeeklyPlannerSnapshot> {
+    const params = new URLSearchParams();
+
+    if (query.weekId) {
+      params.set('weekId', query.weekId);
+    }
+
+    if (query.groupJid) {
+      params.set('groupJid', query.groupJid);
+    }
+
+    if (query.timeZone) {
+      params.set('timeZone', query.timeZone);
+    }
+
+    const suffix = params.size > 0 ? `?${params.toString()}` : '';
+    return this.expectOk(
+      await this.transport.request<WeeklyPlannerSnapshot>({
+        method: 'GET',
+        path: `/api/schedules${suffix}`,
+      }),
+    );
+  }
+
+  async saveWeeklySchedule(input: WeeklyPlannerUpsertInput): Promise<WeeklyPlannerEventSummary> {
+    return this.expectOk(
+      await this.transport.request<WeeklyPlannerEventSummary>({
+        method: input.eventId ? 'PATCH' : 'POST',
+        path: input.eventId ? `/api/schedules/${encodeURIComponent(input.eventId)}` : '/api/schedules',
+        body: input,
+      }),
+    );
+  }
+
+  async deleteWeeklySchedule(eventId: string, groupJid?: string): Promise<{ readonly deleted: boolean }> {
+    const suffix = groupJid ? `?groupJid=${encodeURIComponent(groupJid)}` : '';
+    return this.expectOk(
+      await this.transport.request<{ readonly deleted: boolean }>({
+        method: 'DELETE',
+        path: `/api/schedules/${encodeURIComponent(eventId)}${suffix}`,
+      }),
+    );
   }
 
   async listGroups(): Promise<readonly Group[]> {
@@ -272,6 +345,55 @@ export class FrontendApiClient {
     );
   }
 
+  async previewDistribution(input: {
+    readonly sourceMessageId?: string;
+    readonly personId?: string;
+    readonly identifiers?: readonly { readonly kind: string; readonly value: string }[];
+    readonly messageText?: string;
+  }): Promise<DistributionPlan> {
+    return this.expectOk(
+      await this.transport.request<DistributionPlan>({
+        method: 'POST',
+        path: '/api/routing/preview',
+        body: input,
+      }),
+    );
+  }
+
+  async createDistribution(input: {
+    readonly sourceMessageId?: string;
+    readonly personId?: string;
+    readonly identifiers?: readonly { readonly kind: string; readonly value: string }[];
+    readonly messageText: string;
+    readonly mode: Instruction['mode'];
+  }): Promise<DistributionExecutionResult> {
+    return this.expectOk(
+      await this.transport.request<DistributionExecutionResult>({
+        method: 'POST',
+        path: '/api/routing/distributions',
+        body: input,
+      }),
+    );
+  }
+
+  async listInstructionQueue(): Promise<readonly Instruction[]> {
+    return this.expectOk(
+      await this.transport.request<readonly Instruction[]>({
+        method: 'GET',
+        path: '/api/instruction-queue',
+      }),
+    );
+  }
+
+  async retryInstruction(instructionId: string): Promise<Instruction> {
+    return this.expectOk(
+      await this.transport.request<Instruction>({
+        method: 'POST',
+        path: `/api/instruction-queue/${encodeURIComponent(instructionId)}/retry`,
+      }),
+    );
+  }
+
   async getWatchdogIssues(): Promise<readonly WatchdogIssue[]> {
     return this.expectOk(
       await this.transport.request<readonly WatchdogIssue[]>({
@@ -304,6 +426,40 @@ export class FrontendApiClient {
       await this.transport.request<WhatsAppWorkspaceSnapshot>({
         method: 'GET',
         path: '/api/whatsapp/workspace',
+      }),
+    );
+  }
+
+  async getQr(): Promise<WhatsAppWorkspaceSnapshot['runtime']['qr']> {
+    return this.expectOk(
+      await this.transport.request<WhatsAppWorkspaceSnapshot['runtime']['qr']>({
+        method: 'GET',
+        path: '/api/qr',
+      }),
+    );
+  }
+
+  async sendDirectMessage(input: {
+    readonly chatJid: string;
+    readonly text: string;
+    readonly idempotencyKey?: string;
+    readonly messageId?: string;
+  }): Promise<{
+    readonly messageId: string;
+    readonly chatJid: string;
+    readonly acceptedAt: string;
+    readonly idempotencyKey?: string;
+  }> {
+    return this.expectOk(
+      await this.transport.request<{
+        readonly messageId: string;
+        readonly chatJid: string;
+        readonly acceptedAt: string;
+        readonly idempotencyKey?: string;
+      }>({
+        method: 'POST',
+        path: '/api/send',
+        body: input,
       }),
     );
   }
@@ -380,6 +536,57 @@ export class FrontendApiClient {
     );
   }
 
+  async listLlmModels(options: {
+    readonly refresh?: boolean;
+    readonly providerId?: string;
+  } = {}): Promise<readonly LlmModelDescriptor[]> {
+    const params = new URLSearchParams();
+
+    if (options.refresh !== undefined) {
+      params.set('refresh', String(options.refresh));
+    }
+
+    if (options.providerId) {
+      params.set('providerId', options.providerId);
+    }
+
+    const suffix = params.size > 0 ? `?${params.toString()}` : '';
+    return this.expectOk(
+      await this.transport.request<readonly LlmModelDescriptor[]>({
+        method: 'GET',
+        path: `/api/llm/models${suffix}`,
+      }),
+    );
+  }
+
+  async llmChat(input: LlmChatInput): Promise<LlmChatResult> {
+    return this.expectOk(
+      await this.transport.request<LlmChatResult>({
+        method: 'POST',
+        path: '/api/llm/chat',
+        body: input,
+      }),
+    );
+  }
+
+  async listLlmLogs(limit = 20): Promise<readonly LlmRunLogEntry[]> {
+    return this.expectOk(
+      await this.transport.request<readonly LlmRunLogEntry[]>({
+        method: 'GET',
+        path: `/api/logs/llm?limit=${limit}`,
+      }),
+    );
+  }
+
+  async listConversationLogs(limit = 20): Promise<readonly ConversationAuditRecord[]> {
+    return this.expectOk(
+      await this.transport.request<readonly ConversationAuditRecord[]>({
+        method: 'GET',
+        path: `/api/logs/conversations?limit=${limit}`,
+      }),
+    );
+  }
+
   async getCodexAuthRouterStatus(): Promise<CodexAuthRouterStatus | null> {
     return this.expectOk(
       await this.transport.request<CodexAuthRouterStatus | null>({
@@ -442,6 +649,7 @@ export class FrontendApiClient {
 
 export type {
   AdminSettings,
+  ConversationAuditRecord,
   CommandsPolicySettings,
   CalendarAccessMode,
   DistributionPlan,
@@ -450,6 +658,11 @@ export type {
   GroupOwnerAssignment,
   GroupOwnerAssignmentInput,
   HostCompanionStatus,
+  Instruction,
+  LlmChatInput,
+  LlmChatResult,
+  LlmModelDescriptor,
+  LlmRunLogEntry,
   Person,
   PersonRole,
   PersonUpsertInput,
@@ -458,4 +671,8 @@ export type {
   SenderAudienceRuleUpsertInput,
   WhatsAppSettings,
   WatchdogIssue,
+  WeeklyPlannerEventSummary,
+  WeeklyPlannerQuery,
+  WeeklyPlannerSnapshot,
+  WeeklyPlannerUpsertInput,
 };

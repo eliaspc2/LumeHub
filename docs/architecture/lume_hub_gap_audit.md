@@ -3,24 +3,23 @@
 Data: `2026-03-28`
 
 Objetivo:
-- descrever apenas os gaps reais que restam depois das `Wave 0` a `Wave 21`
+- descrever apenas os gaps reais que restam depois das `Wave 0` a `Wave 22`
 - evitar backlog preso a estado antigo do frontend ou a scaffolds ja removidos
 
 ## Resumo executivo
 
 Conclusao curta:
-- as `Wave 0` a `Wave 21` ficaram executadas e validadas
+- as `Wave 0` a `Wave 22` ficaram executadas e validadas
 - a `Wave 20` fechou o canal WhatsApp live com QR, descoberta e envio observavel
 - a `Wave 21` fechou o pipeline conversacional live e os providers LLM reais
+- a `Wave 22` fechou a API operacional principal e o `weekly-planner` real
 - o frontend operacional ja existe e a limpeza final do repositorio foi feita
 - o modo `Live` ja usa backend HTTP real, WebSocket real e launcher local sem servidor provisório
 - o backlog restante voltou a estar organizado em waves ativas
-- o backlog restante esta concentrado em integracoes reais de runtime e robustez de producao
+- o backlog restante esta concentrado em robustez, cobertura e fecho limpo da ronda
 
 Plano ativo de fecho:
 
-- `Wave 22`
-  - API operacional completa e `weekly-planner` real
 - `Wave 23`
   - hardening, cobertura e cutover para uso real
 - `Wave 24`
@@ -59,37 +58,7 @@ As seguintes areas existem com base razoavel:
 
 ## Gaps reais por prioridade
 
-### 1. A API do produto continua parcial
-
-Estado atual:
-- existem endpoints e runtime reais para dashboard, groups, people, routing, watchdog, settings e workspace WhatsApp
-- continuam em falta varias rotas canonicamente esperadas, como:
-  - `GET /api/status`
-  - `GET /api/qr`
-  - `GET /api/qr.svg`
-  - `GET /api/schedules`
-  - `GET /api/instruction-queue`
-  - `GET /api/llm/models`
-  - `POST /api/llm/chat`
-  - `POST /api/send`
-
-Onde fechar:
-- `source/packages/adapters/http-fastify`
-- modulos de scheduling, instruction queue, conversation e llm
-
-### 2. `weekly-planner` do dominio ainda esta minimo
-
-Estado atual:
-- `source/packages/modules/weekly-planner` continua a ser um modulo estrutural sem comportamento real
-
-Impacto:
-- a UX de planeamento existe, mas o backend de planeamento semanal ainda nao esta verdadeiramente implementado
-
-Onde fechar:
-- `source/packages/modules/weekly-planner`
-- depois ligar a `source/packages/ui-modules/week-planner`
-
-### 3. A cobertura de testes continua curta para o produto final
+### 1. A cobertura de testes continua curta para o produto final
 
 Estado atual:
 - continuam a existir poucos testes centrais:
@@ -104,7 +73,28 @@ Onde fechar:
 - `source/tests/*`
 - e idealmente suites locais em packages criticos
 
-### 4. `alerts` e `automations` sairam do workspace ativo
+### 2. O cutover para uso real ainda precisa de hardening operacional
+
+Estado atual:
+- o modo `Live` ja permite:
+  - criar e editar agendamentos reais
+  - preparar e enfileirar distribuicoes reais
+  - consultar queue, diagnostics e logs
+  - usar o `Assistente` com providers reais
+- continua em falta fechar a ronda com:
+  - testes de restart e recover mais fortes
+  - validacao de sessoes longas em `Live`
+  - checklist clara de cutover
+  - observabilidade minima para suporte
+
+Onde fechar:
+- `source/tests/*`
+- `source/apps/lume-hub-backend`
+- `source/apps/lume-hub-host`
+- `runtime/`
+- `docs/deployment/`
+
+### 3. `alerts` e `automations` sairam do workspace ativo
 
 Estado atual:
 - os antigos packages `source/packages/modules/alerts` e `source/packages/modules/automations` eram stubs vazios
@@ -116,16 +106,16 @@ Regra daqui para a frente:
 
 ## Ordem recomendada para o backlog restante
 
-1. `Wave 22`
-2. `Wave 23`
-3. `Wave 24`
+1. `Wave 23`
+2. `Wave 24`
 
 ## Nota final
 
 Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
-- sim
+- nao
+- continuam abertas `Wave 23` e `Wave 24`
 
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
 - nao
-- o que falta ja nao e scaffold nem wiring conversacional basico
-- falta sobretudo API operacional completa, `weekly-planner` real e reforco de testes
+- o que falta ja nao e scaffold nem wiring operacional principal
+- falta sobretudo reforco de testes, hardening e fecho de cutover

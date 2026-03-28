@@ -12,6 +12,7 @@ import {
 } from '@lume-hub/admin-config';
 import type { AudienceRoutingModuleContract } from '@lume-hub/audience-routing';
 import type { CodexAuthRouterModuleContract } from '@lume-hub/codex-auth-router';
+import type { ConversationAuditRecord } from '@lume-hub/conversation';
 import {
   DEFAULT_GROUP_CALENDAR_ACCESS_POLICY,
   type GroupCalendarAccessPolicy,
@@ -20,10 +21,14 @@ import {
 import type { HealthMonitorModuleContract } from '@lume-hub/health-monitor';
 import type { HostLifecycleModuleContract } from '@lume-hub/host-lifecycle';
 import type { Instruction, InstructionQueueModuleContract } from '@lume-hub/instruction-queue';
-import type { LlmOrchestratorModuleContract } from '@lume-hub/llm-orchestrator';
+import type { LlmChatInput, LlmOrchestratorModuleContract, LlmRunLogEntry } from '@lume-hub/llm-orchestrator';
 import type { PeopleMemoryModuleContract, Person, PersonRole, PersonUpsertInput } from '@lume-hub/people-memory';
 import type { SystemPowerModuleContract } from '@lume-hub/system-power';
 import type { WatchdogModuleContract } from '@lume-hub/watchdog';
+import type {
+  WeeklyPlannerModuleContract,
+  WeeklyPlannerUpsertInput,
+} from '@lume-hub/weekly-planner';
 import type { WhatsAppRuntimeSnapshot } from '@lume-hub/whatsapp-baileys';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -71,7 +76,13 @@ export interface UiEventPublisherLike {
 export interface HttpApiModules {
   readonly adminConfig: Pick<AdminConfigModuleContract, 'getSettings' | 'updateUiSettings'> &
     Partial<Pick<AdminConfigModuleContract, 'updateCommandsSettings' | 'updateLlmSettings' | 'updateWhatsAppSettings'>>;
-  readonly audienceRouting: Pick<AudienceRoutingModuleContract, 'listSenderAudienceRules' | 'upsertSenderAudienceRule'>;
+  readonly audienceRouting: Pick<
+    AudienceRoutingModuleContract,
+    'listSenderAudienceRules' | 'upsertSenderAudienceRule' | 'previewDistributionPlan'
+  >;
+  readonly conversationLogs?: {
+    readRecent(limit?: number): Promise<readonly ConversationAuditRecord[]>;
+  };
   readonly codexAuthRouter?: Pick<CodexAuthRouterModuleContract, 'forceSwitch' | 'getStatus'>;
   readonly groupDirectory: Pick<
     GroupDirectoryModuleContract,
@@ -82,11 +93,18 @@ export interface HttpApiModules {
     HostLifecycleModuleContract,
     'enableStartWithSystem' | 'disableStartWithSystem' | 'getHostCompanionStatus'
   >;
-  readonly instructionQueue: Pick<InstructionQueueModuleContract, 'listInstructions'>;
-  readonly llmOrchestrator?: Pick<LlmOrchestratorModuleContract, 'listModels' | 'refreshModels'>;
+  readonly instructionQueue: Pick<
+    InstructionQueueModuleContract,
+    'enqueueDistributionPlan' | 'listInstructions' | 'retryInstruction'
+  >;
+  readonly llmLogs?: {
+    readRecent(limit?: number): Promise<readonly LlmRunLogEntry[]>;
+  };
+  readonly llmOrchestrator?: Pick<LlmOrchestratorModuleContract, 'chat' | 'listModels' | 'refreshModels'>;
   readonly peopleMemory?: Pick<PeopleMemoryModuleContract, 'listPeople' | 'upsertByIdentifiers' | 'updatePersonRoles'>;
   readonly systemPower: Pick<SystemPowerModuleContract, 'getPowerStatus' | 'updatePowerPolicy'>;
   readonly watchdog: Pick<WatchdogModuleContract, 'listIssues' | 'resolveIssue'>;
+  readonly weeklyPlanner?: Pick<WeeklyPlannerModuleContract, 'deleteSchedule' | 'getWeekSnapshot' | 'saveSchedule'>;
   readonly whatsappRuntime?: {
     getRuntimeSnapshot(): Promise<WhatsAppRuntimeSnapshot>;
     refreshWorkspace(): Promise<WhatsAppRuntimeSnapshot>;
@@ -415,6 +433,83 @@ export class RouteRegistrar {
     });
     server.registerRoute({
       method: 'GET',
+      path: '/api/status',
+      handler: async () => this.getStatusSnapshot(),
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/schedules',
+      handler: async (context) => {
+        if (!this.modules.weeklyPlanner) {
+          throw new ApiError(404, 'Weekly planner is not configured.');
+        }
+
+        return this.modules.weeklyPlanner.getWeekSnapshot({
+          weekId: readOptionalQueryString(context.query, 'weekId'),
+          groupJid: readOptionalQueryString(context.query, 'groupJid'),
+          timeZone: readOptionalQueryString(context.query, 'timeZone'),
+        });
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/schedules',
+      handler: async (context) => {
+        if (!this.modules.weeklyPlanner) {
+          throw new ApiError(404, 'Weekly planner is not configured.');
+        }
+
+        const schedule = await this.modules.weeklyPlanner.saveSchedule(readWeeklyPlannerUpsertBody(context.body));
+        this.publish('schedules.updated', {
+          eventId: schedule.eventId,
+          groupJid: schedule.groupJid,
+          weekId: schedule.weekId,
+        });
+        return schedule;
+      },
+    });
+    server.registerRoute({
+      method: 'PATCH',
+      path: '/api/schedules/:eventId',
+      handler: async (context) => {
+        if (!this.modules.weeklyPlanner) {
+          throw new ApiError(404, 'Weekly planner is not configured.');
+        }
+
+        const schedule = await this.modules.weeklyPlanner.saveSchedule({
+          ...readWeeklyPlannerUpsertBody(context.body),
+          eventId: context.params.eventId,
+        });
+        this.publish('schedules.updated', {
+          eventId: schedule.eventId,
+          groupJid: schedule.groupJid,
+          weekId: schedule.weekId,
+        });
+        return schedule;
+      },
+    });
+    server.registerRoute({
+      method: 'DELETE',
+      path: '/api/schedules/:eventId',
+      handler: async (context) => {
+        if (!this.modules.weeklyPlanner) {
+          throw new ApiError(404, 'Weekly planner is not configured.');
+        }
+
+        const deleted = await this.modules.weeklyPlanner.deleteSchedule(context.params.eventId, {
+          groupJid: readOptionalQueryString(context.query, 'groupJid'),
+        });
+        this.publish('schedules.deleted', {
+          eventId: context.params.eventId,
+          deleted,
+        });
+        return {
+          deleted,
+        };
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
       path: '/api/groups',
       handler: async () => this.modules.groupDirectory.listGroups(),
     });
@@ -505,14 +600,84 @@ export class RouteRegistrar {
       },
     });
     server.registerRoute({
+      method: 'POST',
+      path: '/api/routing/preview',
+      handler: async (context) => {
+        const input = readDistributionPreviewBody(context.body);
+        return this.modules.audienceRouting.previewDistributionPlan(input.sourceMessageId, {
+          personId: input.personId ?? undefined,
+          identifiers: input.identifiers,
+          messageText: input.messageText,
+        });
+      },
+    });
+    server.registerRoute({
       method: 'GET',
       path: '/api/routing/distributions',
       handler: async () => (await this.modules.instructionQueue.listInstructions()).map((instruction) => mapInstruction(instruction)),
     });
     server.registerRoute({
+      method: 'POST',
+      path: '/api/routing/distributions',
+      handler: async (context) => {
+        const input = readDistributionExecutionBody(context.body);
+        const preview = await this.modules.audienceRouting.previewDistributionPlan(input.sourceMessageId, {
+          personId: input.personId ?? undefined,
+          identifiers: input.identifiers,
+          messageText: input.messageText,
+        });
+        const instruction = await this.modules.instructionQueue.enqueueDistributionPlan({
+          plan: preview,
+          messageText: input.messageText,
+          mode: input.mode,
+        });
+        const summary = mapInstruction(instruction);
+        this.publish('routing.distribution.created', summary);
+        return {
+          plan: preview,
+          instruction: summary,
+        };
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/instruction-queue',
+      handler: async () => this.modules.instructionQueue.listInstructions(),
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/instruction-queue/:instructionId/retry',
+      handler: async (context) => {
+        const instruction = await this.modules.instructionQueue.retryInstruction(context.params.instructionId);
+        this.publish('instruction.retry.accepted', {
+          instructionId: instruction.instructionId,
+          status: instruction.status,
+        });
+        return instruction;
+      },
+    });
+    server.registerRoute({
       method: 'GET',
       path: '/api/whatsapp/workspace',
       handler: async () => this.getWhatsAppWorkspaceSnapshot(),
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/qr',
+      handler: async () => {
+        const runtimeSnapshot = await this.modules.whatsappRuntime?.getRuntimeSnapshot();
+        return runtimeSnapshot?.qr ?? createEmptyWhatsAppRuntimeSnapshot().qr;
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/qr.svg',
+      handler: async () => {
+        const runtimeSnapshot = await this.modules.whatsappRuntime?.getRuntimeSnapshot();
+        return {
+          svg: runtimeSnapshot?.qr.svg ?? null,
+        };
+      },
     });
     server.registerRoute({
       method: 'GET',
@@ -557,6 +722,25 @@ export class RouteRegistrar {
       },
     });
     server.registerRoute({
+      method: 'POST',
+      path: '/api/send',
+      handler: async (context) => {
+        if (!this.modules.whatsappRuntime) {
+          throw new ApiError(404, 'WhatsApp runtime is not configured.');
+        }
+
+        const payload = readBodyObject(context.body, 'Send payload must be an object.');
+        const sendResult = await this.modules.whatsappRuntime.sendText({
+          chatJid: readRequiredStringValue(payload.chatJid, 'chatJid'),
+          text: readRequiredStringValue(payload.text, 'text'),
+          idempotencyKey: readOptionalTrimmedStringValue(payload.idempotencyKey, 'idempotencyKey'),
+          messageId: readOptionalTrimmedStringValue(payload.messageId, 'messageId'),
+        });
+        this.publish('send.accepted', sendResult);
+        return sendResult;
+      },
+    });
+    server.registerRoute({
       method: 'GET',
       path: '/api/watchdog/issues',
       handler: async () => this.modules.watchdog.listIssues(),
@@ -591,6 +775,45 @@ export class RouteRegistrar {
         }
 
         return this.modules.llmOrchestrator.listModels();
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/llm/chat',
+      handler: async (context) => {
+        if (!this.modules.llmOrchestrator) {
+          throw new ApiError(404, 'LLM orchestrator is not configured.');
+        }
+
+        const result = await this.modules.llmOrchestrator.chat(readLlmChatBody(context.body));
+        this.publish('llm.chat.completed', {
+          runId: result.runId,
+          providerId: result.providerId,
+          modelId: result.modelId,
+        });
+        return result;
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/logs/llm',
+      handler: async (context) => {
+        if (!this.modules.llmLogs) {
+          throw new ApiError(404, 'LLM logs are not configured.');
+        }
+
+        return this.modules.llmLogs.readRecent(readOptionalPositiveIntegerQuery(context.query, 'limit') ?? 20);
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/logs/conversations',
+      handler: async (context) => {
+        if (!this.modules.conversationLogs) {
+          throw new ApiError(404, 'Conversation logs are not configured.');
+        }
+
+        return this.modules.conversationLogs.readRecent(readOptionalPositiveIntegerQuery(context.query, 'limit') ?? 20);
       },
     });
     server.registerRoute({
@@ -790,6 +1013,22 @@ export class RouteRegistrar {
         discoveredGroups: whatsAppRuntime.groups.length,
         discoveredConversations: whatsAppRuntime.conversations.length,
       },
+    };
+  }
+
+  private async getStatusSnapshot() {
+    const dashboard = await this.getDashboardSnapshot();
+
+    return {
+      readiness: dashboard.readiness,
+      health: dashboard.health,
+      groups: dashboard.groups,
+      routing: dashboard.routing,
+      distributions: dashboard.distributions,
+      watchdog: dashboard.watchdog,
+      hostCompanion: dashboard.hostCompanion,
+      whatsapp: dashboard.whatsapp,
+      generatedAt: new Date().toISOString(),
     };
   }
 
@@ -1338,6 +1577,80 @@ function readWhatsAppSettingsBody(body: unknown): Partial<WhatsAppSettings> {
   };
 }
 
+function readWeeklyPlannerUpsertBody(body: unknown): WeeklyPlannerUpsertInput {
+  const payload = readBodyObject(body, 'Schedule payload must be an object.');
+
+  return {
+    eventId: readOptionalTrimmedStringValue(payload.eventId, 'eventId'),
+    weekId: readOptionalTrimmedStringValue(payload.weekId, 'weekId'),
+    groupJid: readRequiredStringValue(payload.groupJid, 'groupJid'),
+    title: readRequiredStringValue(payload.title, 'title'),
+    dayLabel: readOptionalTrimmedStringValue(payload.dayLabel, 'dayLabel'),
+    localDate: readOptionalTrimmedStringValue(payload.localDate, 'localDate'),
+    startTime: readRequiredStringValue(payload.startTime, 'startTime'),
+    durationMinutes: readRequiredPositiveIntegerValue(payload.durationMinutes, 'durationMinutes'),
+    notes:
+      payload.notes === null
+        ? null
+        : readOptionalTrimmedStringValue(payload.notes, 'notes'),
+    timeZone: readOptionalTrimmedStringValue(payload.timeZone, 'timeZone'),
+    notificationRules: Array.isArray(payload.notificationRules)
+      ? (payload.notificationRules as WeeklyPlannerUpsertInput['notificationRules'])
+      : undefined,
+  };
+}
+
+function readDistributionPreviewBody(body: unknown): {
+  readonly sourceMessageId: string;
+  readonly personId?: string;
+  readonly identifiers?: readonly { readonly kind: string; readonly value: string }[];
+  readonly messageText?: string;
+} {
+  const payload = readBodyObject(body, 'Distribution preview payload must be an object.');
+
+  return {
+    sourceMessageId:
+      readOptionalTrimmedStringValue(payload.sourceMessageId, 'sourceMessageId') ??
+      `manual-preview-${randomUUID()}`,
+    personId: readOptionalTrimmedStringValue(payload.personId, 'personId'),
+    identifiers: readOptionalIdentifiers(payload.identifiers, 'identifiers'),
+    messageText: readOptionalTrimmedStringValue(payload.messageText, 'messageText'),
+  };
+}
+
+function readDistributionExecutionBody(body: unknown): {
+  readonly sourceMessageId: string;
+  readonly personId?: string;
+  readonly identifiers?: readonly { readonly kind: string; readonly value: string }[];
+  readonly messageText: string;
+  readonly mode: 'dry_run' | 'confirmed';
+} {
+  const preview = readDistributionPreviewBody(body);
+  const payload = readBodyObject(body, 'Distribution payload must be an object.');
+  const mode = readOptionalTrimmedStringValue(payload.mode, 'mode') ?? 'dry_run';
+
+  if (mode !== 'dry_run' && mode !== 'confirmed') {
+    throw new ApiError(400, "mode must be 'dry_run' or 'confirmed'.");
+  }
+
+  return {
+    ...preview,
+    messageText: readRequiredStringValue(payload.messageText, 'messageText'),
+    mode,
+  };
+}
+
+function readLlmChatBody(body: unknown): LlmChatInput {
+  const payload = readBodyObject(body, 'LLM chat payload must be an object.');
+
+  return {
+    text: readRequiredStringValue(payload.text, 'text'),
+    intent: readOptionalTrimmedStringValue(payload.intent, 'intent') ?? null,
+    contextSummary: readOptionalStringArrayValue(payload.contextSummary, 'contextSummary'),
+    domainFacts: readOptionalStringArrayValue(payload.domainFacts, 'domainFacts'),
+  };
+}
+
 function readBooleanBodyField(body: unknown, fieldName: string): boolean {
   if (!body || typeof body !== 'object' || typeof (body as Record<string, unknown>)[fieldName] !== 'boolean') {
     throw new ApiError(400, `${fieldName} must be a boolean.`);
@@ -1415,6 +1728,25 @@ function readOptionalBooleanQuery(
   throw new ApiError(400, `${fieldName} must be true or false when provided.`);
 }
 
+function readOptionalPositiveIntegerQuery(
+  query: Record<string, string | readonly string[]>,
+  fieldName: string,
+): number | undefined {
+  const value = readOptionalQueryString(query, fieldName);
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new ApiError(400, `${fieldName} must be a positive integer when provided.`);
+  }
+
+  return parsed;
+}
+
 function readBodyObject(body: unknown, message: string): Record<string, unknown> {
   if (!body || typeof body !== 'object') {
     throw new ApiError(400, message);
@@ -1474,6 +1806,38 @@ function readOptionalStringArrayValue(value: unknown, fieldName: string): readon
       return entry;
     }),
   );
+}
+
+function readRequiredPositiveIntegerValue(value: unknown, fieldName: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    throw new ApiError(400, `${fieldName} must be a positive integer.`);
+  }
+
+  return value;
+}
+
+function readOptionalIdentifiers(
+  value: unknown,
+  fieldName: string,
+): readonly { readonly kind: string; readonly value: string }[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    throw new ApiError(400, `${fieldName} must be an array.`);
+  }
+
+  return value.map((entry, index) => {
+    if (!entry || typeof entry !== 'object') {
+      throw new ApiError(400, `${fieldName}[${index}] must be an object.`);
+    }
+
+    return {
+      kind: readRequiredStringValue((entry as Record<string, unknown>).kind, `${fieldName}[${index}].kind`),
+      value: readRequiredStringValue((entry as Record<string, unknown>).value, `${fieldName}[${index}].value`),
+    };
+  });
 }
 
 function readRolesArray(value: unknown): readonly PersonRole[] {

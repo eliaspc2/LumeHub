@@ -1,10 +1,10 @@
 import type { NotificationRuleDefinitionInput } from '@lume-hub/notification-rules';
 
-export interface WeeklyPlannerGroupSummary {
-  readonly groupJid: string;
-  readonly preferredSubject: string;
-  readonly courseId: string | null;
-  readonly ownerLabels: readonly string[];
+export interface WeeklyPlannerQuery {
+  readonly weekId?: string;
+  readonly groupJid?: string;
+  readonly timeZone?: string;
+  readonly now?: Date;
 }
 
 export interface WeeklyPlannerNotificationSummary {
@@ -12,6 +12,13 @@ export interface WeeklyPlannerNotificationSummary {
   readonly waitingConfirmation: number;
   readonly sent: number;
   readonly total: number;
+}
+
+export interface WeeklyPlannerGroupSummary {
+  readonly groupJid: string;
+  readonly preferredSubject: string;
+  readonly courseId: string | null;
+  readonly ownerLabels: readonly string[];
 }
 
 export interface WeeklyPlannerEventSummary {
@@ -46,13 +53,6 @@ export interface WeeklyPlannerSnapshot {
   };
 }
 
-export interface WeeklyPlannerQuery {
-  readonly weekId?: string;
-  readonly groupJid?: string;
-  readonly timeZone?: string;
-  readonly now?: Date;
-}
-
 export interface WeeklyPlannerUpsertInput {
   readonly eventId?: string;
   readonly weekId?: string;
@@ -65,16 +65,4 @@ export interface WeeklyPlannerUpsertInput {
   readonly notes?: string | null;
   readonly timeZone?: string;
   readonly notificationRules?: readonly NotificationRuleDefinitionInput[];
-}
-
-export interface WeeklyPlannerModuleContract {
-  readonly moduleName: 'weekly-planner';
-  getWeekSnapshot(query?: WeeklyPlannerQuery): Promise<WeeklyPlannerSnapshot>;
-  saveSchedule(input: WeeklyPlannerUpsertInput): Promise<WeeklyPlannerEventSummary>;
-  deleteSchedule(
-    eventId: string,
-    query?: {
-      readonly groupJid?: string;
-    },
-  ): Promise<boolean>;
 }
