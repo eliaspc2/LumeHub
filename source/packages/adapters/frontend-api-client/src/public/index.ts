@@ -228,10 +228,9 @@ export interface GroupIntelligenceSnapshot {
   readonly groupJid: string;
   readonly instructions: {
     readonly primaryFilePath: string;
-    readonly legacyFilePath: string;
     readonly resolvedFilePath: string | null;
     readonly exists: boolean;
-    readonly source: 'llm_instructions' | 'legacy_prompt' | 'missing';
+    readonly source: 'llm_instructions' | 'missing';
     readonly content: string | null;
   };
   readonly knowledge: {
@@ -266,7 +265,7 @@ export interface GroupContextPreviewSnapshot {
     readonly courseId: string | null;
   } | null;
   readonly groupInstructions: string | null;
-  readonly groupInstructionsSource: 'llm_instructions' | 'legacy_prompt' | 'missing';
+  readonly groupInstructionsSource: 'llm_instructions' | 'missing';
   readonly groupKnowledgeSnippets: readonly {
     readonly groupJid: string;
     readonly documentId: string;

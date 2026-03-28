@@ -16,7 +16,7 @@ Conclusao curta:
 - hardening, cutover, observabilidade minima e limpeza final da ronda ficaram concluidos
 - o modo `Live` ja usa backend HTTP real, WebSocket real e launcher local sem servidor provisório
 - a partir de `2026-03-28` abriu uma nova ronda de feature para inteligencia LLM por grupo
-- a `Wave 25` ja fechou o storage canonico com `llm/instructions.md`, `knowledge/` e fallback legacy para `prompt.md`
+- a `Wave 25` ja fechou o storage canonico com `llm/instructions.md` e `knowledge/`
 - a `Wave 26` ja fechou a knowledge base por grupo com retrieval isolado no `assistant-context`
 - a `Wave 27` ja fechou a API e a UI para gerir instrucoes, documentos e preview de contexto por grupo
 - a `Wave 28` ja fechou o uso live auditavel dessa memoria no assistente e no scheduling
@@ -58,8 +58,12 @@ As seguintes areas existem com base razoavel:
 
 ## Gaps ativos da ronda nova
 
-Nesta ronda ja nao restam gaps funcionais de produto.
-O que falta na `Wave 29` e apenas limpeza final de naming, fallback legacy e residuos documentais/tecnicos desta serie.
+Nesta ronda ja nao restam gaps ativos.
+O storage canonico desta serie fica fechado em:
+
+- `data/groups/<jid>/llm/instructions.md`
+- `data/groups/<jid>/knowledge/`
+- `data/groups/<jid>/knowledge/index.json`
 
 ## Gaps ativos da ronda seguinte prevista
 
@@ -108,7 +112,7 @@ Regra daqui para a frente:
 Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
 - sim
 - para a ronda anterior, sim
-- e nesta ronda atual so falta a `Wave 29` de limpeza
+- e a ronda de inteligencia por grupo tambem ficou fechada
 
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
 - para o runtime operacional base, sim

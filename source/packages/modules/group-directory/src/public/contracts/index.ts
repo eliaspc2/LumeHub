@@ -7,7 +7,6 @@ import type {
   GroupOwnerAssignmentInput,
   GroupOwnerAssignment,
   GroupPolicyDocument,
-  GroupPromptDocument,
   GroupWorkspaceDescriptor,
   WhatsAppGroupSnapshot,
 } from '../../domain/entities/Group.js';
@@ -31,7 +30,6 @@ export interface GroupDirectoryModuleContract {
   getGroupKnowledgeWorkspace(groupJid: string): Promise<GroupKnowledgeWorkspaceDescriptor>;
   getGroupLlmInstructions(groupJid: string): Promise<GroupLlmInstructionsDocument>;
   updateGroupLlmInstructions(groupJid: string, input: GroupLlmInstructionsUpdateInput): Promise<GroupLlmInstructionsDocument>;
-  getGroupPrompt(groupJid: string): Promise<GroupPromptDocument>;
   getGroupPolicy(groupJid: string): Promise<GroupPolicyDocument>;
   isGroupOwner(groupJid: string, personId: string): Promise<boolean>;
 }

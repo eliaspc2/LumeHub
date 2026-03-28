@@ -11,7 +11,6 @@ import type {
   GroupOwnerAssignmentInput,
   GroupOwnerAssignment,
   GroupPolicyDocument,
-  GroupPromptDocument,
   GroupWorkspaceDescriptor,
   WhatsAppGroupSnapshot,
 } from '../../domain/entities/Group.js';
@@ -125,7 +124,6 @@ export class GroupDirectoryService {
       rootPath: this.pathResolver.resolveGroupRootPath(groupJid),
       llmRootPath: this.pathResolver.resolveGroupLlmRootPath(groupJid),
       llmInstructionsPath: this.pathResolver.resolveGroupLlmInstructionsPath(groupJid),
-      promptPath: this.pathResolver.resolveGroupPromptPath(groupJid),
       knowledgeRootPath: this.pathResolver.resolveGroupKnowledgeRootPath(groupJid),
       knowledgeIndexPath: this.pathResolver.resolveGroupKnowledgeIndexPath(groupJid),
       policyPath: this.pathResolver.resolveGroupPolicyPath(groupJid),
@@ -148,7 +146,6 @@ export class GroupDirectoryService {
     try {
       return {
         primaryFilePath: workspace.llmInstructionsPath,
-        legacyFilePath: workspace.promptPath,
         resolvedFilePath: workspace.llmInstructionsPath,
         exists: true,
         source: 'llm_instructions',
@@ -160,24 +157,8 @@ export class GroupDirectoryService {
       }
     }
 
-    try {
-      return {
-        primaryFilePath: workspace.llmInstructionsPath,
-        legacyFilePath: workspace.promptPath,
-        resolvedFilePath: workspace.promptPath,
-        exists: true,
-        source: 'legacy_prompt',
-        content: await readFile(workspace.promptPath, 'utf8'),
-      };
-    } catch (error) {
-      if (!isNodeError(error) || error.code !== 'ENOENT') {
-        throw error;
-      }
-    }
-
     return {
       primaryFilePath: workspace.llmInstructionsPath,
-      legacyFilePath: workspace.promptPath,
       resolvedFilePath: null,
       exists: false,
       source: 'missing',
@@ -193,28 +174,6 @@ export class GroupDirectoryService {
     await mkdir(dirname(workspace.llmInstructionsPath), { recursive: true });
     await writeFile(workspace.llmInstructionsPath, ensureTrailingNewline(input.content), 'utf8');
     return this.getGroupLlmInstructions(groupJid);
-  }
-
-  async getGroupPrompt(groupJid: string): Promise<GroupPromptDocument> {
-    const workspace = await this.getGroupWorkspace(groupJid);
-
-    try {
-      return {
-        filePath: workspace.promptPath,
-        exists: true,
-        content: await readFile(workspace.promptPath, 'utf8'),
-      };
-    } catch (error) {
-      if (isNodeError(error) && error.code === 'ENOENT') {
-        return {
-          filePath: workspace.promptPath,
-          exists: false,
-          content: null,
-        };
-      }
-
-      throw error;
-    }
   }
 
   async getGroupPolicy(groupJid: string): Promise<GroupPolicyDocument> {

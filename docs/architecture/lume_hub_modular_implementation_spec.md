@@ -398,7 +398,7 @@ Implementacao:
 - o layout canonico deve ser tipo:
   - `data/groups/_settings.json`
   - `data/groups/<jid>/group.json`
-  - `data/groups/<jid>/prompt.md`
+  - `data/groups/<jid>/llm/instructions.md`
   - `data/groups/<jid>/policy.json`
   - `data/groups/<jid>/calendar/2026-03.json`
   - `data/groups/<jid>/views/w13y2026.view.json`
@@ -566,7 +566,7 @@ Contrato publico:
 - `getGroupOwners()`
 - `getCalendarAccessPolicy()`
 - `getGroupWorkspace()`
-- `getGroupPrompt()`
+- `getGroupLlmInstructions()`
 - `getGroupPolicy()`
 
 ## 2A. `audience-routing`

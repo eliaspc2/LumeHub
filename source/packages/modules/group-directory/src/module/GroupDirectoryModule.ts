@@ -96,10 +96,6 @@ export class GroupDirectoryModule extends BaseModule implements GroupDirectoryMo
     return this.service.updateGroupLlmInstructions(groupJid, input);
   }
 
-  async getGroupPrompt(groupJid: string) {
-    return this.service.getGroupPrompt(groupJid);
-  }
-
   async getGroupPolicy(groupJid: string) {
     return this.service.getGroupPolicy(groupJid);
   }

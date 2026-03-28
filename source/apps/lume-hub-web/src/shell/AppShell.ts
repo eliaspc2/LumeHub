@@ -474,7 +474,7 @@ export class AppShell {
         <div class="shell-main">
           <header class="surface shell-header surface--strong">
               <div class="header-copy">
-              <p class="eyebrow">Wave 28</p>
+              <p class="eyebrow">Runtime live</p>
               <h1>${escapeHtml(currentRoute.label)}</h1>
               <p>${escapeHtml(currentRoute.description)}</p>
             </div>
@@ -544,14 +544,14 @@ export class AppShell {
           </section>
 
           <section class="surface rail-card">
-            <h3>Foco desta wave</h3>
+            <h3>Foco atual</h3>
             <p>
-              Nesta wave queremos ver memoria de grupo a entrar mesmo no runtime live, no scheduling e nos logs, sem misturar turmas parecidas.
+              A shell mostra o estado operacional do produto e deve manter linguagem simples, sinais claros e contexto auditavel sem depender de naming de wave.
             </p>
             <ul>
-              <li>Confirmar que respostas e parse de scheduling usam o grupo certo quando a referencia e ambigua.</li>
-              <li>Ver se o Assistente mostra porque memoria de grupo entrou em cada run recente.</li>
-              <li>Garantir que os logs deixam claro quando houve instrucoes e snippets desse grupo.</li>
+              <li>Usa o modo essencial para ler rapido e o modo advanced so quando precisares de detalhe tecnico.</li>
+              <li>Na pagina Assistente, confirma que runs e auditoria recente explicam que memoria de grupo entrou em cada resposta.</li>
+              <li>Na pagina Grupos, confirma que o storage canonico continua claro: instrucoes, knowledge base e preview do contexto.</li>
             </ul>
           </section>
 
@@ -1149,11 +1149,7 @@ export class AppShell {
     const groupsWithOwners = groups.filter((group) => group.groupOwners.length > 0).length;
     const documentCount = intelligence?.knowledge.documents.length ?? 0;
     const previewSnippetCount = contextPreview?.groupKnowledgeSnippets.length ?? 0;
-    const instructionsState = intelligence?.instructions.exists
-      ? intelligence.instructions.source === 'llm_instructions'
-        ? 'Canonico'
-        : 'Legacy'
-      : 'Em falta';
+    const instructionsState = intelligence?.instructions.exists ? 'Canonico' : 'Em falta';
     const instructionsTone =
       intelligence?.instructions.source === 'llm_instructions'
         ? 'positive'
@@ -1198,9 +1194,7 @@ export class AppShell {
             contentHtml: `<p>${escapeHtml(
               intelligence?.instructions.source === 'llm_instructions'
                 ? 'A LLM ja esta a ler um ficheiro canonico por grupo.'
-                : intelligence?.instructions.source === 'legacy_prompt'
-                  ? 'Ainda existe fallback legacy. Vale a pena guardar o ficheiro canonico aqui.'
-                  : 'Ainda nao ha instrucoes especificas para este grupo.',
+                : 'Ainda nao ha instrucoes especificas para este grupo.',
             )}</p>`,
           })}
         </div>
@@ -1229,7 +1223,7 @@ export class AppShell {
           title: 'Instrucoes ativas',
           value: instructionsState,
           tone: instructionsTone,
-          description: 'Mostra se o grupo ja esta a usar ficheiro canonico, fallback legacy ou nada.',
+          description: 'Mostra se o grupo ja esta a usar ficheiro canonico ou se ainda falta criar instrucoes.',
         })}
       </section>
 
@@ -1316,7 +1310,6 @@ export class AppShell {
                         <summary>Detalhes tecnicos desta fonte</summary>
                         <div class="ui-details__content">
                           <p>Ficheiro canonico: ${escapeHtml(intelligence.instructions.primaryFilePath)}</p>
-                          <p>Fallback legacy: ${escapeHtml(intelligence.instructions.legacyFilePath)}</p>
                           <p>Resolvido a partir de: ${escapeHtml(intelligence.instructions.resolvedFilePath ?? 'nenhum ficheiro')}</p>
                         </div>
                       </details>

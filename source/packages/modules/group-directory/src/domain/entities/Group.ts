@@ -32,18 +32,16 @@ export interface GroupWorkspaceDescriptor {
   readonly rootPath: string;
   readonly llmRootPath: string;
   readonly llmInstructionsPath: string;
-  readonly promptPath: string;
   readonly knowledgeRootPath: string;
   readonly knowledgeIndexPath: string;
   readonly policyPath: string;
   readonly calendarDirectoryPath: string;
 }
 
-export type GroupLlmInstructionsSource = 'llm_instructions' | 'legacy_prompt' | 'missing';
+export type GroupLlmInstructionsSource = 'llm_instructions' | 'missing';
 
 export interface GroupLlmInstructionsDocument {
   readonly primaryFilePath: string;
-  readonly legacyFilePath: string;
   readonly resolvedFilePath: string | null;
   readonly exists: boolean;
   readonly source: GroupLlmInstructionsSource;
@@ -52,12 +50,6 @@ export interface GroupLlmInstructionsDocument {
 
 export interface GroupLlmInstructionsUpdateInput {
   readonly content: string;
-}
-
-export interface GroupPromptDocument {
-  readonly filePath: string;
-  readonly exists: boolean;
-  readonly content: string | null;
 }
 
 export interface GroupPolicyDocument {

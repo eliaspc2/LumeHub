@@ -124,7 +124,7 @@ test('dashboard surfaces watchdog and host companion state clearly', async () =>
               workspace: {
                 rootPath: '/tmp/group-a',
                 metadataFilePath: '/tmp/group-a/group.json',
-                promptFilePath: '/tmp/group-a/prompt.md',
+                llmInstructionsPath: '/tmp/group-a/llm/instructions.md',
                 policyFilePath: '/tmp/group-a/policy.json',
               },
               lastRefreshedAt: '2026-03-26T10:00:00.000Z',

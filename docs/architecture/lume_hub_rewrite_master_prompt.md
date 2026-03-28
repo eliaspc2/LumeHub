@@ -128,7 +128,7 @@ Forma ideal:
 - estrutura minima esperada:
   - `data/groups/_settings.json`
   - `data/groups/120363407086801381@g.us/group.json`
-  - `data/groups/120363407086801381@g.us/prompt.md`
+  - `data/groups/120363407086801381@g.us/llm/instructions.md`
   - `data/groups/120363407086801381@g.us/policy.json`
   - `data/groups/120363407086801381@g.us/calendar/2026-03.json`
   - `data/groups/120363407086801381@g.us/views/w13y2026.view.json`
@@ -244,7 +244,7 @@ Forma ideal:
   - `groupOwners`
   - `calendarAccessPolicy`
   - caminho do workspace do grupo
-  - caminho do `prompt.md`
+  - caminho de `llm/instructions.md`
   - caminho do `policy.json`
   - caminho do calendario do grupo
 
@@ -1215,7 +1215,7 @@ Forma ideal:
 Idealmente usar:
 - `data/groups/_settings.json`
 - `data/groups/120363407086801381@g.us/group.json`
-- `data/groups/120363407086801381@g.us/prompt.md`
+- `data/groups/120363407086801381@g.us/llm/instructions.md`
 - `data/groups/120363407086801381@g.us/policy.json`
 - `data/groups/120363407086801381@g.us/calendar/2026-03.json`
 - `data/groups/120363407086801381@g.us/views/w13y2026.view.json`

@@ -1436,7 +1436,6 @@ function buildDemoGroupIntelligenceSnapshot(state: DemoState, groupJid: string):
     groupJid,
     instructions: {
       primaryFilePath,
-      legacyFilePath: buildDemoGroupLegacyPromptPath(groupJid),
       resolvedFilePath: instructions.length > 0 ? primaryFilePath : null,
       exists: instructions.length > 0,
       source: instructions.length > 0 ? 'llm_instructions' : 'missing',
@@ -1624,10 +1623,6 @@ function buildDemoGroupRootPath(groupJid: string): string {
 
 function buildDemoGroupInstructionsPath(groupJid: string): string {
   return `${buildDemoGroupRootPath(groupJid)}/llm/instructions.md`;
-}
-
-function buildDemoGroupLegacyPromptPath(groupJid: string): string {
-  return `${buildDemoGroupRootPath(groupJid)}/prompt.md`;
 }
 
 function buildDemoGroupKnowledgeRootPath(groupJid: string): string {

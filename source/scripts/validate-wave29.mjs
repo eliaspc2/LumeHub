@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 
 import { runChromeDump } from '../tests/helpers/live-runtime-fixtures.mjs';
 
@@ -42,7 +43,7 @@ const { PeopleMemoryModule } = await import(
 
 const SOURCE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB_DIST_ROOT = resolve(SOURCE_ROOT, 'apps', 'lume-hub-web', 'dist');
-const sandboxPath = await mkdtemp(join(tmpdir(), 'lume-hub-wave28-'));
+const sandboxPath = await mkdtemp(join(tmpdir(), 'lume-hub-wave29-'));
 const dataRootPath = join(sandboxPath, 'data');
 const groupSeedFilePath = join(sandboxPath, 'group-seed.json');
 
@@ -129,13 +130,13 @@ try {
     assistantContext,
     audienceRouting: {
       async previewDistributionPlan() {
-        throw new Error('Not used in wave28 validation.');
+        throw new Error('Not used in wave29 validation.');
       },
     },
     commandPolicy,
     instructionQueue: {
       async enqueueDistributionPlan() {
-        throw new Error('Not used in wave28 validation.');
+        throw new Error('Not used in wave29 validation.');
       },
     },
     intentClassifier: new IntentClassifierModule(),
@@ -145,7 +146,7 @@ try {
         return false;
       },
       async executeOwnerCommand() {
-        throw new Error('Not used in wave28 validation.');
+        throw new Error('Not used in wave29 validation.');
       },
     },
   });
@@ -291,10 +292,10 @@ try {
           return [];
         },
         async upsertSenderAudienceRule() {
-          throw new Error('Not used in wave28 validation.');
+        throw new Error('Not used in wave29 validation.');
         },
         async previewDistributionPlan() {
-          throw new Error('Not used in wave28 validation.');
+        throw new Error('Not used in wave29 validation.');
         },
       },
       conversationLogs: {
@@ -326,13 +327,13 @@ try {
       },
       instructionQueue: {
         async enqueueDistributionPlan() {
-          throw new Error('Not used in wave28 validation.');
+        throw new Error('Not used in wave29 validation.');
         },
         async listInstructions() {
           return [];
         },
         async retryInstruction() {
-          throw new Error('Not used in wave28 validation.');
+        throw new Error('Not used in wave29 validation.');
         },
       },
       llmLogs: {
@@ -390,7 +391,23 @@ try {
   assert.doesNotMatch(dump.stdout, /Algo falhou ao carregar esta pagina/u);
   assert.doesNotMatch(dump.stderr, /(TypeError|ReferenceError|Uncaught)/u);
 
-  console.log('Wave 28 validation passed: live assistant and scheduling audit group memory usage correctly.');
+  for (const relativePath of [
+    'README.md',
+    'source/README.md',
+    'docs/architecture/lume_hub_modular_implementation_spec.md',
+    'docs/architecture/lume_hub_rewrite_master_prompt.md',
+    'docs/deployment/lume_hub_lxd_runtime_plan.md',
+  ]) {
+    const content = readFileSync(join(SOURCE_ROOT, '..', relativePath), 'utf8');
+    assert.doesNotMatch(
+      content,
+      /(?:^|[\s`"'/(])prompt\.md\b/u,
+      `${relativePath} should no longer reference prompt.md as active runtime storage.`,
+    );
+    assert.doesNotMatch(content, /legacy_prompt/u, `${relativePath} should no longer reference legacy_prompt.`);
+  }
+
+  console.log('Wave 29 validation passed: group intelligence cleanup removed legacy prompt fallback without regressions.');
 } finally {
   if (server) {
     await server.close().catch(() => undefined);

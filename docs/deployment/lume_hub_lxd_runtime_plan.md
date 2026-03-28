@@ -84,7 +84,7 @@ O container e apenas o local de execucao.
 
 - `host-mounts/data/groups/`
   - pastas por grupo
-  - cada grupo com `group.json`, `prompt.md`, `policy.json` e `calendar/YYYY-MM.json`
+  - cada grupo com `group.json`, `llm/instructions.md`, `policy.json` e `calendar/YYYY-MM.json`
 - `host-mounts/data/runtime/`
   - queue, watchdog e estado auxiliar
 

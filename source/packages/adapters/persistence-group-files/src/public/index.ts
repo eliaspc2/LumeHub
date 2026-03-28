@@ -375,10 +375,6 @@ export class GroupPathResolver {
     return join(this.resolveGroupLlmRootPath(groupJid), 'instructions.md');
   }
 
-  resolveGroupPromptPath(groupJid: string): string {
-    return join(this.resolveGroupRootPath(groupJid), 'prompt.md');
-  }
-
   resolveGroupKnowledgeRootPath(groupJid: string): string {
     return join(this.resolveGroupRootPath(groupJid), 'knowledge');
   }

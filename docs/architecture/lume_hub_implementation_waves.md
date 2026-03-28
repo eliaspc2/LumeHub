@@ -10,38 +10,10 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 28` ja foram executadas e validadas.
-O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ja fechou storage, retrieval, operacao por UI e uso live auditavel dessa memoria.
+As `Wave 0` a `Wave 29` ja foram executadas e validadas.
+O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
 ## Ronda ativa
-
-### Wave 29 - Limpeza final da ronda de inteligencia por grupo
-
-Objetivo:
-- remover naming legacy e lixo tecnico/documental deixado pela ronda
-
-Entregaveis:
-- limpeza do uso residual de `prompt.md` se ja nao for preciso
-- docs finais alinhadas ao storage canonico novo
-- validadores e scripts intermédios supersedidos removidos
-
-Criterios de aceitacao:
-- o repo fica sem duplicacao de caminhos antigos e novos sem necessidade
-- a ronda fecha com backlog claro e sem residuos evitaveis
-
-Rebuild e validacao minima:
-- `corepack pnpm run validate:wave29`
-
-Melhor momento para testar:
-- no fim da ronda, para confirmar que a limpeza nao partiu o fluxo final
-
-O que testar:
-- regressao geral de `Live`
-- leitura/escrita de instrucoes LLM por grupo
-- knowledge base por grupo
-- ausencia de referencias legacy desnecessarias na documentacao operacional
-
-## Proxima ronda prevista
 
 ### Wave 30 - Storage canonico de media recebida
 

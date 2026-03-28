@@ -100,7 +100,6 @@ export class AssistantContextBuilder {
       groupInstructions: groupInstructions?.content ?? null,
       groupInstructionsSource: groupInstructions?.source ?? 'missing',
       groupKnowledgeSnippets,
-      groupPrompt: groupInstructions?.content ?? null,
       groupPolicy: groupPolicy?.value ?? null,
       generatedAt: now.toISOString(),
     };

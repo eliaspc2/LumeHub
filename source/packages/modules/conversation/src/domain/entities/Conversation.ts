@@ -28,7 +28,7 @@ export interface ConversationAuditRecord {
     readonly scope: 'none' | 'group';
     readonly groupJid: string | null;
     readonly groupLabel: string | null;
-    readonly instructionsSource: 'llm_instructions' | 'legacy_prompt' | 'missing' | null;
+    readonly instructionsSource: 'llm_instructions' | 'missing' | null;
     readonly instructionsApplied: boolean;
     readonly knowledgeSnippetCount: number;
     readonly knowledgeDocuments: readonly {

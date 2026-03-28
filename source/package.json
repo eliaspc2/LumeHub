@@ -13,10 +13,7 @@
     "test:unit": "node --test ./tests/unit",
     "test:integration": "node --test ./tests/integration",
     "test:e2e": "node --test ./tests/e2e",
-    "validate:wave28": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave28.mjs",
-    "validate:wave27": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave27.mjs",
-    "validate:wave26": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave26.mjs",
-    "validate:wave25": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave25.mjs",
+    "validate:wave29": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave29.mjs",
     "package:release": "corepack pnpm -r --if-present build && node ./scripts/package-release.mjs",
     "validate:release": "corepack pnpm -r --if-present build && node ./scripts/validate-release.mjs && node ./scripts/package-release.mjs",
     "validate:wave24": "corepack pnpm run typecheck && corepack pnpm run build && corepack pnpm run test && node ./scripts/validate-wave24.mjs"
