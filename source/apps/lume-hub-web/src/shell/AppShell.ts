@@ -4,8 +4,10 @@ import type {
   DistributionSummary,
   FrontendUiEvent,
   Group,
+  GroupContextPreviewSnapshot,
   GroupIntelligenceSnapshot,
   Instruction,
+  LlmChatInput,
   MediaAssetSnapshot,
   PersonRole,
   SettingsSnapshot,
@@ -89,6 +91,24 @@ interface GroupManagementDraft {
   readonly knowledgeDocument: GroupKnowledgeDraft;
 }
 
+interface AssistantRailMessage {
+  readonly messageId: string;
+  readonly role: 'user' | 'assistant' | 'system' | 'error';
+  readonly text: string;
+  readonly contextLabel: string;
+  readonly recordedAt: string;
+}
+
+interface AssistantRailChatState {
+  readonly contextMode: 'global' | 'group';
+  readonly selectedGroupJid: string | null;
+  readonly input: string;
+  readonly availableGroups: readonly Group[];
+  readonly loadingGroups: boolean;
+  readonly sending: boolean;
+  readonly messages: readonly AssistantRailMessage[];
+}
+
 interface AppShellState {
   readonly mode: FrontendTransportMode;
   readonly previewState: PreviewState;
@@ -104,6 +124,7 @@ interface AppShellState {
   readonly distributionDraft: GuidedDistributionDraft;
   readonly mediaDistributionDraft: GuidedMediaDistributionDraft;
   readonly groupManagementDraft: GroupManagementDraft;
+  readonly assistantRailChat: AssistantRailChatState;
   readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
   readonly whatsappQrPreviewVisible: boolean;
   readonly pendingConfirmation: PendingConfirmation | null;
@@ -199,6 +220,7 @@ export class AppShell {
       },
       mediaDistributionDraft: createEmptyMediaDistributionDraft(),
       groupManagementDraft: createEmptyGroupManagementDraft(),
+      assistantRailChat: createInitialAssistantRailChatState(),
       whatsappRepairFocus: 'auth',
       whatsappQrPreviewVisible: false,
       pendingConfirmation: null,
@@ -314,6 +336,136 @@ export class AppShell {
     return this.currentBootstrap().apiClientProvider.getClient();
   }
 
+  private getAssistantRailPreferredGroupJid(): string | null {
+    const groupPage = this.readGroupManagementPageData();
+    return groupPage?.data.selectedGroupJid ?? null;
+  }
+
+  private async ensureAssistantRailGroups(force = false): Promise<void> {
+    if (this.state.assistantRailChat.loadingGroups) {
+      return;
+    }
+
+    if (!force && this.state.assistantRailChat.availableGroups.length > 0) {
+      return;
+    }
+
+    this.state = {
+      ...this.state,
+      assistantRailChat: {
+        ...this.state.assistantRailChat,
+        loadingGroups: true,
+      },
+    };
+    this.render();
+
+    try {
+      const groups = await this.currentClient().listGroups();
+      const selectedGroupJid = resolveAssistantRailSelectedGroupJid(
+        this.state.assistantRailChat.selectedGroupJid,
+        groups,
+        this.getAssistantRailPreferredGroupJid(),
+      );
+
+      this.state = {
+        ...this.state,
+        assistantRailChat: {
+          ...this.state.assistantRailChat,
+          availableGroups: groups,
+          loadingGroups: false,
+          selectedGroupJid,
+        },
+      };
+    } catch (error) {
+      this.state = {
+        ...this.state,
+        assistantRailChat: {
+          ...this.state.assistantRailChat,
+          loadingGroups: false,
+        },
+      };
+      this.recordUxEvent('warning', `Grupos do chat lateral indisponiveis: ${summarizeTelemetryMessage(readErrorMessage(error))}.`);
+    }
+
+    this.render();
+  }
+
+  private appendAssistantRailMessage(
+    role: AssistantRailMessage['role'],
+    text: string,
+    contextLabel: string,
+  ): void {
+    const nextMessage: AssistantRailMessage = {
+      messageId: `rail-chat-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      role,
+      text,
+      contextLabel,
+      recordedAt: new Date().toISOString(),
+    };
+
+    this.state = {
+      ...this.state,
+      assistantRailChat: {
+        ...this.state.assistantRailChat,
+        messages: [...this.state.assistantRailChat.messages, nextMessage].slice(-14),
+      },
+    };
+  }
+
+  private async buildAssistantRailChatInput(prompt: string): Promise<{
+    readonly input: LlmChatInput;
+    readonly contextLabel: string;
+  }> {
+    const { contextMode, selectedGroupJid, messages, availableGroups } = this.state.assistantRailChat;
+    const currentRoute = this.currentRouter().resolveRoute(this.state.route);
+    const recentHistory = messages
+      .slice(-6)
+      .filter((entry) => entry.role === 'user' || entry.role === 'assistant')
+      .map((entry) => `${entry.role === 'user' ? 'Utilizador' : 'Assistente'}: ${truncateText(entry.text, 180)}`);
+
+    const contextSummary = [
+      'Resposta sempre no chat local da interface web. Nao enviar nada para grupos nem chats privados do WhatsApp.',
+      `Pagina atual: ${currentRoute.label}.`,
+      `Modo de dados atual: ${this.state.mode}.`,
+    ];
+
+    if (recentHistory.length > 0) {
+      contextSummary.push(`Historico recente: ${recentHistory.join(' | ')}`);
+    }
+
+    if (contextMode === 'group') {
+      if (!selectedGroupJid) {
+        throw new Error('Escolhe primeiro um grupo para conversar com contexto de grupo.');
+      }
+
+      const preview = await this.currentClient().previewGroupContext(selectedGroupJid, {
+        text: prompt,
+        senderDisplayName: 'Operador LumeHub',
+      });
+
+      return {
+        contextLabel: buildAssistantRailContextLabel('group', selectedGroupJid, availableGroups, preview),
+        input: buildAssistantRailGroupChatInput({
+          prompt,
+          preview,
+          baseContextSummary: contextSummary,
+        }),
+      };
+    }
+
+    return {
+      contextLabel: 'Global',
+      input: {
+        text: prompt,
+        intent: 'sidebar_ui_chat',
+        contextSummary,
+        domainFacts: [
+          'Contexto global do operador. Nao assumir um grupo WhatsApp especifico, a nao ser que o utilizador o indique explicitamente.',
+        ],
+      },
+    };
+  }
+
   private getBootstrap(mode: FrontendTransportMode): WebAppBootstrap {
     const bootstrap = this.bootstraps.get(mode) ?? this.createBootstrap(mode);
 
@@ -367,6 +519,7 @@ export class AppShell {
       };
       this.recordUxEvent('warning', `Estado de preview ${this.state.previewState} aberto em ${route.label}.`);
       this.render();
+      void this.ensureAssistantRailGroups();
       if (shouldFocusMainContent) {
         this.focusMainContent();
       }
@@ -403,6 +556,7 @@ export class AppShell {
         this.recordUxEvent('positive', `${route.label} carregado em modo ${this.state.mode}.`);
       }
       this.render();
+      void this.ensureAssistantRailGroups();
       if (shouldFocusMainContent) {
         this.focusMainContent();
       }
@@ -575,114 +729,7 @@ export class AppShell {
         </div>
 
         <aside class="shell-rail">
-          ${this.renderContextRailCards(currentRoute)}
-          <section class="surface rail-card">
-            <h3>Modo de dados</h3>
-            <p>Escolhe entre preview demo segura e tentativa de ligacao live ao backend real.</p>
-            <div class="control-row">
-              ${renderUiToggleButton({ label: 'Demo', value: 'demo', active: this.state.mode === 'demo', kind: 'mode' })}
-              ${renderUiToggleButton({ label: 'Live', value: 'live', active: this.state.mode === 'live', kind: 'mode' })}
-            </div>
-          </section>
-
-          <section class="surface rail-card">
-            <h3>Modo de visualizacao</h3>
-            <p>Usa a leitura essencial no dia a dia e ativa detalhes avancados so quando precisares de contexto tecnico.</p>
-            <div class="control-row">
-              ${renderUiToggleButton({
-                label: 'Essencial',
-                value: 'essential',
-                active: !this.state.advancedDetailsEnabled,
-                kind: 'details-mode',
-              })}
-              ${renderUiToggleButton({
-                label: 'Advanced',
-                value: 'advanced',
-                active: this.state.advancedDetailsEnabled,
-                kind: 'details-mode',
-              })}
-            </div>
-            <ul>
-              <li>Alt + D alterna este modo sem saires do teclado.</li>
-              <li>Esc cancela uma confirmacao sensivel que esteja aberta.</li>
-            </ul>
-          </section>
-
-          <section class="surface rail-card">
-            <h3>Estados de preview</h3>
-            <p>Usa estes atalhos para testar linguagem, hierarquia e mensagens sem depender do backend.</p>
-            <div class="control-row">
-              ${renderUiToggleButton({ label: 'Normal', value: 'none', active: this.state.previewState === 'none', kind: 'preview' })}
-              ${renderUiToggleButton({ label: 'Loading', value: 'loading', active: this.state.previewState === 'loading', kind: 'preview' })}
-              ${renderUiToggleButton({ label: 'Empty', value: 'empty', active: this.state.previewState === 'empty', kind: 'preview' })}
-              ${renderUiToggleButton({ label: 'Offline', value: 'offline', active: this.state.previewState === 'offline', kind: 'preview' })}
-              ${renderUiToggleButton({ label: 'Erro', value: 'error', active: this.state.previewState === 'error', kind: 'preview' })}
-            </div>
-          </section>
-
-          <section class="surface rail-card">
-            <h3>Foco atual</h3>
-            <p>
-              A shell mostra o estado operacional do produto e deve manter linguagem simples, sinais claros e contexto auditavel sem depender de naming de wave.
-            </p>
-            <ul>
-              <li>Usa o modo essencial para ler rapido e o modo advanced so quando precisares de detalhe tecnico.</li>
-              <li>Na pagina Assistente, confirma que runs e auditoria recente explicam que memoria de grupo entrou em cada resposta.</li>
-              <li>Na pagina Grupos, confirma que o storage canonico continua claro: instrucoes, knowledge base e preview do contexto.</li>
-            </ul>
-          </section>
-
-          <section class="surface rail-card">
-            <h3>Historico desta sessao</h3>
-            <p>Pequenos sinais locais para perceber erros recorrentes, trocas de modo e o que acabou de acontecer.</p>
-            <div class="timeline">
-              ${
-                this.state.uxTelemetry.length > 0
-                  ? this.state.uxTelemetry
-                      .map(
-                        (entry) => `
-                          <div class="timeline-item timeline-item--${entry.tone}">
-                            <strong>${escapeHtml(entry.message)}</strong>
-                            <time>${escapeHtml(formatShortDateTime(entry.recordedAt))}</time>
-                          </div>
-                        `,
-                      )
-                      .join('')
-                  : `
-                    <div class="timeline-item">
-                      <strong>Sem historico local ainda</strong>
-                      <time>Assim que mudares de pagina ou aplicares uma acao, este historico passa a ajudar.</time>
-                    </div>
-                  `
-              }
-            </div>
-          </section>
-
-          <section class="surface rail-card">
-            <h3>Eventos do backend</h3>
-            <p>Atividade emitida pelo canal de eventos da API quando houver ligacao com dados reais ou demo mutavel.</p>
-            <div class="timeline">
-              ${
-                this.state.liveEvents.length > 0
-                  ? this.state.liveEvents
-                      .map(
-                        (event) => `
-                          <div class="timeline-item">
-                            <strong>${escapeHtml(event.topic)}</strong>
-                            <time>${escapeHtml(formatShortDateTime(event.emittedAt))}</time>
-                          </div>
-                        `,
-                      )
-                      .join('')
-                  : `
-                    <div class="timeline-item">
-                      <strong>Sem eventos do backend ainda</strong>
-                      <time>Quando houver mutacoes ou ligacao live, este feed mostra os sinais mais recentes.</time>
-                    </div>
-                  `
-              }
-            </div>
-          </section>
+          ${this.renderAssistantRail(currentRoute)}
         </aside>
       </div>
     `;
@@ -2926,6 +2973,49 @@ export class AppShell {
         };
         this.render();
         return;
+      case 'railChat.input':
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          assistantRailChat: {
+            ...this.state.assistantRailChat,
+            input: value,
+          },
+        };
+        this.render();
+        return;
+      case 'railChat.groupJid':
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          assistantRailChat: {
+            ...this.state.assistantRailChat,
+            selectedGroupJid: value || null,
+          },
+        };
+        this.render();
+        return;
+      case 'railChat.contextMode': {
+        const nextContextMode = value === 'group' ? 'group' : 'global';
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          assistantRailChat: {
+            ...this.state.assistantRailChat,
+            contextMode: nextContextMode,
+            selectedGroupJid:
+              nextContextMode === 'group'
+                ? resolveAssistantRailSelectedGroupJid(
+                    this.state.assistantRailChat.selectedGroupJid,
+                    this.state.assistantRailChat.availableGroups,
+                    this.getAssistantRailPreferredGroupJid(),
+                  )
+                : this.state.assistantRailChat.selectedGroupJid,
+          },
+        };
+        this.render();
+        return;
+      }
       case 'group.documentId':
       case 'group.filePath':
       case 'group.title':
@@ -3816,6 +3906,311 @@ export class AppShell {
     `;
   }
 
+  private renderAssistantRail(currentRoute: AppRouteDefinition): string {
+    const groups = this.state.assistantRailChat.availableGroups;
+    const selectedGroup =
+      groups.find((group) => group.groupJid === this.state.assistantRailChat.selectedGroupJid) ?? null;
+    const contextLabel =
+      this.state.assistantRailChat.contextMode === 'group'
+        ? selectedGroup?.preferredSubject ?? 'Escolhe um grupo'
+        : 'Global';
+
+    const historyHtml =
+      this.state.assistantRailChat.messages.length > 0
+        ? this.state.assistantRailChat.messages
+            .map(
+              (message) => `
+                <article class="rail-chat-message rail-chat-message--${message.role}">
+                  <div class="rail-chat-message__meta">
+                    ${renderUiBadge({
+                      label:
+                        message.role === 'user'
+                          ? 'Tu'
+                          : message.role === 'assistant'
+                            ? 'LLM'
+                            : message.role === 'error'
+                              ? 'Erro'
+                              : 'Info',
+                      tone:
+                        message.role === 'assistant'
+                          ? 'positive'
+                          : message.role === 'error'
+                            ? 'danger'
+                            : 'neutral',
+                      style: 'chip',
+                    })}
+                    <span>${escapeHtml(message.contextLabel)}</span>
+                    <time>${escapeHtml(formatShortDateTime(message.recordedAt))}</time>
+                  </div>
+                  <p>${escapeHtml(message.text)}</p>
+                </article>
+              `,
+            )
+            .join('')
+        : `
+          <div class="rail-chat-empty">
+            <strong>Sem conversa ainda</strong>
+            <p>Escreve uma pergunta para conversar em global ou simular o contexto de um grupo sem responder no WhatsApp.</p>
+          </div>
+        `;
+
+    return `
+      ${this.renderContextRailCards(currentRoute)}
+      <section class="surface rail-card rail-chat-card">
+        <div class="rail-chat-card__header">
+          <div>
+            <h3>Chat lateral com a LLM</h3>
+            <p>Conversa aqui na interface. Podes falar em modo global ou como se estivesses num grupo, mas a resposta fica sempre no chat local.</p>
+          </div>
+          ${renderUiBadge({
+            label: this.state.assistantRailChat.sending ? 'A responder' : `Contexto ${contextLabel}`,
+            tone: this.state.assistantRailChat.sending ? 'warning' : 'positive',
+          })}
+        </div>
+
+        <div class="rail-chat-stack">
+          <div class="rail-chat-toolbar">
+            <div class="rail-chat-toolbar__group">
+              <span class="eyebrow">Dados</span>
+              <div class="control-row">
+                ${renderUiToggleButton({ label: 'Demo', value: 'demo', active: this.state.mode === 'demo', kind: 'mode' })}
+                ${renderUiToggleButton({ label: 'Live', value: 'live', active: this.state.mode === 'live', kind: 'mode' })}
+              </div>
+            </div>
+            <div class="rail-chat-toolbar__group">
+              <span class="eyebrow">Leitura</span>
+              <div class="control-row">
+                ${renderUiToggleButton({
+                  label: 'Essencial',
+                  value: 'essential',
+                  active: !this.state.advancedDetailsEnabled,
+                  kind: 'details-mode',
+                })}
+                ${renderUiToggleButton({
+                  label: 'Advanced',
+                  value: 'advanced',
+                  active: this.state.advancedDetailsEnabled,
+                  kind: 'details-mode',
+                })}
+              </div>
+            </div>
+            <div class="rail-chat-toolbar__group">
+              <span class="eyebrow">Contexto</span>
+              <div class="control-row">
+                ${renderUiToggleButton({
+                  label: 'Global',
+                  value: 'global',
+                  active: this.state.assistantRailChat.contextMode === 'global',
+                  kind: 'rail-chat-mode',
+                })}
+                ${renderUiToggleButton({
+                  label: 'Como grupo',
+                  value: 'group',
+                  active: this.state.assistantRailChat.contextMode === 'group',
+                  kind: 'rail-chat-mode',
+                })}
+              </div>
+            </div>
+          </div>
+
+          ${
+            this.state.assistantRailChat.contextMode === 'group'
+              ? `
+                ${
+                  groups.length > 0
+                    ? renderUiSelectField({
+                        label: 'Grupo para simular',
+                        value: this.state.assistantRailChat.selectedGroupJid ?? '',
+                        dataKey: 'railChat.groupJid',
+                        options: groups.map((group) => ({
+                          value: group.groupJid,
+                          label: group.preferredSubject,
+                        })),
+                        hint: 'A LLM recebe as instrucoes e a knowledge base deste grupo, mas responde aqui no chat lateral.',
+                      })
+                    : `
+                      <div class="rail-chat-inline-note">
+                        <strong>${this.state.assistantRailChat.loadingGroups ? 'A carregar grupos...' : 'Sem grupos disponiveis agora'}</strong>
+                        <p>${
+                          this.state.assistantRailChat.loadingGroups
+                            ? 'Assim que os grupos entrarem no runtime, o seletor fica disponivel.'
+                            : 'Muda para Global ou volta a carregar quando o backend listar grupos conhecidos.'
+                        }</p>
+                      </div>
+                    `
+                }
+              `
+              : `
+                <div class="rail-chat-inline-note">
+                  <strong>Chat global ativo</strong>
+                  <p>A resposta usa contexto geral do produto e da pagina atual, sem assumir um grupo WhatsApp especifico.</p>
+                </div>
+              `
+          }
+
+          <div class="rail-chat-history" aria-live="polite">
+            ${historyHtml}
+          </div>
+
+          <div class="rail-chat-composer">
+            <label class="ui-field">
+              <span class="ui-field__label">Mensagem para a LLM</span>
+              <textarea
+                class="ui-control ui-control--textarea rail-chat-composer__input"
+                rows="5"
+                data-field-key="railChat.input"
+                data-rail-chat-input="true"
+                placeholder="Ex.: Resume o que mudou na Aula 1, ou ajuda-me a responder como se eu estivesse no grupo de Anatomia."
+              >${escapeHtml(this.state.assistantRailChat.input)}</textarea>
+              <span class="ui-field__hint">Enter envia. Shift + Enter cria nova linha. Alt + D continua a alternar o modo de leitura.</span>
+            </label>
+
+            <div class="rail-chat-actions">
+              ${renderUiActionButton({
+                label: this.state.assistantRailChat.sending ? 'A responder...' : 'Perguntar a LLM',
+                variant: 'primary',
+                dataAttributes: { 'rail-action': 'send-chat' },
+              })}
+              ${renderUiActionButton({
+                label: 'Limpar chat',
+                variant: 'secondary',
+                dataAttributes: { 'rail-action': 'clear-chat' },
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  private async handleRailAction(action: string): Promise<void> {
+    if (action === 'clear-chat') {
+      this.state = {
+        ...this.state,
+        assistantRailChat: {
+          ...this.state.assistantRailChat,
+          input: '',
+          messages: createInitialAssistantRailMessages(),
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'Chat lateral limpo. Podes recomecar em global ou com contexto de grupo.',
+        },
+      };
+      this.recordUxEvent('neutral', 'Chat lateral limpo.');
+      this.render();
+      return;
+    }
+
+    if (action !== 'send-chat' || this.state.assistantRailChat.sending) {
+      return;
+    }
+
+    const prompt = this.state.assistantRailChat.input.trim();
+
+    if (!prompt) {
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'warning',
+          message: 'Escreve primeiro a pergunta que queres fazer a esta conversa lateral.',
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (this.state.assistantRailChat.contextMode === 'group' && !this.state.assistantRailChat.selectedGroupJid) {
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'warning',
+          message: 'Escolhe primeiro o grupo que queres simular antes de pedir resposta a esta LLM.',
+        },
+      };
+      this.render();
+      return;
+    }
+
+    this.state = {
+      ...this.state,
+      assistantRailChat: {
+        ...this.state.assistantRailChat,
+        sending: true,
+      },
+      flowFeedback: {
+        tone: 'neutral',
+        message:
+          this.state.assistantRailChat.contextMode === 'group'
+            ? 'A preparar o contexto do grupo e a pedir resposta a esta LLM.'
+            : 'A pedir resposta global a esta LLM, sem enviar nada para o WhatsApp.',
+      },
+    };
+    this.appendAssistantRailMessage(
+      'user',
+      prompt,
+      this.state.assistantRailChat.contextMode === 'group'
+        ? buildAssistantRailContextLabel(
+            'group',
+            this.state.assistantRailChat.selectedGroupJid,
+            this.state.assistantRailChat.availableGroups,
+          )
+        : 'Global',
+    );
+    this.render();
+
+    try {
+      const { input, contextLabel } = await this.buildAssistantRailChatInput(prompt);
+      const result = await this.currentClient().llmChat(input);
+
+      this.state = {
+        ...this.state,
+        assistantRailChat: {
+          ...this.state.assistantRailChat,
+          input: '',
+          sending: false,
+        },
+        flowFeedback: {
+          tone: 'positive',
+          message:
+            contextLabel === 'Global'
+              ? 'Resposta pronta no chat lateral global.'
+              : `Resposta pronta no chat lateral com contexto de ${contextLabel}.`,
+        },
+      };
+      this.appendAssistantRailMessage('assistant', result.text, contextLabel);
+      this.recordUxEvent('positive', `Chat lateral respondeu em ${contextLabel}.`);
+      this.render();
+      return;
+    } catch (error) {
+      const message = `Nao foi possivel obter resposta neste chat lateral. ${readErrorMessage(error)}`;
+      this.state = {
+        ...this.state,
+        assistantRailChat: {
+          ...this.state.assistantRailChat,
+          sending: false,
+        },
+        flowFeedback: {
+          tone: 'danger',
+          message,
+        },
+      };
+      this.appendAssistantRailMessage(
+        'error',
+        message,
+        this.state.assistantRailChat.contextMode === 'group'
+          ? buildAssistantRailContextLabel(
+              'group',
+              this.state.assistantRailChat.selectedGroupJid,
+              this.state.assistantRailChat.availableGroups,
+            )
+          : 'Global',
+      );
+      this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+      this.render();
+    }
+  }
+
   private async runWhatsAppMutation(task: () => Promise<void>, successMessage: string): Promise<void> {
     this.state = {
       ...this.state,
@@ -4332,6 +4727,11 @@ export class AppShell {
           mode: nextMode,
           pendingConfirmation: null,
           liveEvents: [],
+          assistantRailChat: {
+            ...this.state.assistantRailChat,
+            availableGroups: [],
+            loadingGroups: false,
+          },
         };
         this.recordUxEvent('neutral', `Modo de dados trocado para ${nextMode}.`);
         void this.loadCurrentRoute({ replaceHistory: true });
@@ -4374,6 +4774,18 @@ export class AppShell {
           }
           this.setAdvancedDetailsEnabled(true);
         }
+      });
+    }
+
+    for (const button of this.root.querySelectorAll<HTMLButtonElement>('[data-rail-chat-mode]')) {
+      button.addEventListener('click', () => {
+        const nextMode = button.dataset.railChatMode;
+
+        if (nextMode !== 'global' && nextMode !== 'group') {
+          return;
+        }
+
+        this.updateGuidedField('railChat.contextMode', nextMode);
       });
     }
 
@@ -4427,6 +4839,28 @@ export class AppShell {
         }
 
         void this.handleWhatsAppAction(action, element.dataset);
+      });
+    }
+
+    for (const element of this.root.querySelectorAll<HTMLElement>('[data-rail-action]')) {
+      element.addEventListener('click', (event) => {
+        event.preventDefault();
+        const action = element.dataset.railAction;
+
+        if (!action) {
+          return;
+        }
+
+        void this.handleRailAction(action);
+      });
+    }
+
+    for (const field of this.root.querySelectorAll<HTMLTextAreaElement>('[data-rail-chat-input]')) {
+      field.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
+          void this.handleRailAction('send-chat');
+        }
       });
     }
 
@@ -4525,6 +4959,99 @@ export class AppShell {
 
     return 'none';
   }
+}
+
+function createInitialAssistantRailMessages(): readonly AssistantRailMessage[] {
+  return [
+    {
+      messageId: 'rail-chat-welcome',
+      role: 'system',
+      text: 'Este chat lateral responde sempre aqui na web app. Podes perguntar em modo global ou com o contexto de qualquer grupo.',
+      contextLabel: 'Local',
+      recordedAt: new Date().toISOString(),
+    },
+  ];
+}
+
+function createInitialAssistantRailChatState(): AssistantRailChatState {
+  return {
+    contextMode: 'global',
+    selectedGroupJid: null,
+    input: '',
+    availableGroups: [],
+    loadingGroups: false,
+    sending: false,
+    messages: createInitialAssistantRailMessages(),
+  };
+}
+
+function resolveAssistantRailSelectedGroupJid(
+  selectedGroupJid: string | null,
+  groups: readonly Group[],
+  preferredGroupJid: string | null,
+): string | null {
+  if (selectedGroupJid && groups.some((group) => group.groupJid === selectedGroupJid)) {
+    return selectedGroupJid;
+  }
+
+  if (preferredGroupJid && groups.some((group) => group.groupJid === preferredGroupJid)) {
+    return preferredGroupJid;
+  }
+
+  return groups[0]?.groupJid ?? null;
+}
+
+function buildAssistantRailContextLabel(
+  contextMode: AssistantRailChatState['contextMode'],
+  selectedGroupJid: string | null,
+  groups: readonly Group[],
+  preview?: GroupContextPreviewSnapshot,
+): string {
+  if (contextMode !== 'group') {
+    return 'Global';
+  }
+
+  return (
+    preview?.group?.preferredSubject ??
+    groups.find((group) => group.groupJid === selectedGroupJid)?.preferredSubject ??
+    'Grupo'
+  );
+}
+
+function buildAssistantRailGroupChatInput(input: {
+  readonly prompt: string;
+  readonly preview: GroupContextPreviewSnapshot;
+  readonly baseContextSummary: readonly string[];
+}): LlmChatInput {
+  const { prompt, preview, baseContextSummary } = input;
+  const groupLabel = preview.group?.preferredSubject ?? preview.groupJid ?? 'grupo atual';
+  const contextSummary = [
+    ...baseContextSummary,
+    `Contexto pedido: responder como se estivesses no grupo ${groupLabel}, mas sempre neste chat local.`,
+    `Texto atual do operador: ${prompt}`,
+  ];
+  const domainFacts = [
+    `Grupo ativo: ${groupLabel}.`,
+    preview.groupInstructions
+      ? `Instrucoes do grupo: ${truncateText(preview.groupInstructions, 1200)}`
+      : 'Este grupo ainda nao tem instrucoes especificas guardadas.',
+    ...preview.groupKnowledgeSnippets.slice(0, 4).map((snippet) => `Knowledge ${snippet.title}: ${truncateText(snippet.excerpt, 320)}`),
+  ];
+
+  return {
+    text: prompt,
+    intent: 'sidebar_group_chat',
+    contextSummary,
+    domainFacts,
+  };
+}
+
+function truncateText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
 
 function createPreviewPage(route: AppRouteDefinition, previewState: PreviewState): UiPage<null> {

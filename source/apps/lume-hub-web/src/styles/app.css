@@ -82,7 +82,7 @@ textarea {
 .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 320px;
+  grid-template-columns: 280px minmax(0, 1fr) 360px;
   gap: 18px;
   padding: 16px 18px;
 }
@@ -353,6 +353,132 @@ textarea {
   margin: 0 0 16px;
   color: var(--ink-soft);
   line-height: 1.65;
+}
+
+.rail-chat-card {
+  display: grid;
+  gap: 18px;
+}
+
+.rail-chat-card__header {
+  display: grid;
+  gap: 12px;
+}
+
+.rail-chat-card__header .ui-pill {
+  justify-self: start;
+}
+
+.rail-chat-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.rail-chat-toolbar {
+  display: grid;
+  gap: 14px;
+}
+
+.rail-chat-toolbar__group {
+  display: grid;
+  gap: 8px;
+}
+
+.rail-chat-toolbar__group .eyebrow {
+  margin-bottom: 0;
+}
+
+.rail-chat-inline-note {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+  background: var(--surface-subtle);
+}
+
+.rail-chat-inline-note strong,
+.rail-chat-empty strong {
+  color: var(--ink-strong);
+}
+
+.rail-chat-inline-note p,
+.rail-chat-empty p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+.rail-chat-history {
+  display: grid;
+  gap: 12px;
+  max-height: 38vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.rail-chat-empty {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 16px;
+  background: var(--surface-subtle);
+}
+
+.rail-chat-message {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  background: var(--surface-subtle);
+}
+
+.rail-chat-message--user {
+  background: var(--surface);
+  border-color: rgba(105, 138, 87, 0.24);
+}
+
+.rail-chat-message--assistant {
+  background: linear-gradient(180deg, #f7faf6 0%, #eff6ea 100%);
+  border-color: rgba(105, 138, 87, 0.24);
+}
+
+.rail-chat-message--error {
+  background: var(--danger-soft);
+  border-color: rgba(201, 107, 99, 0.28);
+}
+
+.rail-chat-message__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+}
+
+.rail-chat-message p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.65;
+  color: var(--ink-strong);
+}
+
+.rail-chat-composer {
+  display: grid;
+  gap: 12px;
+}
+
+.rail-chat-composer__input {
+  min-height: 156px;
+}
+
+.rail-chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .hero {
