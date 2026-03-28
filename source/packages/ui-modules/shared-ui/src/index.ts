@@ -60,6 +60,13 @@ export interface UiActionButtonSpec {
   readonly dataAttributes?: Readonly<Record<string, string | undefined>>;
 }
 
+export interface UiSwitchSpec {
+  readonly label: string;
+  readonly checked: boolean;
+  readonly description?: string;
+  readonly dataAttributes?: Readonly<Record<string, string | undefined>>;
+}
+
 export interface UiFieldOption {
   readonly value: string;
   readonly label: string;
@@ -151,6 +158,31 @@ export function renderUiActionButton(spec: UiActionButtonSpec): string {
   }
 
   return `<button class="ui-button ui-button--${variant}" type="button"${attributeList}>${escapeHtml(spec.label)}</button>`;
+}
+
+export function renderUiSwitch(spec: UiSwitchSpec): string {
+  const attributeList = Object.entries(spec.dataAttributes ?? {})
+    .filter(([, value]) => value != null)
+    .map(([key, value]) => ` data-${escapeHtml(key)}="${escapeHtml(value)}"`)
+    .join('');
+
+  return `
+    <button
+      class="ui-switch ${spec.checked ? 'is-checked' : ''}"
+      type="button"
+      role="switch"
+      aria-checked="${spec.checked ? 'true' : 'false'}"
+      ${attributeList}
+    >
+      <span class="ui-switch__copy">
+        <span class="ui-switch__label">${escapeHtml(spec.label)}</span>
+        ${spec.description ? `<span class="ui-switch__description">${escapeHtml(spec.description)}</span>` : ''}
+      </span>
+      <span class="ui-switch__track" aria-hidden="true">
+        <span class="ui-switch__thumb"></span>
+      </span>
+    </button>
+  `;
 }
 
 export function renderUiInputField(spec: UiInputFieldSpec): string {

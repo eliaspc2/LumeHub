@@ -20,6 +20,7 @@ import {
   renderUiPanelCard,
   renderUiRecordCard,
   renderUiSelectField,
+  renderUiSwitch,
   renderUiTextAreaField,
   renderUiToggleButton,
   type UiPage,
@@ -548,6 +549,7 @@ export class AppShell {
         </div>
 
         <aside class="shell-rail">
+          ${this.renderContextRailCards(currentRoute)}
           <section class="surface rail-card">
             <h3>Modo de dados</h3>
             <p>Escolhe entre preview demo segura e tentativa de ligacao live ao backend real.</p>
@@ -1206,6 +1208,7 @@ export class AppShell {
         : intelligence?.instructions.exists
           ? 'warning'
           : 'danger';
+    const authorizedGroupJids = resolveAuthorizedGroupJidsForCommands(groups, page.data.commandSettings);
 
     return `
       <section class="surface hero surface--strong">
@@ -1218,7 +1221,7 @@ export class AppShell {
               label: 'Atualizar preview do contexto',
               dataAttributes: { 'group-action': 'refresh-preview' },
             })}
-            ${renderUiActionButton({
+          ${renderUiActionButton({
               label: 'Ver WhatsApp',
               href: '/whatsapp',
               variant: 'secondary',
@@ -1250,6 +1253,16 @@ export class AppShell {
         </div>
       </section>
 
+      ${
+        page.data.loadWarning
+          ? `
+            <section class="surface flow-feedback flow-feedback--warning" role="status" aria-live="polite">
+              <p>${escapeHtml(page.data.loadWarning)}</p>
+            </section>
+          `
+          : ''
+      }
+
       <section class="card-grid">
         ${renderUiMetricCard({
           title: 'Grupos visiveis',
@@ -1275,6 +1288,20 @@ export class AppShell {
           tone: instructionsTone,
           description: 'Mostra se o grupo ja esta a usar ficheiro canonico ou se ainda falta criar instrucoes.',
         })}
+        ${renderUiMetricCard({
+          title: 'Master switch',
+          value: page.data.commandSettings.assistantEnabled ? 'Ligado' : 'Desligado',
+          tone: page.data.commandSettings.assistantEnabled ? 'positive' : 'warning',
+          description: page.data.commandSettings.assistantEnabled
+            ? 'O assistente continua ativo para os grupos que estiverem autorizados abaixo.'
+            : 'Ativa-o na coluna da direita para voltar a permitir uso por grupos.',
+        })}
+        ${renderUiMetricCard({
+          title: 'Grupos WA autorizados',
+          value: `${authorizedGroupJids.length}/${groups.length}`,
+          tone: authorizedGroupJids.length > 0 ? 'positive' : 'warning',
+          description: 'Cada switch abaixo decide onde o assistente pode operar neste momento.',
+        })}
       </section>
 
       <section class="content-grid">
@@ -1288,25 +1315,48 @@ export class AppShell {
               .map((group) => {
                 const isSelected = group.groupJid === selectedGroup?.groupJid;
                 const owners = group.groupOwners.map((owner) => owner.personId.replace('person-', '')).join(', ');
+                const groupAuthorized = authorizedGroupJids.includes(group.groupJid);
 
                 return `
-                  <button type="button" class="timeline-item group-tile ${isSelected ? 'group-tile--selected' : ''}" data-group-action="select-group" data-group-jid="${escapeHtml(group.groupJid)}">
-                    <strong>${escapeHtml(group.preferredSubject)}</strong>
-                    <time>${escapeHtml(group.courseId ?? 'Sem curso associado')}</time>
-                    <div class="ui-card__chips">
-                      ${renderUiBadge({
-                        label: group.groupOwners.length > 0 ? 'Com owner' : 'Falta owner',
-                        tone: group.groupOwners.length > 0 ? 'positive' : 'warning',
-                        style: 'chip',
-                      })}
-                      ${renderUiBadge({
-                        label: `ACL owner ${group.calendarAccessPolicy.groupOwner}`,
-                        tone: 'neutral',
-                        style: 'chip',
+                  <article class="timeline-item group-tile ${isSelected ? 'group-tile--selected' : ''}">
+                    <button
+                      type="button"
+                      class="group-tile__select"
+                      data-group-action="select-group"
+                      data-group-jid="${escapeHtml(group.groupJid)}"
+                    >
+                      <strong>${escapeHtml(group.preferredSubject)}</strong>
+                      <time>${escapeHtml(group.courseId ?? 'Sem curso associado')}</time>
+                      <div class="ui-card__chips">
+                        ${renderUiBadge({
+                          label: group.groupOwners.length > 0 ? 'Com owner' : 'Falta owner',
+                          tone: group.groupOwners.length > 0 ? 'positive' : 'warning',
+                          style: 'chip',
+                        })}
+                        ${renderUiBadge({
+                          label: `ACL owner ${group.calendarAccessPolicy.groupOwner}`,
+                          tone: 'neutral',
+                          style: 'chip',
+                        })}
+                      </div>
+                      <p>${escapeHtml(owners.length > 0 ? `Owners: ${owners}` : 'Sem owner definido.')}</p>
+                    </button>
+                    <div class="group-tile__switch">
+                      ${renderUiSwitch({
+                        label: 'Assistente neste grupo',
+                        checked: groupAuthorized,
+                        description: page.data.commandSettings.assistantEnabled
+                          ? groupAuthorized
+                            ? 'Ligado para este grupo.'
+                            : 'Desligado so neste grupo.'
+                          : 'Desligado pelo master switch.',
+                        dataAttributes: {
+                          'group-action': 'toggle-group-authorized',
+                          'group-jid': group.groupJid,
+                        },
                       })}
                     </div>
-                    <p>${escapeHtml(owners.length > 0 ? `Owners: ${owners}` : 'Sem owner definido.')}</p>
-                  </button>
+                  </article>
                 `;
               })
               .join('')}
@@ -2783,6 +2833,53 @@ export class AppShell {
       return;
     }
 
+    if (action === 'toggle-assistant-master') {
+      const nextEnabled = !page.data.commandSettings.assistantEnabled;
+
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: nextEnabled
+            ? 'A ligar o master switch do assistente para grupos.'
+            : 'A desligar o master switch do assistente para grupos.',
+        },
+      };
+      this.render();
+
+      try {
+        await this.currentClient().updateCommandSettings({
+          assistantEnabled: nextEnabled,
+        });
+        this.recordUxEvent(
+          nextEnabled ? 'positive' : 'warning',
+          nextEnabled ? 'Master switch dos grupos ligado.' : 'Master switch dos grupos desligado.',
+        );
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: nextEnabled ? 'positive' : 'warning',
+            message: nextEnabled
+              ? 'O assistente voltou a ficar disponivel para os grupos autorizados.'
+              : 'O assistente ficou bloqueado em todos os grupos ate voltares a ligar.',
+          },
+        };
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel atualizar o master switch. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
     if (action === 'select-group') {
       const groupJid = dataset.groupJid ?? null;
       this.currentRouter().setGroupManagementSelection(groupJid);
@@ -2805,6 +2902,75 @@ export class AppShell {
       };
       this.render();
       await this.refreshCurrentRouteData();
+      return;
+    }
+
+    if (action === 'toggle-group-authorized') {
+      const groupJid = dataset.groupJid;
+      const group = page.data.groups.find((candidate) => candidate.groupJid === groupJid);
+
+      if (!groupJid || !group) {
+        return;
+      }
+
+      const currentAuthorizedGroupJids = resolveAuthorizedGroupJidsForCommands(
+        page.data.groups,
+        page.data.commandSettings,
+      );
+      const nextAuthorizedGroupJids = currentAuthorizedGroupJids.includes(groupJid)
+        ? currentAuthorizedGroupJids.filter((candidate) => candidate !== groupJid)
+        : dedupeStringList([...currentAuthorizedGroupJids, groupJid]);
+      const nextAssistantEnabled = nextAuthorizedGroupJids.length > 0;
+
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: currentAuthorizedGroupJids.includes(groupJid)
+            ? `A retirar ${group.preferredSubject} da lista autorizada do assistente.`
+            : `A autorizar ${group.preferredSubject} para uso do assistente.`,
+        },
+      };
+      this.render();
+
+      try {
+        await this.currentClient().updateCommandSettings({
+          assistantEnabled: nextAssistantEnabled,
+          authorizedGroupJids:
+            nextAssistantEnabled && nextAuthorizedGroupJids.length === page.data.groups.length
+              ? []
+              : nextAuthorizedGroupJids,
+        });
+        this.recordUxEvent(
+          currentAuthorizedGroupJids.includes(groupJid) ? 'warning' : 'positive',
+          currentAuthorizedGroupJids.includes(groupJid)
+            ? `${group.preferredSubject} deixou de estar autorizado no assistente.`
+            : `${group.preferredSubject} ficou autorizado no assistente.`,
+        );
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: currentAuthorizedGroupJids.includes(groupJid) ? 'warning' : 'positive',
+            message: nextAssistantEnabled
+              ? currentAuthorizedGroupJids.includes(groupJid)
+                ? `${group.preferredSubject} ficou desligado, mas o assistente continua ativo noutros grupos.`
+                : `${group.preferredSubject} ficou ligado para o assistente.`
+              : 'O ultimo grupo autorizado foi desligado; o master switch tambem ficou desligado.',
+          },
+        };
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel atualizar o switch deste grupo. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
       return;
     }
 
@@ -3011,6 +3177,37 @@ export class AppShell {
         this.render();
       }
     }
+  }
+
+  private renderContextRailCards(currentRoute: AppRouteDefinition): string {
+    if (currentRoute.route !== '/groups') {
+      return '';
+    }
+
+    const page = this.readGroupManagementPageData();
+
+    if (!page) {
+      return '';
+    }
+
+    const activeGroups = resolveAuthorizedGroupJidsForCommands(page.data.groups, page.data.commandSettings).length;
+
+    return `
+      <section class="surface rail-card">
+        <h3>Master switch dos grupos</h3>
+        <p>Este controlo corta ou reabre o assistente nos grupos WhatsApp sem mexer nas instrucoes nem na knowledge base.</p>
+        ${renderUiSwitch({
+          label: 'Assistente ativo para grupos',
+          checked: page.data.commandSettings.assistantEnabled,
+          description: page.data.commandSettings.assistantEnabled
+            ? `${activeGroups} grupo(s) WA continuam autorizados neste momento.`
+            : 'Neste momento nenhum grupo pode usar o assistente ate voltares a ligar.',
+          dataAttributes: {
+            'group-action': 'toggle-assistant-master',
+          },
+        })}
+      </section>
+    `;
   }
 
   private async runWhatsAppMutation(task: () => Promise<void>, successMessage: string): Promise<void> {
@@ -4147,6 +4344,21 @@ function resolveAuthorizedGroupJids(snapshot: WhatsAppWorkspaceSnapshot): string
   }
 
   return dedupeStringList(snapshot.settings.commands.authorizedGroupJids);
+}
+
+function resolveAuthorizedGroupJidsForCommands(
+  groups: readonly Group[],
+  commands: SettingsSnapshot['adminSettings']['commands'],
+): string[] {
+  if (!commands.assistantEnabled) {
+    return [];
+  }
+
+  if (commands.authorizedGroupJids.length === 0) {
+    return groups.map((group) => group.groupJid);
+  }
+
+  return dedupeStringList(commands.authorizedGroupJids);
 }
 
 function resolveAuthorizedPrivateJids(snapshot: WhatsAppWorkspaceSnapshot): string[] {

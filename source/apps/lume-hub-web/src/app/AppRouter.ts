@@ -5,6 +5,7 @@ import type {
   FrontendApiClient,
   GroupContextPreviewSnapshot,
   GroupIntelligenceSnapshot,
+  SettingsSnapshot,
 } from '@lume-hub/frontend-api-client';
 import { GroupDirectoryConsoleUiModule } from '@lume-hub/group-directory-console';
 import type { Person } from '@lume-hub/people-memory';
@@ -32,10 +33,12 @@ export interface WhatsAppManagementPageData {
 
 export interface GroupManagementPageData {
   readonly groups: readonly import('@lume-hub/frontend-api-client').Group[];
+  readonly commandSettings: SettingsSnapshot['adminSettings']['commands'];
   readonly selectedGroupJid: string | null;
   readonly previewText: string;
   readonly intelligence: GroupIntelligenceSnapshot | null;
   readonly contextPreview: GroupContextPreviewSnapshot | null;
+  readonly loadWarning: string | null;
 }
 
 export class AppRouter {
@@ -190,30 +193,48 @@ export class AppRouter {
         label: this.groupDirectory.config.label,
         description: 'Catalogo de grupos, owners e politicas de acesso em linguagem mais humana.',
         render: async () => {
-          const groups = await this.readQuery('groups', () => this.client.listGroups());
+          const [groups, settings] = await Promise.all([
+            this.readQuery('groups', () => this.client.listGroups()),
+            this.readQuery('settings', () => this.client.getSettings()),
+          ]);
           const selectedGroupJid =
             this.groupManagementSelection.selectedGroupJid && groups.some((group) => group.groupJid === this.groupManagementSelection.selectedGroupJid)
               ? this.groupManagementSelection.selectedGroupJid
               : groups[0]?.groupJid ?? null;
           const basePage = this.groupDirectory.render(groups);
-          const intelligence = selectedGroupJid
-            ? await this.client.getGroupIntelligence(selectedGroupJid)
-            : null;
-          const contextPreview =
-            selectedGroupJid && this.groupManagementSelection.previewText.trim().length > 0
-              ? await this.client.previewGroupContext(selectedGroupJid, {
+          let intelligence: GroupIntelligenceSnapshot | null = null;
+          let contextPreview: GroupContextPreviewSnapshot | null = null;
+          let loadWarning: string | null = null;
+
+          if (selectedGroupJid) {
+            try {
+              intelligence = await this.client.getGroupIntelligence(selectedGroupJid);
+            } catch (error) {
+              loadWarning = `As instrucoes e a knowledge base deste grupo ainda nao puderam ser carregadas live. ${readErrorMessage(error)}`;
+            }
+
+            if (this.groupManagementSelection.previewText.trim().length > 0) {
+              try {
+                contextPreview = await this.client.previewGroupContext(selectedGroupJid, {
                   text: this.groupManagementSelection.previewText,
-                })
-              : null;
+                });
+              } catch (error) {
+                loadWarning ??=
+                  `O preview contextual deste grupo ainda nao ficou disponivel live. ${readErrorMessage(error)}`;
+              }
+            }
+          }
 
           return {
             ...basePage,
             data: {
               groups,
+              commandSettings: settings.adminSettings.commands,
               selectedGroupJid,
               previewText: this.groupManagementSelection.previewText,
               intelligence,
               contextPreview,
+              loadWarning,
             } satisfies GroupManagementPageData,
           };
         },
@@ -291,6 +312,10 @@ export class AppRouter {
       ['/delivery-monitor', '/deliveries'],
     ]);
   }
+}
+
+function readErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function describeRunMemory(
