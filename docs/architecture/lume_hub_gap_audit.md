@@ -15,7 +15,7 @@ Conclusao curta:
 - a API operacional principal e o `weekly-planner` real ficaram fechados
 - hardening, cutover, observabilidade minima e limpeza final da ronda ficaram concluidos
 - o modo `Live` ja usa backend HTTP real, WebSocket real e launcher local sem servidor provisório
-- nao ha gaps ativos a fechar em waves para o scope atual do produto
+- a partir de `2026-03-28` abriu uma nova ronda de feature para inteligencia LLM por grupo
 
 Em particular, ja nao faz sentido falar de:
 
@@ -52,6 +52,52 @@ As seguintes areas existem com base razoavel:
   - e2e
   - `validate:wave24`
 
+## Gaps ativos da ronda nova
+
+### 1. Instrucoes LLM por grupo ainda nao estao canonizadas
+
+Estado atual:
+- existe leitura de `prompt.md` por grupo no `assistant-context`
+- isso ja permite contexto textual local por grupo
+- mas ainda nao existe um layout canonico explicito de inteligencia LLM como:
+  - `llm/instructions.md`
+  - storage preparado para memoria documental do grupo
+
+Impacto:
+- o sistema funciona, mas a semantica do storage ainda nao deixa clara a diferenca entre:
+  - policy executavel
+  - instrucoes LLM
+  - conhecimento documental do grupo
+
+### 2. Nao existe knowledge base propria por grupo
+
+Estado atual:
+- hoje o grupo pode ter `policy.json` e `prompt.md`
+- nao existe repositorio de conhecimento por grupo com retrieval isolado
+
+Impacto:
+- referencias parecidas como "Aula 1", "TP1" ou nomes de disciplina semelhantes ainda dependem demasiado de aliases, policy e prompt
+- falta uma camada propria para normas, glossario e conhecimento historico local de cada grupo
+
+### 3. Falta API/UI de operacao para essa inteligencia de grupo
+
+Estado atual:
+- nao ha editor de instrucoes LLM por grupo
+- nao ha gestao de documentos de conhecimento por grupo
+- nao ha preview claro do contexto que segue para a LLM
+
+Impacto:
+- o operador ainda teria de mexer manualmente em ficheiros para gerir esta camada
+
+### 4. Falta uso live auditavel dessa memoria de grupo
+
+Estado atual:
+- o `assistant-context` injeta `groupPrompt` e `groupPolicy`
+- mas nao existe auditoria completa e visivel de uso de knowledge docs por grupo em conversa live e scheduling
+
+Impacto:
+- falta confianca operacional quando houver grupos parecidos com normas divergentes
+
 ## Trabalho futuro fora do scope atual
 
 ### 1. `alerts` e `automations`
@@ -68,8 +114,9 @@ Regra daqui para a frente:
 
 Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
 - sim
-- para o scope atual, nao ha waves abertas
+- para a ronda anterior, sim
+- mas existe agora uma ronda nova aberta para inteligencia LLM por grupo
 
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
-- para o scope atual, sim no sentido funcional e operacional esperado
-- qualquer trabalho novo daqui para a frente ja deve ser tratado como nova ronda ou nova feature
+- para o runtime operacional base, sim
+- para a nova feature de memoria e instrucoes LLM por grupo, ainda nao

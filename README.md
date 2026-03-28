@@ -246,6 +246,9 @@ Neste momento:
   - poda dos validadores historicos supersedidos
   - simplificacao dos comandos operacionais para release e validacao final
   - alinhamento final de docs e backlog ao estado real
+- nova ronda aberta:
+  - `Wave 25` a `Wave 29` para instrucoes LLM e knowledge base por grupo
+  - objetivo: separar storage canonico de policy, instrucoes LLM e conhecimento documental local por grupo
 - regra de processo:
   - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
 - o runtime `Live` atual fica tratado como estado canonico do produto neste scope
