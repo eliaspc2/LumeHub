@@ -24,6 +24,7 @@ Conclusao curta:
 - a `Wave 31` ja fechou o ingest live de media inbound, a API da biblioteca e a pagina operacional `/media`
 - a `Wave 32` ja fechou a distribuicao multi-grupo de media com queue, dedupe e retry por alvo
 - a `Wave 33` ja fechou o fluxo guiado de UI para escolher video, grupos, `dry_run` e envio real com leitura por grupo
+- a `Wave 34` ja fechou a limpeza final da ronda, com docs e validadores alinhados ao fluxo final
 
 Em particular, ja nao faz sentido falar de:
 
@@ -72,7 +73,7 @@ O storage canonico desta serie fica fechado em:
 ## Gaps ativos da ronda de media
 
 Nao restam gaps funcionais ativos nesta ronda.
-O que falta agora e apenas a `Wave 34` de limpeza final do repo, docs e residuos transitórios.
+O storage, o runtime, a UX guiada e a limpeza final da serie ficaram fechados.
 
 ## Trabalho futuro fora do scope atual
 

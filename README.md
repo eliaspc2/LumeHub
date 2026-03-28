@@ -217,7 +217,7 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 32` ja foram executadas e validadas.
+As `Wave 0` a `Wave 34` ja foram executadas e validadas.
 O storage canonico de inteligencia por grupo ja ficou aberto com:
 
 - `data/groups/<jid>/llm/instructions.md`
@@ -281,9 +281,9 @@ Neste momento:
 - ronda fechada recentemente:
   - `Wave 25` a `Wave 29` para instrucoes LLM e knowledge base por grupo
   - objetivo: separar storage canonico de policy, instrucoes LLM e conhecimento documental local por grupo e fechar o uso live auditavel dessa memoria
-- ronda seguinte prevista:
-  - `Wave 34` para limpeza final da ronda de media distribuida
-  - objetivo: podar residuos tecnicos e deixar docs/comandos alinhados ao fluxo final
+- ronda de media distribuida fechada:
+  - `Wave 30` a `Wave 34`
+  - objetivo fechado: storage canonico, ingest live, distribuicao multi-grupo, UX guiada e limpeza final da ronda
 - regra de processo:
   - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
 - o runtime `Live` atual fica tratado como estado canonico do produto neste scope

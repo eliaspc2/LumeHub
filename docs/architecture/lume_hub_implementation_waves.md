@@ -10,7 +10,7 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 33` ja foram executadas e validadas.
+As `Wave 0` a `Wave 34` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
 O storage canonico da ronda de media ja ficou aberto com:
@@ -38,30 +38,7 @@ O fluxo guiado desta ronda tambem ja ficou aberto com:
 
 ## Ronda ativa
 
-### Wave 34 - Limpeza final da ronda de media distribuida
-
-Objetivo:
-- fechar a ronda de media sem lixo tecnico, naming transitório ou validadores redundantes
-
-Entregaveis:
-- docs finais alinhadas ao modelo canonico de media
-- remocao de codigo provisório ou nomenclatura transitória da ronda
-- backlog residual reavaliado
-
-Criterios de aceitacao:
-- o repo fica limpo
-- os comandos e docs operacionais ficam coerentes com o fluxo final
-
-Rebuild e validacao minima:
-- `corepack pnpm run validate:wave34`
-
-Melhor momento para testar:
-- no fim da ronda, para confirmar regressao geral do fluxo de media
-
-O que testar:
-- regressao de distribuicao de texto
-- regressao do fluxo de media
-- ausencia de residuos documentais e scripts supersedidos
+Sem waves ativas neste momento.
 
 ## Como reabrir uma ronda
 
