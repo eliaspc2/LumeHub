@@ -9,13 +9,14 @@ Objetivo:
 ## Resumo executivo
 
 Conclusao curta:
-- todas as waves planeadas para o scope atual ficaram executadas e validadas
+- as `Wave 0` a `Wave 25` ficaram executadas e validadas
 - o canal WhatsApp live ficou fechado com QR, descoberta e envio observavel
 - o pipeline conversacional live e os providers LLM reais ficaram integrados
 - a API operacional principal e o `weekly-planner` real ficaram fechados
 - hardening, cutover, observabilidade minima e limpeza final da ronda ficaram concluidos
 - o modo `Live` ja usa backend HTTP real, WebSocket real e launcher local sem servidor provisório
 - a partir de `2026-03-28` abriu uma nova ronda de feature para inteligencia LLM por grupo
+- a `Wave 25` ja fechou o storage canonico com `llm/instructions.md`, `knowledge/` e fallback legacy para `prompt.md`
 
 Em particular, ja nao faz sentido falar de:
 
@@ -54,32 +55,20 @@ As seguintes areas existem com base razoavel:
 
 ## Gaps ativos da ronda nova
 
-### 1. Instrucoes LLM por grupo ainda nao estao canonizadas
+### 1. Nao existe knowledge base propria por grupo
 
 Estado atual:
-- existe leitura de `prompt.md` por grupo no `assistant-context`
-- isso ja permite contexto textual local por grupo
-- mas ainda nao existe um layout canonico explicito de inteligencia LLM como:
+- hoje o grupo ja tem storage canonico para:
   - `llm/instructions.md`
-  - storage preparado para memoria documental do grupo
-
-Impacto:
-- o sistema funciona, mas a semantica do storage ainda nao deixa clara a diferenca entre:
-  - policy executavel
-  - instrucoes LLM
-  - conhecimento documental do grupo
-
-### 2. Nao existe knowledge base propria por grupo
-
-Estado atual:
-- hoje o grupo pode ter `policy.json` e `prompt.md`
-- nao existe repositorio de conhecimento por grupo com retrieval isolado
+  - `knowledge/`
+  - `knowledge/index.json`
+- mas ainda nao existe repositorio de conhecimento com retrieval isolado e uso real dessa pasta
 
 Impacto:
 - referencias parecidas como "Aula 1", "TP1" ou nomes de disciplina semelhantes ainda dependem demasiado de aliases, policy e prompt
 - falta uma camada propria para normas, glossario e conhecimento historico local de cada grupo
 
-### 3. Falta API/UI de operacao para essa inteligencia de grupo
+### 2. Falta API/UI de operacao para essa inteligencia de grupo
 
 Estado atual:
 - nao ha editor de instrucoes LLM por grupo
@@ -89,10 +78,11 @@ Estado atual:
 Impacto:
 - o operador ainda teria de mexer manualmente em ficheiros para gerir esta camada
 
-### 4. Falta uso live auditavel dessa memoria de grupo
+### 3. Falta uso live auditavel dessa memoria de grupo
 
 Estado atual:
 - o `assistant-context` injeta `groupPrompt` e `groupPolicy`
+- a fonte canonica de instrucoes do grupo ja existe
 - mas nao existe auditoria completa e visivel de uso de knowledge docs por grupo em conversa live e scheduling
 
 Impacto:
@@ -149,5 +139,5 @@ Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
 
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
 - para o runtime operacional base, sim
-- para a nova feature de memoria e instrucoes LLM por grupo, ainda nao
+- para a nova feature de memoria e instrucoes LLM por grupo, parcialmente
 - para media recebida e distribuicao multi-grupo de video, ainda nao

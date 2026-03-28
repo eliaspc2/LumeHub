@@ -367,8 +367,24 @@ export class GroupPathResolver {
     return join(this.resolveGroupRootPath(groupJid), 'group.json');
   }
 
+  resolveGroupLlmRootPath(groupJid: string): string {
+    return join(this.resolveGroupRootPath(groupJid), 'llm');
+  }
+
+  resolveGroupLlmInstructionsPath(groupJid: string): string {
+    return join(this.resolveGroupLlmRootPath(groupJid), 'instructions.md');
+  }
+
   resolveGroupPromptPath(groupJid: string): string {
     return join(this.resolveGroupRootPath(groupJid), 'prompt.md');
+  }
+
+  resolveGroupKnowledgeRootPath(groupJid: string): string {
+    return join(this.resolveGroupRootPath(groupJid), 'knowledge');
+  }
+
+  resolveGroupKnowledgeIndexPath(groupJid: string): string {
+    return join(this.resolveGroupKnowledgeRootPath(groupJid), 'index.json');
   }
 
   resolveGroupPolicyPath(groupJid: string): string {

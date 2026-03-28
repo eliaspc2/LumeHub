@@ -30,9 +30,24 @@ export interface Group {
 
 export interface GroupWorkspaceDescriptor {
   readonly rootPath: string;
+  readonly llmRootPath: string;
+  readonly llmInstructionsPath: string;
   readonly promptPath: string;
+  readonly knowledgeRootPath: string;
+  readonly knowledgeIndexPath: string;
   readonly policyPath: string;
   readonly calendarDirectoryPath: string;
+}
+
+export type GroupLlmInstructionsSource = 'llm_instructions' | 'legacy_prompt' | 'missing';
+
+export interface GroupLlmInstructionsDocument {
+  readonly primaryFilePath: string;
+  readonly legacyFilePath: string;
+  readonly resolvedFilePath: string | null;
+  readonly exists: boolean;
+  readonly source: GroupLlmInstructionsSource;
+  readonly content: string | null;
 }
 
 export interface GroupPromptDocument {
@@ -45,6 +60,11 @@ export interface GroupPolicyDocument {
   readonly filePath: string;
   readonly exists: boolean;
   readonly value: Record<string, unknown> | null;
+}
+
+export interface GroupKnowledgeWorkspaceDescriptor {
+  readonly rootPath: string;
+  readonly indexPath: string;
 }
 
 export interface WhatsAppGroupSnapshot {

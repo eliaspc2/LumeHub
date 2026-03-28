@@ -1,5 +1,7 @@
 import type {
   Group,
+  GroupKnowledgeWorkspaceDescriptor,
+  GroupLlmInstructionsDocument,
   GroupCalendarAccessPolicy,
   GroupOwnerAssignmentInput,
   GroupOwnerAssignment,
@@ -25,6 +27,8 @@ export interface GroupDirectoryModuleContract {
     update: Partial<GroupCalendarAccessPolicy>,
   ): Promise<GroupCalendarAccessPolicy>;
   getGroupWorkspace(groupJid: string): Promise<GroupWorkspaceDescriptor>;
+  getGroupKnowledgeWorkspace(groupJid: string): Promise<GroupKnowledgeWorkspaceDescriptor>;
+  getGroupLlmInstructions(groupJid: string): Promise<GroupLlmInstructionsDocument>;
   getGroupPrompt(groupJid: string): Promise<GroupPromptDocument>;
   getGroupPolicy(groupJid: string): Promise<GroupPolicyDocument>;
   isGroupOwner(groupJid: string, personId: string): Promise<boolean>;

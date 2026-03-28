@@ -67,6 +67,8 @@ export interface AssistantChatContext {
   readonly relevantMessages: readonly AssistantContextMessageExcerpt[];
   readonly activeReference: AssistantContextReference | null;
   readonly personNotes: readonly PersonNote[];
+  readonly groupInstructions: string | null;
+  readonly groupInstructionsSource: import('@lume-hub/group-directory').GroupLlmInstructionsSource;
   readonly groupPrompt: string | null;
   readonly groupPolicy: Record<string, unknown> | null;
   readonly generatedAt: string;

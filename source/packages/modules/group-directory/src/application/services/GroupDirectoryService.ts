@@ -5,6 +5,8 @@ import { GroupPathResolver } from '@lume-hub/persistence-group-files';
 import type {
   Group,
   GroupCalendarAccessPolicy,
+  GroupKnowledgeWorkspaceDescriptor,
+  GroupLlmInstructionsDocument,
   GroupOwnerAssignmentInput,
   GroupOwnerAssignment,
   GroupPolicyDocument,
@@ -120,9 +122,65 @@ export class GroupDirectoryService {
 
     return {
       rootPath: this.pathResolver.resolveGroupRootPath(groupJid),
+      llmRootPath: this.pathResolver.resolveGroupLlmRootPath(groupJid),
+      llmInstructionsPath: this.pathResolver.resolveGroupLlmInstructionsPath(groupJid),
       promptPath: this.pathResolver.resolveGroupPromptPath(groupJid),
+      knowledgeRootPath: this.pathResolver.resolveGroupKnowledgeRootPath(groupJid),
+      knowledgeIndexPath: this.pathResolver.resolveGroupKnowledgeIndexPath(groupJid),
       policyPath: this.pathResolver.resolveGroupPolicyPath(groupJid),
       calendarDirectoryPath: this.pathResolver.resolveGroupCalendarDirectoryPath(groupJid),
+    };
+  }
+
+  async getGroupKnowledgeWorkspace(groupJid: string): Promise<GroupKnowledgeWorkspaceDescriptor> {
+    const workspace = await this.getGroupWorkspace(groupJid);
+
+    return {
+      rootPath: workspace.knowledgeRootPath,
+      indexPath: workspace.knowledgeIndexPath,
+    };
+  }
+
+  async getGroupLlmInstructions(groupJid: string): Promise<GroupLlmInstructionsDocument> {
+    const workspace = await this.getGroupWorkspace(groupJid);
+
+    try {
+      return {
+        primaryFilePath: workspace.llmInstructionsPath,
+        legacyFilePath: workspace.promptPath,
+        resolvedFilePath: workspace.llmInstructionsPath,
+        exists: true,
+        source: 'llm_instructions',
+        content: await readFile(workspace.llmInstructionsPath, 'utf8'),
+      };
+    } catch (error) {
+      if (!isNodeError(error) || error.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+
+    try {
+      return {
+        primaryFilePath: workspace.llmInstructionsPath,
+        legacyFilePath: workspace.promptPath,
+        resolvedFilePath: workspace.promptPath,
+        exists: true,
+        source: 'legacy_prompt',
+        content: await readFile(workspace.promptPath, 'utf8'),
+      };
+    } catch (error) {
+      if (!isNodeError(error) || error.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+
+    return {
+      primaryFilePath: workspace.llmInstructionsPath,
+      legacyFilePath: workspace.promptPath,
+      resolvedFilePath: null,
+      exists: false,
+      source: 'missing',
+      content: null,
     };
   }
 

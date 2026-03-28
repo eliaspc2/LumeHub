@@ -10,44 +10,10 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 24` ja foram executadas e validadas.
+As `Wave 0` a `Wave 25` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional, mas foi aberta uma nova ronda para memoria e instrucoes LLM por grupo.
 
 ## Ronda ativa
-
-### Wave 25 - Storage canonico de inteligencia por grupo
-
-Objetivo:
-- tornar canonico que cada grupo tenha a sua propria pasta de inteligencia LLM
-- deixar de depender apenas de `prompt.md` generico
-- preparar storage por grupo para instrucoes LLM e base de conhecimento
-
-Entregaveis:
-- layout canonico por grupo com:
-  - `data/groups/<jid>/llm/instructions.md`
-  - `data/groups/<jid>/knowledge/`
-  - `data/groups/<jid>/knowledge/index.json`
-- `GroupPathResolver` e `GroupDirectoryService` a exporem estes caminhos novos
-- compatibilidade de leitura para `prompt.md` legacy durante a transicao
-- `assistant-context` a carregar `llm/instructions.md` como fonte primaria
-
-Criterios de aceitacao:
-- cada grupo passa a ter um espaco proprio para instrucoes LLM
-- grupos com naming parecido deixam de partilhar contexto implicitamente
-- o sistema continua funcional com workspaces antigos enquanto houver migracao
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave25`
-
-Melhor momento para testar:
-- logo no fim desta wave, porque aqui fechamos o layout canonico em disco
-
-O que testar:
-- verificar no filesystem de um grupo onde ficam as instrucoes LLM
-- confirmar que um grupo sem `llm/instructions.md` ainda continua operacional via compatibilidade legacy
-- confirmar que o backend arranca sem quebrar workspaces ja existentes
 
 ### Wave 26 - Knowledge base por grupo e retrieval isolado
 

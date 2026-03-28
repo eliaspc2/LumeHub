@@ -27,7 +27,7 @@ export class AssistantContextBuilder {
     private readonly peopleMemory: Pick<PeopleMemoryModuleContract, 'findPersonById' | 'listImportantNotes'>,
     private readonly groupDirectory: Pick<
       GroupDirectoryModuleContract,
-      'findByJid' | 'getGroupPrompt' | 'getGroupPolicy'
+      'findByJid' | 'getGroupLlmInstructions' | 'getGroupPolicy'
     >,
     private readonly scheduleContextProvider: ScheduleContextProvider,
   ) {}
@@ -67,7 +67,7 @@ export class AssistantContextBuilder {
     const resolvedGroupJid = input.groupJid ?? activeReference?.groupJid ?? null;
     const group = resolvedGroupJid ? await this.groupDirectory.findByJid(resolvedGroupJid) : undefined;
     const personNotes = input.personId ? await this.peopleMemory.listImportantNotes(input.personId) : [];
-    const groupPrompt = group ? await this.groupDirectory.getGroupPrompt(group.groupJid) : null;
+    const groupInstructions = group ? await this.groupDirectory.getGroupLlmInstructions(group.groupJid) : null;
     const groupPolicy = group ? await this.groupDirectory.getGroupPolicy(group.groupJid) : null;
 
     return {
@@ -89,7 +89,9 @@ export class AssistantContextBuilder {
       relevantMessages,
       activeReference,
       personNotes,
-      groupPrompt: groupPrompt?.content ?? null,
+      groupInstructions: groupInstructions?.content ?? null,
+      groupInstructionsSource: groupInstructions?.source ?? 'missing',
+      groupPrompt: groupInstructions?.content ?? null,
       groupPolicy: groupPolicy?.value ?? null,
       generatedAt: now.toISOString(),
     };

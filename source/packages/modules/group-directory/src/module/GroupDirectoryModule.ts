@@ -81,6 +81,14 @@ export class GroupDirectoryModule extends BaseModule implements GroupDirectoryMo
     return this.service.getGroupWorkspace(groupJid);
   }
 
+  async getGroupKnowledgeWorkspace(groupJid: string) {
+    return this.service.getGroupKnowledgeWorkspace(groupJid);
+  }
+
+  async getGroupLlmInstructions(groupJid: string) {
+    return this.service.getGroupLlmInstructions(groupJid);
+  }
+
   async getGroupPrompt(groupJid: string) {
     return this.service.getGroupPrompt(groupJid);
   }
