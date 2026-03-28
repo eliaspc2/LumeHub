@@ -10,51 +10,16 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 29` ja foram executadas e validadas.
+As `Wave 0` a `Wave 30` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
+O storage canonico da ronda de media ja ficou aberto com:
+
+- `data/runtime/media/assets/<assetId>/binary`
+- `data/runtime/media/assets/<assetId>/metadata.json`
+- `data/runtime/media/library.json`
+
 ## Ronda ativa
-
-### Wave 30 - Storage canonico de media recebida
-
-Objetivo:
-- guardar videos e outros media recebidos por WhatsApp de forma canonica
-- evitar redistribuicao dependente da mensagem original ainda estar "viva" no socket ou na memoria
-
-Entregaveis:
-- storage canonico de assets em runtime, por exemplo:
-  - `data/runtime/media/assets/<assetId>/binary`
-  - `data/runtime/media/assets/<assetId>/metadata.json`
-  - `data/runtime/media/library.json`
-- metadata minima do asset:
-  - `assetId`
-  - `mediaType`
-  - `mimeType`
-  - `sha256`
-  - `fileSize`
-  - `sourceChatJid`
-  - `sourceMessageId`
-  - `caption`
-  - `storedAt`
-- repositorio de media com escrita atomica e dedupe por hash
-- policy de retencao inicial clara
-
-Criterios de aceitacao:
-- um video recebido pode ser guardado localmente e continuar disponivel para distribuicao posterior
-- o mesmo ficheiro nao e duplicado no disco sem necessidade
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave30`
-
-Melhor momento para testar:
-- aqui, porque e o ponto certo para verificar se o asset fica mesmo guardado e reutilizavel
-
-O que testar:
-- receber um video por WhatsApp
-- confirmar que o asset foi guardado e indexado
-- confirmar que reiniciar o runtime nao perde a referencia ao ficheiro
 
 ### Wave 31 - Inbound WhatsApp media e biblioteca operacional
 

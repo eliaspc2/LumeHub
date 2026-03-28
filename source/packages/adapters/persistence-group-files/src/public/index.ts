@@ -343,6 +343,34 @@ export class GroupPathResolver {
     return join(this.resolveGroupsRootPath(), '_settings.json');
   }
 
+  resolveRuntimeRootPath(): string {
+    return join(this.dataRootPath, 'runtime');
+  }
+
+  resolveRuntimeMediaRootPath(): string {
+    return join(this.resolveRuntimeRootPath(), 'media');
+  }
+
+  resolveRuntimeMediaAssetsRootPath(): string {
+    return join(this.resolveRuntimeMediaRootPath(), 'assets');
+  }
+
+  resolveRuntimeMediaLibraryPath(): string {
+    return join(this.resolveRuntimeMediaRootPath(), 'library.json');
+  }
+
+  resolveRuntimeMediaAssetRootPath(assetId: string): string {
+    return join(this.resolveRuntimeMediaAssetsRootPath(), assetId);
+  }
+
+  resolveRuntimeMediaAssetBinaryPath(assetId: string): string {
+    return join(this.resolveRuntimeMediaAssetRootPath(assetId), 'binary');
+  }
+
+  resolveRuntimeMediaAssetMetadataPath(assetId: string): string {
+    return join(this.resolveRuntimeMediaAssetRootPath(assetId), 'metadata.json');
+  }
+
   resolveGroupRootPath(groupJid: string): string {
     return join(this.resolveGroupsRootPath(), groupJid);
   }

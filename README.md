@@ -217,7 +217,7 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 28` ja foram executadas e validadas.
+As `Wave 0` a `Wave 30` ja foram executadas e validadas.
 O storage canonico de inteligencia por grupo ja ficou aberto com:
 
 - `data/groups/<jid>/llm/instructions.md`
@@ -227,6 +227,12 @@ O storage canonico de inteligencia por grupo ja ficou aberto com:
 O `assistant-context` ja usa `llm/instructions.md` como fonte canonica de instrucoes por grupo.
 Tambem ja existe retrieval isolado por grupo a partir de `knowledge/index.json` e documentos markdown da pasta `knowledge/`, para evitar mistura de contexto entre grupos com referencias parecidas.
 O runtime live do assistente e do scheduling ja audita de forma visivel que instrucoes e snippets locais de grupo entraram em cada run relevante.
+O storage canonico de media recebida tambem ja ficou aberto com:
+
+- `data/runtime/media/assets/<assetId>/binary`
+- `data/runtime/media/assets/<assetId>/metadata.json`
+- `data/runtime/media/library.json`
+
 Neste momento:
 
 - o frontend operacional das `Wave 13` a `Wave 16` ficou fechado
@@ -259,8 +265,8 @@ Neste momento:
   - `Wave 25` a `Wave 29` para instrucoes LLM e knowledge base por grupo
   - objetivo: separar storage canonico de policy, instrucoes LLM e conhecimento documental local por grupo e fechar o uso live auditavel dessa memoria
 - ronda seguinte prevista:
-  - `Wave 30` a `Wave 34` para media recebida, biblioteca de assets e distribuicao multi-grupo de video
-  - objetivo: guardar um video recebido uma vez e depois distribui-lo com queue, dedupe e tracking por grupo
+  - `Wave 31` a `Wave 34` para ingest live de media, biblioteca operacional e distribuicao multi-grupo de video
+  - objetivo: fazer o WhatsApp alimentar a biblioteca canonica e depois distribuir o video guardado com queue, dedupe e tracking por grupo
 - regra de processo:
   - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
 - o runtime `Live` atual fica tratado como estado canonico do produto neste scope

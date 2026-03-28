@@ -1,0 +1,24 @@
+{
+  "name": "@lume-hub/media-library",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/modules/media-library/src/public/index.js",
+  "types": "./dist/modules/media-library/src/public/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/modules/media-library/src/public/index.d.ts",
+      "default": "./dist/modules/media-library/src/public/index.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "test": "node -e \"console.log('No tests yet for @lume-hub/media-library.')\""
+  },
+  "dependencies": {
+    "@lume-hub/kernel": "workspace:*",
+    "@lume-hub/persistence-group-files": "workspace:*",
+    "zod": "^4.1.12"
+  }
+}

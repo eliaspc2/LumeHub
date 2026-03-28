@@ -21,6 +21,7 @@ import {
   LlmOrchestratorModule,
   LlmProviderRegistry,
 } from '@lume-hub/llm-orchestrator';
+import { MediaLibraryModule } from '@lume-hub/media-library';
 import { NotificationJobsModule } from '@lume-hub/notification-jobs';
 import { NotificationRulesModule } from '@lume-hub/notification-rules';
 import { OwnerControlModule } from '@lume-hub/owner-control';
@@ -199,6 +200,9 @@ export class ModuleLoader {
         return settings.llm.enabled ? settings.llm.provider : deterministicProvider.providerId;
       },
     });
+    const mediaLibraryModule = new MediaLibraryModule({
+      dataRootPath: paths.dataRootPath,
+    });
     const ownerControlModule = new OwnerControlModule({
       commandPolicy: commandPolicyModule,
       peopleMemory: peopleMemoryModule,
@@ -261,6 +265,7 @@ export class ModuleLoader {
       commandPolicyModule,
       intentClassifierModule,
       llmOrchestratorModule,
+      mediaLibraryModule,
       ownerControlModule,
       agentRuntimeModule,
       conversationModule,
@@ -314,6 +319,7 @@ export class ModuleLoader {
       commandPolicyModule,
       intentClassifierModule,
       llmOrchestratorModule,
+      mediaLibraryModule,
       ownerControlModule,
       agentRuntimeModule,
       conversationModule,

@@ -15,6 +15,7 @@ import type { InstructionQueueModule } from '@lume-hub/instruction-queue';
 import type { IntentClassifierModule } from '@lume-hub/intent-classifier';
 import type { ApplicationKernel, IModule, ModuleContext, ModuleRegistration } from '@lume-hub/kernel';
 import type { LlmOrchestratorModule } from '@lume-hub/llm-orchestrator';
+import type { MediaLibraryModule } from '@lume-hub/media-library';
 import type { NotificationJobsModule } from '@lume-hub/notification-jobs';
 import type { NotificationRulesModule } from '@lume-hub/notification-rules';
 import type { OwnerControlModule } from '@lume-hub/owner-control';
@@ -57,6 +58,7 @@ export interface BackendRuntimeModules {
   readonly commandPolicyModule: CommandPolicyModule;
   readonly intentClassifierModule: IntentClassifierModule;
   readonly llmOrchestratorModule: LlmOrchestratorModule;
+  readonly mediaLibraryModule: MediaLibraryModule;
   readonly ownerControlModule: OwnerControlModule;
   readonly agentRuntimeModule: AgentRuntimeModule;
   readonly conversationModule: ConversationModule;

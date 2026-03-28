@@ -20,6 +20,7 @@ Conclusao curta:
 - a `Wave 26` ja fechou a knowledge base por grupo com retrieval isolado no `assistant-context`
 - a `Wave 27` ja fechou a API e a UI para gerir instrucoes, documentos e preview de contexto por grupo
 - a `Wave 28` ja fechou o uso live auditavel dessa memoria no assistente e no scheduling
+- a `Wave 30` ja fechou o storage canonico de media recebida em `data/runtime/media/`
 
 Em particular, ja nao faz sentido falar de:
 
@@ -65,17 +66,20 @@ O storage canonico desta serie fica fechado em:
 - `data/groups/<jid>/knowledge/`
 - `data/groups/<jid>/knowledge/index.json`
 
-## Gaps ativos da ronda seguinte prevista
+## Gaps ativos da ronda de media
 
-### 1. Media recebida ainda nao e guardada como asset distribuivel
+### 1. Inbound WhatsApp media ainda nao alimenta automaticamente a biblioteca
 
 Estado atual:
 - o runtime conhece mensagens inbound com `videoMessage` e `imageMessage`
-- mas o caminho operacional real continua centrado em `sendText()`
-- nao existe repositorio canonico de assets recebidos
+- o storage canonico ja existe em:
+  - `data/runtime/media/assets/<assetId>/binary`
+  - `data/runtime/media/assets/<assetId>/metadata.json`
+  - `data/runtime/media/library.json`
+- mas o ingest automatico a partir do WhatsApp ainda nao existe
 
 Impacto:
-- se um operador mandar um video por WhatsApp, o sistema hoje nao o consegue guardar como asset reutilizavel e depois distribuir por varios grupos
+- se um operador mandar um video por WhatsApp, ele ainda nao entra sozinho na biblioteca operacional
 
 ### 2. Nao existe fan-out de media com tracking forte
 
@@ -117,4 +121,5 @@ Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
 - para o runtime operacional base, sim
 - para a nova feature de memoria e instrucoes LLM por grupo, sim
-- para media recebida e distribuicao multi-grupo de video, ainda nao
+- para media recebida com storage canonico, sim
+- para ingest live, biblioteca operacional visivel e distribuicao multi-grupo de video, ainda nao

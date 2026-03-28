@@ -29,6 +29,7 @@
     "@lume-hub/llm-codex-oauth": "workspace:*",
     "@lume-hub/llm-openai-compat": "workspace:*",
     "@lume-hub/llm-orchestrator": "workspace:*",
+    "@lume-hub/media-library": "workspace:*",
     "@lume-hub/notification-jobs": "workspace:*",
     "@lume-hub/notification-rules": "workspace:*",
     "@lume-hub/owner-control": "workspace:*",

@@ -75,6 +75,9 @@
       "@lume-hub/group-knowledge": [
         "packages/modules/group-knowledge/src/public/index.ts"
       ],
+      "@lume-hub/media-library": [
+        "packages/modules/media-library/src/public/index.ts"
+      ],
       "@lume-hub/discipline-catalog": [
         "packages/modules/discipline-catalog/src/public/index.ts"
       ],
