@@ -602,12 +602,12 @@ textarea {
 
 .qr-preview {
   display: grid;
-  grid-template-columns: 108px minmax(0, 1fr);
-  gap: 16px;
-  align-items: center;
-  padding: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  padding: 20px;
   border: 1px solid var(--line-soft);
-  border-radius: 16px;
+  border-radius: 20px;
   background: var(--surface-subtle);
 }
 
@@ -618,9 +618,10 @@ textarea {
 }
 
 .qr-preview__code {
-  width: 108px;
-  height: 108px;
-  border-radius: 20px;
+  width: min(100%, 320px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  border-radius: 28px;
   border: 1px solid var(--line-strong);
   background:
     linear-gradient(135deg, rgba(105, 138, 87, 0.16), rgba(105, 138, 87, 0.02)),
@@ -634,20 +635,37 @@ textarea {
       transparent 270deg 290deg,
       rgba(33, 50, 74, 0.92) 290deg 360deg
     );
-  box-shadow: inset 0 0 0 10px rgba(255, 255, 255, 0.92);
+  box-shadow:
+    inset 0 0 0 14px rgba(255, 255, 255, 0.96),
+    0 20px 36px rgba(33, 50, 74, 0.08);
 }
 
 .qr-preview__code--svg {
   display: grid;
   place-items: center;
   overflow: hidden;
-  padding: 10px;
+  padding: 18px;
   background: #ffffff;
 }
 
 .qr-preview__code--svg svg {
   width: 100%;
   height: 100%;
+}
+
+.qr-preview__body {
+  display: grid;
+  gap: 10px;
+}
+
+.qr-preview__body p {
+  margin: 0;
+  line-height: 1.65;
+  color: var(--ink-soft);
+}
+
+.qr-preview__actions {
+  margin-top: 4px;
 }
 
 .ui-card--metric {

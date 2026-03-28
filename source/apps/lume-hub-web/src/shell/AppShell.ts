@@ -132,6 +132,18 @@ interface PendingConfirmation {
   readonly tone: UiTone;
 }
 
+interface RouteLoadOptions {
+  readonly replaceHistory?: boolean;
+  readonly backgroundRefresh?: boolean;
+  readonly focusMainContent?: boolean;
+  readonly raiseOnBackgroundError?: boolean;
+}
+
+interface ScrollSnapshot {
+  readonly left: number;
+  readonly top: number;
+}
+
 export class AppShell {
   private root: HTMLElement | null = null;
   private readonly bootstraps = new Map<FrontendTransportMode, WebAppBootstrap>();
@@ -315,7 +327,7 @@ export class AppShell {
 
             this.liveRefreshTimer = window.setTimeout(() => {
               this.liveRefreshTimer = null;
-              void this.refreshCurrentRouteData();
+              void this.refreshCurrentRouteData({ silent: true });
             }, 220);
           }
         }) ?? null;
@@ -324,10 +336,12 @@ export class AppShell {
     return bootstrap;
   }
 
-  private async loadCurrentRoute(options: { readonly replaceHistory?: boolean } = {}): Promise<void> {
+  private async loadCurrentRoute(options: RouteLoadOptions = {}): Promise<void> {
     const bootstrap = this.getBootstrap(this.state.mode);
     const route = bootstrap.router.resolveRoute(this.state.route);
     const token = ++this.requestToken;
+    const backgroundRefresh = options.backgroundRefresh ?? false;
+    const shouldFocusMainContent = options.focusMainContent ?? !backgroundRefresh;
 
     this.syncUrl(options.replaceHistory ?? false);
 
@@ -341,17 +355,21 @@ export class AppShell {
       };
       this.recordUxEvent('warning', `Estado de preview ${this.state.previewState} aberto em ${route.label}.`);
       this.render();
-      this.focusMainContent();
+      if (shouldFocusMainContent) {
+        this.focusMainContent();
+      }
       return;
     }
 
-    this.state = {
-      ...this.state,
-      screenState: 'loading',
-      page: null,
-      errorMessage: null,
-    };
-    this.render();
+    if (!backgroundRefresh) {
+      this.state = {
+        ...this.state,
+        screenState: 'loading',
+        page: null,
+        errorMessage: null,
+      };
+      this.render();
+    }
 
     try {
       const page = await bootstrap.router.renderRoute(route.route);
@@ -369,15 +387,37 @@ export class AppShell {
         lastLoadedAt: new Date().toISOString(),
       };
       this.syncRouteDraftState(page);
-      this.recordUxEvent('positive', `${route.label} carregado em modo ${this.state.mode}.`);
+      if (!backgroundRefresh) {
+        this.recordUxEvent('positive', `${route.label} carregado em modo ${this.state.mode}.`);
+      }
       this.render();
-      this.focusMainContent();
+      if (shouldFocusMainContent) {
+        this.focusMainContent();
+      }
     } catch (error) {
       if (token !== this.requestToken) {
         return;
       }
 
       const message = error instanceof Error ? error.message : String(error);
+
+      if (backgroundRefresh && this.state.page) {
+        if (options.raiseOnBackgroundError) {
+          this.state = {
+            ...this.state,
+            errorMessage: message,
+            flowFeedback: {
+              tone: 'danger',
+              message: `Nao foi possivel atualizar esta pagina sem te tirar do ponto onde estavas. ${message}`,
+            },
+          };
+          this.recordUxEvent('danger', `Atualizacao em segundo plano falhou em ${route.label}.`);
+          this.render();
+          throw error instanceof Error ? error : new Error(message);
+        }
+
+        return;
+      }
 
       this.state = {
         ...this.state,
@@ -388,13 +428,20 @@ export class AppShell {
       };
       this.recordUxEvent('danger', `Falha ao abrir ${route.label}: ${summarizeTelemetryMessage(message)}.`);
       this.render();
-      this.focusMainContent();
+      if (shouldFocusMainContent) {
+        this.focusMainContent();
+      }
     }
   }
 
-  private async refreshCurrentRouteData(): Promise<void> {
+  private async refreshCurrentRouteData(options: { readonly silent?: boolean } = {}): Promise<void> {
     this.currentBootstrap().queryClient.clear();
-    await this.loadCurrentRoute({ replaceHistory: true });
+    await this.loadCurrentRoute({
+      replaceHistory: true,
+      backgroundRefresh: true,
+      focusMainContent: false,
+      raiseOnBackgroundError: !options.silent,
+    });
   }
 
   private syncRouteDraftState(page: UiPage): void {
@@ -426,10 +473,12 @@ export class AppShell {
     };
   }
 
-  private render(): void {
+  private render(options: { readonly preserveScroll?: boolean } = {}): void {
     if (!this.root) {
       return;
     }
+
+    const scrollSnapshot = options.preserveScroll === false ? null : this.captureScrollSnapshot();
 
     const bootstrap = this.getBootstrap(this.state.mode);
     const router = bootstrap.router;
@@ -611,6 +660,7 @@ export class AppShell {
     `;
 
     this.bindInteractions();
+    this.restoreScrollSnapshot(scrollSnapshot);
   }
 
   private renderPendingConfirmationCard(): string {
@@ -1575,7 +1625,7 @@ export class AppShell {
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
-              label: this.state.whatsappQrPreviewVisible ? 'Fechar preview QR' : 'Ver onboarding QR',
+              label: this.state.whatsappQrPreviewVisible ? 'Fechar QR de emparelhamento' : 'Ver QR de emparelhamento',
               dataAttributes: { 'whatsapp-action': 'toggle-qr-preview' },
             })}
             ${renderUiActionButton({
@@ -1670,7 +1720,7 @@ export class AppShell {
           </div>
         </article>
 
-        <article class="surface content-card span-5">
+        <article class="surface content-card span-6">
           <div class="card-header">
             <h3>Onboarding e controlos da sessao</h3>
             ${renderUiBadge({ label: readableSessionPhase(snapshot.runtime.session.phase), tone: toneForSessionPhase(snapshot.runtime.session.phase) })}
@@ -1678,11 +1728,14 @@ export class AppShell {
           <div class="ui-card__content">
             ${liveQrVisible ? `
               <div class="qr-preview">
-                <div class="qr-preview__code qr-preview__code--svg">${snapshot.runtime.qr.svg ?? ''}</div>
-                <div>
+                <div class="qr-preview__code qr-preview__code--svg" aria-label="QR de emparelhamento live do WhatsApp">${snapshot.runtime.qr.svg ?? ''}</div>
+                <div class="qr-preview__body">
                   <strong>QR live pronto para scan</strong>
-                  <p>Aponta o telemovel da conta operadora a este QR para autenticar a sessao real do LumeHub.</p>
+                  <p>Aponta o telemovel da conta operadora a este QR grande para autenticar a sessao real do LumeHub sem precisares de zoom manual.</p>
                   <p>Gerado: ${escapeHtml(formatShortDateTime(snapshot.runtime.qr.updatedAt))}</p>
+                  <div class="action-row qr-preview__actions">
+                    <a class="ui-button ui-button--secondary" href="/api/qr.svg" target="_blank" rel="noreferrer noopener">Abrir QR isolado</a>
+                  </div>
                 </div>
               </div>
             ` : `
@@ -1731,7 +1784,7 @@ export class AppShell {
           </div>
         </article>
 
-        <article class="surface content-card span-7">
+        <article class="surface content-card span-6">
           <div class="card-header">
             <h3>Pessoas, app owners e acesso privado</h3>
             ${renderUiBadge({ label: `${people.filter((person) => person.personId).length} pessoas geriveis`, tone: 'neutral' })}
@@ -3623,6 +3676,27 @@ export class AppShell {
     }
 
     window.history.pushState({}, '', nextUrl);
+  }
+
+  private captureScrollSnapshot(): ScrollSnapshot {
+    return {
+      left: window.scrollX,
+      top: window.scrollY,
+    };
+  }
+
+  private restoreScrollSnapshot(snapshot: ScrollSnapshot | null): void {
+    if (!snapshot) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      window.scrollTo({
+        left: snapshot.left,
+        top: snapshot.top,
+        behavior: 'auto',
+      });
+    });
   }
 
   private readMode(search: string): FrontendTransportMode {
