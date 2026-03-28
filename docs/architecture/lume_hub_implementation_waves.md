@@ -10,12 +10,11 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 19` ja foram executadas e validadas.
+As `Wave 0` a `Wave 20` ja foram executadas e validadas.
 O backlog restante continua organizado em waves de fecho para runtime real.
 
 As waves ativas passam a ser:
 
-- `Wave 20`
 - `Wave 21`
 - `Wave 22`
 - `Wave 23`
@@ -90,38 +89,6 @@ Se tocar backend, HTTP, WS ou runtime:
 - validar que a UI continua a abrir e a consumir a API esperada
 
 ## Waves ativas
-
-## Wave 20 - WhatsApp live, QR e descoberta
-
-Objetivo:
-- ligar o canal WhatsApp real ao produto
-
-Entregaveis:
-- socket Baileys real com reconnect policy
-- QR login real e respetivas rotas/eventos
-- descoberta live de grupos e conversas privadas
-- sincronizacao do workspace WhatsApp para `group-directory` e `people-memory`
-- envio real com sinais de observacao e confirmacao forte
-
-Criterios de aceitacao:
-- o utilizador consegue autenticar a sessao WhatsApp
-- grupos e conversas aparecem na UI a partir de dados reais
-- o sistema consegue enviar e observar/confirmar mensagens reais
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave20`
-
-Melhor momento para testar:
-- testar logo aqui, porque qualquer problema de QR, descoberta ou ACK muda bastante o rumo do resto
-
-O que testar:
-- QR aparecer e permitir login
-- reconnect apos restart
-- descoberta de grupos e privados
-- permissao por pessoa/grupo refletida em dados reais
-- envio de mensagem de teste e reconciliacao de entrega
 
 ## Wave 21 - Pipeline conversacional e providers LLM reais
 

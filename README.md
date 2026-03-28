@@ -217,16 +217,16 @@ Na `Wave 12`, o fluxo canónico passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 19` ja foram executadas e validadas.
+As `Wave 0` a `Wave 20` ja foram executadas e validadas.
 Neste momento:
 
 - o frontend operacional das `Wave 13` a `Wave 16` ficou fechado
 - a `Wave 17` limpou stubs mortos, docs obsoletas e legado ja supersedido
 - a `Wave 18` fechou a composition root e o runtime real de backend em memoria
 - a `Wave 19` fechou HTTP real, WebSocket real e o `Live` verdadeiro servido pelo backend
-- o backlog restante ficou agora em `Wave 20` a `Wave 24`
+- a `Wave 20` fechou WhatsApp live com QR, descoberta de grupos/conversas e envio live com sinais de entrega
+- o backlog restante ficou agora em `Wave 21` a `Wave 24`
 - essas waves focam:
-  - WhatsApp live
   - providers LLM reais
   - API operacional completa
   - hardening e cutover

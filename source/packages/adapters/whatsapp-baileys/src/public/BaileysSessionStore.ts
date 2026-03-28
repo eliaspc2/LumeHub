@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 export interface BaileysSessionStoreOptions {
@@ -12,8 +12,18 @@ export class BaileysSessionStore {
     this.authRootPath = options.authRootPath ?? 'runtime/whatsapp';
   }
 
+  sessionDirectoryPathFor(accountId = 'default'): string {
+    return join(this.authRootPath, accountId);
+  }
+
   sessionPathFor(accountId = 'default'): string {
-    return join(this.authRootPath, `${accountId}.session.json`);
+    return join(this.sessionDirectoryPathFor(accountId), 'creds.json');
+  }
+
+  async ensureSessionDirectory(accountId = 'default'): Promise<string> {
+    const directoryPath = this.sessionDirectoryPathFor(accountId);
+    await mkdir(directoryPath, { recursive: true });
+    return directoryPath;
   }
 
   async readSession<TValue = Record<string, unknown>>(accountId = 'default'): Promise<TValue | undefined> {
@@ -37,6 +47,23 @@ export class BaileysSessionStore {
   }
 
   async clearSession(accountId = 'default'): Promise<void> {
-    await rm(this.sessionPathFor(accountId), { force: true });
+    await rm(this.sessionDirectoryPathFor(accountId), { recursive: true, force: true });
+  }
+
+  async hasSession(accountId = 'default'): Promise<boolean> {
+    const directoryPath = this.sessionDirectoryPathFor(accountId);
+
+    try {
+      const entries = await readdir(directoryPath);
+      return entries.length > 0;
+    } catch (error) {
+      const nodeError = error as NodeJS.ErrnoException;
+
+      if (nodeError.code === 'ENOENT') {
+        return false;
+      }
+
+      throw error;
+    }
   }
 }

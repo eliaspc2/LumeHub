@@ -21,6 +21,8 @@ export class KernelFactory {
     const container = new RuntimeDependencyContainer()
       .register('adapter:http-server', loaded.httpServer)
       .register('adapter:ws-gateway', loaded.webSocketGateway)
+      .register('runtime:whatsapp-workspace', loaded.whatsAppWorkspaceRuntime)
+      .register('adapter:whatsapp-gateway', loaded.whatsAppWorkspaceRuntime.gateway)
       .register('backend.paths', loaded.paths)
       .register('backend.module-graph', moduleGraph);
 
@@ -39,6 +41,7 @@ export class KernelFactory {
       modules: loaded.modules,
       moduleGraph,
       paths: loaded.paths,
+      whatsAppWorkspaceRuntime: loaded.whatsAppWorkspaceRuntime,
       operationalTickIntervalMs: runtimeConfig.operationalTickIntervalMs,
     });
 

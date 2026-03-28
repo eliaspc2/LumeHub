@@ -3,13 +3,14 @@
 Data: `2026-03-27`
 
 Objetivo:
-- descrever apenas os gaps reais que restam depois das `Wave 0` a `Wave 19`
+- descrever apenas os gaps reais que restam depois das `Wave 0` a `Wave 20`
 - evitar backlog preso a estado antigo do frontend ou a scaffolds ja removidos
 
 ## Resumo executivo
 
 Conclusao curta:
-- as `Wave 0` a `Wave 19` ficaram executadas e validadas
+- as `Wave 0` a `Wave 20` ficaram executadas e validadas
+- a `Wave 20` fechou o canal WhatsApp live com QR, descoberta e envio observavel
 - o frontend operacional ja existe e a limpeza final do repositorio foi feita
 - o modo `Live` ja usa backend HTTP real, WebSocket real e launcher local sem servidor provisório
 - o backlog restante voltou a estar organizado em waves ativas
@@ -17,8 +18,6 @@ Conclusao curta:
 
 Plano ativo de fecho:
 
-- `Wave 20`
-  - WhatsApp live, QR e descoberta
 - `Wave 21`
   - pipeline conversacional e providers LLM reais
 - `Wave 22`
@@ -45,6 +44,12 @@ As seguintes areas existem com base razoavel:
 - delivery tracker, dispatcher, watchdog e health monitor
 - ownership, ACL e fan-out multi-grupo
 - host companion, auth router e packaging basico
+- runtime WhatsApp live com:
+  - QR
+  - sessao real
+  - descoberta de grupos e conversas
+  - sincronizacao para `group-directory` e `people-memory`
+  - envio live com observacao e confirmacao forte
 - shell web operacional com:
   - dashboard
   - fluxos guiados
@@ -55,23 +60,7 @@ As seguintes areas existem com base razoavel:
 
 ## Gaps reais por prioridade
 
-### 1. A integracao WhatsApp live continua por fazer
-
-Estado atual:
-- o adapter `whatsapp-baileys` ainda nao faz socket real, QR real nem descoberta live de grupos/conversas
-
-Impacto:
-- a UX de WhatsApp ja existe, mas o canal real continua dependente de wiring futuro
-
-Onde fechar:
-- `source/packages/adapters/whatsapp-baileys`
-- `source/packages/modules/group-directory`
-- `source/packages/modules/people-memory`
-- `source/packages/modules/conversation`
-- `source/packages/adapters/http-fastify`
-- `source/packages/adapters/ws-fastify`
-
-### 2. O pipeline inbound -> conversa -> reply -> envio nao esta ligado no runtime
+### 1. O pipeline inbound -> conversa -> reply -> envio nao esta ligado no runtime
 
 Estado atual:
 - `conversation`, `assistant-context` e `agent-runtime` existem
@@ -84,7 +73,7 @@ Onde fechar:
 - `source/packages/modules/agent-runtime`
 - `source/packages/adapters/whatsapp-baileys`
 
-### 3. Os providers LLM reais ainda sao stubs
+### 2. Os providers LLM reais ainda sao stubs
 
 Estado atual:
 - `llm-codex-oauth` e `llm-openai-compat` ainda expõem apenas `describe()`
@@ -98,7 +87,7 @@ Onde fechar:
 - `source/packages/modules/llm-orchestrator`
 - `source/packages/modules/codex-auth-router`
 
-### 4. A API do produto continua parcial
+### 3. A API do produto continua parcial
 
 Estado atual:
 - existem endpoints e runtime reais para dashboard, groups, people, routing, watchdog, settings e workspace WhatsApp
@@ -116,7 +105,7 @@ Onde fechar:
 - `source/packages/adapters/http-fastify`
 - modulos de scheduling, instruction queue, conversation e llm
 
-### 5. `weekly-planner` do dominio ainda esta minimo
+### 4. `weekly-planner` do dominio ainda esta minimo
 
 Estado atual:
 - `source/packages/modules/weekly-planner` continua a ser um modulo estrutural sem comportamento real
@@ -128,7 +117,7 @@ Onde fechar:
 - `source/packages/modules/weekly-planner`
 - depois ligar a `source/packages/ui-modules/week-planner`
 
-### 6. A cobertura de testes continua curta para o produto final
+### 5. A cobertura de testes continua curta para o produto final
 
 Estado atual:
 - continuam a existir poucos testes centrais:
@@ -143,7 +132,7 @@ Onde fechar:
 - `source/tests/*`
 - e idealmente suites locais em packages criticos
 
-### 7. `alerts` e `automations` sairam do workspace ativo
+### 6. `alerts` e `automations` sairam do workspace ativo
 
 Estado atual:
 - os antigos packages `source/packages/modules/alerts` e `source/packages/modules/automations` eram stubs vazios
@@ -155,11 +144,10 @@ Regra daqui para a frente:
 
 ## Ordem recomendada para o backlog restante
 
-1. `Wave 20`
-2. `Wave 21`
-3. `Wave 22`
-4. `Wave 23`
-5. `Wave 24`
+1. `Wave 21`
+2. `Wave 22`
+3. `Wave 23`
+4. `Wave 24`
 
 ## Nota final
 
@@ -169,4 +157,4 @@ Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
 - nao
 - o que falta ja nao e scaffold nem limpeza
-- falta sobretudo wiring real de rede, WhatsApp, LLM e reforco de testes
+- falta sobretudo wiring conversacional/LLM, API operacional completa e reforco de testes

@@ -16,5 +16,11 @@
     "build": "tsc -p tsconfig.json",
     "test": "node -e \"console.log('No tests yet for @lume-hub/whatsapp-baileys.')\""
   },
-  "dependencies": {}
+  "dependencies": {
+    "@whiskeysockets/baileys": "7.0.0-rc.9",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.6"
+  }
 }

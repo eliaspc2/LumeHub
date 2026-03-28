@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path';
 import type { Clock } from '@lume-hub/clock';
 import type { CodexAuthSourceConfig } from '@lume-hub/codex-auth-router';
 import type { ModuleEnvironment } from '@lume-hub/kernel';
+import type { BaileysSocketFactory, BaileysVersionResolver } from '@lume-hub/whatsapp-baileys';
 
 export type BackendFrontendMode = 'demo' | 'live';
 
@@ -41,6 +42,11 @@ export interface BackendRuntimeConfig {
   readonly webSocketPath?: string;
   readonly webDistRootPath?: string;
   readonly frontendDefaultMode?: BackendFrontendMode;
+  readonly whatsappAuthRootPath?: string;
+  readonly whatsappEnabled?: boolean;
+  readonly whatsappAutoConnect?: boolean;
+  readonly whatsappSocketFactory?: BaileysSocketFactory;
+  readonly whatsappVersionResolver?: BaileysVersionResolver;
 }
 
 export interface BackendRuntimePaths {
@@ -73,6 +79,7 @@ export interface BackendRuntimePaths {
   readonly webSocketPath: string;
   readonly webDistRootPath: string;
   readonly frontendDefaultMode: BackendFrontendMode;
+  readonly whatsappAuthRootPath: string;
 }
 
 export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): BackendRuntimePaths {
@@ -95,6 +102,7 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
   const webDistRootPath =
     config.webDistRootPath ?? resolve(sourceRoot, 'apps', 'lume-hub-web', 'dist');
   const frontendDefaultMode = config.frontendDefaultMode ?? 'live';
+  const whatsappAuthRootPath = config.whatsappAuthRootPath ?? resolve(runtimeRootPath, 'whatsapp-auth');
 
   return {
     projectRoot,
@@ -133,6 +141,7 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
     webSocketPath,
     webDistRootPath,
     frontendDefaultMode,
+    whatsappAuthRootPath,
   };
 }
 

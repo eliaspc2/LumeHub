@@ -14,16 +14,19 @@ import { ScheduleEventsModule } from '@lume-hub/schedule-events';
 import { ScheduleWeeksModule } from '@lume-hub/schedule-weeks';
 import { SystemPowerModule } from '@lume-hub/system-power';
 import { WatchdogModule } from '@lume-hub/watchdog';
+import { BaileysWhatsAppGateway } from '@lume-hub/whatsapp-baileys';
 import { WebSocketGateway } from '@lume-hub/ws-fastify';
 
 import type { BackendRuntimeModules } from './BackendRuntime.js';
 import { resolveBackendRuntimePaths, type BackendRuntimeConfig, type BackendRuntimePaths } from './BackendRuntimeConfig.js';
+import { WhatsAppWorkspaceRuntime } from './WhatsAppWorkspaceRuntime.js';
 
 export interface LoadedBackendComposition {
   readonly paths: BackendRuntimePaths;
   readonly modules: BackendRuntimeModules;
   readonly httpServer: FastifyHttpServer;
   readonly webSocketGateway: WebSocketGateway;
+  readonly whatsAppWorkspaceRuntime: WhatsAppWorkspaceRuntime;
 }
 
 export class ModuleLoader {
@@ -197,6 +200,20 @@ export class ModuleLoader {
     );
 
     const webSocketGateway = new WebSocketGateway();
+    const whatsAppGateway = new BaileysWhatsAppGateway({
+      enabled: this.config.whatsappEnabled,
+      autoConnect: this.config.whatsappAutoConnect,
+      authRootPath: paths.whatsappAuthRootPath,
+      socketFactory: this.config.whatsappSocketFactory,
+      versionResolver: this.config.whatsappVersionResolver,
+    });
+    const whatsAppWorkspaceRuntime = new WhatsAppWorkspaceRuntime({
+      gateway: whatsAppGateway,
+      adminConfig: adminConfigModule,
+      groupDirectory: groupDirectoryModule,
+      peopleMemory: peopleMemoryModule,
+      uiEventPublisher: webSocketGateway.publisher,
+    });
     const httpServer = new FastifyHttpServer({
       modules: {
         adminConfig: adminConfigModule,
@@ -209,6 +226,7 @@ export class ModuleLoader {
         peopleMemory: peopleMemoryModule,
         systemPower: systemPowerModule,
         watchdog: watchdogModule,
+        whatsappRuntime: whatsAppWorkspaceRuntime,
       },
       uiEventPublisher: webSocketGateway.publisher,
     });
@@ -218,6 +236,7 @@ export class ModuleLoader {
       modules,
       httpServer,
       webSocketGateway,
+      whatsAppWorkspaceRuntime,
     };
   }
 

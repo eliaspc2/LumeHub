@@ -27,6 +27,7 @@
     "@lume-hub/schedule-weeks": "workspace:*",
     "@lume-hub/system-power": "workspace:*",
     "@lume-hub/watchdog": "workspace:*",
+    "@lume-hub/whatsapp-baileys": "workspace:*",
     "@lume-hub/ws-fastify": "workspace:*"
   }
 }

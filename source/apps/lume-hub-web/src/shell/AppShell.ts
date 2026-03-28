@@ -110,6 +110,7 @@ export class AppShell {
   private readonly bootstraps = new Map<FrontendTransportMode, WebAppBootstrap>();
   private detachEvents: (() => void) | null = null;
   private activeMode: FrontendTransportMode | null = null;
+  private liveRefreshTimer: number | null = null;
   private requestToken = 0;
 
   private state: AppShellState;
@@ -277,6 +278,17 @@ export class AppShell {
             liveEvents: [event, ...this.state.liveEvents].slice(0, 6),
           };
           this.render();
+
+          if (shouldAutoRefreshRoute(this.state.route, event.topic) && this.state.previewState === 'none') {
+            if (this.liveRefreshTimer !== null) {
+              window.clearTimeout(this.liveRefreshTimer);
+            }
+
+            this.liveRefreshTimer = window.setTimeout(() => {
+              this.liveRefreshTimer = null;
+              void this.refreshCurrentRouteData();
+            }, 220);
+          }
         }) ?? null;
     }
 
@@ -686,7 +698,7 @@ export class AppShell {
       </section>
 
       <section class="card-grid">
-        ${renderUiMetricCard({ title: 'WhatsApp pronto', value: snapshot.hostCompanion.authExists ? 'Ligado' : 'Desligado', tone: snapshot.hostCompanion.authExists ? 'positive' : 'danger', description: 'Sessao auth e heartbeat do companion.' })}
+        ${renderUiMetricCard({ title: 'WhatsApp pronto', value: readableSessionPhase(snapshot.whatsapp.phase), tone: toneForSessionPhase(snapshot.whatsapp.phase), description: 'Estado live da sessao WhatsApp.' })}
         ${renderUiMetricCard({ title: 'Problemas ativos', value: String(snapshot.watchdog.openIssues), tone: snapshot.watchdog.openIssues > 0 ? 'warning' : 'positive', description: 'Issues que merecem acao agora.' })}
         ${renderUiMetricCard({ title: 'Distribuicoes em curso', value: String(snapshot.distributions.running + snapshot.distributions.queued), tone: snapshot.distributions.running > 0 ? 'warning' : 'neutral', description: 'Campanhas a correr ou em espera.' })}
         ${renderUiMetricCard({ title: 'Grupos com owner', value: `${snapshot.groups.withOwners}/${snapshot.groups.total}`, tone: 'neutral', description: 'Cobertura operacional do diretorio de grupos.' })}
@@ -720,8 +732,8 @@ export class AppShell {
         ${renderUiRecordCard({
           title: 'Ligar ou reparar WhatsApp',
           subtitle: 'Checklist guiada para auth, descoberta e permissoes.',
-          badgeLabel: snapshot.hostCompanion.authExists ? 'Sessao presente' : 'Precisa de atencao',
-          badgeTone: snapshot.hostCompanion.authExists ? 'positive' : 'danger',
+          badgeLabel: readableSessionPhase(snapshot.whatsapp.phase),
+          badgeTone: toneForSessionPhase(snapshot.whatsapp.phase),
           bodyHtml: `
             <p>Segue uma ordem clara para recuperar a ligacao sem mexer as cegas.</p>
             <div class="action-row">
@@ -1044,6 +1056,7 @@ export class AppShell {
   private renderWhatsAppPage(page: UiPage<WhatsAppManagementPageData>): string {
     const snapshot = page.data.workspace;
     const people = buildWorkspacePeople(page.data);
+    const liveQrVisible = this.state.whatsappQrPreviewVisible && snapshot.runtime.qr.available && snapshot.runtime.qr.svg;
 
     return `
       <section class="surface hero surface--strong">
@@ -1056,6 +1069,11 @@ export class AppShell {
               label: this.state.whatsappQrPreviewVisible ? 'Fechar preview QR' : 'Ver onboarding QR',
               dataAttributes: { 'whatsapp-action': 'toggle-qr-preview' },
             })}
+            ${renderUiActionButton({
+              label: 'Atualizar agora',
+              variant: 'secondary',
+              dataAttributes: { 'whatsapp-action': 'refresh-workspace' },
+            })}
             ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', variant: 'secondary', dataAttributes: { route: '/groups' } })}
             ${renderUiActionButton({ label: 'Ver configuracao', href: '/settings', variant: 'secondary', dataAttributes: { route: '/settings' } })}
           </div>
@@ -1063,21 +1081,23 @@ export class AppShell {
         <div class="hero-panel">
           ${renderUiPanelCard({
             title: 'Sessao atual',
-            badgeLabel: snapshot.settings.whatsapp.enabled ? 'Ligada' : 'Desligada',
-            badgeTone: snapshot.settings.whatsapp.enabled ? 'positive' : 'warning',
+            badgeLabel: readableSessionPhase(snapshot.runtime.session.phase),
+            badgeTone: toneForSessionPhase(snapshot.runtime.session.phase),
             contentHtml: `<p>${escapeHtml(
-              snapshot.host.authExists
-                ? 'Auth encontrado e pronto para partilhar o mesmo login do Codex.'
-                : 'Nao encontramos auth live. Vale a pena reparar isto antes de confiar no canal.',
+              snapshot.runtime.session.connected
+                ? 'A sessao WhatsApp esta aberta e pronta para descoberta e envio real.'
+                : snapshot.runtime.session.loginRequired
+                  ? 'Ainda falta autenticar a sessao. Assim que o QR aparecer, ja consegues ligar a conta operadora.'
+                  : 'A ligacao existe mas ainda nao esta operacional. Vale a pena confirmar QR, reconnect e discovery.',
             )}</p>`,
           })}
           ${renderUiPanelCard({
             title: 'Onboarding',
-            badgeLabel: this.state.whatsappQrPreviewVisible ? 'QR visivel' : 'Guia pronto',
-            badgeTone: this.state.whatsappQrPreviewVisible ? 'positive' : 'neutral',
+            badgeLabel: snapshot.runtime.qr.available ? 'QR pronto' : 'Guia pronto',
+            badgeTone: snapshot.runtime.qr.available ? 'positive' : 'neutral',
             contentHtml: `<p>${escapeHtml(
-              this.state.whatsappQrPreviewVisible
-                ? 'Estamos a simular o ponto onde o QR e os passos de ligacao devem aparecer ao operador.'
+              snapshot.runtime.qr.available
+                ? 'O backend ja publicou um QR real. Se abrires a area abaixo, consegues validar a clareza do fluxo com o dado live.'
                 : 'Abertura da sessao, diagnostico e recuperacao ficam explicados sem linguagem interna.',
             )}</p>`,
           })}
@@ -1088,6 +1108,8 @@ export class AppShell {
         ${renderUiMetricCard({ title: 'Grupos autorizados', value: `${snapshot.permissionSummary.authorizedGroups}/${snapshot.permissionSummary.knownGroups}`, tone: 'neutral', description: 'Cobertura atual do assistente nos grupos conhecidos.' })}
         ${renderUiMetricCard({ title: 'Privados autorizados', value: `${snapshot.permissionSummary.authorizedPrivateConversations}/${snapshot.permissionSummary.knownPrivateConversations}`, tone: 'neutral', description: 'Conversas privadas onde o assistente pode responder.' })}
         ${renderUiMetricCard({ title: 'App owners', value: String(snapshot.permissionSummary.appOwners), tone: 'positive', description: 'Pessoas com controlo global da aplicacao.' })}
+        ${renderUiMetricCard({ title: 'Sessao live', value: readableSessionPhase(snapshot.runtime.session.phase), tone: toneForSessionPhase(snapshot.runtime.session.phase), description: 'Estado real da ligacao WhatsApp neste momento.' })}
+        ${renderUiMetricCard({ title: 'Descobertos live', value: `${snapshot.runtime.discoveredGroups}/${snapshot.runtime.discoveredConversations}`, tone: 'neutral', description: 'Grupos e privados descobertos pelo runtime real.' })}
         ${renderUiMetricCard({ title: 'Mesmo auth do Codex', value: snapshot.host.sameAsCodexCanonical ? 'Sim' : 'Nao', tone: snapshot.host.sameAsCodexCanonical ? 'positive' : 'warning', description: 'Partilha do auth live com o ambiente principal.' })}
         ${renderUiMetricCard({ title: 'Pessoas visiveis', value: String(people.length), tone: 'neutral', description: 'Base humana para gerir owners e acessos.' })}
       </section>
@@ -1127,10 +1149,13 @@ export class AppShell {
                 <h3>Leitura rapida do estado</h3>
               </div>
               <ul>
-                <li>Auth presente: ${snapshot.host.authExists ? 'sim' : 'nao'}</li>
+                <li>Fase da sessao: ${escapeHtml(readableSessionPhase(snapshot.runtime.session.phase))}</li>
+                <li>Auth presente: ${snapshot.runtime.session.sessionPresent ? 'sim' : 'nao'}</li>
+                <li>QR disponivel: ${snapshot.runtime.qr.available ? 'sim' : 'nao'}</li>
                 <li>Descoberta de grupos: ${snapshot.settings.whatsapp.groupDiscoveryEnabled ? 'ativa' : 'desligada'}</li>
                 <li>Descoberta de conversas: ${snapshot.settings.whatsapp.conversationDiscoveryEnabled ? 'ativa' : 'desligada'}</li>
                 <li>Assistente privado: ${snapshot.settings.commands.allowPrivateAssistant ? 'permitido' : 'bloqueado'}</li>
+                <li>Ultima discovery: ${escapeHtml(formatShortDateTime(snapshot.runtime.lastDiscoveryAt))}</li>
               </ul>
             </article>
           </div>
@@ -1139,21 +1164,23 @@ export class AppShell {
         <article class="surface content-card span-5">
           <div class="card-header">
             <h3>Onboarding e controlos da sessao</h3>
-            ${renderUiBadge({ label: snapshot.settings.whatsapp.enabled ? 'Canal ativo' : 'Canal desligado', tone: snapshot.settings.whatsapp.enabled ? 'positive' : 'warning' })}
+            ${renderUiBadge({ label: readableSessionPhase(snapshot.runtime.session.phase), tone: toneForSessionPhase(snapshot.runtime.session.phase) })}
           </div>
           <div class="ui-card__content">
-            ${this.state.whatsappQrPreviewVisible ? `
+            ${liveQrVisible ? `
               <div class="qr-preview">
-                <div class="qr-preview__code" aria-hidden="true"></div>
+                <div class="qr-preview__code qr-preview__code--svg">${snapshot.runtime.qr.svg ?? ''}</div>
                 <div>
-                  <strong>QR de onboarding</strong>
-                  <p>Aponta o telemovel da conta operadora a este QR para ligar a sessao. Esta e uma previsualizacao UX para validar a clareza do fluxo.</p>
+                  <strong>QR live pronto para scan</strong>
+                  <p>Aponta o telemovel da conta operadora a este QR para autenticar a sessao real do LumeHub.</p>
+                  <p>Gerado: ${escapeHtml(formatShortDateTime(snapshot.runtime.qr.updatedAt))}</p>
                 </div>
               </div>
             ` : `
               <div class="guide-preview">
                 <p><strong>Quando mostrar QR</strong>: quando o auth faltar, expirar ou precisares de trocar de conta.</p>
-                <p><strong>Depois do scan</strong>: confirmar auth, descoberta de grupos e permissoes base.</p>
+                <p><strong>Depois do scan</strong>: confirmar fase open, descoberta live e permissoes base.</p>
+                <p><strong>Estado atual</strong>: ${escapeHtml(snapshot.runtime.session.lastError ?? 'sem erro live conhecido')}</p>
               </div>
             `}
             <div class="action-row">
@@ -1169,6 +1196,8 @@ export class AppShell {
               })}
             </div>
             <div class="ui-card__chips">
+              ${renderUiBadge({ label: snapshot.runtime.session.sessionPresent ? 'Sessao presente' : 'Sessao em falta', tone: snapshot.runtime.session.sessionPresent ? 'positive' : 'warning', style: 'chip' })}
+              ${renderUiBadge({ label: snapshot.runtime.qr.available ? 'QR publicado' : 'Sem QR ativo', tone: snapshot.runtime.qr.available ? 'positive' : 'neutral', style: 'chip' })}
               ${renderUiBadge({ label: snapshot.settings.whatsapp.sharedAuthWithCodex ? 'Mesmo auth do Codex' : 'Auth isolado', tone: snapshot.settings.whatsapp.sharedAuthWithCodex ? 'positive' : 'warning', style: 'chip' })}
               ${renderUiBadge({ label: snapshot.settings.whatsapp.groupDiscoveryEnabled ? 'Descoberta grupos ativa' : 'Descoberta grupos desligada', tone: snapshot.settings.whatsapp.groupDiscoveryEnabled ? 'positive' : 'warning', style: 'chip' })}
               ${renderUiBadge({ label: snapshot.settings.whatsapp.conversationDiscoveryEnabled ? 'Descoberta conversas ativa' : 'Descoberta conversas desligada', tone: snapshot.settings.whatsapp.conversationDiscoveryEnabled ? 'positive' : 'warning', style: 'chip' })}
@@ -2052,6 +2081,16 @@ export class AppShell {
       return;
     }
 
+    if (action === 'refresh-workspace') {
+      await this.runWhatsAppMutation(
+        async () => {
+          await this.currentClient().refreshWhatsAppWorkspace();
+        },
+        'O workspace WhatsApp foi atualizado a partir do runtime live.',
+      );
+      return;
+    }
+
     const pageData = this.readWhatsAppPageData();
 
     if (!pageData) {
@@ -2786,7 +2825,7 @@ function repairTone(
   snapshot: WhatsAppWorkspaceSnapshot,
 ): UiTone {
   if (focus === 'auth') {
-    return snapshot.host.authExists ? 'positive' : 'danger';
+    return toneForSessionPhase(snapshot.runtime.session.phase);
   }
 
   if (focus === 'groups') {
@@ -2803,10 +2842,10 @@ function renderRepairChecklist(
   if (focus === 'auth') {
     return `
       <ul>
-        <li>Confirmar se o auth partilhado com o Codex existe no host.</li>
-        <li>Validar se o companion local tem heartbeat recente.</li>
-        <li>Se faltar auth, reabrir a ligacao e voltar a testar antes de mexer em permissoes.</li>
-        <li>Estado atual: ${snapshot.host.authExists ? 'auth presente' : 'auth em falta'}.</li>
+        <li>Confirmar a fase live da sessao: idealmente deve passar para <strong>open</strong>.</li>
+        <li>Se houver QR ativo, scan imediato com a conta operadora antes de rever permissoes.</li>
+        <li>Se houver erro ou reconnect, validar primeiro isso antes de confiar na discovery.</li>
+        <li>Estado atual: ${escapeHtml(readableSessionPhase(snapshot.runtime.session.phase))}.</li>
       </ul>
     `;
   }
@@ -2815,6 +2854,7 @@ function renderRepairChecklist(
     return `
       <ul>
         <li>Validar se a descoberta de grupos esta ativa.</li>
+        <li>Forcar refresh live se acabaste de entrar num grupo novo e ele ainda nao apareceu.</li>
         <li>Comparar grupos conhecidos com grupos autorizados para o assistente.</li>
         <li>Se houver grupos sem owner, resolver isso antes de confiar no fluxo humano.</li>
         <li>Estado atual: ${snapshot.permissionSummary.authorizedGroups}/${snapshot.permissionSummary.knownGroups} grupos autorizados.</li>
@@ -2830,6 +2870,55 @@ function renderRepairChecklist(
       <li>Estado atual: ${snapshot.permissionSummary.appOwners} app owners conhecidos.</li>
     </ul>
   `;
+}
+
+function readableSessionPhase(phase: WhatsAppWorkspaceSnapshot['runtime']['session']['phase']): string {
+  switch (phase) {
+    case 'disabled':
+      return 'Canal desligado';
+    case 'idle':
+      return 'Pronto a ligar';
+    case 'connecting':
+      return 'A ligar';
+    case 'qr_pending':
+      return 'Aguardando QR';
+    case 'open':
+      return 'Ligado';
+    case 'closed':
+      return 'Sessao fechada';
+    case 'error':
+      return 'Com erro';
+  }
+}
+
+function toneForSessionPhase(phase: WhatsAppWorkspaceSnapshot['runtime']['session']['phase']): UiTone {
+  switch (phase) {
+    case 'open':
+      return 'positive';
+    case 'connecting':
+    case 'qr_pending':
+      return 'warning';
+    case 'error':
+      return 'danger';
+    default:
+      return 'neutral';
+  }
+}
+
+function shouldAutoRefreshRoute(route: string, topic: string): boolean {
+  if (topic.startsWith('whatsapp.')) {
+    return route === '/whatsapp' || route === '/today';
+  }
+
+  if (topic.startsWith('groups.') || topic.startsWith('people.')) {
+    return route === '/whatsapp' || route === '/groups';
+  }
+
+  if (topic.startsWith('settings.whatsapp')) {
+    return route === '/whatsapp' || route === '/settings' || route === '/today';
+  }
+
+  return false;
 }
 
 function buildWorkspacePeople(pageData: WhatsAppManagementPageData): readonly WorkspacePersonView[] {

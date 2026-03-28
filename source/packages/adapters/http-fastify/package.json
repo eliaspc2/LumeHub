@@ -26,6 +26,7 @@
     "@lume-hub/instruction-queue": "workspace:*",
     "@lume-hub/people-memory": "workspace:*",
     "@lume-hub/system-power": "workspace:*",
-    "@lume-hub/watchdog": "workspace:*"
+    "@lume-hub/watchdog": "workspace:*",
+    "@lume-hub/whatsapp-baileys": "workspace:*"
   }
 }

@@ -259,6 +259,13 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       return this.ok(buildWhatsAppWorkspaceSnapshot(this.state));
     }
 
+    if (request.method === 'POST' && pathname === '/api/whatsapp/refresh') {
+      this.emit('whatsapp.workspace.refreshed', {
+        mode: 'demo',
+      });
+      return this.ok(buildWhatsAppWorkspaceSnapshot(this.state));
+    }
+
     if (request.method === 'GET' && pathname === '/api/watchdog/issues') {
       return this.ok(this.state.watchdogIssues);
     }
@@ -897,6 +904,15 @@ function buildDashboardSnapshot(state: DemoState): DashboardSnapshot {
       lastHeartbeatAt: state.settings.hostStatus.runtime.lastHeartbeatAt,
       lastError: state.settings.hostStatus.runtime.lastError,
     },
+    whatsapp: {
+      phase: state.settings.adminSettings.whatsapp.enabled ? 'open' : 'disabled',
+      connected: state.settings.adminSettings.whatsapp.enabled,
+      loginRequired: !state.settings.adminSettings.whatsapp.enabled,
+      discoveredGroups: state.groups.length,
+      discoveredConversations:
+        state.people.filter((person) => person.identifiers.some((identifier) => identifier.kind === 'whatsapp_jid')).length +
+        state.externalPrivateConversations.length,
+    },
   };
 }
 
@@ -960,6 +976,35 @@ function buildWhatsAppWorkspaceSnapshot(state: DemoState): WhatsAppWorkspaceSnap
     settings: {
       commands,
       whatsapp: state.settings.adminSettings.whatsapp,
+    },
+    runtime: {
+      session: {
+        phase: whatsappEnabled ? 'open' : 'disabled',
+        connected: whatsappEnabled,
+        loginRequired: !whatsappEnabled,
+        sessionPresent: state.settings.hostStatus.auth.exists,
+        lastQrAt: whatsappEnabled ? null : state.settings.hostStatus.runtime.updatedAt,
+        lastConnectedAt: whatsappEnabled ? state.settings.hostStatus.runtime.updatedAt : null,
+        lastDisconnectAt: whatsappEnabled ? null : state.settings.hostStatus.runtime.updatedAt,
+        lastDisconnectReason: whatsappEnabled ? null : 'disabled_for_preview',
+        lastError: null,
+        selfJid: '351910000099@s.whatsapp.net',
+        pushName: 'Conta LumeHub Demo',
+      },
+      qr: {
+        available: !whatsappEnabled,
+        value: !whatsappEnabled ? 'lumehub-demo-qr' : null,
+        svg: null,
+        updatedAt: !whatsappEnabled ? state.settings.hostStatus.runtime.updatedAt : null,
+        expiresAt: !whatsappEnabled ? state.settings.hostStatus.runtime.updatedAt : null,
+      },
+      discoveredGroups: groupSummaries.length,
+      discoveredConversations: conversations.length,
+      lastDiscoveryAt:
+        [...groupSummaries.map((group) => group.lastRefreshedAt ?? ''), state.settings.hostStatus.runtime.updatedAt]
+          .filter((value) => value.length > 0)
+          .sort()
+          .at(-1) ?? null,
     },
     host: {
       authFilePath: state.settings.hostStatus.auth.filePath,

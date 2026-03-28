@@ -74,6 +74,70 @@ export interface GroupMetadataRecord {
   readonly updatedAt: string;
 }
 
+export type WhatsAppConnectionPhase = 'disabled' | 'idle' | 'connecting' | 'qr_pending' | 'open' | 'closed' | 'error';
+
+export interface WhatsAppRuntimeFlags {
+  readonly enabled: boolean;
+  readonly groupDiscoveryEnabled: boolean;
+  readonly conversationDiscoveryEnabled: boolean;
+}
+
+export interface WhatsAppQrSnapshot {
+  readonly available: boolean;
+  readonly value: string | null;
+  readonly svg: string | null;
+  readonly updatedAt: string | null;
+  readonly expiresAt: string | null;
+}
+
+export interface WhatsAppSessionSnapshot {
+  readonly phase: WhatsAppConnectionPhase;
+  readonly connected: boolean;
+  readonly loginRequired: boolean;
+  readonly sessionPresent: boolean;
+  readonly lastQrAt: string | null;
+  readonly lastConnectedAt: string | null;
+  readonly lastDisconnectAt: string | null;
+  readonly lastDisconnectReason: string | null;
+  readonly lastError: string | null;
+  readonly selfJid: string | null;
+  readonly pushName: string | null;
+}
+
+export interface WhatsAppDiscoveredGroup {
+  readonly groupJid: string;
+  readonly subject: string;
+  readonly aliases: readonly string[];
+  readonly size: number | null;
+  readonly participants: readonly string[];
+  readonly discoveredAt: string;
+  readonly updatedAt: string;
+}
+
+export interface WhatsAppDiscoveredConversation {
+  readonly chatJid: string;
+  readonly displayName: string;
+  readonly lastMessageAt: string | null;
+  readonly lastMessagePreview: string | null;
+  readonly unreadCount: number;
+  readonly discoveredAt: string;
+  readonly updatedAt: string;
+}
+
+export interface WhatsAppRuntimeSnapshot {
+  readonly flags: WhatsAppRuntimeFlags;
+  readonly session: WhatsAppSessionSnapshot;
+  readonly qr: WhatsAppQrSnapshot;
+  readonly groups: readonly WhatsAppDiscoveredGroup[];
+  readonly conversations: readonly WhatsAppDiscoveredConversation[];
+}
+
+export interface WhatsAppRuntimeEvent {
+  readonly topic: 'session' | 'qr' | 'groups' | 'conversations';
+  readonly emittedAt: string;
+  readonly snapshot: WhatsAppRuntimeSnapshot;
+}
+
 export interface IWhatsAppGateway {
   sendText(input: WhatsAppSendTextInput): Promise<WhatsAppSendResult>;
   ingestInboundEnvelope(payload: RawBaileysMessageEnvelope): Promise<NormalizedInboundMessage | undefined>;
@@ -90,4 +154,13 @@ export interface IGroupMetadataProvider {
 export interface IOutboundSignalSource {
   subscribeOutboundObservation(listener: (signal: OutboundObservationSignal) => void | Promise<void>): () => void;
   subscribeOutboundConfirmation(listener: (signal: OutboundConfirmationSignal) => void | Promise<void>): () => void;
+}
+
+export interface IWhatsAppLiveRuntime {
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  applyRuntimeFlags(flags: Partial<WhatsAppRuntimeFlags>): Promise<WhatsAppRuntimeSnapshot>;
+  refreshWorkspace(): Promise<WhatsAppRuntimeSnapshot>;
+  getRuntimeSnapshot(): Promise<WhatsAppRuntimeSnapshot>;
+  subscribeRuntime(listener: (event: WhatsAppRuntimeEvent) => void | Promise<void>): () => void;
 }

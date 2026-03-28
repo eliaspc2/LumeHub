@@ -23,6 +23,7 @@ import type { Instruction, InstructionQueueModuleContract } from '@lume-hub/inst
 import type { PeopleMemoryModuleContract, Person, PersonRole, PersonUpsertInput } from '@lume-hub/people-memory';
 import type { SystemPowerModuleContract } from '@lume-hub/system-power';
 import type { WatchdogModuleContract } from '@lume-hub/watchdog';
+import type { WhatsAppRuntimeSnapshot } from '@lume-hub/whatsapp-baileys';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -84,6 +85,22 @@ export interface HttpApiModules {
   readonly peopleMemory?: Pick<PeopleMemoryModuleContract, 'listPeople' | 'upsertByIdentifiers' | 'updatePersonRoles'>;
   readonly systemPower: Pick<SystemPowerModuleContract, 'getPowerStatus' | 'updatePowerPolicy'>;
   readonly watchdog: Pick<WatchdogModuleContract, 'listIssues' | 'resolveIssue'>;
+  readonly whatsappRuntime?: {
+    getRuntimeSnapshot(): Promise<WhatsAppRuntimeSnapshot>;
+    refreshWorkspace(): Promise<WhatsAppRuntimeSnapshot>;
+    applySettings(settings: Partial<WhatsAppSettings>): Promise<WhatsAppRuntimeSnapshot>;
+    sendText(input: {
+      readonly chatJid: string;
+      readonly text: string;
+      readonly idempotencyKey?: string;
+      readonly messageId?: string;
+    }): Promise<{
+      readonly messageId: string;
+      readonly chatJid: string;
+      readonly acceptedAt: string;
+      readonly idempotencyKey?: string;
+    }>;
+  };
 }
 
 export interface FastifyHttpServerConfig {
@@ -497,6 +514,48 @@ export class RouteRegistrar {
     });
     server.registerRoute({
       method: 'GET',
+      path: '/api/whatsapp/qr',
+      handler: async () => {
+        const runtimeSnapshot = await this.modules.whatsappRuntime?.getRuntimeSnapshot();
+        return runtimeSnapshot?.qr ?? createEmptyWhatsAppRuntimeSnapshot().qr;
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/whatsapp/refresh',
+      handler: async () => {
+        await this.modules.whatsappRuntime?.refreshWorkspace();
+        const snapshot = await this.getWhatsAppWorkspaceSnapshot();
+        this.publish('whatsapp.workspace.refreshed', snapshot.runtime);
+        return snapshot;
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/whatsapp/send-test',
+      handler: async (context) => {
+        if (!this.modules.whatsappRuntime) {
+          throw new ApiError(404, 'WhatsApp runtime is not configured.');
+        }
+
+        if (!context.body || typeof context.body !== 'object') {
+          throw new ApiError(400, 'WhatsApp test send payload must be an object.');
+        }
+
+        const chatJid = readStringBodyField(context.body, 'chatJid');
+        const text = readStringBodyField(context.body, 'text');
+        const sendResult = await this.modules.whatsappRuntime.sendText({
+          chatJid,
+          text,
+          idempotencyKey: readOptionalStringBodyField(context.body, 'idempotencyKey'),
+          messageId: readOptionalStringBodyField(context.body, 'messageId'),
+        });
+        this.publish('whatsapp.test_send.accepted', sendResult);
+        return sendResult;
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
       path: '/api/watchdog/issues',
       handler: async () => this.modules.watchdog.listIssues(),
     });
@@ -536,7 +595,11 @@ export class RouteRegistrar {
         }
 
         const settings = await this.modules.adminConfig.updateWhatsAppSettings(readWhatsAppSettingsBody(context.body));
+        const runtimeSnapshot = await this.modules.whatsappRuntime?.applySettings(settings.whatsapp);
         this.publish('settings.whatsapp.updated', settings.whatsapp);
+        if (runtimeSnapshot) {
+          this.publish('whatsapp.runtime.updated', runtimeSnapshot);
+        }
         return settings;
       },
     });
@@ -632,7 +695,7 @@ export class RouteRegistrar {
   }
 
   private async getDashboardSnapshot() {
-    const [health, readiness, groups, rules, instructions, issues, hostStatus] = await Promise.all([
+    const [health, readiness, groups, rules, instructions, issues, hostStatus, whatsAppRuntime] = await Promise.all([
       this.modules.healthMonitor.getHealthSnapshot(),
       this.modules.healthMonitor.getReadiness(),
       this.modules.groupDirectory.listGroups(),
@@ -642,6 +705,7 @@ export class RouteRegistrar {
         status: 'open',
       }),
       this.modules.hostLifecycle.getHostCompanionStatus(),
+      this.modules.whatsappRuntime?.getRuntimeSnapshot() ?? Promise.resolve(createEmptyWhatsAppRuntimeSnapshot()),
     ]);
 
     return {
@@ -686,6 +750,13 @@ export class RouteRegistrar {
         lastHeartbeatAt: hostStatus.runtime.lastHeartbeatAt,
         lastError: hostStatus.runtime.lastError,
       },
+      whatsapp: {
+        phase: whatsAppRuntime.session.phase,
+        connected: whatsAppRuntime.session.connected,
+        loginRequired: whatsAppRuntime.session.loginRequired,
+        discoveredGroups: whatsAppRuntime.groups.length,
+        discoveredConversations: whatsAppRuntime.conversations.length,
+      },
     };
   }
 
@@ -706,16 +777,19 @@ export class RouteRegistrar {
   }
 
   private async getWhatsAppWorkspaceSnapshot() {
-    const [adminSettingsInput, groups, people, hostStatus, authRouterStatus] = await Promise.all([
+    const [adminSettingsInput, groups, people, hostStatus, authRouterStatus, runtime] = await Promise.all([
       this.modules.adminConfig.getSettings(),
       this.modules.groupDirectory.listGroups(),
       this.modules.peopleMemory?.listPeople() ?? Promise.resolve([]),
       this.modules.hostLifecycle.getHostCompanionStatus(),
       this.modules.codexAuthRouter?.getStatus() ?? Promise.resolve(null),
+      this.modules.whatsappRuntime?.getRuntimeSnapshot() ?? Promise.resolve(createEmptyWhatsAppRuntimeSnapshot()),
     ]);
     const adminSettings = normaliseAdminSettings(adminSettingsInput);
     const peopleById = new Map(people.map((person) => [person.personId, person]));
     const ownedGroupsByPersonId = new Map<string, string[]>();
+    const runtimeGroupsByJid = new Map(runtime.groups.map((group) => [group.groupJid, group]));
+    const runtimeConversationsByJid = new Map(runtime.conversations.map((conversation) => [conversation.chatJid, conversation]));
 
     for (const group of groups) {
       for (const owner of group.groupOwners) {
@@ -729,20 +803,48 @@ export class RouteRegistrar {
     const allowAllPrivateChats = adminSettings.commands.authorizedPrivateJids.length === 0;
     const knownGroupJids = new Set(groups.map((group) => group.groupJid));
     const knownPrivateJids = new Set<string>();
-    const groupSummaries = groups.map((group) => ({
-      groupJid: group.groupJid,
-      preferredSubject: group.preferredSubject,
-      aliases: group.aliases,
-      courseId: group.courseId,
-      ownerPersonIds: group.groupOwners.map((owner) => owner.personId),
-      ownerLabels: group.groupOwners.map((owner) => peopleById.get(owner.personId)?.displayName ?? owner.personId),
-      assistantAuthorized:
-        adminSettings.commands.assistantEnabled &&
-        (allowAllGroups || adminSettings.commands.authorizedGroupJids.includes(group.groupJid)),
-      calendarAccessPolicy: group.calendarAccessPolicy,
-      lastRefreshedAt: group.lastRefreshedAt,
-      knownToBot: true,
-    }));
+    const groupSummaries = groups.map((group) => {
+      const runtimeGroup = runtimeGroupsByJid.get(group.groupJid);
+
+      return {
+        groupJid: group.groupJid,
+        preferredSubject: runtimeGroup?.subject ?? group.preferredSubject,
+        aliases: dedupeStringArray([...(runtimeGroup?.aliases ?? []), ...group.aliases]),
+        courseId: group.courseId,
+        ownerPersonIds: group.groupOwners.map((owner) => owner.personId),
+        ownerLabels: group.groupOwners.map((owner) => peopleById.get(owner.personId)?.displayName ?? owner.personId),
+        assistantAuthorized:
+          adminSettings.commands.assistantEnabled &&
+          adminSettings.whatsapp.enabled &&
+          (allowAllGroups || adminSettings.commands.authorizedGroupJids.includes(group.groupJid)),
+        calendarAccessPolicy: group.calendarAccessPolicy,
+        lastRefreshedAt: runtimeGroup?.updatedAt ?? group.lastRefreshedAt,
+        knownToBot: runtimeGroupsByJid.has(group.groupJid),
+      };
+    });
+
+    for (const runtimeGroup of runtime.groups) {
+      if (knownGroupJids.has(runtimeGroup.groupJid)) {
+        continue;
+      }
+
+      groupSummaries.push({
+        groupJid: runtimeGroup.groupJid,
+        preferredSubject: runtimeGroup.subject,
+        aliases: runtimeGroup.aliases,
+        courseId: null,
+        ownerPersonIds: [],
+        ownerLabels: [],
+        assistantAuthorized:
+          adminSettings.commands.assistantEnabled &&
+          adminSettings.whatsapp.enabled &&
+          (allowAllGroups || adminSettings.commands.authorizedGroupJids.includes(runtimeGroup.groupJid)),
+        calendarAccessPolicy: DEFAULT_GROUP_CALENDAR_ACCESS_POLICY,
+        lastRefreshedAt: runtimeGroup.updatedAt,
+        knownToBot: true,
+      });
+      knownGroupJids.add(runtimeGroup.groupJid);
+    }
 
     for (const groupJid of adminSettings.commands.authorizedGroupJids) {
       if (knownGroupJids.has(groupJid)) {
@@ -756,7 +858,7 @@ export class RouteRegistrar {
         courseId: null,
         ownerPersonIds: [],
         ownerLabels: [],
-        assistantAuthorized: adminSettings.commands.assistantEnabled,
+        assistantAuthorized: adminSettings.commands.assistantEnabled && adminSettings.whatsapp.enabled,
         calendarAccessPolicy: DEFAULT_GROUP_CALENDAR_ACCESS_POLICY,
         lastRefreshedAt: null,
         knownToBot: false,
@@ -765,12 +867,28 @@ export class RouteRegistrar {
 
     const appOwners = people
       .filter((person) => person.globalRoles.includes('app_owner'))
-      .map((person) => mapConversationSummary(person, ownedGroupsByPersonId, adminSettings.commands, allowAllPrivateChats));
+      .map((person) =>
+        mapConversationSummary(
+          person,
+          ownedGroupsByPersonId,
+          adminSettings.commands,
+          adminSettings.whatsapp.enabled,
+          allowAllPrivateChats,
+          runtimeConversationsByJid,
+        ),
+      );
 
     const conversations = people
       .filter((person) => person.identifiers.some((identifier) => identifier.kind === 'whatsapp_jid'))
       .map((person) => {
-        const summary = mapConversationSummary(person, ownedGroupsByPersonId, adminSettings.commands, allowAllPrivateChats);
+        const summary = mapConversationSummary(
+          person,
+          ownedGroupsByPersonId,
+          adminSettings.commands,
+          adminSettings.whatsapp.enabled,
+          allowAllPrivateChats,
+          runtimeConversationsByJid,
+        );
 
         for (const whatsappJid of summary.whatsappJids) {
           knownPrivateJids.add(whatsappJid);
@@ -778,6 +896,28 @@ export class RouteRegistrar {
 
         return summary;
       });
+
+    for (const runtimeConversation of runtime.conversations) {
+      if (knownPrivateJids.has(runtimeConversation.chatJid)) {
+        continue;
+      }
+
+      conversations.push({
+        personId: null,
+        displayName: runtimeConversation.displayName,
+        whatsappJids: [runtimeConversation.chatJid],
+        globalRoles: ['member'],
+        privateAssistantAuthorized:
+          adminSettings.commands.assistantEnabled &&
+          adminSettings.whatsapp.enabled &&
+          adminSettings.commands.allowPrivateAssistant &&
+          (allowAllPrivateChats ||
+            adminSettings.commands.authorizedPrivateJids.includes(runtimeConversation.chatJid)),
+        ownedGroupJids: [],
+        knownToBot: true,
+      });
+      knownPrivateJids.add(runtimeConversation.chatJid);
+    }
 
     for (const chatJid of adminSettings.commands.authorizedPrivateJids) {
       if (knownPrivateJids.has(chatJid)) {
@@ -804,6 +944,13 @@ export class RouteRegistrar {
       settings: {
         commands: adminSettings.commands,
         whatsapp: adminSettings.whatsapp,
+      },
+      runtime: {
+        session: runtime.session,
+        qr: runtime.qr,
+        discoveredGroups: runtime.groups.length,
+        discoveredConversations: runtime.conversations.length,
+        lastDiscoveryAt: latestDiscoveryAt(runtime),
       },
       host: {
         authFilePath: hostStatus.auth.filePath,
@@ -887,7 +1034,9 @@ function mapConversationSummary(
   person: Person,
   ownedGroupsByPersonId: ReadonlyMap<string, readonly string[]>,
   commands: CommandsPolicySettings,
+  whatsappEnabled: boolean,
   allowAllPrivateChats: boolean,
+  runtimeConversationsByJid: ReadonlyMap<string, { readonly chatJid: string }>,
 ): {
   readonly personId: string | null;
   readonly displayName: string;
@@ -908,12 +1057,62 @@ function mapConversationSummary(
     globalRoles: person.globalRoles,
     privateAssistantAuthorized:
       commands.assistantEnabled &&
+      whatsappEnabled &&
       commands.allowPrivateAssistant &&
       whatsappJids.length > 0 &&
       (allowAllPrivateChats || whatsappJids.some((chatJid) => commands.authorizedPrivateJids.includes(chatJid))),
     ownedGroupJids: ownedGroupsByPersonId.get(person.personId) ?? [],
-    knownToBot: whatsappJids.length > 0,
+    knownToBot: whatsappJids.some((chatJid) => runtimeConversationsByJid.has(chatJid)),
   };
+}
+
+function createEmptyWhatsAppRuntimeSnapshot(): WhatsAppRuntimeSnapshot {
+  return {
+    flags: {
+      enabled: DEFAULT_ADMIN_SETTINGS.whatsapp.enabled,
+      groupDiscoveryEnabled: DEFAULT_ADMIN_SETTINGS.whatsapp.groupDiscoveryEnabled,
+      conversationDiscoveryEnabled: DEFAULT_ADMIN_SETTINGS.whatsapp.conversationDiscoveryEnabled,
+    },
+    session: {
+      phase: 'idle',
+      connected: false,
+      loginRequired: true,
+      sessionPresent: false,
+      lastQrAt: null,
+      lastConnectedAt: null,
+      lastDisconnectAt: null,
+      lastDisconnectReason: null,
+      lastError: null,
+      selfJid: null,
+      pushName: null,
+    },
+    qr: {
+      available: false,
+      value: null,
+      svg: null,
+      updatedAt: null,
+      expiresAt: null,
+    },
+    groups: [],
+    conversations: [],
+  };
+}
+
+function latestDiscoveryAt(runtime: WhatsAppRuntimeSnapshot): string | null {
+  const timestamps = [
+    ...runtime.groups.map((group) => group.updatedAt),
+    ...runtime.conversations.map((conversation) => conversation.updatedAt),
+  ].filter((value) => value.length > 0);
+
+  if (timestamps.length === 0) {
+    return null;
+  }
+
+  return timestamps.sort().at(-1) ?? null;
+}
+
+function dedupeStringArray(values: readonly string[]): readonly string[] {
+  return [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))];
 }
 
 function compareByLabel(
@@ -1115,6 +1314,25 @@ function readStringBodyField(body: unknown, fieldName: string): string {
   }
 
   return value.trim();
+}
+
+function readOptionalStringBodyField(body: unknown, fieldName: string): string | undefined {
+  if (!body || typeof body !== 'object') {
+    return undefined;
+  }
+
+  const value = (body as Record<string, unknown>)[fieldName];
+
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value !== 'string') {
+    throw new ApiError(400, `${fieldName} must be a string when provided.`);
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }
 
 function readBodyObject(body: unknown, message: string): Record<string, unknown> {

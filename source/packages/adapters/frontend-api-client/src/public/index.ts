@@ -101,6 +101,13 @@ export interface DashboardSnapshot {
     readonly lastHeartbeatAt: string | null;
     readonly lastError: string | null;
   };
+  readonly whatsapp: {
+    readonly phase: 'disabled' | 'idle' | 'connecting' | 'qr_pending' | 'open' | 'closed' | 'error';
+    readonly connected: boolean;
+    readonly loginRequired: boolean;
+    readonly discoveredGroups: number;
+    readonly discoveredConversations: number;
+  };
 }
 
 export interface SettingsSnapshot {
@@ -137,6 +144,31 @@ export interface WhatsAppWorkspaceSnapshot {
   readonly settings: {
     readonly commands: CommandsPolicySettings;
     readonly whatsapp: WhatsAppSettings;
+  };
+  readonly runtime: {
+    readonly session: {
+      readonly phase: 'disabled' | 'idle' | 'connecting' | 'qr_pending' | 'open' | 'closed' | 'error';
+      readonly connected: boolean;
+      readonly loginRequired: boolean;
+      readonly sessionPresent: boolean;
+      readonly lastQrAt: string | null;
+      readonly lastConnectedAt: string | null;
+      readonly lastDisconnectAt: string | null;
+      readonly lastDisconnectReason: string | null;
+      readonly lastError: string | null;
+      readonly selfJid: string | null;
+      readonly pushName: string | null;
+    };
+    readonly qr: {
+      readonly available: boolean;
+      readonly value: string | null;
+      readonly svg: string | null;
+      readonly updatedAt: string | null;
+      readonly expiresAt: string | null;
+    };
+    readonly discoveredGroups: number;
+    readonly discoveredConversations: number;
+    readonly lastDiscoveryAt: string | null;
   };
   readonly host: {
     readonly authFilePath: string;
@@ -272,6 +304,15 @@ export class FrontendApiClient {
       await this.transport.request<WhatsAppWorkspaceSnapshot>({
         method: 'GET',
         path: '/api/whatsapp/workspace',
+      }),
+    );
+  }
+
+  async refreshWhatsAppWorkspace(): Promise<WhatsAppWorkspaceSnapshot> {
+    return this.expectOk(
+      await this.transport.request<WhatsAppWorkspaceSnapshot>({
+        method: 'POST',
+        path: '/api/whatsapp/refresh',
       }),
     );
   }

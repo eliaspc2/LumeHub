@@ -18,6 +18,7 @@ import type { WatchdogModule } from '@lume-hub/watchdog';
 import type { WebSocketGateway } from '@lume-hub/ws-fastify';
 
 import type { BackendRuntimePaths } from './BackendRuntimeConfig.js';
+import type { WhatsAppWorkspaceRuntime } from './WhatsAppWorkspaceRuntime.js';
 
 export interface BackendRuntimeModules {
   readonly adminConfigModule: AdminConfigModule;
@@ -66,6 +67,7 @@ export interface BackendRuntimeOptions {
   readonly modules: BackendRuntimeModules;
   readonly moduleGraph: BackendModuleGraph;
   readonly paths: BackendRuntimePaths;
+  readonly whatsAppWorkspaceRuntime: WhatsAppWorkspaceRuntime;
   readonly operationalTickIntervalMs?: number;
 }
 
@@ -119,6 +121,7 @@ export class BackendRuntime {
 
     await this.options.kernel.start();
     this.kernelStarted = true;
+    await this.options.whatsAppWorkspaceRuntime.start();
 
     try {
       await this.performOperationalTick();
@@ -139,6 +142,7 @@ export class BackendRuntime {
       this.operationalTimer = undefined;
     }
 
+    await this.options.whatsAppWorkspaceRuntime.stop();
     await this.options.webSocketGateway.close();
     await this.options.httpServer.close();
     this.listeningAddress = undefined;

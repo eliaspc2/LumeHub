@@ -637,6 +637,19 @@ textarea {
   box-shadow: inset 0 0 0 10px rgba(255, 255, 255, 0.92);
 }
 
+.qr-preview__code--svg {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.qr-preview__code--svg svg {
+  width: 100%;
+  height: 100%;
+}
+
 .ui-card--metric {
   min-height: 190px;
   justify-content: space-between;
