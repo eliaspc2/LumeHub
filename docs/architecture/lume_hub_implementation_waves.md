@@ -40,39 +40,6 @@ O fluxo guiado desta ronda tambem ja ficou aberto com:
 
 Existe agora uma ronda ativa de simplificacao forte do GUI.
 
-### Wave 35 - Shell minima e navegacao essencial
-
-Objetivo:
-- reduzir o ruido global da shell
-- remover configuracoes e controlos que nao ajudam na operacao diaria
-- melhorar ocupacao horizontal e leitura imediata
-
-Entregaveis:
-- sidebar mais curta e limpa
-- topo global com menos badges e menos metadata
-- coluna direita reduzida ao essencial
-- remocao ou ocultacao de entradas pouco uteis no menu principal
-
-Criterios de aceitacao:
-- a shell deixa de parecer painel tecnico
-- quem abre a app percebe rapidamente onde clicar
-- nao ha blocos de configuracao global a competir com o conteudo principal
-
-Rebuild e validacao minima:
-- `corepack pnpm --filter @lume-hub/lume-hub-web typecheck`
-- `corepack pnpm --filter @lume-hub/lume-hub-web build`
-- reload headless de `/today` e da rota mexida
-
-Melhor momento para testar:
-- logo no fim desta wave
-- este e o melhor ponto para corrigir a direcao geral da shell com custo baixo
-
-O que testar:
-- sidebar
-- header
-- coluna direita
-- sensacao geral de simplicidade ao abrir `Hoje` e `WhatsApp`
-
 ### Wave 36 - Simplificacao das paginas principais
 
 Objetivo:

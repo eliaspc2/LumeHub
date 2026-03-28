@@ -66,7 +66,7 @@ As seguintes areas existem com base razoavel:
 Abriu uma nova ronda de simplificacao do GUI.
 Os gaps ativos desta serie sao de experiencia de uso, nao de runtime base:
 
-- a shell ainda expoe mais contexto, copy e configuracao do que o necessario para operacao diaria
+- a shell global ja ficou bastante mais limpa na `Wave 35`, mas ainda ha excesso de conteudo dentro das paginas principais
 - `Hoje`, `WhatsApp`, `Grupos` e `Media` ainda podem ser encurtadas e hierarquizadas melhor
 - parte das configuracoes avancadas continua demasiado perto do fluxo principal
 

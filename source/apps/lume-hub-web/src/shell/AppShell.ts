@@ -665,11 +665,12 @@ export class AppShell {
     const router = bootstrap.router;
     const currentRoute = router.resolveRoute(this.state.route);
     const navigation = router.navigation();
+    const showAssistantRail = this.shouldRenderAssistantRail(currentRoute);
 
     document.title = `LumeHub | ${currentRoute.label}`;
     this.root.innerHTML = `
       <a class="skip-link" href="#main-content">Saltar para o conteudo principal</a>
-      <div class="app-shell">
+      <div class="app-shell ${showAssistantRail ? '' : 'app-shell--without-rail'}">
         <aside class="shell-nav">
           <section class="surface brand-card">
             <div class="brand-mark">
@@ -728,9 +729,13 @@ export class AppShell {
           </main>
         </div>
 
-        <aside class="shell-rail">
-          ${this.renderAssistantRail(currentRoute)}
-        </aside>
+        ${showAssistantRail
+          ? `
+            <aside class="shell-rail">
+              ${this.renderAssistantRail(currentRoute)}
+            </aside>
+          `
+          : ''}
       </div>
     `;
 
@@ -763,6 +768,10 @@ export class AppShell {
         </div>
       </section>
     `;
+  }
+
+  private shouldRenderAssistantRail(currentRoute: AppRouteDefinition): boolean {
+    return currentRoute.route !== '/assistant' && currentRoute.route !== '/settings';
   }
 
   private renderMainContent(currentRoute: AppRouteDefinition): string {
@@ -858,7 +867,6 @@ export class AppShell {
           <div class="action-row">
             ${renderUiActionButton({ label: 'Ver WhatsApp', href: '/whatsapp', dataAttributes: { route: '/whatsapp' } })}
             ${renderUiActionButton({ label: 'Abrir distribuicoes', href: '/distributions', variant: 'secondary', dataAttributes: { route: '/distributions' } })}
-            ${renderUiActionButton({ label: 'Abrir configuracao', href: '/settings', variant: 'secondary', dataAttributes: { route: '/settings' } })}
           </div>
         </div>
         <div class="hero-panel">
@@ -2133,7 +2141,6 @@ export class AppShell {
               dataAttributes: { 'whatsapp-action': 'refresh-workspace' },
             })}
             ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', variant: 'secondary', dataAttributes: { route: '/groups' } })}
-            ${renderUiActionButton({ label: 'Ver configuracao', href: '/settings', variant: 'secondary', dataAttributes: { route: '/settings' } })}
           </div>
         </div>
         <div class="hero-panel">
@@ -4932,15 +4939,7 @@ export class AppShell {
 }
 
 function createInitialAssistantRailMessages(): readonly AssistantRailMessage[] {
-  return [
-    {
-      messageId: 'rail-chat-welcome',
-      role: 'system',
-      text: 'Este chat lateral responde sempre aqui na web app. Podes perguntar em modo global ou com o contexto de qualquer grupo.',
-      contextLabel: 'Local',
-      recordedAt: new Date().toISOString(),
-    },
-  ];
+  return [];
 }
 
 function createInitialAssistantRailChatState(): AssistantRailChatState {
