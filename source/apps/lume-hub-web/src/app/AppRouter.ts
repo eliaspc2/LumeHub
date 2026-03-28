@@ -112,7 +112,7 @@ export class AppRouter {
       {
         route: this.weekPlanner.config.route,
         label: this.weekPlanner.config.label,
-        description: 'Area semanal preparada para crescer com uma visao de agenda mais visual.',
+        description: 'Agenda semanal para criar e rever aulas e avisos.',
         legacyRoutes: ['/week-planner'],
         render: async () => this.weekPlanner.render(await this.readQuery('weekly-planner', () => this.client.getWeeklyPlanner())),
       },
@@ -178,7 +178,7 @@ export class AppRouter {
       {
         route: this.delivery.config.route,
         label: this.delivery.config.label,
-        description: 'Monitor de entregas e confirmacoes, reservado para ganhar mais detalhe operacional.',
+        description: 'Estado das entregas e confirmacoes mais recentes.',
         legacyRoutes: ['/delivery-monitor'],
         render: async () => {
           const dashboard = await this.readQuery('dashboard', () => this.client.getDashboard());

@@ -36,38 +36,11 @@ O fluxo guiado desta ronda tambem ja ficou aberto com:
 - `dry_run` e envio `confirmed` a partir da mesma pagina
 - visao recente de entrega por grupo sem sair do fluxo
 
-## Ronda ativa
+## Estado do plano
 
-Existe agora uma ronda ativa de simplificacao forte do GUI.
-As `Wave 35` a `Wave 37` ja foram executadas e validadas.
-O fluxo principal ficou mais curto, e a configuracao avancada passou para superficies secundarias sob demanda.
-
-### Wave 38 - Limpeza final da ronda de simplificacao do GUI
-
-Objetivo:
-- fechar a ronda sem lixo tecnico nem documental
-
-Entregaveis:
-- remocao de helpers, copy e componentes ja supersedidos
-- docs alinhadas com a shell simplificada
-- validacao final da ronda
-
-Criterios de aceitacao:
-- o repositorio fica mais limpo do que no arranque da ronda
-- nao ficam superficies antigas descritas como se ainda fossem o caminho principal
-
-Rebuild e validacao minima:
-- `corepack pnpm --filter @lume-hub/lume-hub-web typecheck`
-- `corepack pnpm --filter @lume-hub/lume-hub-web build`
-- reload headless das paginas principais
-- `git diff --check`
-
-Melhor momento para testar:
-- no fecho da ronda
-
-O que testar:
-- regressao rapida de `Hoje`, `WhatsApp`, `Grupos` e `Media`
-- confirmar que nao reapareceu ruido visual nem opcoes mortas
+Nao ha waves ativas neste momento.
+As `Wave 35` a `Wave 38` ja foram executadas e validadas.
+A ronda de simplificacao do GUI ficou fechada com shell minima, paginas principais mais curtas, configuracao avancada sob demanda e limpeza final dos validadores e do copy de transicao.
 
 ## Como reabrir uma ronda
 

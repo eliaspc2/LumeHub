@@ -63,13 +63,8 @@ As seguintes areas existem com base razoavel:
 
 ## Gaps ativos da ronda nova
 
-Abriu uma nova ronda de simplificacao do GUI.
-Os gaps ativos desta serie sao de experiencia de uso, nao de runtime base:
-
-- a shell global ja ficou bastante mais limpa na `Wave 35`
-- a `Wave 36` ja encurtou `Hoje`, `WhatsApp`, `Grupos` e `Media`, com menos cartoes e menos leitura lateral
-- a `Wave 37` ja empurrou configuracao avancada e detalhe tecnico para superficies secundarias
-- o gap ativo que sobra nesta ronda e apenas a limpeza final de copy, helpers e validadores residuais
+Nao restam gaps funcionais ativos na ronda de simplificacao do GUI.
+A shell global, as paginas principais, a configuracao avancada sob demanda e a limpeza final da serie ficaram fechadas.
 
 O storage canonico da serie de inteligencia por grupo continua fechado em:
 
