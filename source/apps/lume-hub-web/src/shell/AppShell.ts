@@ -676,9 +676,6 @@ export class AppShell {
               <span class="brand-orbit" aria-hidden="true"></span>
               <span>LumeHub</span>
             </div>
-            <p>
-              Shell operacional moderna para correr o produto com menos friccao, mais clareza e melhor uso do ecra inteiro.
-            </p>
           </section>
           <nav class="surface nav-card" aria-label="Navegacao principal">
             ${navigation
@@ -693,7 +690,6 @@ export class AppShell {
                     <span>
                       <span class="nav-link-label">${escapeHtml(item.label)}</span>
                     </span>
-                    <span class="nav-link-kicker">${item.route === currentRoute.route ? 'Agora' : 'Abrir'}</span>
                   </a>
                 `,
               )

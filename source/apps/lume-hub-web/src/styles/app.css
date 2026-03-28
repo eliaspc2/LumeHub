@@ -166,13 +166,6 @@ textarea {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
-.brand-card p {
-  margin: 14px 0 0;
-  color: var(--ink-soft);
-  line-height: 1.65;
-  font-size: 1.02rem;
-}
-
 .nav-card {
   display: flex;
   flex: 1;
@@ -183,7 +176,7 @@ textarea {
 .nav-link {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
   min-height: 58px;
   padding: 14px 16px;
@@ -216,13 +209,6 @@ textarea {
 .nav-link-label {
   font-size: 1.02rem;
   font-weight: 700;
-}
-
-.nav-link-kicker {
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-muted);
 }
 
 .shell-header.surface {
