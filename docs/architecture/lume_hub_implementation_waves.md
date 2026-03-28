@@ -38,7 +38,129 @@ O fluxo guiado desta ronda tambem ja ficou aberto com:
 
 ## Ronda ativa
 
-Sem waves ativas neste momento.
+Existe agora uma ronda ativa de simplificacao forte do GUI.
+
+### Wave 35 - Shell minima e navegacao essencial
+
+Objetivo:
+- reduzir o ruido global da shell
+- remover configuracoes e controlos que nao ajudam na operacao diaria
+- melhorar ocupacao horizontal e leitura imediata
+
+Entregaveis:
+- sidebar mais curta e limpa
+- topo global com menos badges e menos metadata
+- coluna direita reduzida ao essencial
+- remocao ou ocultacao de entradas pouco uteis no menu principal
+
+Criterios de aceitacao:
+- a shell deixa de parecer painel tecnico
+- quem abre a app percebe rapidamente onde clicar
+- nao ha blocos de configuracao global a competir com o conteudo principal
+
+Rebuild e validacao minima:
+- `corepack pnpm --filter @lume-hub/lume-hub-web typecheck`
+- `corepack pnpm --filter @lume-hub/lume-hub-web build`
+- reload headless de `/today` e da rota mexida
+
+Melhor momento para testar:
+- logo no fim desta wave
+- este e o melhor ponto para corrigir a direcao geral da shell com custo baixo
+
+O que testar:
+- sidebar
+- header
+- coluna direita
+- sensacao geral de simplicidade ao abrir `Hoje` e `WhatsApp`
+
+### Wave 36 - Simplificacao das paginas principais
+
+Objetivo:
+- cortar blocos secundarios dentro das paginas mais usadas
+- deixar `Hoje`, `WhatsApp`, `Grupos` e `Media` muito mais diretas
+
+Entregaveis:
+- homepage com menos cartoes e menos resumo duplicado
+- `WhatsApp` com menos explicacao repetida e menos controlos expostos
+- `Grupos` com foco em acao principal e menos detalhe auxiliar
+- `Media` com fluxo mais curto e menos leitura lateral
+
+Criterios de aceitacao:
+- cada pagina principal deve ter uma hierarquia obvia
+- deve existir menos scrolling para chegar ao que interessa
+- configuracoes secundarias devem sair do caminho principal
+
+Rebuild e validacao minima:
+- `corepack pnpm --filter @lume-hub/lume-hub-web typecheck`
+- `corepack pnpm --filter @lume-hub/lume-hub-web build`
+- reload headless de `/today`, `/whatsapp`, `/groups` e `/media`
+
+Melhor momento para testar:
+- no fim desta wave
+- aqui vale a pena validar se o produto ja parece realmente simples para uso diario
+
+O que testar:
+- `Hoje`: se percebes logo o proximo passo
+- `WhatsApp`: se ownership e sessao ficam claros sem ler muito
+- `Grupos`: se a gestao do grupo cabe no espaco sem confusao
+- `Media`: se escolher e distribuir um video parece fluxo curto
+
+### Wave 37 - Configuracao avancada sob demanda
+
+Objetivo:
+- mover detalhe tecnico e configuracao menos frequente para superfícies secundarias
+- manter o fluxo diario limpo sem perder capacidade
+
+Entregaveis:
+- detalhes avancados escondidos por defeito
+- acoes menos frequentes agrupadas em zonas secundarias
+- linguagem mais curta e menos termos internos expostos
+
+Criterios de aceitacao:
+- o fluxo diario nao obriga a atravessar configuracao
+- o utilizador consegue operar sem ver ids, estados internos ou nomenclatura tecnica
+- o detalhe continua acessivel quando realmente preciso
+
+Rebuild e validacao minima:
+- `corepack pnpm --filter @lume-hub/lume-hub-web typecheck`
+- `corepack pnpm --filter @lume-hub/lume-hub-web build`
+- reload headless das rotas mexidas
+
+Melhor momento para testar:
+- no fim desta wave
+- aqui deves confirmar se a app ja parece produto final e nao ferramenta de setup
+
+O que testar:
+- se o fluxo do dia a dia continua completo sem entrares em configuracao
+- se as opcoes avancadas ainda aparecem quando precisas
+- se a linguagem ficou mais humana
+
+### Wave 38 - Limpeza final da ronda de simplificacao do GUI
+
+Objetivo:
+- fechar a ronda sem lixo tecnico nem documental
+
+Entregaveis:
+- remocao de helpers, copy e componentes ja supersedidos
+- docs alinhadas com a shell simplificada
+- validacao final da ronda
+
+Criterios de aceitacao:
+- o repositorio fica mais limpo do que no arranque da ronda
+- nao ficam superficies antigas descritas como se ainda fossem o caminho principal
+
+Rebuild e validacao minima:
+- `corepack pnpm --filter @lume-hub/lume-hub-web typecheck`
+- `corepack pnpm --filter @lume-hub/lume-hub-web build`
+- reload headless das paginas principais
+- `git diff --check`
+
+Melhor momento para testar:
+- no fecho da ronda
+
+O que testar:
+- regressao rapida de `Hoje`, `WhatsApp`, `Grupos` e `Media`
+- confirmar que nao reapareceu ruido visual nem opcoes mortas
 
 ## Como reabrir uma ronda
 

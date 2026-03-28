@@ -63,8 +63,14 @@ As seguintes areas existem com base razoavel:
 
 ## Gaps ativos da ronda nova
 
-Nesta ronda ja nao restam gaps ativos.
-O storage canonico desta serie fica fechado em:
+Abriu uma nova ronda de simplificacao do GUI.
+Os gaps ativos desta serie sao de experiencia de uso, nao de runtime base:
+
+- a shell ainda expoe mais contexto, copy e configuracao do que o necessario para operacao diaria
+- `Hoje`, `WhatsApp`, `Grupos` e `Media` ainda podem ser encurtadas e hierarquizadas melhor
+- parte das configuracoes avancadas continua demasiado perto do fluxo principal
+
+O storage canonico da serie de inteligencia por grupo continua fechado em:
 
 - `data/groups/<jid>/llm/instructions.md`
 - `data/groups/<jid>/knowledge/`

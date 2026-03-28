@@ -47,6 +47,10 @@ Ponto de entrada para qualquer agente/LLM que trabalhe neste novo projeto.
 - O `lume-hub-host` deve concentrar integracoes locais com o PC.
 - Se um modulo puder ser desenvolvido em paralelo, manter API publica minima e clara.
 - Sempre que o projeto abrir uma nova ronda de waves, essa ronda deve terminar com uma wave final de limpeza.
+- Se o trabalho novo apontar para varias iteracoes coerentes da mesma area do produto, nao fazer uma sequencia solta de ajustes:
+  - abrir primeiro uma ronda nova de waves
+  - dividir essa ronda em fatias pequenas, testaveis e com fronteira clara
+  - indicar explicitamente em que wave vale a pena o utilizador testar para poder mudar de curso cedo
 - Essa wave final de limpeza existe para:
   - remover stubs e scaffolds que tenham ficado supersedidos
   - apagar documentacao obsoleta
