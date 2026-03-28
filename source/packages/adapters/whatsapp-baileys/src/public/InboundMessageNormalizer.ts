@@ -24,13 +24,16 @@ function extractText(payload: RawBaileysMessageEnvelope): string | undefined {
   return payload.message?.conversation
     ?? payload.message?.extendedTextMessage?.text
     ?? payload.message?.imageMessage?.caption
-    ?? payload.message?.videoMessage?.caption;
+    ?? payload.message?.videoMessage?.caption
+    ?? payload.message?.documentMessage?.caption;
 }
 
 function extractContextInfo(payload: RawBaileysMessageEnvelope) {
   return payload.message?.extendedTextMessage?.contextInfo
     ?? payload.message?.imageMessage?.contextInfo
-    ?? payload.message?.videoMessage?.contextInfo;
+    ?? payload.message?.videoMessage?.contextInfo
+    ?? payload.message?.documentMessage?.contextInfo
+    ?? payload.message?.audioMessage?.contextInfo;
 }
 
 function fingerprintFor(participantJid: string, text: string): string {

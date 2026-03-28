@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import {
   Browsers,
   DisconnectReason,
+  downloadMediaMessage,
+  extractMessageContent,
   fetchLatestBaileysVersion,
   isJidGroup,
   makeWASocket,
@@ -29,6 +31,7 @@ import type {
   IOutboundSignalSource,
   IWhatsAppGateway,
   IWhatsAppLiveRuntime,
+  InboundMediaMessage,
   NormalizedInboundMessage,
   OutboundConfirmationSignal,
   OutboundObservationSignal,
@@ -72,6 +75,7 @@ export interface BaileysSocketLike {
     },
   ): Promise<WAMessage | undefined>;
   groupFetchAllParticipating(): Promise<Record<string, GroupMetadata>>;
+  updateMediaMessage?(message: WAMessage): Promise<WAMessage>;
   logout(message?: string): Promise<void>;
   end(error?: Error): void;
 }
@@ -137,9 +141,11 @@ export class BaileysWhatsAppGateway
   private readonly discoveredConversations = new Map<string, WhatsAppDiscoveredConversation>();
   private readonly contactLabels = new Map<string, string>();
   private readonly inboundListeners = new Set<AsyncListener<NormalizedInboundMessage>>();
+  private readonly inboundMediaListeners = new Set<AsyncListener<InboundMediaMessage>>();
   private readonly observationListeners = new Set<AsyncListener<OutboundObservationSignal>>();
   private readonly confirmationListeners = new Set<AsyncListener<OutboundConfirmationSignal>>();
   private readonly runtimeListeners = new Set<AsyncListener<WhatsAppRuntimeEvent>>();
+  private readonly seenInboundMediaMessageIds = new Set<string>();
 
   private runtimeFlags: WhatsAppRuntimeFlags;
   private qrSnapshot: WhatsAppQrSnapshot = {
@@ -410,6 +416,11 @@ export class BaileysWhatsAppGateway
   subscribeInbound(listener: AsyncListener<NormalizedInboundMessage>): () => void {
     this.inboundListeners.add(listener);
     return () => this.inboundListeners.delete(listener);
+  }
+
+  subscribeInboundMedia(listener: AsyncListener<InboundMediaMessage>): () => void {
+    this.inboundMediaListeners.add(listener);
+    return () => this.inboundMediaListeners.delete(listener);
   }
 
   subscribeOutboundObservation(listener: AsyncListener<OutboundObservationSignal>): () => void {
@@ -694,9 +705,84 @@ export class BaileysWhatsAppGateway
       }
 
       if (!message.key?.fromMe) {
-        await this.ingestInboundEnvelope(message as unknown as RawBaileysMessageEnvelope);
+        const normalized = await this.ingestInboundEnvelope(message as unknown as RawBaileysMessageEnvelope);
+        await this.ingestInboundMediaMessage(message, normalized);
       }
     }
+  }
+
+  private async ingestInboundMediaMessage(
+    message: WAMessage,
+    normalized?: NormalizedInboundMessage,
+  ): Promise<void> {
+    const messageId = message.key?.id?.trim();
+    const chatJid = normaliseJid(message.key?.remoteJid ?? null);
+    const descriptor = readInboundMediaDescriptor(message as unknown as RawBaileysMessageEnvelope);
+
+    if (!messageId || !chatJid || !descriptor || this.seenInboundMediaMessageIds.has(messageId)) {
+      return;
+    }
+
+    const binary = await this.downloadInboundMediaBinary(message).catch((error) => {
+      console.warn(`Failed to download inbound media for ${messageId}.`, error);
+      return null;
+    });
+
+    if (!binary || binary.byteLength === 0) {
+      return;
+    }
+
+    const participantJid = normaliseJid(message.key?.participant ?? null) ?? chatJid;
+    const timestamp = normalized?.timestamp ?? toIsoTimestamp(message.messageTimestamp ?? null) ?? new Date().toISOString();
+    const payload: InboundMediaMessage = {
+      messageId,
+      chatJid,
+      participantJid,
+      ...(chatJid.endsWith('@g.us') ? { groupJid: chatJid } : {}),
+      timestamp,
+      ...(normaliseLabel(message.pushName ?? null) ? { pushName: normaliseLabel(message.pushName ?? null) ?? undefined } : {}),
+      mediaType: descriptor.mediaType,
+      mimeType: descriptor.mimeType,
+      ...(descriptor.fileName ? { fileName: descriptor.fileName } : {}),
+      caption: descriptor.caption,
+      fileSize: descriptor.fileSize ?? binary.byteLength,
+      durationSeconds: descriptor.durationSeconds,
+      binary,
+    };
+
+    this.seenInboundMediaMessageIds.add(messageId);
+    await this.emit(this.inboundMediaListeners, payload);
+  }
+
+  private async downloadInboundMediaBinary(message: WAMessage): Promise<Uint8Array | null> {
+    const content = extractMessageContent(message.message);
+    const rawMessage = message as unknown as RawBaileysMessageEnvelope;
+    const embeddedBinary =
+      toEmbeddedBinary(rawMessage.message?.imageMessage?.binary)
+      ?? toEmbeddedBinary(rawMessage.message?.videoMessage?.binary)
+      ?? toEmbeddedBinary(rawMessage.message?.documentMessage?.binary)
+      ?? toEmbeddedBinary(rawMessage.message?.audioMessage?.binary);
+
+    if (embeddedBinary) {
+      return embeddedBinary;
+    }
+
+    if (!content || !readInboundMediaDescriptor(rawMessage)) {
+      return null;
+    }
+
+    const socket = this.socket;
+    return downloadMediaMessage(
+      message,
+      'buffer',
+      {},
+      socket?.updateMediaMessage
+        ? {
+            reuploadRequest: (value: WAMessage) => socket.updateMediaMessage!(value),
+            logger: createSilentBaileysLogger(),
+          }
+        : undefined,
+    );
   }
 
   private async ensureSocket(): Promise<void> {
@@ -1107,6 +1193,68 @@ function readNumericAck(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function readInboundMediaDescriptor(
+  payload: RawBaileysMessageEnvelope,
+): {
+  readonly mediaType: InboundMediaMessage['mediaType'];
+  readonly mimeType: string;
+  readonly fileName?: string;
+  readonly caption: string | null;
+  readonly fileSize: number | null;
+  readonly durationSeconds: number | null;
+} | null {
+  const imageMessage = payload.message?.imageMessage;
+
+  if (imageMessage) {
+    return {
+      mediaType: 'image',
+      mimeType: normaliseMimeType(imageMessage.mimetype, 'image/*'),
+      caption: normaliseOptionalString(imageMessage.caption),
+      fileSize: readNumericLike(imageMessage.fileLength),
+      durationSeconds: null,
+    };
+  }
+
+  const videoMessage = payload.message?.videoMessage;
+
+  if (videoMessage) {
+    return {
+      mediaType: 'video',
+      mimeType: normaliseMimeType(videoMessage.mimetype, 'video/*'),
+      caption: normaliseOptionalString(videoMessage.caption),
+      fileSize: readNumericLike(videoMessage.fileLength),
+      durationSeconds: typeof videoMessage.seconds === 'number' ? videoMessage.seconds : null,
+    };
+  }
+
+  const documentMessage = payload.message?.documentMessage;
+
+  if (documentMessage) {
+    return {
+      mediaType: 'document',
+      mimeType: normaliseMimeType(documentMessage.mimetype, 'application/octet-stream'),
+      fileName: normaliseOptionalString(documentMessage.fileName) ?? undefined,
+      caption: normaliseOptionalString(documentMessage.caption),
+      fileSize: readNumericLike(documentMessage.fileLength),
+      durationSeconds: null,
+    };
+  }
+
+  const audioMessage = payload.message?.audioMessage;
+
+  if (audioMessage) {
+    return {
+      mediaType: 'audio',
+      mimeType: normaliseMimeType(audioMessage.mimetype, 'audio/*'),
+      caption: null,
+      fileSize: readNumericLike(audioMessage.fileLength),
+      durationSeconds: typeof audioMessage.seconds === 'number' ? audioMessage.seconds : null,
+    };
+  }
+
+  return null;
+}
+
 function toIsoTimestamp(value: unknown): string | null {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return new Date(value * 1000).toISOString();
@@ -1126,6 +1274,48 @@ function toIsoTimestamp(value: unknown): string | null {
     if (typeof lowValue === 'number' && Number.isFinite(lowValue)) {
       return new Date(lowValue * 1000).toISOString();
     }
+  }
+
+  return null;
+}
+
+function readNumericLike(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim()) {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : null;
+  }
+
+  if (typeof value === 'object' && value && 'low' in value) {
+    const low = (value as { readonly low?: unknown }).low;
+    return typeof low === 'number' && Number.isFinite(low) ? low : null;
+  }
+
+  return null;
+}
+
+function normaliseOptionalString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function normaliseMimeType(value: unknown, fallback: string): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+function toEmbeddedBinary(value: unknown): Uint8Array | null {
+  if (value instanceof Uint8Array) {
+    return value;
+  }
+
+  if (value instanceof ArrayBuffer) {
+    return new Uint8Array(value);
+  }
+
+  if (Array.isArray(value) && value.every((entry) => typeof entry === 'number')) {
+    return Uint8Array.from(value);
   }
 
   return null;

@@ -5,6 +5,7 @@ import type {
   FrontendApiClient,
   GroupContextPreviewSnapshot,
   GroupIntelligenceSnapshot,
+  MediaAssetSnapshot,
   SettingsSnapshot,
 } from '@lume-hub/frontend-api-client';
 import { GroupDirectoryConsoleUiModule } from '@lume-hub/group-directory-console';
@@ -39,6 +40,10 @@ export interface GroupManagementPageData {
   readonly intelligence: GroupIntelligenceSnapshot | null;
   readonly contextPreview: GroupContextPreviewSnapshot | null;
   readonly loadWarning: string | null;
+}
+
+export interface MediaLibraryPageData {
+  readonly assets: readonly MediaAssetSnapshot[];
 }
 
 export class AppRouter {
@@ -254,6 +259,33 @@ export class AppRouter {
               workspace,
               people,
             } satisfies WhatsAppManagementPageData,
+          };
+        },
+      },
+      {
+        route: '/media',
+        label: 'Media',
+        description: 'Biblioteca operacional da media recebida por WhatsApp, pronta para identificar origem e preparar distribuicao.',
+        render: async () => {
+          const assets = await this.readQuery('media-assets', () => this.client.listMediaAssets());
+
+          return {
+            route: '/media',
+            title: 'Media',
+            description: 'Biblioteca operacional da media recebida por WhatsApp, pronta para identificar origem e preparar distribuicao.',
+            sections: [
+              {
+                title: 'Resumo',
+                lines: [
+                  assets.length > 0
+                    ? `${assets.length} asset${assets.length === 1 ? '' : 's'} disponivel/disponiveis na biblioteca.`
+                    : 'Ainda nao entrou media nesta biblioteca operacional.',
+                ],
+              },
+            ],
+            data: {
+              assets,
+            } satisfies MediaLibraryPageData,
           };
         },
       },

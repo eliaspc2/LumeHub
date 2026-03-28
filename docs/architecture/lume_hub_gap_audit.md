@@ -21,6 +21,7 @@ Conclusao curta:
 - a `Wave 27` ja fechou a API e a UI para gerir instrucoes, documentos e preview de contexto por grupo
 - a `Wave 28` ja fechou o uso live auditavel dessa memoria no assistente e no scheduling
 - a `Wave 30` ja fechou o storage canonico de media recebida em `data/runtime/media/`
+- a `Wave 31` ja fechou o ingest live de media inbound, a API da biblioteca e a pagina operacional `/media`
 
 Em particular, ja nao faz sentido falar de:
 
@@ -68,20 +69,7 @@ O storage canonico desta serie fica fechado em:
 
 ## Gaps ativos da ronda de media
 
-### 1. Inbound WhatsApp media ainda nao alimenta automaticamente a biblioteca
-
-Estado atual:
-- o runtime conhece mensagens inbound com `videoMessage` e `imageMessage`
-- o storage canonico ja existe em:
-  - `data/runtime/media/assets/<assetId>/binary`
-  - `data/runtime/media/assets/<assetId>/metadata.json`
-  - `data/runtime/media/library.json`
-- mas o ingest automatico a partir do WhatsApp ainda nao existe
-
-Impacto:
-- se um operador mandar um video por WhatsApp, ele ainda nao entra sozinho na biblioteca operacional
-
-### 2. Nao existe fan-out de media com tracking forte
+### 1. Nao existe fan-out de media com tracking forte
 
 Estado atual:
 - queue, dedupe e tracking existem para texto
@@ -89,15 +77,6 @@ Estado atual:
 
 Impacto:
 - falta o fluxo "guardar video uma vez e distribuir para N grupos com retry e confirmacao"
-
-### 3. Falta biblioteca operacional de media recebida
-
-Estado atual:
-- nao ha listagem de assets media recebidos
-- nao ha preview de origem, caption ou metadata tecnica minima
-
-Impacto:
-- o operador nao tem como recuperar um video recebido e reutiliza-lo mais tarde no produto
 
 ## Trabalho futuro fora do scope atual
 
@@ -121,5 +100,5 @@ Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
 - para o runtime operacional base, sim
 - para a nova feature de memoria e instrucoes LLM por grupo, sim
-- para media recebida com storage canonico, sim
-- para ingest live, biblioteca operacional visivel e distribuicao multi-grupo de video, ainda nao
+- para media recebida com storage canonico, ingest live e biblioteca operacional visivel, sim
+- para distribuicao multi-grupo de video, ainda nao

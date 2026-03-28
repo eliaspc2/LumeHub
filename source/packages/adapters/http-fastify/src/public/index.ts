@@ -24,6 +24,7 @@ import type { HealthMonitorModuleContract } from '@lume-hub/health-monitor';
 import type { HostLifecycleModuleContract } from '@lume-hub/host-lifecycle';
 import type { Instruction, InstructionQueueModuleContract } from '@lume-hub/instruction-queue';
 import type { LlmChatInput, LlmOrchestratorModuleContract, LlmRunLogEntry } from '@lume-hub/llm-orchestrator';
+import type { MediaLibraryModuleContract } from '@lume-hub/media-library';
 import type { PeopleMemoryModuleContract, Person, PersonRole, PersonUpsertInput } from '@lume-hub/people-memory';
 import type { SystemPowerModuleContract } from '@lume-hub/system-power';
 import type { WatchdogModuleContract } from '@lume-hub/watchdog';
@@ -105,6 +106,7 @@ export interface HttpApiModules {
     readRecent(limit?: number): Promise<readonly LlmRunLogEntry[]>;
   };
   readonly llmOrchestrator?: Pick<LlmOrchestratorModuleContract, 'chat' | 'listModels' | 'refreshModels'>;
+  readonly mediaLibrary?: Pick<MediaLibraryModuleContract, 'getLibrary' | 'listAssets' | 'getAsset'>;
   readonly peopleMemory?: Pick<PeopleMemoryModuleContract, 'listPeople' | 'upsertByIdentifiers' | 'updatePersonRoles'>;
   readonly runtimeDiagnostics?: {
     getSnapshot(): Promise<unknown>;
@@ -535,6 +537,34 @@ export class RouteRegistrar {
       method: 'GET',
       path: '/api/groups/:groupJid/intelligence',
       handler: async (context) => this.getGroupIntelligenceSnapshot(context.params.groupJid),
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/media/assets',
+      handler: async () => {
+        if (!this.modules.mediaLibrary) {
+          throw new ApiError(404, 'Media library is not configured.');
+        }
+
+        return this.modules.mediaLibrary.listAssets();
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/media/assets/:assetId',
+      handler: async (context) => {
+        if (!this.modules.mediaLibrary) {
+          throw new ApiError(404, 'Media library is not configured.');
+        }
+
+        const asset = await this.modules.mediaLibrary.getAsset(context.params.assetId);
+
+        if (!asset) {
+          throw new ApiError(404, `Media asset '${context.params.assetId}' was not found.`);
+        }
+
+        return asset;
+      },
     });
     server.registerRoute({
       method: 'PUT',

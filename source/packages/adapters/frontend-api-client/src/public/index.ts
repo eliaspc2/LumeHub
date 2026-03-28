@@ -17,6 +17,7 @@ import type {
   GroupOwnerAssignmentInput,
 } from '@lume-hub/group-directory';
 import type { LlmChatInput, LlmChatResult, LlmModelDescriptor, LlmRunLogEntry } from '@lume-hub/llm-orchestrator';
+import type { MediaAsset } from '@lume-hub/media-library';
 import type { Person, PersonRole, PersonUpsertInput } from '@lume-hub/people-memory';
 import type { PowerPolicyUpdate, PowerStatus } from '@lume-hub/system-power';
 import type { WatchdogIssue } from '@lume-hub/watchdog';
@@ -281,6 +282,8 @@ export interface GroupContextPreviewSnapshot {
   readonly generatedAt: string;
 }
 
+export type MediaAssetSnapshot = MediaAsset;
+
 export interface DistributionExecutionResult {
   readonly plan: DistributionPlan;
   readonly instruction: DistributionSummary;
@@ -358,6 +361,24 @@ export class FrontendApiClient {
 
   async listGroups(): Promise<readonly Group[]> {
     return this.expectOk(await this.transport.request<readonly Group[]>({ method: 'GET', path: '/api/groups' }));
+  }
+
+  async listMediaAssets(): Promise<readonly MediaAssetSnapshot[]> {
+    return this.expectOk(
+      await this.transport.request<readonly MediaAssetSnapshot[]>({
+        method: 'GET',
+        path: '/api/media/assets',
+      }),
+    );
+  }
+
+  async getMediaAsset(assetId: string): Promise<MediaAssetSnapshot> {
+    return this.expectOk(
+      await this.transport.request<MediaAssetSnapshot>({
+        method: 'GET',
+        path: `/api/media/assets/${encodeURIComponent(assetId)}`,
+      }),
+    );
   }
 
   async replaceGroupOwners(

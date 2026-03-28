@@ -204,6 +204,9 @@ importers:
       '@lume-hub/llm-orchestrator':
         specifier: workspace:*
         version: link:../../modules/llm-orchestrator
+      '@lume-hub/media-library':
+        specifier: workspace:*
+        version: link:../../modules/media-library
       '@lume-hub/people-memory':
         specifier: workspace:*
         version: link:../../modules/people-memory
@@ -243,6 +246,9 @@ importers:
       '@lume-hub/llm-orchestrator':
         specifier: workspace:*
         version: link:../../modules/llm-orchestrator
+      '@lume-hub/media-library':
+        specifier: workspace:*
+        version: link:../../modules/media-library
       '@lume-hub/people-memory':
         specifier: workspace:*
         version: link:../../modules/people-memory

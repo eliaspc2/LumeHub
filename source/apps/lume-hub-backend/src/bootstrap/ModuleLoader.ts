@@ -338,6 +338,7 @@ export class ModuleLoader {
       gateway: whatsAppGateway,
       adminConfig: adminConfigModule,
       groupDirectory: groupDirectoryModule,
+      mediaLibrary: mediaLibraryModule,
       peopleMemory: peopleMemoryModule,
       uiEventPublisher: webSocketGateway.publisher,
     });
@@ -370,6 +371,7 @@ export class ModuleLoader {
             return log.entries.slice(Math.max(0, log.entries.length - (limit ?? 20))).reverse();
           },
         },
+        mediaLibrary: mediaLibraryModule,
         peopleMemory: peopleMemoryModule,
         systemPower: systemPowerModule,
         watchdog: watchdogModule,

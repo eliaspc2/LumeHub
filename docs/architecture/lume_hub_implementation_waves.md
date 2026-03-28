@@ -10,7 +10,7 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 30` ja foram executadas e validadas.
+As `Wave 0` a `Wave 31` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
 O storage canonico da ronda de media ja ficou aberto com:
@@ -19,39 +19,14 @@ O storage canonico da ronda de media ja ficou aberto com:
 - `data/runtime/media/assets/<assetId>/metadata.json`
 - `data/runtime/media/library.json`
 
+O inbound live de media tambem ja ficou fechado com:
+
+- deteccao de `video`, `image`, `document` e `audio` no adapter WhatsApp
+- ingest automatica para a biblioteca operacional
+- API para listar assets e consultar metadata
+- pagina `/media` no frontend live
+
 ## Ronda ativa
-
-### Wave 31 - Inbound WhatsApp media e biblioteca operacional
-
-Objetivo:
-- fazer o runtime reconhecer media inbound e expor uma biblioteca operacional de assets recebidos
-
-Entregaveis:
-- normalizacao inbound de media com suporte inicial a:
-  - video
-  - imagem
-  - documento
-  - audio opcional se o adapter suportar de forma estavel
-- download/ingest do binario para o repositorio de media
-- API para listar assets recentes e consultar metadata
-- UI minima para ver biblioteca de media recebida
-
-Criterios de aceitacao:
-- ao receber um video por WhatsApp, ele aparece na biblioteca operacional
-- o operador consegue identificar de que chat e mensagem veio o asset
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave31`
-
-Melhor momento para testar:
-- aqui, porque e a primeira vez em que o operador ja consegue ver o video guardado
-
-O que testar:
-- enviar um video para o bot
-- abrir a biblioteca de media
-- confirmar metadata, caption e origem
 
 ### Wave 32 - Distribuicao multi-grupo de media com queue e tracking
 

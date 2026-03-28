@@ -1,8 +1,10 @@
 import { DEFAULT_ADMIN_SETTINGS, type AdminConfigModuleContract, type WhatsAppSettings } from '@lume-hub/admin-config';
 import type { GroupDirectoryModuleContract } from '@lume-hub/group-directory';
+import type { MediaLibraryModuleContract } from '@lume-hub/media-library';
 import type { PeopleMemoryModuleContract } from '@lume-hub/people-memory';
 import type {
   BaileysWhatsAppGateway,
+  InboundMediaMessage,
   WhatsAppRuntimeEvent,
   WhatsAppRuntimeSnapshot,
   WhatsAppSendResult,
@@ -22,6 +24,7 @@ export interface WhatsAppWorkspaceRuntimeConfig {
   readonly gateway: BaileysWhatsAppGateway;
   readonly adminConfig: Pick<AdminConfigModuleContract, 'getSettings'>;
   readonly groupDirectory: Pick<GroupDirectoryModuleContract, 'refreshFromWhatsApp'>;
+  readonly mediaLibrary?: Pick<MediaLibraryModuleContract, 'ingestAsset'>;
   readonly peopleMemory?: Pick<PeopleMemoryModuleContract, 'upsertByIdentifiers'>;
   readonly uiEventPublisher?: UiEventPublisherLike;
 }
@@ -29,6 +32,7 @@ export interface WhatsAppWorkspaceRuntimeConfig {
 export class WhatsAppWorkspaceRuntime {
   private started = false;
   private detachRuntimeListener?: () => void;
+  private detachInboundMediaListener?: () => void;
   private lastGroupFingerprint: string | null = null;
   private lastConversationFingerprint: string | null = null;
 
@@ -47,6 +51,9 @@ export class WhatsAppWorkspaceRuntime {
     this.detachRuntimeListener = this.config.gateway.subscribeRuntime((event) => {
       void this.handleRuntimeEvent(event);
     });
+    this.detachInboundMediaListener = this.config.gateway.subscribeInboundMedia((message) => {
+      void this.handleInboundMedia(message);
+    });
     await this.applySettings(await this.readWhatsAppSettings());
     await this.config.gateway.start();
     await this.refreshWorkspace();
@@ -60,6 +67,8 @@ export class WhatsAppWorkspaceRuntime {
     this.started = false;
     this.detachRuntimeListener?.();
     this.detachRuntimeListener = undefined;
+    this.detachInboundMediaListener?.();
+    this.detachInboundMediaListener = undefined;
     await this.config.gateway.stop();
   }
 
@@ -97,6 +106,38 @@ export class WhatsAppWorkspaceRuntime {
     await this.syncDiscoveredWorkspace(event.snapshot);
     this.publish(`whatsapp.${event.topic}.updated`, event.snapshot);
     this.publish('whatsapp.runtime.updated', event.snapshot);
+  }
+
+  private async handleInboundMedia(message: InboundMediaMessage): Promise<void> {
+    if (!this.config.mediaLibrary) {
+      return;
+    }
+
+    const ingestResult = await this.config.mediaLibrary.ingestAsset({
+      mediaType: message.mediaType,
+      mimeType: message.mimeType,
+      binary: message.binary,
+      sourceChatJid: message.chatJid,
+      sourceMessageId: message.messageId,
+      caption: message.caption,
+      storedAt: message.timestamp,
+    });
+
+    this.publish('media.asset.ingested', {
+      assetId: ingestResult.asset.assetId,
+      mediaType: ingestResult.asset.mediaType,
+      sourceChatJid: ingestResult.asset.sourceChatJid,
+      sourceMessageId: ingestResult.asset.sourceMessageId,
+      deduplicated: ingestResult.deduplicated,
+      caption: ingestResult.asset.caption,
+      storedAt: ingestResult.asset.storedAt,
+    });
+    this.publish('whatsapp.media.received', {
+      assetId: ingestResult.asset.assetId,
+      sourceChatJid: message.chatJid,
+      sourceMessageId: message.messageId,
+      mediaType: message.mediaType,
+    });
   }
 
   private async syncDiscoveredWorkspace(snapshot: WhatsAppRuntimeSnapshot): Promise<void> {

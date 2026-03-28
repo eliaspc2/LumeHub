@@ -21,6 +21,7 @@ import type {
   LlmChatResult,
   LlmModelDescriptor,
   LlmRunLogEntry,
+  MediaAssetSnapshot,
   Person,
   PersonRole,
   SettingsSnapshot,
@@ -273,6 +274,19 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
 
     if (request.method === 'GET' && pathname === '/api/groups') {
       return this.ok(this.state.groups);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/media/assets') {
+      return this.ok(this.state.mediaAssets);
+    }
+
+    const mediaAssetMatch = matchParameterizedPath(pathname, '/api/media/assets/:assetId');
+
+    if (request.method === 'GET' && mediaAssetMatch) {
+      const asset = this.state.mediaAssets.find((candidate) => candidate.assetId === mediaAssetMatch.assetId);
+      return asset
+        ? this.ok(asset)
+        : this.error(404, `Demo media asset ${mediaAssetMatch.assetId} not found.`);
     }
 
     const groupIntelligenceMatch = matchParameterizedPath(pathname, '/api/groups/:groupJid/intelligence');
@@ -648,6 +662,7 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
 interface DemoState {
   groups: Group[];
   groupIntelligenceByGroupJid: Record<string, DemoGroupIntelligenceEntry>;
+  mediaAssets: MediaAssetSnapshot[];
   people: Person[];
   routingRules: SenderAudienceRule[];
   distributions: DistributionSummary[];
@@ -1237,11 +1252,55 @@ function createDemoState(): DemoState {
     },
   ];
 
+  const mediaAssets: MediaAssetSnapshot[] = [
+    {
+      assetId: '9f8b36b6c4b55f3d3d0830f6e4c85e90fa41cf0c33de5f6d6f1c73a9d0ec1001',
+      mediaType: 'video',
+      mimeType: 'video/mp4',
+      sha256: '9f8b36b6c4b55f3d3d0830f6e4c85e90fa41cf0c33de5f6d6f1c73a9d0ec1001',
+      fileSize: 18_452_221,
+      sourceChatJid: groups[0]!.groupJid,
+      sourceMessageId: 'wamid.demo.media.0001',
+      caption: 'Video de demonstracao para a aula de sexta.',
+      storedAt: iso(-12),
+      assetRootPath: '/demo/runtime/media/assets/9f8b36b6c4b55f3d3d0830f6e4c85e90fa41cf0c33de5f6d6f1c73a9d0ec1001',
+      binaryPath: '/demo/runtime/media/assets/9f8b36b6c4b55f3d3d0830f6e4c85e90fa41cf0c33de5f6d6f1c73a9d0ec1001/binary',
+      metadataPath: '/demo/runtime/media/assets/9f8b36b6c4b55f3d3d0830f6e4c85e90fa41cf0c33de5f6d6f1c73a9d0ec1001/metadata.json',
+      exists: true,
+      retentionPolicy: {
+        mode: 'manual',
+        deleteAfterDays: null,
+        description: 'Demo sem expiracao automatica.',
+      },
+    },
+    {
+      assetId: '9f8b36b6c4b55f3d3d0830f6e4c85e90fa41cf0c33de5f6d6f1c73a9d0ec1002',
+      mediaType: 'document',
+      mimeType: 'application/pdf',
+      sha256: '9f8b36b6c4b55f3d3d0830f6e4c85e90fa41cf0c33de5f6d6f1c73a9d0ec1002',
+      fileSize: 284_112,
+      sourceChatJid: '351910000001@s.whatsapp.net',
+      sourceMessageId: 'wamid.demo.media.0002',
+      caption: 'Plano da apresentacao final.',
+      storedAt: iso(-95),
+      assetRootPath: '/demo/runtime/media/assets/9f8b36b6c4b55f3d3d0830f6e4c85e90fa41cf0c33de5f6d6f1c73a9d0ec1002',
+      binaryPath: '/demo/runtime/media/assets/9f8b36b6c4b55f3d3d0830f6e4c85e90fa41cf0c33de5f6d6f1c73a9d0ec1002/binary',
+      metadataPath: '/demo/runtime/media/assets/9f8b36b6c4b55f3d3d0830f6e4c85e90fa41cf0c33de5f6d6f1c73a9d0ec1002/metadata.json',
+      exists: true,
+      retentionPolicy: {
+        mode: 'manual',
+        deleteAfterDays: null,
+        description: 'Demo sem expiracao automatica.',
+      },
+    },
+  ];
+
   const groupIntelligenceByGroupJid = createDemoGroupIntelligence(groups);
 
   return {
     groups,
     groupIntelligenceByGroupJid,
+    mediaAssets,
     people: [
       {
         personId: 'person-ana',

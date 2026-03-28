@@ -1,5 +1,20 @@
 export const SERVER_ACK = 2;
 
+export type InboundMediaType = 'video' | 'image' | 'document' | 'audio';
+
+interface RawBaileysMessageContextInfo {
+  readonly mentionedJid?: readonly string[];
+  readonly participant?: string;
+  readonly stanzaId?: string;
+}
+
+interface RawBaileysMediaMessage {
+  readonly mimetype?: string;
+  readonly fileLength?: number | string | { readonly low?: number };
+  readonly binary?: Uint8Array | ArrayBuffer | readonly number[];
+  readonly contextInfo?: RawBaileysMessageContextInfo;
+}
+
 export interface RawBaileysMessageEnvelope {
   readonly key?: {
     readonly id?: string;
@@ -11,27 +26,21 @@ export interface RawBaileysMessageEnvelope {
     readonly conversation?: string;
     readonly extendedTextMessage?: {
       readonly text?: string;
-      readonly contextInfo?: {
-        readonly mentionedJid?: readonly string[];
-        readonly participant?: string;
-        readonly stanzaId?: string;
-      };
+      readonly contextInfo?: RawBaileysMessageContextInfo;
     };
-    readonly imageMessage?: {
+    readonly imageMessage?: RawBaileysMediaMessage & {
       readonly caption?: string;
-      readonly contextInfo?: {
-        readonly mentionedJid?: readonly string[];
-        readonly participant?: string;
-        readonly stanzaId?: string;
-      };
     };
-    readonly videoMessage?: {
+    readonly videoMessage?: RawBaileysMediaMessage & {
       readonly caption?: string;
-      readonly contextInfo?: {
-        readonly mentionedJid?: readonly string[];
-        readonly participant?: string;
-        readonly stanzaId?: string;
-      };
+      readonly seconds?: number;
+    };
+    readonly documentMessage?: RawBaileysMediaMessage & {
+      readonly caption?: string;
+      readonly fileName?: string;
+    };
+    readonly audioMessage?: RawBaileysMediaMessage & {
+      readonly seconds?: number;
     };
   };
   readonly messageTimestamp?: number | string | { readonly low?: number };
@@ -68,6 +77,22 @@ export interface OutboundConfirmationSignal {
   readonly confirmedAt: string;
   readonly source: string;
   readonly ack: number;
+}
+
+export interface InboundMediaMessage {
+  readonly messageId: string;
+  readonly chatJid: string;
+  readonly participantJid: string;
+  readonly groupJid?: string;
+  readonly timestamp: string;
+  readonly pushName?: string;
+  readonly mediaType: InboundMediaType;
+  readonly mimeType: string;
+  readonly fileName?: string;
+  readonly caption: string | null;
+  readonly fileSize: number | null;
+  readonly durationSeconds: number | null;
+  readonly binary: Uint8Array;
 }
 
 export interface WhatsAppSendTextInput {
@@ -162,6 +187,7 @@ export interface IWhatsAppGateway {
   ingestOutboundObservation(signal: Omit<OutboundObservationSignal, 'observedAt'> & { readonly observedAt?: string }): Promise<OutboundObservationSignal | undefined>;
   ingestOutboundConfirmation(signal: Omit<OutboundConfirmationSignal, 'confirmedAt'> & { readonly confirmedAt?: string }): Promise<OutboundConfirmationSignal | undefined>;
   subscribeInbound(listener: (message: NormalizedInboundMessage) => void | Promise<void>): () => void;
+  subscribeInboundMedia(listener: (message: InboundMediaMessage) => void | Promise<void>): () => void;
 }
 
 export interface IGroupMetadataProvider {

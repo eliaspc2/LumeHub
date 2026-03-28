@@ -5,6 +5,7 @@ import type {
   FrontendUiEvent,
   Group,
   GroupIntelligenceSnapshot,
+  MediaAssetSnapshot,
   PersonRole,
   SettingsSnapshot,
   WhatsAppWorkspaceSnapshot,
@@ -33,6 +34,7 @@ import type {
   AppRouteDefinition,
   AppRouter,
   GroupManagementPageData,
+  MediaLibraryPageData,
   WhatsAppManagementPageData,
 } from '../app/AppRouter.js';
 import type { WebAppBootstrap } from '../app/WebAppBootstrap.js';
@@ -755,6 +757,8 @@ export class AppShell {
         return this.renderTodayPage(this.state.page as UiPage<DashboardSnapshot>);
       case '/week':
         return this.renderWeekPage(this.state.page as UiPage<WeekPlannerSnapshot>);
+      case '/media':
+        return this.renderMediaPage(this.state.page as UiPage<MediaLibraryPageData>);
       case '/groups':
         return this.renderGroupsPage(this.state.page as UiPage<GroupManagementPageData>);
       case '/whatsapp':
@@ -1185,6 +1189,158 @@ export class AppShell {
               )
               .join('')}
           </div>
+        </article>
+      </section>
+    `;
+  }
+
+  private renderMediaPage(page: UiPage<MediaLibraryPageData>): string {
+    const assets = page.data.assets;
+    const latestAsset = assets[0] ?? null;
+    const videoCount = assets.filter((asset) => asset.mediaType === 'video').length;
+    const documentCount = assets.filter((asset) => asset.mediaType === 'document').length;
+    const imageCount = assets.filter((asset) => asset.mediaType === 'image').length;
+    const sourceChatCount = new Set(assets.map((asset) => asset.sourceChatJid)).size;
+
+    return `
+      <section class="surface hero surface--strong">
+        <div>
+          <p class="eyebrow">Biblioteca operacional</p>
+          <h2>Media recebida por WhatsApp, guardada uma vez e pronta para rastrear origem antes da distribuicao.</h2>
+          <p>${escapeHtml(page.description)}</p>
+          <div class="action-row">
+            ${renderUiActionButton({
+              label: 'Abrir WhatsApp',
+              href: '/whatsapp',
+              dataAttributes: { route: '/whatsapp' },
+            })}
+            ${renderUiActionButton({
+              label: 'Voltar a hoje',
+              href: '/today',
+              variant: 'secondary',
+              dataAttributes: { route: '/today' },
+            })}
+          </div>
+        </div>
+        <div class="hero-panel">
+          ${renderUiPanelCard({
+            title: 'Ultimo asset recebido',
+            badgeLabel: latestAsset ? readableMediaType(latestAsset.mediaType) : 'Sem media',
+            badgeTone: latestAsset ? 'positive' : 'warning',
+            contentHtml: `<p>${escapeHtml(
+              latestAsset
+                ? `${latestAsset.caption ?? 'Sem caption.'} Origem: ${readableSourceChat(latestAsset.sourceChatJid)}`
+                : 'Ainda nao entrou media nesta biblioteca operacional.',
+            )}</p>`,
+          })}
+          ${renderUiPanelCard({
+            title: 'Politica atual',
+            badgeLabel: 'Manual',
+            badgeTone: 'neutral',
+            contentHtml: `<p>${escapeHtml(
+              latestAsset?.retentionPolicy.description ??
+                'A media fica guardada ate limpeza manual nesta ronda, sem expiracao automatica.',
+            )}</p>`,
+          })}
+        </div>
+      </section>
+
+      <section class="card-grid">
+        ${renderUiMetricCard({
+          title: 'Assets guardados',
+          value: String(assets.length),
+          tone: assets.length > 0 ? 'positive' : 'warning',
+          description: 'Total de media recebida que ja entrou no storage canonico.',
+        })}
+        ${renderUiMetricCard({
+          title: 'Videos',
+          value: String(videoCount),
+          tone: videoCount > 0 ? 'positive' : 'neutral',
+          description: 'Videos prontos para futura distribuicao multi-grupo.',
+        })}
+        ${renderUiMetricCard({
+          title: 'Documentos',
+          value: String(documentCount),
+          tone: documentCount > 0 ? 'positive' : 'neutral',
+          description: 'PDFs e outros documentos recebidos no canal.',
+        })}
+        ${renderUiMetricCard({
+          title: 'Imagens',
+          value: String(imageCount),
+          tone: imageCount > 0 ? 'positive' : 'neutral',
+          description: 'Imagens recebidas e ja rastreaveis por origem.',
+        })}
+        ${renderUiMetricCard({
+          title: 'Chats de origem',
+          value: String(sourceChatCount),
+          tone: sourceChatCount > 0 ? 'neutral' : 'warning',
+          description: 'Numero de chats/grupos distintos que ja alimentaram esta biblioteca.',
+        })}
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-12">
+          <div class="card-header">
+            <div>
+              <h3>Assets recentes</h3>
+              <p>Cada registo mostra o tipo, a caption, o tamanho e a origem exata da mensagem recebida.</p>
+            </div>
+            ${renderUiBadge({
+              label: `${assets.length} asset${assets.length === 1 ? '' : 's'}`,
+              tone: assets.length > 0 ? 'positive' : 'warning',
+            })}
+          </div>
+          ${
+            assets.length > 0
+              ? `
+                <div class="card-grid">
+                  ${assets
+                    .map((asset) =>
+                      renderUiRecordCard({
+                        title: asset.caption ?? `${readableMediaType(asset.mediaType)} sem caption`,
+                        subtitle: `${readableMediaType(asset.mediaType)} • ${asset.mimeType}`,
+                        badgeLabel: readableMediaType(asset.mediaType),
+                        badgeTone: toneForMediaType(asset.mediaType),
+                        chips: [
+                          {
+                            label: formatFileSize(asset.fileSize),
+                            tone: 'neutral',
+                          },
+                          {
+                            label: asset.exists ? 'No disco' : 'Em falta',
+                            tone: asset.exists ? 'positive' : 'danger',
+                          },
+                          {
+                            label: readableSourceChat(asset.sourceChatJid),
+                            tone: asset.sourceChatJid.endsWith('@g.us') ? 'positive' : 'warning',
+                          },
+                        ],
+                        bodyHtml: `
+                          <p><strong>Origem</strong>: ${escapeHtml(readableSourceChat(asset.sourceChatJid))}</p>
+                          <p><strong>Mensagem</strong>: ${escapeHtml(asset.sourceMessageId)}</p>
+                          <p><strong>Recebido</strong>: ${escapeHtml(formatShortDateTime(asset.storedAt))}</p>
+                        `,
+                        detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
+                        detailsHtml: this.state.advancedDetailsEnabled
+                          ? `
+                              <p>Asset ID: ${escapeHtml(asset.assetId)}</p>
+                              <p>SHA-256: ${escapeHtml(asset.sha256)}</p>
+                              <p>Binary path: ${escapeHtml(asset.binaryPath)}</p>
+                              <p>Metadata path: ${escapeHtml(asset.metadataPath)}</p>
+                            `
+                          : undefined,
+                      }),
+                    )
+                    .join('')}
+                </div>
+              `
+              : `
+                <div class="timeline-item">
+                  <strong>Sem media ainda</strong>
+                  <time>Envia um video, imagem ou documento para o bot e volta aqui para confirmar a ingestao.</time>
+                </div>
+              `
+          }
         </article>
       </section>
     `;
@@ -4173,6 +4329,10 @@ function toneForSessionPhase(phase: WhatsAppWorkspaceSnapshot['runtime']['sessio
 }
 
 function shouldAutoRefreshRoute(route: string, topic: string): boolean {
+  if (topic.startsWith('media.')) {
+    return route === '/media' || route === '/whatsapp';
+  }
+
   if (topic.startsWith('whatsapp.')) {
     return route === '/whatsapp' || route === '/today';
   }
@@ -4383,6 +4543,58 @@ function isCalendarAccessMode(value: string): value is CalendarAccessMode {
 
 function readableCalendarAccessMode(value: CalendarAccessMode): string {
   return value === 'read_write' ? 'leitura e escrita' : 'leitura';
+}
+
+function readableMediaType(mediaType: MediaAssetSnapshot['mediaType']): string {
+  switch (mediaType) {
+    case 'video':
+      return 'Video';
+    case 'image':
+      return 'Imagem';
+    case 'document':
+      return 'Documento';
+    case 'audio':
+      return 'Audio';
+    default:
+      return 'Media';
+  }
+}
+
+function toneForMediaType(mediaType: MediaAssetSnapshot['mediaType']): UiTone {
+  switch (mediaType) {
+    case 'video':
+      return 'positive';
+    case 'document':
+      return 'warning';
+    case 'image':
+      return 'neutral';
+    case 'audio':
+      return 'neutral';
+    default:
+      return 'neutral';
+  }
+}
+
+function readableSourceChat(chatJid: string): string {
+  return chatJid.endsWith('@g.us') ? `Grupo ${chatJid}` : `Privado ${chatJid}`;
+}
+
+function formatFileSize(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) {
+    return '0 B';
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = value;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  const digits = size >= 100 || unitIndex === 0 ? 0 : size >= 10 ? 1 : 2;
+  return `${size.toFixed(digits)} ${units[unitIndex]}`;
 }
 
 function describeCalendarScope(scope: CalendarAccessScope): string {

@@ -26,6 +26,7 @@
     "@lume-hub/host-lifecycle": "workspace:*",
     "@lume-hub/instruction-queue": "workspace:*",
     "@lume-hub/llm-orchestrator": "workspace:*",
+    "@lume-hub/media-library": "workspace:*",
     "@lume-hub/people-memory": "workspace:*",
     "@lume-hub/system-power": "workspace:*",
     "@lume-hub/watchdog": "workspace:*",
