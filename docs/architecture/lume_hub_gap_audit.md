@@ -9,7 +9,7 @@ Objetivo:
 ## Resumo executivo
 
 Conclusao curta:
-- as `Wave 0` a `Wave 27` ficaram executadas e validadas
+- as `Wave 0` a `Wave 28` ficaram executadas e validadas
 - o canal WhatsApp live ficou fechado com QR, descoberta e envio observavel
 - o pipeline conversacional live e os providers LLM reais ficaram integrados
 - a API operacional principal e o `weekly-planner` real ficaram fechados
@@ -19,6 +19,7 @@ Conclusao curta:
 - a `Wave 25` ja fechou o storage canonico com `llm/instructions.md`, `knowledge/` e fallback legacy para `prompt.md`
 - a `Wave 26` ja fechou a knowledge base por grupo com retrieval isolado no `assistant-context`
 - a `Wave 27` ja fechou a API e a UI para gerir instrucoes, documentos e preview de contexto por grupo
+- a `Wave 28` ja fechou o uso live auditavel dessa memoria no assistente e no scheduling
 
 Em particular, ja nao faz sentido falar de:
 
@@ -57,17 +58,8 @@ As seguintes areas existem com base razoavel:
 
 ## Gaps ativos da ronda nova
 
-### 1. Falta uso live auditavel dessa memoria de grupo
-
-Estado atual:
-- o `assistant-context` injeta `groupPrompt` e `groupPolicy`
-- a fonte canonica de instrucoes do grupo ja existe
-- a knowledge base por grupo ja existe com retrieval isolado
-- a API e a UI de operacao desta camada ja existem
-- mas nao existe auditoria completa e visivel de uso dessa memoria em conversa live e scheduling
-
-Impacto:
-- falta confianca operacional quando houver grupos parecidos com normas divergentes
+Nesta ronda ja nao restam gaps funcionais de produto.
+O que falta na `Wave 29` e apenas limpeza final de naming, fallback legacy e residuos documentais/tecnicos desta serie.
 
 ## Gaps ativos da ronda seguinte prevista
 
@@ -116,9 +108,9 @@ Regra daqui para a frente:
 Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
 - sim
 - para a ronda anterior, sim
-- mas existe agora uma ronda nova aberta para uso live auditavel da inteligencia LLM por grupo
+- e nesta ronda atual so falta a `Wave 29` de limpeza
 
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
 - para o runtime operacional base, sim
-- para a nova feature de memoria e instrucoes LLM por grupo, maioritariamente
+- para a nova feature de memoria e instrucoes LLM por grupo, sim
 - para media recebida e distribuicao multi-grupo de video, ainda nao

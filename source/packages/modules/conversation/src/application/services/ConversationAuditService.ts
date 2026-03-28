@@ -19,6 +19,28 @@ export class ConversationAuditService {
       replyText: reply.replyText,
       targetChatType: reply.targetChatType,
       targetChatJid: reply.targetChatJid,
+      memoryUsage: {
+        scope: reply.agentResult.memoryUsage.scope,
+        groupJid: reply.agentResult.memoryUsage.groupJid,
+        groupLabel: reply.agentResult.memoryUsage.groupLabel,
+        instructionsSource: reply.agentResult.memoryUsage.instructionsSource,
+        instructionsApplied: reply.agentResult.memoryUsage.instructionsApplied,
+        knowledgeSnippetCount: reply.agentResult.memoryUsage.knowledgeSnippetCount,
+        knowledgeDocuments: reply.agentResult.memoryUsage.knowledgeDocuments.map((document) => ({
+          documentId: document.documentId,
+          title: document.title,
+          filePath: document.filePath,
+        })),
+      },
+      schedulingInsight: reply.agentResult.schedulingInsight
+        ? {
+            requestedAccessMode: reply.agentResult.schedulingInsight.requestedAccessMode,
+            resolvedGroupJids: reply.agentResult.schedulingInsight.resolvedGroupJids,
+            memoryScope: reply.agentResult.schedulingInsight.memoryUsage?.scope ?? 'none',
+            memoryGroupJid: reply.agentResult.schedulingInsight.memoryUsage?.groupJid ?? null,
+            memoryGroupLabel: reply.agentResult.schedulingInsight.memoryUsage?.groupLabel ?? null,
+          }
+        : null,
       createdAt: now.toISOString(),
     });
   }

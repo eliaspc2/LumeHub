@@ -1129,6 +1129,23 @@ function createDemoState(): DemoState {
       modelId: 'gpt-5.4',
       inputSummary: 'pedido de resumo para turma',
       outputSummary: 'resposta curta preparada para o operador',
+      memoryScope: {
+        scope: 'group',
+        groupJid: groups[0].groupJid,
+        groupLabel: groups[0].preferredSubject,
+        instructionsSource: 'llm_instructions',
+        instructionsApplied: true,
+        knowledgeSnippetCount: 1,
+        knowledgeDocuments: [
+          {
+            documentId: 'aula-1-ballet',
+            title: 'Aula 1 de Ballet',
+            filePath: 'aulas/aula-1.md',
+            score: 0.92,
+            matchedTerms: ['aula 1'],
+          },
+        ],
+      },
       createdAt: iso(-14),
     },
     {
@@ -1138,6 +1155,15 @@ function createDemoState(): DemoState {
       modelId: 'gpt-5.4',
       inputSummary: 'planeamento semanal com 2 eventos',
       outputSummary: '3 prompts sugeridos para esta semana',
+      memoryScope: {
+        scope: 'none',
+        groupJid: null,
+        groupLabel: null,
+        instructionsSource: null,
+        instructionsApplied: false,
+        knowledgeSnippetCount: 0,
+        knowledgeDocuments: [],
+      },
       createdAt: iso(-55),
     },
   ];
@@ -1155,6 +1181,22 @@ function createDemoState(): DemoState {
       replyText: 'Resposta demo preparada para a operadora.',
       targetChatType: 'private',
       targetChatJid: '351910000001@s.whatsapp.net',
+      memoryUsage: {
+        scope: 'group',
+        groupJid: groups[0].groupJid,
+        groupLabel: groups[0].preferredSubject,
+        instructionsSource: 'llm_instructions',
+        instructionsApplied: true,
+        knowledgeSnippetCount: 1,
+        knowledgeDocuments: [
+          {
+            documentId: 'aula-1-ballet',
+            title: 'Aula 1 de Ballet',
+            filePath: 'aulas/aula-1.md',
+          },
+        ],
+      },
+      schedulingInsight: null,
       createdAt: iso(-16),
     },
     {
@@ -1169,6 +1211,28 @@ function createDemoState(): DemoState {
       replyText: 'Mudei para privado para evitar ruido no grupo.',
       targetChatType: 'private',
       targetChatJid: '351910000001@s.whatsapp.net',
+      memoryUsage: {
+        scope: 'group',
+        groupJid: groups[0].groupJid,
+        groupLabel: groups[0].preferredSubject,
+        instructionsSource: 'llm_instructions',
+        instructionsApplied: true,
+        knowledgeSnippetCount: 1,
+        knowledgeDocuments: [
+          {
+            documentId: 'aula-1-ballet',
+            title: 'Aula 1 de Ballet',
+            filePath: 'aulas/aula-1.md',
+          },
+        ],
+      },
+      schedulingInsight: {
+        requestedAccessMode: 'read',
+        resolvedGroupJids: [groups[0].groupJid],
+        memoryScope: 'group',
+        memoryGroupJid: groups[0].groupJid,
+        memoryGroupLabel: groups[0].preferredSubject,
+      },
       createdAt: iso(-44),
     },
   ];

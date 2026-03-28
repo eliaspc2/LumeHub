@@ -5,6 +5,7 @@ import type {
 } from '@lume-hub/assistant-context';
 import type { DistributionPlan } from '@lume-hub/audience-routing';
 import type { PolicyActorContext } from '@lume-hub/command-policy';
+import type { CalendarAccessMode } from '@lume-hub/group-directory';
 import type { Instruction } from '@lume-hub/instruction-queue';
 import type { IntentClassification, MessageIntent } from '@lume-hub/intent-classifier';
 import type { LlmChatResult, LlmScheduleParseResult } from '@lume-hub/llm-orchestrator';
@@ -58,9 +59,35 @@ export interface AgentSessionContext {
   readonly schedulingContext: SchedulingContext | null;
 }
 
+export interface AgentMemoryDocumentRef {
+  readonly documentId: string;
+  readonly title: string;
+  readonly filePath: string;
+  readonly score: number;
+  readonly matchedTerms: readonly string[];
+}
+
+export interface AgentMemoryUsage {
+  readonly scope: 'none' | 'group';
+  readonly groupJid: string | null;
+  readonly groupLabel: string | null;
+  readonly instructionsSource: AssistantChatContext['groupInstructionsSource'] | null;
+  readonly instructionsApplied: boolean;
+  readonly knowledgeSnippetCount: number;
+  readonly knowledgeDocuments: readonly AgentMemoryDocumentRef[];
+}
+
+export interface AgentSchedulingInsight {
+  readonly requestedAccessMode: CalendarAccessMode | null;
+  readonly resolvedGroupJids: readonly string[];
+  readonly memoryUsage: AgentMemoryUsage | null;
+}
+
 export interface AgentTurnResult {
   readonly plan: AgentExecutionPlan;
   readonly session: AgentSessionContext;
+  readonly memoryUsage: AgentMemoryUsage;
+  readonly schedulingInsight: AgentSchedulingInsight | null;
   readonly toolResults: readonly AgentToolResult[];
   readonly replyText: string | null;
   readonly distributionPlan: DistributionPlan | null;

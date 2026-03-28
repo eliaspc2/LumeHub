@@ -217,7 +217,7 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 27` ja foram executadas e validadas.
+As `Wave 0` a `Wave 28` ja foram executadas e validadas.
 O storage canonico de inteligencia por grupo ja ficou aberto com:
 
 - `data/groups/<jid>/llm/instructions.md`
@@ -226,6 +226,7 @@ O storage canonico de inteligencia por grupo ja ficou aberto com:
 
 O `assistant-context` ja usa `llm/instructions.md` como fonte primaria e mantem fallback legacy para `prompt.md` enquanto durar a migracao.
 Tambem ja existe retrieval isolado por grupo a partir de `knowledge/index.json` e documentos markdown da pasta `knowledge/`, para evitar mistura de contexto entre grupos com referencias parecidas.
+O runtime live do assistente e do scheduling ja audita de forma visivel que instrucoes e snippets locais de grupo entraram em cada run relevante.
 Neste momento:
 
 - o frontend operacional das `Wave 13` a `Wave 16` ficou fechado
@@ -256,6 +257,8 @@ Neste momento:
   - alinhamento final de docs e backlog ao estado real
 - nova ronda aberta:
   - `Wave 25` a `Wave 29` para instrucoes LLM e knowledge base por grupo
+  - `Wave 25` a `Wave 28` ja foram fechadas
+  - a `Wave 29` fica reservada a limpeza final da ronda
   - objetivo: separar storage canonico de policy, instrucoes LLM e conhecimento documental local por grupo e fechar o uso live auditavel dessa memoria
 - ronda seguinte prevista:
   - `Wave 30` a `Wave 34` para media recebida, biblioteca de assets e distribuicao multi-grupo de video

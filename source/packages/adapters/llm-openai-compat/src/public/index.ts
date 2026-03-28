@@ -271,6 +271,9 @@ function buildGeneralChatUserText(input: LlmChatInput): string {
     '',
     'Factos de dominio:',
     formatBullets(input.domainFacts),
+    '',
+    'Memoria de grupo:',
+    formatMemoryScope(input.memoryScope),
   ].join('\n');
 }
 
@@ -287,7 +290,32 @@ function buildScheduleUserText(input: LlmScheduleParseInput): string {
     `Texto: ${input.text.trim()}`,
     `Data de referencia: ${input.referenceDate?.trim() || 'nao indicada'}`,
     `Timezone: ${input.timezone?.trim() || 'nao indicada'}`,
+    'Resumo de contexto:',
+    formatBullets(input.contextSummary),
+    'Factos de dominio:',
+    formatBullets(input.domainFacts),
+    'Memoria de grupo:',
+    formatMemoryScope(input.memoryScope),
   ].join('\n');
+}
+
+function formatMemoryScope(input: LlmChatInput['memoryScope'] | LlmScheduleParseInput['memoryScope']): string {
+  if (!input || input.scope !== 'group') {
+    return '- sem memoria especifica de grupo';
+  }
+
+  const lines = [
+    `- grupo=${input.groupLabel ?? input.groupJid ?? 'desconhecido'}`,
+    `- instructions_source=${input.instructionsSource ?? 'sem fonte'}`,
+    `- instructions_applied=${input.instructionsApplied ? 'sim' : 'nao'}`,
+    `- knowledge_snippets=${input.knowledgeSnippetCount}`,
+  ];
+
+  const documents = input.knowledgeDocuments
+    .slice(0, 3)
+    .map((document) => `- doc=${document.documentId} | ${document.title} | ${document.filePath}`);
+
+  return [...lines, ...documents].join('\n');
 }
 
 function buildWeeklyPlanningInstructions(): string {

@@ -17,6 +17,7 @@ export interface AssistantConsoleSnapshot {
     readonly modelId: string;
     readonly createdAt: string;
     readonly outputSummary: string;
+    readonly memorySummary: string;
   }[];
   readonly recentConversationAudit: readonly {
     readonly auditId: string;
@@ -25,6 +26,7 @@ export interface AssistantConsoleSnapshot {
     readonly replyMode: string;
     readonly createdAt: string;
     readonly replyText: string | null;
+    readonly memorySummary: string;
   }[];
 }
 
@@ -71,7 +73,7 @@ export class AssistantConsoleUiModule {
             snapshot.recentRuns.length > 0
               ? snapshot.recentRuns.map(
                   (run) =>
-                    `${run.createdAt} | ${run.operation} | ${run.providerId}/${run.modelId} | ${run.outputSummary}`,
+                    `${run.createdAt} | ${run.operation} | ${run.providerId}/${run.modelId} | ${run.memorySummary} | ${run.outputSummary}`,
                 )
               : ['Sem runs LLM recentes.'],
         },
@@ -81,7 +83,7 @@ export class AssistantConsoleUiModule {
             snapshot.recentConversationAudit.length > 0
               ? snapshot.recentConversationAudit.map(
                   (entry) =>
-                    `${entry.createdAt} | ${entry.replyMode} | ${entry.intent ?? 'sem intent'} | ${entry.replyText ?? 'sem reply'}`,
+                    `${entry.createdAt} | ${entry.replyMode} | ${entry.intent ?? 'sem intent'} | ${entry.memorySummary} | ${entry.replyText ?? 'sem reply'}`,
                 )
               : ['Sem replies auditadas ainda.'],
         },

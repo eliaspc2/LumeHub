@@ -21,6 +21,7 @@ export class LlmChatService {
       modelId: result.modelId,
       inputSummary: input.text.slice(0, 160),
       outputSummary: result.text.slice(0, 160),
+      memoryScope: input.memoryScope ?? null,
       createdAt: new Date().toISOString(),
     });
 

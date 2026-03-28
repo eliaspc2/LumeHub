@@ -10,7 +10,9 @@ import type { OwnerControlModuleContract } from '@lume-hub/owner-control';
 
 import type {
   AgentAssistantTurnInput,
+  AgentMemoryUsage,
   AgentExecutionPlan,
+  AgentSchedulingInsight,
   AgentToolResult,
   AgentTurnResult,
 } from '../../domain/entities/AgentRuntime.js';
@@ -66,6 +68,7 @@ export class AgentRuntime {
     };
     const assistantAllowed = await this.commandPolicy.canUseAssistant(policyContext);
     const chatContext = await this.assistantContext.buildChatContext(input);
+    const chatMemoryUsage = buildMemoryUsage(chatContext);
     const schedulingContext =
       classification.intent === 'scheduling_request'
         ? await this.assistantContext.buildSchedulingContext({
@@ -88,6 +91,13 @@ export class AgentRuntime {
     let ownerCommandResult: AgentTurnResult['ownerCommandResult'] = null;
     let scheduleParseResult: AgentTurnResult['scheduleParseResult'] = null;
     let llmChatResult: AgentTurnResult['llmChatResult'] = null;
+    let schedulingInsight: AgentTurnResult['schedulingInsight'] = schedulingContext
+      ? {
+          requestedAccessMode: schedulingContext.requestedAccessMode,
+          resolvedGroupJids: schedulingContext.resolvedGroupJids,
+          memoryUsage: buildMemoryUsage(schedulingContext.chatContext),
+        }
+      : null;
 
     if (classification.intent === 'owner_command' || this.ownerControl.detectOwnerCommand(input.text)) {
       ownerCommandResult = await this.ownerControl.executeOwnerCommand({
@@ -106,6 +116,8 @@ export class AgentRuntime {
       return {
         plan,
         session,
+        memoryUsage: chatMemoryUsage,
+        schedulingInsight,
         toolResults,
         replyText,
         distributionPlan,
@@ -120,6 +132,8 @@ export class AgentRuntime {
       return {
         plan,
         session,
+        memoryUsage: chatMemoryUsage,
+        schedulingInsight,
         toolResults,
         replyText,
         distributionPlan,
@@ -164,13 +178,22 @@ export class AgentRuntime {
       llmChatResult = await this.llmOrchestrator.chat({
         text: input.text,
         intent: classification.intent,
-        contextSummary: summariseContext(chatContext),
+        contextSummary: summariseContext(chatContext, chatMemoryUsage),
         domainFacts: buildFanoutFacts(distributionPlan, enqueuedInstruction),
+        memoryScope: toLlmMemoryScope(chatMemoryUsage),
       });
       replyText = llmChatResult.text;
     } else if (classification.intent === 'scheduling_request') {
       const targetGroupJid = schedulingContext?.resolvedGroupJids[0] ?? input.groupJid ?? null;
       const requestedAccessMode = classification.requestedAccessMode ?? 'read';
+      const schedulingMemoryUsage = schedulingContext
+        ? buildMemoryUsage(schedulingContext.chatContext, targetGroupJid)
+        : buildMemoryUsage(chatContext, targetGroupJid);
+      schedulingInsight = {
+        requestedAccessMode,
+        resolvedGroupJids: schedulingContext?.resolvedGroupJids ?? [],
+        memoryUsage: schedulingMemoryUsage,
+      };
       const hasAccess =
         targetGroupJid === null
           ? requestedAccessMode === 'read'
@@ -187,6 +210,9 @@ export class AgentRuntime {
       } else {
         scheduleParseResult = await this.llmOrchestrator.parseSchedules({
           text: input.text,
+          contextSummary: summariseContext(chatContext, schedulingMemoryUsage),
+          domainFacts: buildSchedulingFacts(schedulingContext?.chatContext ?? chatContext, schedulingMemoryUsage, targetGroupJid),
+          memoryScope: toLlmMemoryScope(schedulingMemoryUsage),
         });
         toolResults.push({
           toolName: 'schedule_parse',
@@ -197,15 +223,16 @@ export class AgentRuntime {
         llmChatResult = await this.llmOrchestrator.chat({
           text: input.text,
           intent: classification.intent,
-          contextSummary: summariseContext(chatContext),
+          contextSummary: summariseContext(chatContext, schedulingMemoryUsage),
           domainFacts: [
-            targetGroupJid ? `grupo_resolvido=${targetGroupJid}` : 'grupo_resolvido=indefinido',
+            ...buildSchedulingFacts(schedulingContext?.chatContext ?? chatContext, schedulingMemoryUsage, targetGroupJid),
             `schedule_candidates=${scheduleParseResult.candidates.length}`,
             ...scheduleParseResult.candidates.map(
               (candidate) =>
                 `candidato:${candidate.title}:${candidate.dateHint ?? 'sem_data'}:${candidate.timeHint ?? 'sem_hora'}`,
             ),
           ],
+          memoryScope: toLlmMemoryScope(schedulingMemoryUsage),
         });
         replyText = llmChatResult.text;
       }
@@ -213,8 +240,9 @@ export class AgentRuntime {
       llmChatResult = await this.llmOrchestrator.chat({
         text: input.text,
         intent: classification.intent,
-        contextSummary: summariseContext(chatContext),
-        domainFacts: buildGeneralFacts(chatContext),
+        contextSummary: summariseContext(chatContext, chatMemoryUsage),
+        domainFacts: buildGeneralFacts(chatContext, chatMemoryUsage),
+        memoryScope: toLlmMemoryScope(chatMemoryUsage),
       });
       replyText = llmChatResult.text;
       toolResults.push({
@@ -227,6 +255,8 @@ export class AgentRuntime {
     return {
       plan,
       session,
+      memoryUsage: chatMemoryUsage,
+      schedulingInsight,
       toolResults,
       replyText,
       distributionPlan,
@@ -238,10 +268,16 @@ export class AgentRuntime {
   }
 }
 
-function summariseContext(chatContext: AgentTurnResult['session']['chatContext']): readonly string[] {
+function summariseContext(
+  chatContext: AgentTurnResult['session']['chatContext'],
+  memoryUsage: AgentMemoryUsage,
+): readonly string[] {
   return [
     chatContext.group ? `grupo=${chatContext.group.preferredSubject}` : null,
     chatContext.activeReference ? `referente=${chatContext.activeReference.label}` : null,
+    memoryUsage.scope === 'group'
+      ? `memoria=${memoryUsage.groupLabel ?? memoryUsage.groupJid ?? 'grupo'}:${memoryUsage.instructionsSource ?? 'sem_fonte'}:${memoryUsage.knowledgeSnippetCount}_snippets`
+      : null,
     ...chatContext.relevantMessages.slice(-3).map((message) => `${message.role}:${message.text}`),
   ].filter((value): value is string => Boolean(value));
 }
@@ -260,10 +296,117 @@ function buildFanoutFacts(distributionPlan: DistributionPlan, enqueuedInstructio
   return facts;
 }
 
-function buildGeneralFacts(chatContext: AgentTurnResult['session']['chatContext']): readonly string[] {
+function buildGeneralFacts(
+  chatContext: AgentTurnResult['session']['chatContext'],
+  memoryUsage: AgentMemoryUsage,
+): readonly string[] {
   return [
     chatContext.activeReference ? `referente_ativo=${chatContext.activeReference.label}` : null,
     chatContext.group ? `grupo_atual=${chatContext.group.preferredSubject}` : null,
     chatContext.personNotes[0] ? `nota=${chatContext.personNotes[0].text}` : null,
+    ...buildMemoryFacts(memoryUsage),
   ].filter((value): value is string => Boolean(value));
+}
+
+function buildSchedulingFacts(
+  chatContext: AgentTurnResult['session']['chatContext'],
+  memoryUsage: AgentMemoryUsage,
+  targetGroupJid: string | null,
+): readonly string[] {
+  return [
+    targetGroupJid ? `grupo_resolvido=${targetGroupJid}` : 'grupo_resolvido=indefinido',
+    chatContext.activeReference ? `referente_ativo=${chatContext.activeReference.label}` : null,
+    ...buildMemoryFacts(memoryUsage),
+  ].filter((value): value is string => Boolean(value));
+}
+
+function buildMemoryFacts(memoryUsage: AgentMemoryUsage): readonly string[] {
+  if (memoryUsage.scope !== 'group') {
+    return [];
+  }
+
+  return [
+    `memoria_grupo=${memoryUsage.groupLabel ?? memoryUsage.groupJid ?? 'grupo'}`,
+    `instructions_source=${memoryUsage.instructionsSource ?? 'missing'}`,
+    `instructions_applied=${memoryUsage.instructionsApplied}`,
+    `knowledge_snippets=${memoryUsage.knowledgeSnippetCount}`,
+    ...memoryUsage.knowledgeDocuments.slice(0, 3).map(
+      (document) => `knowledge_doc=${document.documentId}:${document.title}:${document.filePath}`,
+    ),
+  ];
+}
+
+function buildMemoryUsage(
+  chatContext: AgentTurnResult['session']['chatContext'],
+  forcedGroupJid?: string | null,
+): AgentMemoryUsage {
+  const resolvedGroupJid = forcedGroupJid ?? chatContext.groupJid ?? null;
+  const resolvedGroupLabel =
+    resolvedGroupJid !== null && chatContext.group?.groupJid === resolvedGroupJid
+      ? chatContext.group.preferredSubject
+      : chatContext.group?.preferredSubject ?? null;
+  const filteredSnippets =
+    resolvedGroupJid === null
+      ? []
+      : chatContext.groupKnowledgeSnippets.filter((snippet) => snippet.groupJid === resolvedGroupJid);
+
+  if (!resolvedGroupJid) {
+    return {
+      scope: 'none',
+      groupJid: null,
+      groupLabel: null,
+      instructionsSource: null,
+      instructionsApplied: false,
+      knowledgeSnippetCount: 0,
+      knowledgeDocuments: [],
+    };
+  }
+
+  return {
+    scope: 'group',
+    groupJid: resolvedGroupJid,
+    groupLabel: resolvedGroupLabel,
+    instructionsSource: chatContext.groupInstructionsSource,
+    instructionsApplied: chatContext.groupInstructionsSource !== 'missing' && Boolean(chatContext.groupInstructions?.trim()),
+    knowledgeSnippetCount: filteredSnippets.length,
+    knowledgeDocuments: filteredSnippets.slice(0, 4).map((snippet) => ({
+      documentId: snippet.documentId,
+      title: snippet.title,
+      filePath: snippet.filePath,
+      score: snippet.score,
+      matchedTerms: snippet.matchedTerms,
+    })),
+  };
+}
+
+function toLlmMemoryScope(memoryUsage: AgentMemoryUsage): {
+  readonly scope: 'none' | 'group';
+  readonly groupJid: string | null;
+  readonly groupLabel: string | null;
+  readonly instructionsSource: 'llm_instructions' | 'legacy_prompt' | 'missing' | null;
+  readonly instructionsApplied: boolean;
+  readonly knowledgeSnippetCount: number;
+  readonly knowledgeDocuments: readonly {
+    readonly documentId: string;
+    readonly title: string;
+    readonly filePath: string;
+    readonly score?: number;
+    readonly matchedTerms?: readonly string[];
+  }[];
+} {
+  return {
+    scope: memoryUsage.scope,
+    groupJid: memoryUsage.groupJid,
+    groupLabel: memoryUsage.groupLabel,
+    instructionsSource: memoryUsage.instructionsSource,
+    instructionsApplied: memoryUsage.instructionsApplied,
+    knowledgeSnippetCount: memoryUsage.knowledgeSnippetCount,
+    knowledgeDocuments: memoryUsage.knowledgeDocuments.map((document) => ({
+      documentId: document.documentId,
+      title: document.title,
+      filePath: document.filePath,
+      score: document.score,
+      matchedTerms: document.matchedTerms,
+    })),
+  };
 }

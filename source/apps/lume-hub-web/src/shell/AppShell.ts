@@ -473,8 +473,8 @@ export class AppShell {
 
         <div class="shell-main">
           <header class="surface shell-header surface--strong">
-            <div class="header-copy">
-              <p class="eyebrow">Wave 27</p>
+              <div class="header-copy">
+              <p class="eyebrow">Wave 28</p>
               <h1>${escapeHtml(currentRoute.label)}</h1>
               <p>${escapeHtml(currentRoute.description)}</p>
             </div>
@@ -546,12 +546,12 @@ export class AppShell {
           <section class="surface rail-card">
             <h3>Foco desta wave</h3>
             <p>
-              Nesta wave queremos gerir instrucoes e conhecimento por grupo sem expor jargao, sem misturar turmas e com preview imediato do contexto da LLM.
+              Nesta wave queremos ver memoria de grupo a entrar mesmo no runtime live, no scheduling e nos logs, sem misturar turmas parecidas.
             </p>
             <ul>
-              <li>Confirmar que escolheste um grupo, guardaste instrucoes e percebeste logo onde esse contexto vai ser usado.</li>
-              <li>Ver se a knowledge base do grupo fica clara, com ficheiros editaveis e sem mistura de referencias entre turmas.</li>
-              <li>Validar se o preview do contexto mostra snippets coerentes para a pergunta escrita.</li>
+              <li>Confirmar que respostas e parse de scheduling usam o grupo certo quando a referencia e ambigua.</li>
+              <li>Ver se o Assistente mostra porque memoria de grupo entrou em cada run recente.</li>
+              <li>Garantir que os logs deixam claro quando houve instrucoes e snippets desse grupo.</li>
             </ul>
           </section>
 

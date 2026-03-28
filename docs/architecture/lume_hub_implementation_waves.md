@@ -10,39 +10,10 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 27` ja foram executadas e validadas.
-O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ja fechou storage, retrieval e operacao por UI.
+As `Wave 0` a `Wave 28` ja foram executadas e validadas.
+O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ja fechou storage, retrieval, operacao por UI e uso live auditavel dessa memoria.
 
 ## Ronda ativa
-
-### Wave 28 - Uso live da memoria de grupo no assistente e scheduling
-
-Objetivo:
-- fazer a conversa live e o scheduling consumirem de facto a inteligencia local do grupo
-
-Entregaveis:
-- `agent-runtime` e `conversation pipeline` a usar contexto enriquecido por grupo
-- `schedule_parse` e respostas conversacionais com contexto group-scoped
-- auditoria/logs a mostrar quando houve uso de instrucoes ou knowledge do grupo
-- guardrails para nao misturar contexto entre grupos ou chats privados errados
-
-Criterios de aceitacao:
-- o assistente usa normas e conhecimento do grupo certo em runtime live
-- o operador consegue perceber porque resposta/contexto foram produzidos
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave28`
-
-Melhor momento para testar:
-- aqui, porque ja da para testar o comportamento real do produto em `Live`
-
-O que testar:
-- mensagens live em grupos com normas diferentes
-- referencias ambiguas a aulas
-- preview e logs de contexto usados
-- ausencia de cross-contamination entre grupos
 
 ### Wave 29 - Limpeza final da ronda de inteligencia por grupo
 

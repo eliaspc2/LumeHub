@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type {
   LlmChatInput,
   LlmChatResult,
+  LlmMemoryDocumentRef,
   LlmModelDescriptor,
   LlmProvider,
   LlmScheduleParseInput,
@@ -31,15 +32,25 @@ export class DeterministicLlmProvider implements LlmProvider {
     const lowerText = input.text.toLowerCase();
     const timeMatch = input.text.match(/\b(\d{1,2}:\d{2})\b/);
     const dayMatch = /(segunda|terca|terça|quarta|quinta|sexta|sabado|sábado|domingo|amanha|amanhã|hoje)/i.exec(input.text);
-    const title = input.text
+    const parsedTitle = input.text
       .replace(/(?:marca|marcar|agenda|agendar|adiciona|adicionar)\s+/gi, '')
       .replace(/\s+amanh[ãa]|\s+hoje/gi, '')
       .replace(/\s+às?\s+\d{1,2}:\d{2}/gi, '')
       .trim();
+    const memoryDocument = input.memoryScope?.knowledgeDocuments[0] ?? null;
+    const title =
+      memoryDocument && /\baula\b|\breposicao\b|\bensaio\b/iu.test(lowerText)
+        ? memoryDocument.title
+        : parsedTitle;
 
     const notes = [
       input.referenceDate ? `reference_date=${input.referenceDate}` : null,
       input.timezone ? `timezone=${input.timezone}` : null,
+      input.memoryScope?.scope === 'group' ? `memory_group=${input.memoryScope.groupLabel ?? input.memoryScope.groupJid ?? 'desconhecido'}` : null,
+      input.memoryScope?.instructionsApplied
+        ? `instructions_source=${input.memoryScope.instructionsSource ?? 'indefinido'}`
+        : null,
+      ...buildKnowledgeNotes(input.memoryScope?.knowledgeDocuments),
     ].filter((value): value is string => Boolean(value));
 
     return {
@@ -49,7 +60,10 @@ export class DeterministicLlmProvider implements LlmProvider {
           dateHint: dayMatch?.[1] ?? null,
           timeHint: timeMatch?.[1] ?? null,
           confidence: timeMatch || dayMatch ? 'medium' : 'low',
-          notes: lowerText.includes('aula') ? ['mentions_aula'] : [],
+          notes: [
+            ...(lowerText.includes('aula') ? ['mentions_aula'] : []),
+            ...(memoryDocument ? [`knowledge_document=${memoryDocument.documentId}`] : []),
+          ],
         },
       ],
       notes,
@@ -82,6 +96,10 @@ export class DeterministicLlmProvider implements LlmProvider {
       },
     ];
   }
+}
+
+function buildKnowledgeNotes(documents: readonly LlmMemoryDocumentRef[] | undefined): readonly string[] {
+  return (documents ?? []).slice(0, 3).map((document) => `knowledge_document=${document.documentId}`);
 }
 
 function buildChatReply(input: LlmChatInput): string {

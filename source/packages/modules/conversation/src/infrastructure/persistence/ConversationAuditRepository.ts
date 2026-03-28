@@ -66,6 +66,30 @@ function normaliseEntry(entry: ConversationAuditRecord): ConversationAuditRecord
     replyText: entry.replyText?.trim() || null,
     targetChatType: entry.targetChatType,
     targetChatJid: entry.targetChatJid?.trim() || null,
+    memoryUsage: {
+      scope: entry.memoryUsage.scope,
+      groupJid: entry.memoryUsage.groupJid?.trim() || null,
+      groupLabel: entry.memoryUsage.groupLabel?.trim() || null,
+      instructionsSource: entry.memoryUsage.instructionsSource ?? null,
+      instructionsApplied: entry.memoryUsage.instructionsApplied,
+      knowledgeSnippetCount: Number.isFinite(entry.memoryUsage.knowledgeSnippetCount)
+        ? Math.max(0, Math.trunc(entry.memoryUsage.knowledgeSnippetCount))
+        : 0,
+      knowledgeDocuments: entry.memoryUsage.knowledgeDocuments.map((document) => ({
+        documentId: document.documentId.trim(),
+        title: document.title.trim(),
+        filePath: document.filePath.trim(),
+      })),
+    },
+    schedulingInsight: entry.schedulingInsight
+      ? {
+          requestedAccessMode: entry.schedulingInsight.requestedAccessMode,
+          resolvedGroupJids: entry.schedulingInsight.resolvedGroupJids.map((groupJid) => groupJid.trim()),
+          memoryScope: entry.schedulingInsight.memoryScope,
+          memoryGroupJid: entry.schedulingInsight.memoryGroupJid?.trim() || null,
+          memoryGroupLabel: entry.schedulingInsight.memoryGroupLabel?.trim() || null,
+        }
+      : null,
   };
 }
 

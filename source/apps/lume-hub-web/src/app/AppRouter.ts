@@ -133,6 +133,7 @@ export class AppRouter {
               modelId: entry.modelId,
               createdAt: entry.createdAt,
               outputSummary: entry.outputSummary,
+              memorySummary: describeRunMemory(entry),
             })),
             recentConversationAudit: recentConversationAudit.map((entry) => ({
               auditId: entry.auditId,
@@ -141,6 +142,7 @@ export class AppRouter {
               replyMode: entry.replyMode,
               createdAt: entry.createdAt,
               replyText: entry.replyText,
+              memorySummary: describeConversationMemory(entry),
             })),
           });
         },
@@ -289,4 +291,57 @@ export class AppRouter {
       ['/delivery-monitor', '/deliveries'],
     ]);
   }
+}
+
+function describeRunMemory(
+  entry: import('@lume-hub/frontend-api-client').LlmRunLogEntry,
+): string {
+  if (!entry.memoryScope || entry.memoryScope.scope !== 'group') {
+    return 'sem memoria de grupo';
+  }
+
+  const documentLabel =
+    entry.memoryScope.knowledgeDocuments.length > 0
+      ? `docs ${entry.memoryScope.knowledgeDocuments
+          .slice(0, 2)
+          .map((document) => document.title)
+          .join(', ')}`
+      : 'sem docs';
+
+  return [
+    `grupo ${entry.memoryScope.groupLabel ?? entry.memoryScope.groupJid ?? 'desconhecido'}`,
+    `instr ${entry.memoryScope.instructionsSource ?? 'missing'}`,
+    `${entry.memoryScope.knowledgeSnippetCount} snippet(s)`,
+    documentLabel,
+  ].join(' | ');
+}
+
+function describeConversationMemory(
+  entry: import('@lume-hub/frontend-api-client').ConversationAuditRecord,
+): string {
+  if (entry.memoryUsage.scope !== 'group') {
+    return 'sem memoria de grupo';
+  }
+
+  const schedulingLabel =
+    entry.schedulingInsight && entry.schedulingInsight.resolvedGroupJids.length > 0
+      ? `schedule ${entry.schedulingInsight.resolvedGroupJids.join(', ')}`
+      : null;
+  const documentLabel =
+    entry.memoryUsage.knowledgeDocuments.length > 0
+      ? `docs ${entry.memoryUsage.knowledgeDocuments
+          .slice(0, 2)
+          .map((document) => document.title)
+          .join(', ')}`
+      : 'sem docs';
+
+  return [
+    `grupo ${entry.memoryUsage.groupLabel ?? entry.memoryUsage.groupJid ?? 'desconhecido'}`,
+    `instr ${entry.memoryUsage.instructionsSource ?? 'missing'}`,
+    `${entry.memoryUsage.knowledgeSnippetCount} snippet(s)`,
+    documentLabel,
+    schedulingLabel,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(' | ');
 }

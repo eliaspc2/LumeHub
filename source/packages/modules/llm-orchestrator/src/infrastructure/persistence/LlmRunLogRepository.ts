@@ -63,6 +63,28 @@ function normaliseEntry(entry: LlmRunLogEntry): LlmRunLogEntry {
     modelId: entry.modelId.trim(),
     inputSummary: entry.inputSummary.trim(),
     outputSummary: entry.outputSummary.trim(),
+    memoryScope: entry.memoryScope
+      ? {
+          scope: entry.memoryScope.scope,
+          groupJid: entry.memoryScope.groupJid?.trim() || null,
+          groupLabel: entry.memoryScope.groupLabel?.trim() || null,
+          instructionsSource: entry.memoryScope.instructionsSource ?? null,
+          instructionsApplied: entry.memoryScope.instructionsApplied,
+          knowledgeSnippetCount: Number.isFinite(entry.memoryScope.knowledgeSnippetCount)
+            ? Math.max(0, Math.trunc(entry.memoryScope.knowledgeSnippetCount))
+            : 0,
+          knowledgeDocuments: entry.memoryScope.knowledgeDocuments.map((document) => ({
+            documentId: document.documentId.trim(),
+            title: document.title.trim(),
+            filePath: document.filePath.trim(),
+            score:
+              typeof document.score === 'number' && Number.isFinite(document.score)
+                ? Number(document.score.toFixed(3))
+                : undefined,
+            matchedTerms: document.matchedTerms?.map((term) => term.trim()).filter(Boolean),
+          })),
+        }
+      : null,
     createdAt: entry.createdAt,
   };
 }

@@ -21,6 +21,7 @@ export class LlmScheduleParserService {
       modelId: provider.defaultModelId,
       inputSummary: input.text.slice(0, 160),
       outputSummary: JSON.stringify(result.candidates).slice(0, 160),
+      memoryScope: input.memoryScope ?? null,
       createdAt: new Date().toISOString(),
     });
 

@@ -15,6 +15,7 @@ export interface LlmChatInput {
   readonly intent?: string | null;
   readonly contextSummary?: readonly string[];
   readonly domainFacts?: readonly string[];
+  readonly memoryScope?: LlmMemoryScope | null;
 }
 
 export interface LlmChatResult {
@@ -25,6 +26,24 @@ export interface LlmChatResult {
 }
 
 export type LlmScheduleConfidence = 'low' | 'medium' | 'high';
+
+export interface LlmMemoryDocumentRef {
+  readonly documentId: string;
+  readonly title: string;
+  readonly filePath: string;
+  readonly score?: number;
+  readonly matchedTerms?: readonly string[];
+}
+
+export interface LlmMemoryScope {
+  readonly scope: 'none' | 'group';
+  readonly groupJid: string | null;
+  readonly groupLabel: string | null;
+  readonly instructionsSource: 'llm_instructions' | 'legacy_prompt' | 'missing' | null;
+  readonly instructionsApplied: boolean;
+  readonly knowledgeSnippetCount: number;
+  readonly knowledgeDocuments: readonly LlmMemoryDocumentRef[];
+}
 
 export interface LlmScheduleCandidate {
   readonly title: string;
@@ -38,6 +57,9 @@ export interface LlmScheduleParseInput {
   readonly text: string;
   readonly referenceDate?: string | null;
   readonly timezone?: string | null;
+  readonly contextSummary?: readonly string[];
+  readonly domainFacts?: readonly string[];
+  readonly memoryScope?: LlmMemoryScope | null;
 }
 
 export interface LlmScheduleParseResult {
@@ -67,6 +89,7 @@ export interface LlmRunLogEntry {
   readonly modelId: string;
   readonly inputSummary: string;
   readonly outputSummary: string;
+  readonly memoryScope?: LlmMemoryScope | null;
   readonly createdAt: string;
 }
 

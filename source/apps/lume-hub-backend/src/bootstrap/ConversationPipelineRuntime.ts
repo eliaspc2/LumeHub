@@ -117,6 +117,8 @@ export class ConversationPipelineRuntime {
       targetChatType: generatedReply.targetChatType,
       replyText: generatedReply.replyText,
       auditId: generatedReply.auditId,
+      memoryUsage: generatedReply.agentResult.memoryUsage,
+      schedulingInsight: generatedReply.agentResult.schedulingInsight,
     });
 
     if (!generatedReply.shouldReply || !generatedReply.replyText || !generatedReply.targetChatJid) {
