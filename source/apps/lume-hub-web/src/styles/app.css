@@ -621,12 +621,16 @@ textarea {
   margin: 0;
   font-size: 1.06rem;
   line-height: 1.32;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .ui-card__subtitle {
   margin: 6px 0 0;
   color: var(--ink-soft);
   line-height: 1.5;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .ui-card__eyebrow {
@@ -654,6 +658,20 @@ textarea {
 .ui-card__content ul {
   margin: 0;
   padding-left: 18px;
+}
+
+.ui-card__chips,
+.ui-pill,
+.ui-chip,
+.ui-button {
+  min-width: 0;
+}
+
+.ui-pill,
+.ui-chip,
+.ui-button {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .ui-form-grid {
