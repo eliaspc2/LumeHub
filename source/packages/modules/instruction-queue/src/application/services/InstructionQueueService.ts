@@ -234,15 +234,15 @@ function buildDuplicateMap(
 ): Map<string, { readonly instructionId: string; readonly actionId: string }> {
   const duplicates = new Map<string, { readonly instructionId: string; readonly actionId: string }>();
 
-  for (const instruction of instructions) {
-    if (instruction.mode === 'dry_run') {
-      continue;
-    }
-
-    for (const action of instruction.actions) {
-      if (!action.dedupeKey) {
+    for (const instruction of instructions) {
+      if (instruction.mode === 'dry_run') {
         continue;
       }
+
+      for (const action of instruction.actions) {
+        if (!action.dedupeKey || action.status === 'failed') {
+          continue;
+        }
 
       duplicates.set(action.dedupeKey, {
         instructionId: instruction.instructionId,

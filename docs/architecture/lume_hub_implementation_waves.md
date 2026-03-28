@@ -10,7 +10,7 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 31` ja foram executadas e validadas.
+As `Wave 0` a `Wave 32` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
 O storage canonico da ronda de media ja ficou aberto com:
@@ -25,38 +25,11 @@ O inbound live de media tambem ja ficou fechado com:
 - ingest automatica para a biblioteca operacional
 - API para listar assets e consultar metadata
 - pagina `/media` no frontend live
+- distribuicao multi-grupo de media por `assetId` na `instruction-queue`
+- retry apenas dos alvos falhados
+- auditoria por alvo na queue
 
 ## Ronda ativa
-
-### Wave 32 - Distribuicao multi-grupo de media com queue e tracking
-
-Objetivo:
-- distribuir video guardado para varios grupos com o mesmo modelo de queue, dedupe e confirmacao que hoje existe para texto
-
-Entregaveis:
-- `instruction-queue` com novo tipo de acao para media
-- `fanout` a aceitar `assetId` alem de `messageText`
-- gateway WhatsApp com `sendMedia()` ou equivalente
-- delivery tracker e reconciliacao a suportarem tentativas e confirmacoes de media
-- dedupe por `assetId + targetGroupJid + sourceMessageId`
-
-Criterios de aceitacao:
-- um video guardado pode ser enfileirado para varios grupos
-- retries nao duplicam envios para grupos ja entregues
-- a distribuicao de media fica auditavel na queue
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave32`
-
-Melhor momento para testar:
-- aqui, porque e o primeiro ponto em que a feature principal passa a existir de facto
-
-O que testar:
-- distribuir um video guardado para varios grupos
-- simular falha parcial e retry
-- confirmar estado por alvo e ausencia de duplicacao
 
 ### Wave 33 - UI e fluxo guiado para distribuir video recebido
 

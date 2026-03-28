@@ -102,6 +102,17 @@ export interface WhatsAppSendTextInput {
   readonly messageId?: string;
 }
 
+export interface WhatsAppSendMediaInput {
+  readonly chatJid: string;
+  readonly mediaType: Exclude<InboundMediaType, 'audio'> | 'audio';
+  readonly mimeType: string;
+  readonly binary: Uint8Array;
+  readonly caption?: string | null;
+  readonly fileName?: string | null;
+  readonly idempotencyKey?: string;
+  readonly messageId?: string;
+}
+
 export interface WhatsAppSendResult {
   readonly messageId: string;
   readonly chatJid: string;
@@ -183,6 +194,7 @@ export interface WhatsAppRuntimeEvent {
 
 export interface IWhatsAppGateway {
   sendText(input: WhatsAppSendTextInput): Promise<WhatsAppSendResult>;
+  sendMedia(input: WhatsAppSendMediaInput): Promise<WhatsAppSendResult>;
   ingestInboundEnvelope(payload: RawBaileysMessageEnvelope): Promise<NormalizedInboundMessage | undefined>;
   ingestOutboundObservation(signal: Omit<OutboundObservationSignal, 'observedAt'> & { readonly observedAt?: string }): Promise<OutboundObservationSignal | undefined>;
   ingestOutboundConfirmation(signal: Omit<OutboundConfirmationSignal, 'confirmedAt'> & { readonly confirmedAt?: string }): Promise<OutboundConfirmationSignal | undefined>;

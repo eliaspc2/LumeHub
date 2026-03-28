@@ -7,6 +7,7 @@ import type {
   InboundMediaMessage,
   WhatsAppRuntimeEvent,
   WhatsAppRuntimeSnapshot,
+  WhatsAppSendMediaInput,
   WhatsAppSendResult,
   WhatsAppSendTextInput,
 } from '@lume-hub/whatsapp-baileys';
@@ -85,6 +86,10 @@ export class WhatsAppWorkspaceRuntime {
 
   async sendText(input: WhatsAppSendTextInput): Promise<WhatsAppSendResult> {
     return this.config.gateway.sendText(input);
+  }
+
+  async sendMedia(input: WhatsAppSendMediaInput): Promise<WhatsAppSendResult> {
+    return this.config.gateway.sendMedia(input);
   }
 
   async applySettings(settings: Partial<WhatsAppSettings>): Promise<WhatsAppRuntimeSnapshot> {

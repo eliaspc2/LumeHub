@@ -62,18 +62,39 @@ export interface InstructionTickResult {
   readonly failedActionIds: readonly string[];
 }
 
-export interface DistributionActionPayload {
+interface BaseDistributionActionPayload {
   readonly sourceMessageId: string;
   readonly sourcePersonId: string | null;
   readonly sourceDisplayName: string | null;
-  readonly messageText: string;
   readonly targetGroupJid: string;
   readonly targetLabel: string;
   readonly requiresConfirmation: boolean;
 }
 
+export type DistributionActionPayload =
+  | (BaseDistributionActionPayload & {
+      readonly kind: 'text';
+      readonly messageText: string;
+    })
+  | (BaseDistributionActionPayload & {
+      readonly kind: 'media';
+      readonly assetId: string;
+      readonly caption: string | null;
+    });
+
+export type DistributionContentInput =
+  | {
+      readonly kind: 'text';
+      readonly messageText: string;
+    }
+  | {
+      readonly kind: 'media';
+      readonly assetId: string;
+      readonly caption?: string | null;
+    };
+
 export interface DistributionPlanEnqueueInput {
   readonly plan: DistributionPlan;
-  readonly messageText: string;
+  readonly content: DistributionContentInput;
   readonly mode: InstructionMode;
 }

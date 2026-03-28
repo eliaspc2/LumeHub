@@ -79,6 +79,11 @@ export interface BackendModuleGraph {
 
 export interface BackendOperationalTickSnapshot {
   readonly performedAt: string;
+  readonly instructionQueue: {
+    readonly processedInstructions: number;
+    readonly processedActions: number;
+    readonly failedActions: number;
+  };
   readonly watchdog: {
     readonly raised: number;
     readonly resolved: number;
@@ -256,6 +261,7 @@ export class BackendRuntime {
   async performOperationalTick(now = new Date()): Promise<BackendOperationalTickSnapshot> {
     try {
       await this.options.modules.systemPowerModule.evaluatePowerPolicy();
+      const instructionQueueTick = await this.options.modules.instructionQueueModule.tickWorker(now);
       const watchdogResult = await this.options.modules.watchdogModule.tick({
         now,
       });
@@ -266,6 +272,11 @@ export class BackendRuntime {
 
       return {
         performedAt: now.toISOString(),
+        instructionQueue: {
+          processedInstructions: instructionQueueTick.processedInstructionIds.length,
+          processedActions: instructionQueueTick.processedActionIds.length,
+          failedActions: instructionQueueTick.failedActionIds.length,
+        },
         watchdog: {
           raised: watchdogResult.raised.length,
           resolved: watchdogResult.resolved.length,

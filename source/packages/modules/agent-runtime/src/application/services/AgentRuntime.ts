@@ -163,7 +163,10 @@ export class AgentRuntime {
       if (this.toolCallPolicy.canExecuteFanOut(input, distributionPlan)) {
         enqueuedInstruction = await this.instructionQueue.enqueueDistributionPlan({
           plan: distributionPlan,
-          messageText: input.text,
+          content: {
+            kind: 'text',
+            messageText: input.text,
+          },
           mode: 'confirmed',
         });
         toolResults.push({

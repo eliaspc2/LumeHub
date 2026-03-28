@@ -17,19 +17,32 @@ export class FanOutDistributionService {
           matchedRuleIds: input.plan.matchedRuleIds,
           matchedDisciplineCodes: input.plan.matchedDisciplineCodes,
           targetCount: input.plan.targetCount,
+          contentKind: input.content.kind,
+          assetId: input.content.kind === 'media' ? input.content.assetId : null,
         },
         actions: input.plan.targets.map((target) => ({
           type: 'distribution_delivery',
-          dedupeKey: target.dedupeKey,
+          dedupeKey:
+            input.content.kind === 'media'
+              ? `${input.content.assetId}:${input.plan.sourceMessageId}:${target.groupJid}`
+              : target.dedupeKey,
           targetGroupJid: target.groupJid,
           payload: {
+            kind: input.content.kind,
             sourceMessageId: input.plan.sourceMessageId,
             sourcePersonId: input.plan.senderPersonId,
             sourceDisplayName: input.plan.senderDisplayName,
-            messageText: input.messageText,
             targetGroupJid: target.groupJid,
             targetLabel: target.preferredSubject,
             requiresConfirmation: input.plan.requiresConfirmation,
+            ...(input.content.kind === 'media'
+              ? {
+                  assetId: input.content.assetId,
+                  caption: input.content.caption?.trim() || null,
+                }
+              : {
+                  messageText: input.content.messageText,
+                }),
           },
         })),
       },

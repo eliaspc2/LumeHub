@@ -42,6 +42,7 @@ import type {
   WhatsAppRuntimeEvent,
   WhatsAppRuntimeFlags,
   WhatsAppRuntimeSnapshot,
+  WhatsAppSendMediaInput,
   WhatsAppSendResult,
   WhatsAppSendTextInput,
   WhatsAppSessionSnapshot,
@@ -67,9 +68,20 @@ export interface BaileysSocketLike {
   };
   sendMessage(
     jid: string,
-    content: {
-      readonly text: string;
-    },
+    content:
+      | {
+          readonly text: string;
+        }
+      | {
+          readonly image?: Uint8Array | Buffer;
+          readonly video?: Uint8Array | Buffer;
+          readonly audio?: Uint8Array | Buffer;
+          readonly document?: Uint8Array | Buffer;
+          readonly mimetype?: string;
+          readonly caption?: string;
+          readonly fileName?: string;
+          readonly ptt?: boolean;
+        },
     options?: {
       readonly messageId?: string;
     },
@@ -336,6 +348,32 @@ export class BaileysWhatsAppGateway
       {
         text: input.text,
       },
+      input.messageId
+        ? {
+            messageId: input.messageId,
+          }
+        : undefined,
+    );
+
+    const messageId = result?.key?.id ?? input.messageId ?? `wamid.${randomUUID()}`;
+    this.messageIdToChatJid.set(messageId, input.chatJid);
+
+    return {
+      messageId,
+      chatJid: input.chatJid,
+      acceptedAt: new Date().toISOString(),
+      idempotencyKey: input.idempotencyKey,
+    };
+  }
+
+  async sendMedia(input: WhatsAppSendMediaInput): Promise<WhatsAppSendResult> {
+    if (!this.socket || !this.sessionSnapshot.connected) {
+      throw new Error('WhatsApp live session is not connected.');
+    }
+
+    const result = await this.socket.sendMessage(
+      input.chatJid,
+      buildOutboundMediaContent(input),
       input.messageId
         ? {
             messageId: input.messageId,
@@ -1044,6 +1082,76 @@ export class BaileysWhatsAppGateway
   private async emit<TValue>(listeners: Set<AsyncListener<TValue>>, value: TValue): Promise<void> {
     for (const listener of listeners) {
       await listener(value);
+    }
+  }
+}
+
+function buildOutboundMediaContent(input: WhatsAppSendMediaInput) {
+  const binary = Buffer.from(input.binary);
+  const caption = input.caption?.trim() || undefined;
+  const fileName = input.fileName?.trim() || defaultFileNameForMedia(input.mediaType, input.mimeType);
+
+  switch (input.mediaType) {
+    case 'video':
+      return {
+        video: binary,
+        mimetype: input.mimeType,
+        caption,
+      };
+    case 'image':
+      return {
+        image: binary,
+        mimetype: input.mimeType,
+        caption,
+      };
+    case 'document':
+      return {
+        document: binary,
+        mimetype: input.mimeType,
+        caption,
+        fileName,
+      };
+    case 'audio':
+      return {
+        audio: binary,
+        mimetype: input.mimeType,
+        ptt: false,
+      };
+  }
+}
+
+function defaultFileNameForMedia(mediaType: WhatsAppSendMediaInput['mediaType'], mimeType: string): string {
+  const extension = extensionFromMimeType(mimeType);
+
+  switch (mediaType) {
+    case 'video':
+      return `lumehub-video${extension}`;
+    case 'image':
+      return `lumehub-image${extension}`;
+    case 'document':
+      return `lumehub-document${extension}`;
+    case 'audio':
+      return `lumehub-audio${extension}`;
+  }
+}
+
+function extensionFromMimeType(mimeType: string): string {
+  switch (mimeType.trim().toLowerCase()) {
+    case 'video/mp4':
+      return '.mp4';
+    case 'image/jpeg':
+      return '.jpg';
+    case 'image/png':
+      return '.png';
+    case 'application/pdf':
+      return '.pdf';
+    case 'audio/mpeg':
+      return '.mp3';
+    case 'audio/ogg':
+      return '.ogg';
+    default: {
+      const subtype = mimeType.split('/')[1]?.trim();
+      return subtype ? `.${subtype.replace(/[^a-z0-9.+-]/gi, '')}` : '.bin';
     }
   }
 }

@@ -8,7 +8,7 @@ import type { CodexAuthRouterStatus } from '@lume-hub/codex-auth-router';
 import type { ConversationAuditRecord } from '@lume-hub/conversation';
 import type { HealthSnapshot } from '@lume-hub/health-monitor';
 import type { HostCompanionStatus } from '@lume-hub/host-lifecycle';
-import type { Instruction } from '@lume-hub/instruction-queue';
+import type { DistributionContentInput, Instruction } from '@lume-hub/instruction-queue';
 import type {
   CalendarAccessMode,
   Group,
@@ -69,6 +69,10 @@ export interface DistributionSummary {
   readonly mode: Instruction['mode'];
   readonly status: Instruction['status'];
   readonly targetGroupJids: readonly string[];
+  readonly contentKind?: DistributionContentInput['kind'] | null;
+  readonly mediaAssetId?: string | null;
+  readonly caption?: string | null;
+  readonly messagePreview?: string | null;
   readonly actionCounts: Record<Instruction['actions'][number]['status'], number>;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -519,7 +523,9 @@ export class FrontendApiClient {
     readonly sourceMessageId?: string;
     readonly personId?: string;
     readonly identifiers?: readonly { readonly kind: string; readonly value: string }[];
-    readonly messageText: string;
+    readonly messageText?: string;
+    readonly assetId?: string;
+    readonly caption?: string | null;
     readonly mode: Instruction['mode'];
   }): Promise<DistributionExecutionResult> {
     return this.expectOk(

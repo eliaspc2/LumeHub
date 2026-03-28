@@ -217,7 +217,7 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 31` ja foram executadas e validadas.
+As `Wave 0` a `Wave 32` ja foram executadas e validadas.
 O storage canonico de inteligencia por grupo ja ficou aberto com:
 
 - `data/groups/<jid>/llm/instructions.md`
@@ -238,6 +238,11 @@ O inbound live de media recebida tambem ja esta fechado com:
 - ingest automatica a partir do WhatsApp live
 - API de biblioteca operacional
 - pagina `Media` no frontend live para ver origem, caption e metadata
+- distribuicao multi-grupo em runtime com:
+  - `assetId` na queue
+  - envio live por `sendMedia()`
+  - retry apenas dos grupos falhados
+  - auditoria por alvo na `instruction-queue`
 
 Neste momento:
 
@@ -271,8 +276,8 @@ Neste momento:
   - `Wave 25` a `Wave 29` para instrucoes LLM e knowledge base por grupo
   - objetivo: separar storage canonico de policy, instrucoes LLM e conhecimento documental local por grupo e fechar o uso live auditavel dessa memoria
 - ronda seguinte prevista:
-  - `Wave 32` a `Wave 34` para distribuicao multi-grupo de media e limpeza final da ronda
-  - objetivo: fazer o WhatsApp alimentar a biblioteca canonica e depois distribuir o video guardado com queue, dedupe e tracking por grupo
+  - `Wave 33` a `Wave 34` para fechar a UX de distribuicao multi-grupo de media e a limpeza final da ronda
+  - objetivo: usar a biblioteca canonica ja existente para um fluxo guiado simples no frontend
 - regra de processo:
   - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
 - o runtime `Live` atual fica tratado como estado canonico do produto neste scope

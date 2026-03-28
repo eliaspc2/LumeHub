@@ -22,7 +22,7 @@ import {
 import type { GroupKnowledgeModuleContract } from '@lume-hub/group-knowledge';
 import type { HealthMonitorModuleContract } from '@lume-hub/health-monitor';
 import type { HostLifecycleModuleContract } from '@lume-hub/host-lifecycle';
-import type { Instruction, InstructionQueueModuleContract } from '@lume-hub/instruction-queue';
+import type { DistributionContentInput, Instruction, InstructionQueueModuleContract } from '@lume-hub/instruction-queue';
 import type { LlmChatInput, LlmOrchestratorModuleContract, LlmRunLogEntry } from '@lume-hub/llm-orchestrator';
 import type { MediaLibraryModuleContract } from '@lume-hub/media-library';
 import type { PeopleMemoryModuleContract, Person, PersonRole, PersonUpsertInput } from '@lume-hub/people-memory';
@@ -733,11 +733,11 @@ export class RouteRegistrar {
         const preview = await this.modules.audienceRouting.previewDistributionPlan(input.sourceMessageId, {
           personId: input.personId ?? undefined,
           identifiers: input.identifiers,
-          messageText: input.messageText,
+          messageText: input.content.kind === 'text' ? input.content.messageText : undefined,
         });
         const instruction = await this.modules.instructionQueue.enqueueDistributionPlan({
           plan: preview,
-          messageText: input.messageText,
+          content: input.content,
           mode: input.mode,
         });
         const summary = mapInstruction(instruction);
@@ -1839,12 +1839,14 @@ function readDistributionExecutionBody(body: unknown): {
   readonly sourceMessageId: string;
   readonly personId?: string;
   readonly identifiers?: readonly { readonly kind: string; readonly value: string }[];
-  readonly messageText: string;
+  readonly content: DistributionContentInput;
   readonly mode: 'dry_run' | 'confirmed';
 } {
   const preview = readDistributionPreviewBody(body);
   const payload = readBodyObject(body, 'Distribution payload must be an object.');
   const mode = readOptionalTrimmedStringValue(payload.mode, 'mode') ?? 'dry_run';
+  const assetId = readOptionalTrimmedStringValue(payload.assetId, 'assetId');
+  const caption = readOptionalTrimmedStringValue(payload.caption, 'caption');
 
   if (mode !== 'dry_run' && mode !== 'confirmed') {
     throw new ApiError(400, "mode must be 'dry_run' or 'confirmed'.");
@@ -1852,7 +1854,16 @@ function readDistributionExecutionBody(body: unknown): {
 
   return {
     ...preview,
-    messageText: readRequiredStringValue(payload.messageText, 'messageText'),
+    content: assetId
+      ? {
+          kind: 'media',
+          assetId,
+          caption: caption ?? null,
+        }
+      : {
+          kind: 'text',
+          messageText: readRequiredStringValue(payload.messageText, 'messageText'),
+        },
     mode,
   };
 }
@@ -2086,6 +2097,7 @@ function isPersonRole(value: unknown): value is PersonRole {
 }
 
 function mapInstruction(instruction: Instruction) {
+  const distributionPayload = readDistributionPayloadFromInstruction(instruction);
   const actionCounts: Record<Instruction['actions'][number]['status'], number> = {
     pending: 0,
     running: 0,
@@ -2107,10 +2119,48 @@ function mapInstruction(instruction: Instruction) {
     targetGroupJids: instruction.actions
       .map((action) => action.targetGroupJid)
       .filter((groupJid): groupJid is string => typeof groupJid === 'string'),
+    contentKind: distributionPayload?.kind ?? null,
+    mediaAssetId: distributionPayload?.kind === 'media' ? distributionPayload.assetId : null,
+    caption: distributionPayload?.kind === 'media' ? distributionPayload.caption ?? null : null,
+    messagePreview: distributionPayload?.kind === 'text' ? distributionPayload.messageText : null,
     actionCounts,
     createdAt: instruction.createdAt,
     updatedAt: instruction.updatedAt,
   };
+}
+
+function readDistributionPayloadFromInstruction(
+  instruction: Instruction,
+): Extract<DistributionContentInput, { readonly kind: 'text' }> | Extract<DistributionContentInput, { readonly kind: 'media' }> | null {
+  const firstPayload = instruction.actions[0]?.payload as
+    | {
+        readonly kind?: string;
+        readonly messageText?: unknown;
+        readonly assetId?: unknown;
+        readonly caption?: unknown;
+      }
+    | undefined;
+
+  if (!firstPayload) {
+    return null;
+  }
+
+  if (firstPayload.kind === 'media' && typeof firstPayload.assetId === 'string' && firstPayload.assetId.trim()) {
+    return {
+      kind: 'media',
+      assetId: firstPayload.assetId.trim(),
+      caption: typeof firstPayload.caption === 'string' && firstPayload.caption.trim() ? firstPayload.caption.trim() : null,
+    };
+  }
+
+  if (firstPayload.kind === 'text' && typeof firstPayload.messageText === 'string' && firstPayload.messageText.trim()) {
+    return {
+      kind: 'text',
+      messageText: firstPayload.messageText.trim(),
+    };
+  }
+
+  return null;
 }
 
 function normaliseHttpMethod(method: string | undefined): HttpMethod | null {

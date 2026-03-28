@@ -11,7 +11,7 @@ import { GroupKnowledgeModule } from '@lume-hub/group-knowledge';
 import { HealthMonitorModule } from '@lume-hub/health-monitor';
 import { HostLifecycleModule } from '@lume-hub/host-lifecycle';
 import { FastifyHttpServer } from '@lume-hub/http-fastify';
-import { InstructionQueueModule } from '@lume-hub/instruction-queue';
+import { InstructionActionExecutor, InstructionQueueModule } from '@lume-hub/instruction-queue';
 import { IntentClassifierModule } from '@lume-hub/intent-classifier';
 import { CodexOauthLlmProvider } from '@lume-hub/llm-codex-oauth';
 import { OpenAiCompatLlmProvider } from '@lume-hub/llm-openai-compat';
@@ -39,6 +39,7 @@ import type { BackendRuntimeModules } from './BackendRuntime.js';
 import { BackendRuntimeStateRepository } from './BackendRuntimeStateRepository.js';
 import { resolveBackendRuntimePaths, type BackendRuntimeConfig, type BackendRuntimePaths } from './BackendRuntimeConfig.js';
 import { ConversationPipelineRuntime } from './ConversationPipelineRuntime.js';
+import { InstructionQueueExecutionRuntime } from './InstructionQueueExecutionRuntime.js';
 import { WhatsAppWorkspaceRuntime } from './WhatsAppWorkspaceRuntime.js';
 
 export interface LoadedBackendComposition {
@@ -100,6 +101,31 @@ export class ModuleLoader {
       scheduleEventService: scheduleEventsModule.service,
       notificationRuleService: notificationRulesModule.service,
     });
+    const webSocketGateway = new WebSocketGateway();
+    const diagnosticsRepository = new BackendRuntimeStateRepository(paths.backendRuntimeStateFilePath);
+    const whatsAppGateway = new BaileysWhatsAppGateway({
+      enabled: this.config.whatsappEnabled,
+      autoConnect: this.config.whatsappAutoConnect,
+      authRootPath: paths.whatsappAuthRootPath,
+      socketFactory: this.config.whatsappSocketFactory,
+      versionResolver: this.config.whatsappVersionResolver,
+    });
+    const mediaLibraryModule = new MediaLibraryModule({
+      dataRootPath: paths.dataRootPath,
+    });
+    const whatsAppWorkspaceRuntime = new WhatsAppWorkspaceRuntime({
+      gateway: whatsAppGateway,
+      adminConfig: adminConfigModule,
+      groupDirectory: groupDirectoryModule,
+      mediaLibrary: mediaLibraryModule,
+      peopleMemory: peopleMemoryModule,
+      uiEventPublisher: webSocketGateway.publisher,
+    });
+    const instructionQueueExecutor = new InstructionQueueExecutionRuntime({
+      whatsAppRuntime: whatsAppWorkspaceRuntime,
+      mediaLibrary: mediaLibraryModule,
+      uiEventPublisher: webSocketGateway.publisher,
+    });
     const weeklyPlannerModule = new WeeklyPlannerModule({
       dataRootPath: paths.dataRootPath,
       adminConfig: adminConfigModule,
@@ -112,6 +138,7 @@ export class ModuleLoader {
     const instructionQueueModule = new InstructionQueueModule({
       dataRootPath: paths.dataRootPath,
       queueFilePath: paths.queueFilePath,
+      actionExecutor: new InstructionActionExecutor(instructionQueueExecutor.createHandler()),
     });
     const systemPowerModule = new SystemPowerModule({
       clock: this.config.clock,
@@ -199,9 +226,6 @@ export class ModuleLoader {
         const settings = await adminConfigModule.getSettings();
         return settings.llm.enabled ? settings.llm.provider : deterministicProvider.providerId;
       },
-    });
-    const mediaLibraryModule = new MediaLibraryModule({
-      dataRootPath: paths.dataRootPath,
     });
     const ownerControlModule = new OwnerControlModule({
       commandPolicy: commandPolicyModule,
@@ -325,23 +349,6 @@ export class ModuleLoader {
       conversationModule,
     );
 
-    const webSocketGateway = new WebSocketGateway();
-    const diagnosticsRepository = new BackendRuntimeStateRepository(paths.backendRuntimeStateFilePath);
-    const whatsAppGateway = new BaileysWhatsAppGateway({
-      enabled: this.config.whatsappEnabled,
-      autoConnect: this.config.whatsappAutoConnect,
-      authRootPath: paths.whatsappAuthRootPath,
-      socketFactory: this.config.whatsappSocketFactory,
-      versionResolver: this.config.whatsappVersionResolver,
-    });
-    const whatsAppWorkspaceRuntime = new WhatsAppWorkspaceRuntime({
-      gateway: whatsAppGateway,
-      adminConfig: adminConfigModule,
-      groupDirectory: groupDirectoryModule,
-      mediaLibrary: mediaLibraryModule,
-      peopleMemory: peopleMemoryModule,
-      uiEventPublisher: webSocketGateway.publisher,
-    });
     const conversationAuditRepository = new ConversationAuditRepository({
       dataRootPath: paths.dataRootPath,
     });
