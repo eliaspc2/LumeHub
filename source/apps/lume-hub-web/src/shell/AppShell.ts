@@ -2350,7 +2350,7 @@ export class AppShell {
             <h3>Grupos, responsaveis e acesso ao calendario</h3>
             ${renderUiBadge({ label: 'Gestao visual direta', tone: 'positive' })}
           </div>
-          <div class="card-grid">
+          <div class="group-access-grid">
             ${snapshot.groups
               .map(
                 (group) => `
@@ -2359,20 +2359,6 @@ export class AppShell {
                     subtitle: group.ownerLabels.join(', ') || 'Sem responsavel definido',
                     badgeLabel: group.assistantAuthorized ? 'Assistente ativo' : 'Acesso bloqueado',
                     badgeTone: group.assistantAuthorized ? 'positive' : 'warning',
-                    chips: [
-                      {
-                        label: `${readableCalendarScopeLabel('group')}: ${readableCalendarAccessMode(group.calendarAccessPolicy.group)}`,
-                        tone: toneForCalendarAccessMode(group.calendarAccessPolicy.group),
-                      },
-                      {
-                        label: `${readableCalendarScopeLabel('groupOwner')}: ${readableCalendarAccessMode(group.calendarAccessPolicy.groupOwner)}`,
-                        tone: toneForCalendarAccessMode(group.calendarAccessPolicy.groupOwner),
-                      },
-                      {
-                        label: `${readableCalendarScopeLabel('appOwner')}: ${readableCalendarAccessMode(group.calendarAccessPolicy.appOwner)}`,
-                        tone: toneForCalendarAccessMode(group.calendarAccessPolicy.appOwner),
-                      },
-                    ],
                     bodyHtml: `
                       <div class="ui-card__content">
                         <p><strong>Responsaveis atuais</strong>: ${escapeHtml(group.ownerLabels.join(', ') || 'nenhum')}</p>
@@ -2417,10 +2403,10 @@ export class AppShell {
                             .join('')}
                         </div>
                         <div class="acl-access-note">
-                          <strong>Quem pode mexer neste calendario</strong>
-                          <p><strong>So ver</strong> deixa consultar o calendario. <strong>Ver e editar</strong> deixa criar, alterar ou apagar eventos deste grupo.</p>
+                          <strong>Acesso ao calendario</strong>
+                          <p><strong>So ver</strong> consulta. <strong>Ver e editar</strong> cria, altera e apaga eventos deste grupo.</p>
                         </div>
-                        <div class="acl-access-grid">
+                        <div class="acl-access-list">
                           ${renderWhatsAppAclField(group.groupJid, 'group', group.calendarAccessPolicy.group)}
                           ${renderWhatsAppAclField(group.groupJid, 'groupOwner', group.calendarAccessPolicy.groupOwner)}
                           ${renderWhatsAppAclField(group.groupJid, 'appOwner', group.calendarAccessPolicy.appOwner)}
@@ -5496,23 +5482,18 @@ function renderWhatsAppAclField(
   scope: CalendarAccessScope,
   currentValue: CalendarAccessMode,
 ): string {
+  const scopeLabel = readableCalendarScopeLabel(scope);
   return `
-    <div class="acl-access-card acl-access-card--${escapeHtml(currentValue)}">
-      <div class="acl-access-card__header">
-        <div class="acl-access-card__copy">
-          <span class="ui-field__label">${escapeHtml(readableCalendarScopeLabel(scope))}</span>
-          <p class="acl-access-card__summary">${escapeHtml(describeCalendarScope(scope))}</p>
-        </div>
-        ${renderUiBadge({
-          label: readableCalendarAccessMode(currentValue),
-          tone: toneForCalendarAccessMode(currentValue),
-          style: 'chip',
-        })}
+    <div class="acl-access-row acl-access-row--${escapeHtml(currentValue)}">
+      <div class="acl-access-row__copy">
+        <span class="acl-access-row__title">${escapeHtml(scopeLabel)}</span>
+        <p class="acl-access-row__summary">${escapeHtml(describeCalendarScope(scope))}</p>
       </div>
-      <label class="ui-field">
-        <span class="ui-field__label">Nivel de acesso</span>
+      <label class="acl-access-row__control">
+        <span class="ui-field__label">Acesso</span>
         <select
           class="ui-control"
+          aria-label="Nivel de acesso para ${escapeHtml(scopeLabel)}"
           data-whatsapp-acl-group-jid="${escapeHtml(groupJid)}"
           data-whatsapp-acl-scope="${escapeHtml(scope)}"
         >
@@ -5576,18 +5557,14 @@ function readableCalendarAccessMode(value: CalendarAccessMode): string {
   return value === 'read_write' ? 'ver e editar' : 'so ver';
 }
 
-function toneForCalendarAccessMode(value: CalendarAccessMode): UiTone {
-  return value === 'read_write' ? 'positive' : 'neutral';
-}
-
 function readableCalendarScopeLabel(scope: CalendarAccessScope): string {
   switch (scope) {
     case 'group':
-      return 'Pessoas normais do grupo';
+      return 'Membros';
     case 'groupOwner':
-      return 'Responsavel deste grupo';
+      return 'Responsavel';
     case 'appOwner':
-      return 'Administrador da app';
+      return 'Administrador';
   }
 }
 
@@ -5691,11 +5668,11 @@ function formatFileSize(value: number): string {
 function describeCalendarScope(scope: CalendarAccessScope): string {
   switch (scope) {
     case 'group':
-      return 'Permissao para quem participa neste grupo sem ser responsavel.';
+      return 'Quem participa neste grupo sem ser responsavel.';
     case 'groupOwner':
-      return 'Permissao para a pessoa responsavel por este grupo.';
+      return 'Pessoa responsavel por este grupo.';
     case 'appOwner':
-      return 'Permissao para o administrador global do LumeHub neste grupo.';
+      return 'Administrador global do LumeHub neste grupo.';
   }
 }
 

@@ -511,6 +511,12 @@ textarea {
   gap: 20px;
 }
 
+.group-access-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 20px;
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -695,7 +701,7 @@ textarea {
 .acl-access-note {
   display: grid;
   gap: 8px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border: 1px solid var(--line-soft);
   border-radius: 16px;
   background: var(--surface-subtle);
@@ -711,44 +717,58 @@ textarea {
   line-height: 1.6;
 }
 
-.acl-access-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.acl-access-card {
+.acl-access-list {
   display: grid;
   gap: 12px;
-  padding: 14px;
+}
+
+.acl-access-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 220px);
+  gap: 16px;
+  align-items: start;
+  padding: 14px 16px;
   border: 1px solid var(--line-soft);
   border-radius: 16px;
   background: var(--surface);
 }
 
-.acl-access-card--read_write {
+.acl-access-row--read_write {
   border-color: rgba(105, 138, 87, 0.24);
   background: linear-gradient(180deg, #ffffff 0%, #f6fbf3 100%);
 }
 
-.acl-access-card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.acl-access-card__copy {
+.acl-access-row__copy {
   min-width: 0;
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
-.acl-access-card__summary {
+.acl-access-row__title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+
+.acl-access-row__summary {
   margin: 0;
   color: var(--ink-soft);
   line-height: 1.55;
   font-size: 0.92rem;
+}
+
+.acl-access-row__control {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.acl-access-row__control .ui-control {
+  min-height: 44px;
+}
+
+.group-access-grid .ui-card--record {
+  min-height: 100%;
 }
 
 .ui-control {
@@ -1353,7 +1373,11 @@ textarea {
     justify-content: flex-start;
   }
 
-  .acl-access-grid {
+  .group-access-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .acl-access-row {
     grid-template-columns: 1fr;
   }
 }
