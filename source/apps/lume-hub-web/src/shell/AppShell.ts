@@ -699,20 +699,24 @@ export class AppShell {
 
         <div class="shell-main">
           <header class="surface shell-header surface--strong">
-              <div class="header-copy">
+            <div class="header-copy">
               <p class="eyebrow">Runtime live</p>
               <h1>${escapeHtml(currentRoute.label)}</h1>
               <p>${escapeHtml(currentRoute.description)}</p>
             </div>
             <div class="header-meta">
               <div class="status-strip">
-                ${renderUiBadge({ label: `Modo ${this.state.mode === 'demo' ? 'preview demo' : 'ligacao live'}`, tone: this.state.mode === 'demo' ? 'warning' : 'positive' })}
-                ${renderUiBadge({ label: renderScreenStateLabel(this.state.screenState), tone: toneFromScreenState(this.state.screenState) })}
-                ${renderUiBadge({ label: `Ultima carga ${formatShortDateTime(this.state.lastLoadedAt)}`, tone: 'neutral' })}
-              </div>
-              <div class="status-strip">
-                ${renderUiBadge({ label: `Data ${formatHeaderDate(new Date())}`, tone: 'neutral' })}
-                ${renderUiBadge({ label: 'Timezone Europe/Lisbon', tone: 'neutral' })}
+                ${renderUiBadge({
+                  label: this.state.mode === 'demo' ? 'Preview demo' : 'Ligado live',
+                  tone: this.state.mode === 'demo' ? 'warning' : 'positive',
+                })}
+                ${this.state.screenState !== 'ready'
+                  ? renderUiBadge({
+                      label: renderScreenStateLabel(this.state.screenState),
+                      tone: toneFromScreenState(this.state.screenState),
+                    })
+                  : ''}
+                ${renderUiBadge({ label: `Atualizado ${formatShortDateTime(this.state.lastLoadedAt)}`, tone: 'neutral' })}
               </div>
             </div>
           </header>
@@ -2402,11 +2406,11 @@ export class AppShell {
                             )
                             .join('')}
                         </div>
-                        <div class="acl-access-note">
-                          <strong>Acesso ao calendario</strong>
-                          <p><strong>So ver</strong> consulta. <strong>Ver e editar</strong> cria, altera e apaga eventos deste grupo.</p>
-                        </div>
                         <div class="acl-access-list">
+                          <div class="acl-access-list__header">
+                            <strong>Calendario do grupo</strong>
+                            <span>Escolhe quem so pode ver e quem tambem pode editar.</span>
+                          </div>
                           ${renderWhatsAppAclField(group.groupJid, 'group', group.calendarAccessPolicy.group)}
                           ${renderWhatsAppAclField(group.groupJid, 'groupOwner', group.calendarAccessPolicy.groupOwner)}
                           ${renderWhatsAppAclField(group.groupJid, 'appOwner', group.calendarAccessPolicy.appOwner)}
@@ -3945,7 +3949,7 @@ export class AppShell {
         : `
           <div class="rail-chat-empty">
             <strong>Sem conversa ainda</strong>
-            <p>Escreve uma pergunta para conversar em global ou simular o contexto de um grupo sem responder no WhatsApp.</p>
+            <p>Escreve uma pergunta e recebe a resposta aqui, sem tocar no WhatsApp.</p>
           </div>
         `;
 
@@ -3954,8 +3958,8 @@ export class AppShell {
       <section class="surface rail-card rail-chat-card">
         <div class="rail-chat-card__header">
           <div>
-            <h3>Chat lateral com a LLM</h3>
-            <p>Conversa aqui na interface. Podes falar em modo global ou como se estivesses num grupo, mas a resposta fica sempre no chat local.</p>
+            <h3>Perguntar sem sair da pagina</h3>
+            <p>Usa o chat para pensar em global ou com contexto de um grupo. A resposta fica sempre aqui na interface.</p>
           </div>
           ${renderUiBadge({
             label: this.state.assistantRailChat.sending ? 'A responder' : `Contexto ${contextLabel}`,
@@ -3966,31 +3970,7 @@ export class AppShell {
         <div class="rail-chat-stack">
           <div class="rail-chat-toolbar">
             <div class="rail-chat-toolbar__group">
-              <span class="eyebrow">Dados</span>
-              <div class="control-row">
-                ${renderUiToggleButton({ label: 'Demo', value: 'demo', active: this.state.mode === 'demo', kind: 'mode' })}
-                ${renderUiToggleButton({ label: 'Live', value: 'live', active: this.state.mode === 'live', kind: 'mode' })}
-              </div>
-            </div>
-            <div class="rail-chat-toolbar__group">
-              <span class="eyebrow">Leitura</span>
-              <div class="control-row">
-                ${renderUiToggleButton({
-                  label: 'Essencial',
-                  value: 'essential',
-                  active: !this.state.advancedDetailsEnabled,
-                  kind: 'details-mode',
-                })}
-                ${renderUiToggleButton({
-                  label: 'Advanced',
-                  value: 'advanced',
-                  active: this.state.advancedDetailsEnabled,
-                  kind: 'details-mode',
-                })}
-              </div>
-            </div>
-            <div class="rail-chat-toolbar__group">
-              <span class="eyebrow">Contexto</span>
+              <span class="eyebrow">Responder como</span>
               <div class="control-row">
                 ${renderUiToggleButton({
                   label: 'Global',
@@ -4021,26 +4001,21 @@ export class AppShell {
                           value: group.groupJid,
                           label: group.preferredSubject,
                         })),
-                        hint: 'A LLM recebe as instrucoes e a knowledge base deste grupo, mas responde aqui no chat lateral.',
+                        hint: 'A LLM usa as instrucoes deste grupo, mas responde aqui no chat.',
                       })
                     : `
                       <div class="rail-chat-inline-note">
                         <strong>${this.state.assistantRailChat.loadingGroups ? 'A carregar grupos...' : 'Sem grupos disponiveis agora'}</strong>
                         <p>${
                           this.state.assistantRailChat.loadingGroups
-                            ? 'Assim que os grupos entrarem no runtime, o seletor fica disponivel.'
-                            : 'Muda para Global ou volta a carregar quando o backend listar grupos conhecidos.'
+                            ? 'O seletor aparece assim que os grupos entrarem no runtime.'
+                            : 'Muda para Global ou volta a carregar quando houver grupos disponiveis.'
                         }</p>
                       </div>
                     `
                 }
               `
-              : `
-                <div class="rail-chat-inline-note">
-                  <strong>Chat global ativo</strong>
-                  <p>A resposta usa contexto geral do produto e da pagina atual, sem assumir um grupo WhatsApp especifico.</p>
-                </div>
-              `
+              : ''
           }
 
           <div class="rail-chat-history" aria-live="polite">
@@ -4057,12 +4032,12 @@ export class AppShell {
                 data-rail-chat-input="true"
                 placeholder="Ex.: Resume o que mudou na Aula 1, ou ajuda-me a responder como se eu estivesse no grupo de Anatomia."
               >${escapeHtml(this.state.assistantRailChat.input)}</textarea>
-              <span class="ui-field__hint">Enter envia. Shift + Enter cria nova linha. Alt + D continua a alternar o modo de leitura.</span>
+              <span class="ui-field__hint">Enter envia. Shift + Enter cria nova linha.</span>
             </label>
 
             <div class="rail-chat-actions">
               ${renderUiActionButton({
-                label: this.state.assistantRailChat.sending ? 'A responder...' : 'Perguntar a LLM',
+                label: this.state.assistantRailChat.sending ? 'A responder...' : 'Enviar pergunta',
                 variant: 'primary',
                 dataAttributes: { 'rail-action': 'send-chat' },
               })}
@@ -5489,19 +5464,15 @@ function renderWhatsAppAclField(
         <span class="acl-access-row__title">${escapeHtml(scopeLabel)}</span>
         <p class="acl-access-row__summary">${escapeHtml(describeCalendarScope(scope))}</p>
       </div>
-      <label class="acl-access-row__control">
-        <span class="ui-field__label">Acesso</span>
-        <select
-          class="ui-control"
-          aria-label="Nivel de acesso para ${escapeHtml(scopeLabel)}"
-          data-whatsapp-acl-group-jid="${escapeHtml(groupJid)}"
-          data-whatsapp-acl-scope="${escapeHtml(scope)}"
-        >
-          <option value="read"${currentValue === 'read' ? ' selected' : ''}>So ver</option>
-          <option value="read_write"${currentValue === 'read_write' ? ' selected' : ''}>Ver e editar</option>
-        </select>
-        <span class="ui-field__hint">${escapeHtml(describeCalendarAccessModeHint(currentValue))}</span>
-      </label>
+      <select
+        class="ui-control acl-access-row__select"
+        aria-label="Nivel de acesso para ${escapeHtml(scopeLabel)}"
+        data-whatsapp-acl-group-jid="${escapeHtml(groupJid)}"
+        data-whatsapp-acl-scope="${escapeHtml(scope)}"
+      >
+        <option value="read"${currentValue === 'read' ? ' selected' : ''}>So ver</option>
+        <option value="read_write"${currentValue === 'read_write' ? ' selected' : ''}>Pode editar</option>
+      </select>
     </div>
   `;
 }
@@ -5564,14 +5535,8 @@ function readableCalendarScopeLabel(scope: CalendarAccessScope): string {
     case 'groupOwner':
       return 'Responsavel';
     case 'appOwner':
-      return 'Administrador';
+      return 'Admin da app';
   }
-}
-
-function describeCalendarAccessModeHint(value: CalendarAccessMode): string {
-  return value === 'read_write'
-    ? 'Pode consultar, criar, alterar e apagar eventos neste calendario.'
-    : 'Pode consultar o calendario, mas nao consegue alterar eventos.';
 }
 
 function readableMediaType(mediaType: MediaAssetSnapshot['mediaType']): string {
@@ -5668,11 +5633,11 @@ function formatFileSize(value: number): string {
 function describeCalendarScope(scope: CalendarAccessScope): string {
   switch (scope) {
     case 'group':
-      return 'Quem participa neste grupo sem ser responsavel.';
+      return 'Pessoas normais deste grupo.';
     case 'groupOwner':
-      return 'Pessoa responsavel por este grupo.';
+      return 'Responsavel local por este grupo.';
     case 'appOwner':
-      return 'Administrador global do LumeHub neste grupo.';
+      return 'Controlo global da aplicacao.';
   }
 }
 
@@ -5799,14 +5764,6 @@ function formatShortDateTime(value: string | null): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
-}
-
-function formatHeaderDate(value: Date): string {
-  return new Intl.DateTimeFormat('pt-PT', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-  }).format(value);
 }
 
 function looksOffline(message: string): boolean {

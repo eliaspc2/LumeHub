@@ -82,10 +82,12 @@ export class AppRouter {
   ) {}
 
   navigation(): readonly NavigationItem[] {
-    return this.routes().map((route) => ({
-      route: route.route,
-      label: route.label,
-    }));
+    return this.routes()
+      .filter((route) => route.route !== '/settings')
+      .map((route) => ({
+        route: route.route,
+        label: route.label,
+      }));
   }
 
   normalizeRoute(rawPath: string): string {
