@@ -1,7 +1,11 @@
 import { AssistantConsoleUiModule } from '@lume-hub/assistant-console';
 import { DashboardUiModule } from '@lume-hub/dashboard';
 import { DeliveryMonitorUiModule } from '@lume-hub/delivery-monitor';
-import type { FrontendApiClient } from '@lume-hub/frontend-api-client';
+import type {
+  FrontendApiClient,
+  GroupContextPreviewSnapshot,
+  GroupIntelligenceSnapshot,
+} from '@lume-hub/frontend-api-client';
 import { GroupDirectoryConsoleUiModule } from '@lume-hub/group-directory-console';
 import type { Person } from '@lume-hub/people-memory';
 import { QueueConsoleUiModule } from '@lume-hub/queue-console';
@@ -26,7 +30,22 @@ export interface WhatsAppManagementPageData {
   readonly people: readonly Person[];
 }
 
+export interface GroupManagementPageData {
+  readonly groups: readonly import('@lume-hub/frontend-api-client').Group[];
+  readonly selectedGroupJid: string | null;
+  readonly previewText: string;
+  readonly intelligence: GroupIntelligenceSnapshot | null;
+  readonly contextPreview: GroupContextPreviewSnapshot | null;
+}
+
 export class AppRouter {
+  private groupManagementSelection: {
+    selectedGroupJid: string | null;
+    previewText: string;
+  } = {
+    selectedGroupJid: null,
+    previewText: 'A Aula 1 mudou?',
+  };
   private readonly dashboard = new DashboardUiModule({
     route: '/today',
     label: 'Hoje',
@@ -168,7 +187,34 @@ export class AppRouter {
         route: this.groupDirectory.config.route,
         label: this.groupDirectory.config.label,
         description: 'Catalogo de grupos, owners e politicas de acesso em linguagem mais humana.',
-        render: async () => this.groupDirectory.render(await this.readQuery('groups', () => this.client.listGroups())),
+        render: async () => {
+          const groups = await this.readQuery('groups', () => this.client.listGroups());
+          const selectedGroupJid =
+            this.groupManagementSelection.selectedGroupJid && groups.some((group) => group.groupJid === this.groupManagementSelection.selectedGroupJid)
+              ? this.groupManagementSelection.selectedGroupJid
+              : groups[0]?.groupJid ?? null;
+          const basePage = this.groupDirectory.render(groups);
+          const intelligence = selectedGroupJid
+            ? await this.client.getGroupIntelligence(selectedGroupJid)
+            : null;
+          const contextPreview =
+            selectedGroupJid && this.groupManagementSelection.previewText.trim().length > 0
+              ? await this.client.previewGroupContext(selectedGroupJid, {
+                  text: this.groupManagementSelection.previewText,
+                })
+              : null;
+
+          return {
+            ...basePage,
+            data: {
+              groups,
+              selectedGroupJid,
+              previewText: this.groupManagementSelection.previewText,
+              intelligence,
+              contextPreview,
+            } satisfies GroupManagementPageData,
+          };
+        },
       },
       {
         route: this.whatsapp.config.route,
@@ -199,6 +245,20 @@ export class AppRouter {
 
   async renderRoute(rawPath: string): Promise<UiPage> {
     return this.resolveRoute(rawPath).render();
+  }
+
+  setGroupManagementSelection(groupJid: string | null): void {
+    this.groupManagementSelection = {
+      ...this.groupManagementSelection,
+      selectedGroupJid: groupJid,
+    };
+  }
+
+  setGroupManagementPreviewText(text: string): void {
+    this.groupManagementSelection = {
+      ...this.groupManagementSelection,
+      previewText: text,
+    };
   }
 
   private async readQuery<T>(key: string, loader: () => Promise<T>): Promise<T> {

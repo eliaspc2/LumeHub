@@ -11,7 +11,10 @@ import type {
   FrontendApiTransport,
   FrontendUiEvent,
   Group,
+  GroupContextPreviewSnapshot,
   GroupCalendarAccessPolicy,
+  GroupIntelligenceSnapshot,
+  GroupKnowledgeDocumentSnapshot,
   GroupOwnerAssignmentInput,
   Instruction,
   LlmChatInput,
@@ -270,6 +273,77 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
 
     if (request.method === 'GET' && pathname === '/api/groups') {
       return this.ok(this.state.groups);
+    }
+
+    const groupIntelligenceMatch = matchParameterizedPath(pathname, '/api/groups/:groupJid/intelligence');
+    const groupInstructionsMatch = matchParameterizedPath(pathname, '/api/groups/:groupJid/llm-instructions');
+    const groupKnowledgeUpsertMatch = matchParameterizedPath(pathname, '/api/groups/:groupJid/knowledge/documents');
+    const groupKnowledgeDeleteMatch = matchParameterizedPath(
+      pathname,
+      '/api/groups/:groupJid/knowledge/documents/:documentId',
+    );
+    const groupContextPreviewMatch = matchParameterizedPath(pathname, '/api/groups/:groupJid/context-preview');
+
+    if (request.method === 'GET' && groupIntelligenceMatch) {
+      return this.ok(buildDemoGroupIntelligenceSnapshot(this.state, groupIntelligenceMatch.groupJid));
+    }
+
+    if (request.method === 'PUT' && groupInstructionsMatch) {
+      const body = request.body as { readonly content?: string };
+      const entry = this.state.groupIntelligenceByGroupJid[groupInstructionsMatch.groupJid];
+
+      if (!entry) {
+        return this.error(404, `Demo group intelligence for ${groupInstructionsMatch.groupJid} not found.`);
+      }
+
+      this.state.groupIntelligenceByGroupJid[groupInstructionsMatch.groupJid] = {
+        ...entry,
+        instructions: typeof body.content === 'string' ? body.content : entry.instructions,
+      };
+      const snapshot = buildDemoGroupIntelligenceSnapshot(this.state, groupInstructionsMatch.groupJid);
+      this.emit('groups.intelligence.instructions.updated', {
+        groupJid: groupInstructionsMatch.groupJid,
+        source: snapshot.instructions.source,
+      });
+      return this.ok(snapshot.instructions);
+    }
+
+    if (request.method === 'POST' && groupKnowledgeUpsertMatch) {
+      const nextDocument = upsertDemoGroupKnowledgeDocument(
+        this.state,
+        groupKnowledgeUpsertMatch.groupJid,
+        request.body as Record<string, unknown>,
+      );
+      this.emit('groups.knowledge.document.updated', {
+        groupJid: groupKnowledgeUpsertMatch.groupJid,
+        documentId: nextDocument.documentId,
+        filePath: nextDocument.filePath,
+      });
+      return this.ok(nextDocument);
+    }
+
+    if (request.method === 'DELETE' && groupKnowledgeDeleteMatch) {
+      const deleted = deleteDemoGroupKnowledgeDocument(
+        this.state,
+        groupKnowledgeDeleteMatch.groupJid,
+        groupKnowledgeDeleteMatch.documentId,
+      );
+      this.emit('groups.knowledge.document.deleted', deleted);
+      return this.ok(deleted);
+    }
+
+    if (request.method === 'POST' && groupContextPreviewMatch) {
+      return this.ok(
+        buildDemoGroupContextPreview(
+          this.state,
+          groupContextPreviewMatch.groupJid,
+          request.body as {
+            readonly text?: string;
+            readonly personId?: string | null;
+            readonly senderDisplayName?: string | null;
+          },
+        ),
+      );
     }
 
     if (request.method === 'GET' && pathname === '/api/people') {
@@ -573,6 +647,7 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
 
 interface DemoState {
   groups: Group[];
+  groupIntelligenceByGroupJid: Record<string, DemoGroupIntelligenceEntry>;
   people: Person[];
   routingRules: SenderAudienceRule[];
   distributions: DistributionSummary[];
@@ -584,6 +659,11 @@ interface DemoState {
   conversationAudit: ConversationAuditRecord[];
   readonly externalPrivateConversations: readonly WhatsAppConversationSummary[];
   settings: SettingsSnapshot;
+}
+
+interface DemoGroupIntelligenceEntry {
+  readonly instructions: string;
+  readonly knowledgeDocuments: GroupKnowledgeDocumentSnapshot[];
 }
 
 function createDemoState(): DemoState {
@@ -1093,8 +1173,11 @@ function createDemoState(): DemoState {
     },
   ];
 
+  const groupIntelligenceByGroupJid = createDemoGroupIntelligence(groups);
+
   return {
     groups,
+    groupIntelligenceByGroupJid,
     people: [
       {
         personId: 'person-ana',
@@ -1166,6 +1249,356 @@ function createDemoState(): DemoState {
       },
     ],
   };
+}
+
+function createDemoGroupIntelligence(groups: readonly Group[]): Record<string, DemoGroupIntelligenceEntry> {
+  const byGroupJid: Record<string, DemoGroupIntelligenceEntry> = {};
+
+  for (const group of groups) {
+    byGroupJid[group.groupJid] = {
+      instructions: buildDemoInstructionsText(group),
+      knowledgeDocuments: buildDemoKnowledgeDocuments(group),
+    };
+  }
+
+  return byGroupJid;
+}
+
+function buildDemoInstructionsText(group: Group): string {
+  return [
+    `# Instrucoes LLM para ${group.preferredSubject}`,
+    '',
+    `- Usa ${group.preferredSubject} como nome canonico deste grupo.`,
+    `- Trata ${group.aliases.join(', ') || 'os aliases conhecidos'} como referencias locais ao mesmo grupo.`,
+    '- Responde com linguagem humana, curta e orientada a proximo passo.',
+    '- Se a referencia a uma aula for ambigua, usa primeiro a knowledge base deste grupo antes de responder.',
+    '- Nunca assumes que Aulas com o mesmo nome noutros grupos significam a mesma coisa aqui.',
+    '',
+  ].join('\n');
+}
+
+function buildDemoKnowledgeDocuments(group: Group): GroupKnowledgeDocumentSnapshot[] {
+  const rootPath = buildDemoGroupKnowledgeRootPath(group.groupJid);
+
+  const documentsByGroupJid: Record<string, GroupKnowledgeDocumentSnapshot[]> = {
+    '120363407086801381@g.us': [
+      createDemoKnowledgeDocument(group.groupJid, rootPath, {
+        documentId: 'ballet-aula-1',
+        filePath: 'aulas/aula-1.md',
+        title: 'Aula 1 de Ballet Iniciacao',
+        summary: 'Nesta turma, Aula 1 refere-se ao bloco tecnico base.',
+        aliases: ['Aula 1', 'Ballet Basico'],
+        tags: ['ballet', 'iniciacao'],
+        content:
+          '# Aula 1\n\nA Aula 1 desta turma e o bloco tecnico base. Confirmar sala 2 e levar musica de aquecimento.\n',
+      }),
+      createDemoKnowledgeDocument(group.groupJid, rootPath, {
+        documentId: 'ballet-recados',
+        filePath: 'operacao/recados.md',
+        title: 'Recados frequentes',
+        summary: 'Padroes para faltas, troca de sala e material.',
+        aliases: ['recados'],
+        tags: ['operacao'],
+        content:
+          '# Recados\n\nQuando houver troca de sala, responder de forma curta e pedir confirmacao de leitura.\n',
+      }),
+    ],
+    '120363407086801382@g.us': [
+      createDemoKnowledgeDocument(group.groupJid, rootPath, {
+        documentId: 'contemporaneo-aula-1',
+        filePath: 'aulas/aula-1.md',
+        title: 'Aula 1 de Contemporaneo Jovens',
+        summary: 'Aqui, Aula 1 refere-se ao ensaio coreografico inicial.',
+        aliases: ['Aula 1', 'Contemporaneo'],
+        tags: ['contemporaneo', 'jovens'],
+        content:
+          '# Aula 1\n\nA Aula 1 deste grupo e o ensaio coreografico inicial. Confirmar figurino leve e chegada 10 minutos antes.\n',
+      }),
+    ],
+    '120363407086801383@g.us': [
+      createDemoKnowledgeDocument(group.groupJid, rootPath, {
+        documentId: 'pilates-material',
+        filePath: 'operacao/material.md',
+        title: 'Material de Pilates Adultos',
+        summary: 'Check-list operacional para aulas com reforco.',
+        aliases: ['material'],
+        tags: ['pilates', 'operacao'],
+        content:
+          '# Material\n\nLevar tapetes extra, reforcar toalha e lembrar os participantes de confirmar presenca.\n',
+      }),
+    ],
+  };
+
+  return documentsByGroupJid[group.groupJid] ?? [];
+}
+
+function createDemoKnowledgeDocument(
+  groupJid: string,
+  rootPath: string,
+  input: {
+    readonly documentId: string;
+    readonly filePath: string;
+    readonly title: string;
+    readonly summary: string | null;
+    readonly aliases: readonly string[];
+    readonly tags: readonly string[];
+    readonly content: string;
+  },
+): GroupKnowledgeDocumentSnapshot {
+  return {
+    groupJid,
+    documentId: input.documentId,
+    filePath: input.filePath,
+    absoluteFilePath: `${rootPath}/${input.filePath}`,
+    title: input.title,
+    summary: input.summary,
+    aliases: input.aliases,
+    tags: input.tags,
+    enabled: true,
+    exists: true,
+    content: input.content,
+  };
+}
+
+function buildDemoGroupIntelligenceSnapshot(state: DemoState, groupJid: string): GroupIntelligenceSnapshot {
+  const entry = state.groupIntelligenceByGroupJid[groupJid] ?? {
+    instructions: '',
+    knowledgeDocuments: [],
+  };
+  const instructions = entry.instructions.trim();
+  const primaryFilePath = buildDemoGroupInstructionsPath(groupJid);
+
+  return {
+    groupJid,
+    instructions: {
+      primaryFilePath,
+      legacyFilePath: buildDemoGroupLegacyPromptPath(groupJid),
+      resolvedFilePath: instructions.length > 0 ? primaryFilePath : null,
+      exists: instructions.length > 0,
+      source: instructions.length > 0 ? 'llm_instructions' : 'missing',
+      content: instructions.length > 0 ? entry.instructions : null,
+    },
+    knowledge: {
+      indexFilePath: buildDemoGroupKnowledgeIndexPath(groupJid),
+      exists: entry.knowledgeDocuments.length > 0,
+      documents: [...entry.knowledgeDocuments].sort((left, right) => left.title.localeCompare(right.title, 'pt-PT')),
+    },
+  };
+}
+
+function upsertDemoGroupKnowledgeDocument(
+  state: DemoState,
+  groupJid: string,
+  body: Record<string, unknown>,
+): GroupKnowledgeDocumentSnapshot {
+  const entry = state.groupIntelligenceByGroupJid[groupJid] ?? {
+    instructions: '',
+    knowledgeDocuments: [],
+  };
+  const documentId = readDemoRequiredString(body.documentId, 'documentId');
+  const filePath = readDemoRequiredString(body.filePath, 'filePath');
+  const nextDocument: GroupKnowledgeDocumentSnapshot = {
+    groupJid,
+    documentId,
+    filePath,
+    absoluteFilePath: `${buildDemoGroupKnowledgeRootPath(groupJid)}/${filePath}`,
+    title: readDemoRequiredString(body.title, 'title'),
+    summary: body.summary === null ? null : readDemoOptionalString(body.summary),
+    aliases: readDemoStringArray(body.aliases),
+    tags: readDemoStringArray(body.tags),
+    enabled: typeof body.enabled === 'boolean' ? body.enabled : true,
+    exists: true,
+    content: ensureDemoTrailingNewline(readDemoRequiredString(body.content, 'content')),
+  };
+  const nextDocuments = entry.knowledgeDocuments.filter((document) => document.documentId !== nextDocument.documentId);
+  nextDocuments.push(nextDocument);
+  nextDocuments.sort((left, right) => left.title.localeCompare(right.title, 'pt-PT'));
+  state.groupIntelligenceByGroupJid[groupJid] = {
+    ...entry,
+    knowledgeDocuments: nextDocuments,
+  };
+  return nextDocument;
+}
+
+function deleteDemoGroupKnowledgeDocument(
+  state: DemoState,
+  groupJid: string,
+  documentId: string,
+): {
+  readonly groupJid: string;
+  readonly documentId: string;
+  readonly filePath: string | null;
+  readonly deleted: boolean;
+} {
+  const entry = state.groupIntelligenceByGroupJid[groupJid] ?? {
+    instructions: '',
+    knowledgeDocuments: [],
+  };
+  const target = entry.knowledgeDocuments.find((document) => document.documentId === documentId) ?? null;
+
+  if (!target) {
+    return {
+      groupJid,
+      documentId,
+      filePath: null,
+      deleted: false,
+    };
+  }
+
+  state.groupIntelligenceByGroupJid[groupJid] = {
+    ...entry,
+    knowledgeDocuments: entry.knowledgeDocuments.filter((document) => document.documentId !== documentId),
+  };
+
+  return {
+    groupJid,
+    documentId,
+    filePath: target.filePath,
+    deleted: true,
+  };
+}
+
+function buildDemoGroupContextPreview(
+  state: DemoState,
+  groupJid: string,
+  body: {
+    readonly text?: string;
+    readonly personId?: string | null;
+    readonly senderDisplayName?: string | null;
+  },
+): GroupContextPreviewSnapshot {
+  const group = state.groups.find((candidate) => candidate.groupJid === groupJid);
+
+  if (!group) {
+    throw new Error(`Demo group ${groupJid} not found.`);
+  }
+
+  const intelligence = buildDemoGroupIntelligenceSnapshot(state, groupJid);
+  const query = typeof body.text === 'string' ? body.text.trim() : '';
+  const matchedTerms = tokenizeDemoQuery(query);
+  const groupKnowledgeSnippets = intelligence.knowledge.documents
+    .filter((document) => document.enabled && document.exists && document.content)
+    .map((document) => {
+      const haystack = `${document.title}\n${document.summary ?? ''}\n${document.aliases.join(' ')}\n${document.tags.join(' ')}\n${document.content ?? ''}`;
+      const documentTerms = matchedTerms.filter((term) => haystack.toLowerCase().includes(term));
+      return {
+        document,
+        score: documentTerms.length,
+        matchedTerms: documentTerms,
+      };
+    })
+    .filter((candidate) => candidate.score > 0)
+    .sort((left, right) => right.score - left.score || left.document.title.localeCompare(right.document.title, 'pt-PT'))
+    .slice(0, 3)
+    .map((candidate) => ({
+      groupJid,
+      documentId: candidate.document.documentId,
+      title: candidate.document.title,
+      filePath: candidate.document.filePath,
+      absoluteFilePath: candidate.document.absoluteFilePath,
+      score: candidate.score,
+      excerpt: buildDemoExcerpt(candidate.document.content ?? '', candidate.matchedTerms[0] ?? null),
+      matchedTerms: candidate.matchedTerms,
+      source: 'group_knowledge' as const,
+    }));
+  const person = body.personId ? state.people.find((candidate) => candidate.personId === body.personId) ?? null : null;
+
+  return {
+    chatJid: groupJid,
+    chatType: 'group',
+    currentText: query,
+    personId: person?.personId ?? body.personId ?? null,
+    senderDisplayName:
+      (typeof body.senderDisplayName === 'string' && body.senderDisplayName.trim().length > 0
+        ? body.senderDisplayName.trim()
+        : null) ?? person?.displayName ?? null,
+    groupJid,
+    group: {
+      groupJid: group.groupJid,
+      preferredSubject: group.preferredSubject,
+      aliases: group.aliases,
+      courseId: group.courseId,
+    },
+    groupInstructions: intelligence.instructions.content,
+    groupInstructionsSource: intelligence.instructions.source,
+    groupKnowledgeSnippets,
+    groupPolicy: {
+      aliases: group.aliases,
+      calendarAccessPolicy: group.calendarAccessPolicy,
+      ownerPersonIds: group.groupOwners.map((owner) => owner.personId),
+    },
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+function buildDemoExcerpt(content: string, focusTerm: string | null): string {
+  const normalized = content.replace(/\s+/gu, ' ').trim();
+
+  if (!focusTerm) {
+    return normalized.slice(0, 180);
+  }
+
+  const lower = normalized.toLowerCase();
+  const index = lower.indexOf(focusTerm.toLowerCase());
+
+  if (index < 0) {
+    return normalized.slice(0, 180);
+  }
+
+  const start = Math.max(0, index - 42);
+  const end = Math.min(normalized.length, index + 138);
+  return normalized.slice(start, end).trim();
+}
+
+function tokenizeDemoQuery(query: string): readonly string[] {
+  return [...new Set(query.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((token) => token.length >= 3))];
+}
+
+function buildDemoGroupRootPath(groupJid: string): string {
+  return `/home/eliaspc/Documentos/lume-hub/runtime/demo-data/groups/${encodeURIComponent(groupJid)}`;
+}
+
+function buildDemoGroupInstructionsPath(groupJid: string): string {
+  return `${buildDemoGroupRootPath(groupJid)}/llm/instructions.md`;
+}
+
+function buildDemoGroupLegacyPromptPath(groupJid: string): string {
+  return `${buildDemoGroupRootPath(groupJid)}/prompt.md`;
+}
+
+function buildDemoGroupKnowledgeRootPath(groupJid: string): string {
+  return `${buildDemoGroupRootPath(groupJid)}/knowledge`;
+}
+
+function buildDemoGroupKnowledgeIndexPath(groupJid: string): string {
+  return `${buildDemoGroupKnowledgeRootPath(groupJid)}/index.json`;
+}
+
+function readDemoRequiredString(value: unknown, fieldName: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`Demo field '${fieldName}' must be a non-empty string.`);
+  }
+
+  return value.trim();
+}
+
+function readDemoOptionalString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function readDemoStringArray(value: unknown): readonly string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((entry): entry is string => typeof entry === 'string')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+function ensureDemoTrailingNewline(value: string): string {
+  return value.endsWith('\n') ? value : `${value}\n`;
 }
 
 function buildDashboardSnapshot(state: DemoState): DashboardSnapshot {

@@ -10,6 +10,7 @@ import {
   type CommandsPolicySettings,
   type WhatsAppSettings,
 } from '@lume-hub/admin-config';
+import type { AssistantContextModuleContract } from '@lume-hub/assistant-context';
 import type { AudienceRoutingModuleContract } from '@lume-hub/audience-routing';
 import type { CodexAuthRouterModuleContract } from '@lume-hub/codex-auth-router';
 import type { ConversationAuditRecord } from '@lume-hub/conversation';
@@ -18,6 +19,7 @@ import {
   type GroupCalendarAccessPolicy,
   type GroupDirectoryModuleContract,
 } from '@lume-hub/group-directory';
+import type { GroupKnowledgeModuleContract } from '@lume-hub/group-knowledge';
 import type { HealthMonitorModuleContract } from '@lume-hub/health-monitor';
 import type { HostLifecycleModuleContract } from '@lume-hub/host-lifecycle';
 import type { Instruction, InstructionQueueModuleContract } from '@lume-hub/instruction-queue';
@@ -76,6 +78,7 @@ export interface UiEventPublisherLike {
 export interface HttpApiModules {
   readonly adminConfig: Pick<AdminConfigModuleContract, 'getSettings' | 'updateUiSettings'> &
     Partial<Pick<AdminConfigModuleContract, 'updateCommandsSettings' | 'updateLlmSettings' | 'updateWhatsAppSettings'>>;
+  readonly assistantContext?: Pick<AssistantContextModuleContract, 'buildChatContext'>;
   readonly audienceRouting: Pick<
     AudienceRoutingModuleContract,
     'listSenderAudienceRules' | 'upsertSenderAudienceRule' | 'previewDistributionPlan'
@@ -86,8 +89,9 @@ export interface HttpApiModules {
   readonly codexAuthRouter?: Pick<CodexAuthRouterModuleContract, 'forceSwitch' | 'getStatus'>;
   readonly groupDirectory: Pick<
     GroupDirectoryModuleContract,
-    'listGroups' | 'replaceGroupOwners' | 'updateCalendarAccessPolicy'
+    'listGroups' | 'replaceGroupOwners' | 'updateCalendarAccessPolicy' | 'getGroupLlmInstructions' | 'updateGroupLlmInstructions'
   >;
+  readonly groupKnowledge?: Pick<GroupKnowledgeModuleContract, 'getIndex' | 'upsertDocument' | 'deleteDocument'>;
   readonly healthMonitor: Pick<HealthMonitorModuleContract, 'getHealthSnapshot' | 'getReadiness'>;
   readonly hostLifecycle: Pick<
     HostLifecycleModuleContract,
@@ -526,6 +530,67 @@ export class RouteRegistrar {
       method: 'GET',
       path: '/api/groups',
       handler: async () => this.modules.groupDirectory.listGroups(),
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/groups/:groupJid/intelligence',
+      handler: async (context) => this.getGroupIntelligenceSnapshot(context.params.groupJid),
+    });
+    server.registerRoute({
+      method: 'PUT',
+      path: '/api/groups/:groupJid/llm-instructions',
+      handler: async (context) => {
+        const instructions = await this.modules.groupDirectory.updateGroupLlmInstructions(
+          context.params.groupJid,
+          readGroupInstructionsBody(context.body),
+        );
+        this.publish('groups.intelligence.instructions.updated', {
+          groupJid: context.params.groupJid,
+          source: instructions.source,
+          resolvedFilePath: instructions.resolvedFilePath,
+        });
+        return instructions;
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/groups/:groupJid/knowledge/documents',
+      handler: async (context) => {
+        if (!this.modules.groupKnowledge) {
+          throw new ApiError(404, 'Group knowledge is not configured.');
+        }
+
+        const document = await this.modules.groupKnowledge.upsertDocument(
+          readGroupKnowledgeDocumentBody(context.body, context.params.groupJid),
+        );
+        this.publish('groups.knowledge.document.updated', {
+          groupJid: context.params.groupJid,
+          documentId: document.documentId,
+          filePath: document.filePath,
+        });
+        return document;
+      },
+    });
+    server.registerRoute({
+      method: 'DELETE',
+      path: '/api/groups/:groupJid/knowledge/documents/:documentId',
+      handler: async (context) => {
+        if (!this.modules.groupKnowledge) {
+          throw new ApiError(404, 'Group knowledge is not configured.');
+        }
+
+        const result = await this.modules.groupKnowledge.deleteDocument(
+          context.params.groupJid,
+          context.params.documentId,
+        );
+        this.publish('groups.knowledge.document.deleted', result);
+        return result;
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/groups/:groupJid/context-preview',
+      handler: async (context) => this.getGroupContextPreview(context.params.groupJid, context.body),
     });
     server.registerRoute({
       method: 'GET',
@@ -1062,6 +1127,51 @@ export class RouteRegistrar {
     };
   }
 
+  private async getGroupIntelligenceSnapshot(groupJid: string) {
+    if (!this.modules.groupKnowledge) {
+      throw new ApiError(404, 'Group knowledge is not configured.');
+    }
+
+    const [instructions, knowledge] = await Promise.all([
+      this.modules.groupDirectory.getGroupLlmInstructions(groupJid),
+      this.modules.groupKnowledge.getIndex(groupJid),
+    ]);
+
+    return {
+      groupJid,
+      instructions,
+      knowledge: {
+        indexFilePath: knowledge.indexFilePath,
+        exists: knowledge.exists,
+        documents: knowledge.documents,
+      },
+    };
+  }
+
+  private async getGroupContextPreview(groupJid: string, body: unknown) {
+    if (!this.modules.assistantContext) {
+      throw new ApiError(404, 'Assistant context is not configured.');
+    }
+
+    const payload = readGroupContextPreviewBody(body, groupJid);
+    const preview = await this.modules.assistantContext.buildChatContext(payload);
+
+    return {
+      chatJid: preview.chatJid,
+      chatType: preview.chatType,
+      currentText: preview.currentText,
+      personId: preview.personId,
+      senderDisplayName: preview.senderDisplayName,
+      groupJid: preview.groupJid,
+      group: preview.group,
+      groupInstructions: preview.groupInstructions,
+      groupInstructionsSource: preview.groupInstructionsSource,
+      groupKnowledgeSnippets: preview.groupKnowledgeSnippets,
+      groupPolicy: preview.groupPolicy,
+      generatedAt: preview.generatedAt,
+    };
+  }
+
   private async getWhatsAppWorkspaceSnapshot() {
     const [adminSettingsInput, groups, people, hostStatus, authRouterStatus, runtime] = await Promise.all([
       this.modules.adminConfig.getSettings(),
@@ -1549,6 +1659,69 @@ function readCalendarAccessBody(body: unknown): Partial<GroupCalendarAccessPolic
   }
 
   return update;
+}
+
+function readGroupInstructionsBody(body: unknown): { readonly content: string } {
+  const payload = readBodyObject(body, 'Group instructions payload must be an object.');
+
+  return {
+    content: readRequiredStringValue(payload.content, 'content'),
+  };
+}
+
+function readGroupKnowledgeDocumentBody(
+  body: unknown,
+  groupJid: string,
+): {
+  readonly groupJid: string;
+  readonly documentId: string;
+  readonly filePath: string;
+  readonly title: string;
+  readonly summary?: string | null;
+  readonly aliases?: readonly string[];
+  readonly tags?: readonly string[];
+  readonly enabled?: boolean;
+  readonly content: string;
+} {
+  const payload = readBodyObject(body, 'Group knowledge document payload must be an object.');
+
+  return {
+    groupJid,
+    documentId: readRequiredStringValue(payload.documentId, 'documentId'),
+    filePath: readRequiredStringValue(payload.filePath, 'filePath'),
+    title: readRequiredStringValue(payload.title, 'title'),
+    summary:
+      payload.summary === null
+        ? null
+        : readOptionalTrimmedStringValue(payload.summary, 'summary'),
+    aliases: readOptionalStringArrayValue(payload.aliases, 'aliases'),
+    tags: readOptionalStringArrayValue(payload.tags, 'tags'),
+    enabled: readOptionalBooleanValue(payload.enabled, 'enabled'),
+    content: readRequiredStringValue(payload.content, 'content'),
+  };
+}
+
+function readGroupContextPreviewBody(
+  body: unknown,
+  groupJid: string,
+): {
+  readonly chatJid: string;
+  readonly chatType: 'group';
+  readonly groupJid: string;
+  readonly text: string;
+  readonly personId?: string | null;
+  readonly senderDisplayName?: string | null;
+} {
+  const payload = readBodyObject(body, 'Group context preview payload must be an object.');
+
+  return {
+    chatJid: groupJid,
+    chatType: 'group',
+    groupJid,
+    text: readRequiredStringValue(payload.text, 'text'),
+    personId: readOptionalTrimmedStringValue(payload.personId, 'personId') ?? null,
+    senderDisplayName: readOptionalTrimmedStringValue(payload.senderDisplayName, 'senderDisplayName') ?? null,
+  };
 }
 
 function readCommandsSettingsBody(body: unknown): Partial<CommandsPolicySettings> {

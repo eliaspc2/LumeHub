@@ -210,6 +210,78 @@ export interface WhatsAppWorkspaceSnapshot {
   };
 }
 
+export interface GroupKnowledgeDocumentSnapshot {
+  readonly groupJid: string;
+  readonly documentId: string;
+  readonly filePath: string;
+  readonly absoluteFilePath: string;
+  readonly title: string;
+  readonly summary: string | null;
+  readonly aliases: readonly string[];
+  readonly tags: readonly string[];
+  readonly enabled: boolean;
+  readonly exists: boolean;
+  readonly content: string | null;
+}
+
+export interface GroupIntelligenceSnapshot {
+  readonly groupJid: string;
+  readonly instructions: {
+    readonly primaryFilePath: string;
+    readonly legacyFilePath: string;
+    readonly resolvedFilePath: string | null;
+    readonly exists: boolean;
+    readonly source: 'llm_instructions' | 'legacy_prompt' | 'missing';
+    readonly content: string | null;
+  };
+  readonly knowledge: {
+    readonly indexFilePath: string;
+    readonly exists: boolean;
+    readonly documents: readonly GroupKnowledgeDocumentSnapshot[];
+  };
+}
+
+export interface GroupKnowledgeDocumentUpsertPayload {
+  readonly documentId: string;
+  readonly filePath: string;
+  readonly title: string;
+  readonly summary?: string | null;
+  readonly aliases?: readonly string[];
+  readonly tags?: readonly string[];
+  readonly enabled?: boolean;
+  readonly content: string;
+}
+
+export interface GroupContextPreviewSnapshot {
+  readonly chatJid: string;
+  readonly chatType: 'group' | 'private';
+  readonly currentText: string;
+  readonly personId: string | null;
+  readonly senderDisplayName: string | null;
+  readonly groupJid: string | null;
+  readonly group: {
+    readonly groupJid: string;
+    readonly preferredSubject: string;
+    readonly aliases: readonly string[];
+    readonly courseId: string | null;
+  } | null;
+  readonly groupInstructions: string | null;
+  readonly groupInstructionsSource: 'llm_instructions' | 'legacy_prompt' | 'missing';
+  readonly groupKnowledgeSnippets: readonly {
+    readonly groupJid: string;
+    readonly documentId: string;
+    readonly title: string;
+    readonly filePath: string;
+    readonly absoluteFilePath: string;
+    readonly score: number;
+    readonly excerpt: string;
+    readonly matchedTerms: readonly string[];
+    readonly source: 'group_knowledge';
+  }[];
+  readonly groupPolicy: Record<string, unknown> | null;
+  readonly generatedAt: string;
+}
+
 export interface DistributionExecutionResult {
   readonly plan: DistributionPlan;
   readonly instruction: DistributionSummary;
@@ -313,6 +385,69 @@ export class FrontendApiClient {
         method: 'PATCH',
         path: `/api/groups/${encodeURIComponent(groupJid)}/calendar-access`,
         body: update,
+      }),
+    );
+  }
+
+  async getGroupIntelligence(groupJid: string): Promise<GroupIntelligenceSnapshot> {
+    return this.expectOk(
+      await this.transport.request<GroupIntelligenceSnapshot>({
+        method: 'GET',
+        path: `/api/groups/${encodeURIComponent(groupJid)}/intelligence`,
+      }),
+    );
+  }
+
+  async updateGroupLlmInstructions(groupJid: string, content: string): Promise<GroupIntelligenceSnapshot['instructions']> {
+    return this.expectOk(
+      await this.transport.request<GroupIntelligenceSnapshot['instructions']>({
+        method: 'PUT',
+        path: `/api/groups/${encodeURIComponent(groupJid)}/llm-instructions`,
+        body: {
+          content,
+        },
+      }),
+    );
+  }
+
+  async upsertGroupKnowledgeDocument(
+    groupJid: string,
+    input: GroupKnowledgeDocumentUpsertPayload,
+  ): Promise<GroupKnowledgeDocumentSnapshot> {
+    return this.expectOk(
+      await this.transport.request<GroupKnowledgeDocumentSnapshot>({
+        method: 'POST',
+        path: `/api/groups/${encodeURIComponent(groupJid)}/knowledge/documents`,
+        body: input,
+      }),
+    );
+  }
+
+  async deleteGroupKnowledgeDocument(
+    groupJid: string,
+    documentId: string,
+  ): Promise<{ readonly deleted: boolean; readonly documentId: string; readonly filePath: string | null }> {
+    return this.expectOk(
+      await this.transport.request<{ readonly deleted: boolean; readonly documentId: string; readonly filePath: string | null }>({
+        method: 'DELETE',
+        path: `/api/groups/${encodeURIComponent(groupJid)}/knowledge/documents/${encodeURIComponent(documentId)}`,
+      }),
+    );
+  }
+
+  async previewGroupContext(
+    groupJid: string,
+    input: {
+      readonly text: string;
+      readonly personId?: string | null;
+      readonly senderDisplayName?: string | null;
+    },
+  ): Promise<GroupContextPreviewSnapshot> {
+    return this.expectOk(
+      await this.transport.request<GroupContextPreviewSnapshot>({
+        method: 'POST',
+        path: `/api/groups/${encodeURIComponent(groupJid)}/context-preview`,
+        body: input,
       }),
     );
   }

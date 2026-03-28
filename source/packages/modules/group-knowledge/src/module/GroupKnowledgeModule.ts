@@ -39,6 +39,14 @@ export class GroupKnowledgeModule extends BaseModule implements GroupKnowledgeMo
     return this.service.listDocuments(groupJid);
   }
 
+  async upsertDocument(input: Parameters<GroupKnowledgeService['upsertDocument']>[0]) {
+    return this.service.upsertDocument(input);
+  }
+
+  async deleteDocument(groupJid: string, documentId: string) {
+    return this.service.deleteDocument(groupJid, documentId);
+  }
+
   async retrieveRelevantSnippets(input: Parameters<GroupKnowledgeService['retrieveRelevantSnippets']>[0]) {
     return this.service.retrieveRelevantSnippets(input);
   }

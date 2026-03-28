@@ -40,6 +40,25 @@ export interface GroupKnowledgeRetrievalInput {
   readonly limit?: number;
 }
 
+export interface GroupKnowledgeDocumentUpsertInput {
+  readonly groupJid: string;
+  readonly documentId: string;
+  readonly filePath: string;
+  readonly title: string;
+  readonly summary?: string | null;
+  readonly aliases?: readonly string[];
+  readonly tags?: readonly string[];
+  readonly enabled?: boolean;
+  readonly content: string;
+}
+
+export interface GroupKnowledgeDocumentDeleteResult {
+  readonly groupJid: string;
+  readonly documentId: string;
+  readonly filePath: string | null;
+  readonly deleted: boolean;
+}
+
 export interface GroupKnowledgeSnippet {
   readonly groupJid: string;
   readonly documentId: string;

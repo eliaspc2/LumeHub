@@ -344,6 +344,7 @@ export class ModuleLoader {
     const httpServer = new FastifyHttpServer({
       modules: {
         adminConfig: adminConfigModule,
+        assistantContext: assistantContextModule,
         audienceRouting: audienceRoutingModule,
         conversationLogs: {
           readRecent: async (limit) => {
@@ -353,6 +354,7 @@ export class ModuleLoader {
         },
         codexAuthRouter: codexAuthRouterModule,
         groupDirectory: groupDirectoryModule,
+        groupKnowledge: groupKnowledgeModule,
         healthMonitor: healthMonitorModule,
         hostLifecycle: hostLifecycleModule,
         instructionQueue: instructionQueueModule,

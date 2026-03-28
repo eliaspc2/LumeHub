@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 
 import { GroupPathResolver } from '@lume-hub/persistence-group-files';
 
@@ -184,6 +185,16 @@ export class GroupDirectoryService {
     };
   }
 
+  async updateGroupLlmInstructions(
+    groupJid: string,
+    input: { readonly content: string },
+  ): Promise<GroupLlmInstructionsDocument> {
+    const workspace = await this.getGroupWorkspace(groupJid);
+    await mkdir(dirname(workspace.llmInstructionsPath), { recursive: true });
+    await writeFile(workspace.llmInstructionsPath, ensureTrailingNewline(input.content), 'utf8');
+    return this.getGroupLlmInstructions(groupJid);
+  }
+
   async getGroupPrompt(groupJid: string): Promise<GroupPromptDocument> {
     const workspace = await this.getGroupWorkspace(groupJid);
 
@@ -245,4 +256,9 @@ function normaliseKey(value: string): string {
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error;
+}
+
+function ensureTrailingNewline(value: string): string {
+  const trimmed = value.replace(/\r\n/gu, '\n');
+  return trimmed.endsWith('\n') ? trimmed : `${trimmed}\n`;
 }

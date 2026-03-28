@@ -9,7 +9,7 @@ Objetivo:
 ## Resumo executivo
 
 Conclusao curta:
-- as `Wave 0` a `Wave 26` ficaram executadas e validadas
+- as `Wave 0` a `Wave 27` ficaram executadas e validadas
 - o canal WhatsApp live ficou fechado com QR, descoberta e envio observavel
 - o pipeline conversacional live e os providers LLM reais ficaram integrados
 - a API operacional principal e o `weekly-planner` real ficaram fechados
@@ -18,6 +18,7 @@ Conclusao curta:
 - a partir de `2026-03-28` abriu uma nova ronda de feature para inteligencia LLM por grupo
 - a `Wave 25` ja fechou o storage canonico com `llm/instructions.md`, `knowledge/` e fallback legacy para `prompt.md`
 - a `Wave 26` ja fechou a knowledge base por grupo com retrieval isolado no `assistant-context`
+- a `Wave 27` ja fechou a API e a UI para gerir instrucoes, documentos e preview de contexto por grupo
 
 Em particular, ja nao faz sentido falar de:
 
@@ -56,22 +57,13 @@ As seguintes areas existem com base razoavel:
 
 ## Gaps ativos da ronda nova
 
-### 1. Falta API/UI de operacao para essa inteligencia de grupo
-
-Estado atual:
-- nao ha editor de instrucoes LLM por grupo
-- nao ha gestao de documentos de conhecimento por grupo
-- nao ha preview claro do contexto que segue para a LLM
-
-Impacto:
-- o operador ainda teria de mexer manualmente em ficheiros para gerir esta camada
-
-### 2. Falta uso live auditavel dessa memoria de grupo
+### 1. Falta uso live auditavel dessa memoria de grupo
 
 Estado atual:
 - o `assistant-context` injeta `groupPrompt` e `groupPolicy`
 - a fonte canonica de instrucoes do grupo ja existe
 - a knowledge base por grupo ja existe com retrieval isolado
+- a API e a UI de operacao desta camada ja existem
 - mas nao existe auditoria completa e visivel de uso dessa memoria em conversa live e scheduling
 
 Impacto:
@@ -124,7 +116,7 @@ Regra daqui para a frente:
 Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
 - sim
 - para a ronda anterior, sim
-- mas existe agora uma ronda nova aberta para inteligencia LLM por grupo
+- mas existe agora uma ronda nova aberta para uso live auditavel da inteligencia LLM por grupo
 
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
 - para o runtime operacional base, sim

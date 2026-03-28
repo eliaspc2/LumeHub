@@ -10,44 +10,10 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 26` ja foram executadas e validadas.
-O runtime `Live` atual continua funcional, mas foi aberta uma nova ronda para memoria e instrucoes LLM por grupo.
+As `Wave 0` a `Wave 27` ja foram executadas e validadas.
+O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ja fechou storage, retrieval e operacao por UI.
 
 ## Ronda ativa
-
-### Wave 27 - API e UI para gerir instrucoes e conhecimento por grupo
-
-Objetivo:
-- permitir ao operador editar instrucoes LLM e knowledge base por grupo sem mexer manualmente em ficheiros
-
-Entregaveis:
-- endpoints para:
-  - ler/escrever `llm/instructions.md`
-  - listar/adicionar/editar/remover docs da knowledge base do grupo
-  - preview do contexto efetivo do grupo
-- UI no frontend para:
-  - editar instrucoes LLM por grupo
-  - gerir knowledge docs por grupo
-  - ver preview do contexto que segue para a LLM
-
-Criterios de aceitacao:
-- um app owner consegue configurar tudo pela UI
-- a UI deixa claro que estas instrucoes sao locais ao grupo
-- fica visivel que grupos diferentes podem ter regras semanticas diferentes
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave27`
-
-Melhor momento para testar:
-- aqui, porque e o primeiro ponto em que a feature fica verdadeiramente utilizavel por operador
-
-O que testar:
-- editar instrucoes LLM de um grupo
-- criar e apagar docs de knowledge base
-- abrir preview de contexto
-- confirmar em browser headless que as paginas novas montam sem erros
 
 ### Wave 28 - Uso live da memoria de grupo no assistente e scheduling
 

@@ -1,9 +1,11 @@
-import { readFile } from 'node:fs/promises';
-import { resolve, sep } from 'node:path';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { dirname, resolve, sep } from 'node:path';
 
 import type { GroupDirectoryModuleContract } from '@lume-hub/group-directory';
 
 import type {
+  GroupKnowledgeDocumentDeleteResult,
+  GroupKnowledgeDocumentUpsertInput,
   GroupKnowledgeDocument,
   GroupKnowledgeIndexDocument,
   GroupKnowledgeIndexFile,
@@ -45,6 +47,83 @@ export class GroupKnowledgeRepository {
         ),
       ),
     };
+  }
+
+  async upsertDocument(input: GroupKnowledgeDocumentUpsertInput): Promise<GroupKnowledgeDocument> {
+    const workspace = await this.groupDirectory.getGroupKnowledgeWorkspace(input.groupJid);
+    const currentIndex = await this.readRawIndex(input.groupJid, workspace.indexPath);
+    const record = sanitiseIndexRecord({
+      documentId: input.documentId,
+      filePath: input.filePath,
+      title: input.title,
+      summary: input.summary ?? null,
+      aliases: input.aliases ?? [],
+      tags: input.tags ?? [],
+      enabled: input.enabled ?? true,
+    });
+    const nextRecords = currentIndex.documents.filter((candidate) => candidate.documentId !== record.documentId);
+    nextRecords.push(record);
+    nextRecords.sort((left, right) => left.title.localeCompare(right.title, 'pt-PT'));
+
+    const absoluteFilePath = resolveKnowledgePath(workspace.rootPath, record.filePath);
+    await mkdir(resolve(workspace.rootPath), { recursive: true });
+    await mkdir(dirname(absoluteFilePath), { recursive: true });
+    await writeFile(absoluteFilePath, ensureTrailingNewline(input.content), 'utf8');
+    await this.writeIndex(workspace.indexPath, {
+      schemaVersion: 1,
+      documents: nextRecords,
+    });
+
+    return this.readDocument(input.groupJid, workspace.rootPath, record);
+  }
+
+  async deleteDocument(groupJid: string, documentId: string): Promise<GroupKnowledgeDocumentDeleteResult> {
+    const workspace = await this.groupDirectory.getGroupKnowledgeWorkspace(groupJid);
+    const currentIndex = await this.readRawIndex(groupJid, workspace.indexPath);
+    const target = currentIndex.documents.find((record) => record.documentId === documentId) ?? null;
+
+    if (!target) {
+      return {
+        groupJid,
+        documentId,
+        filePath: null,
+        deleted: false,
+      };
+    }
+
+    const nextRecords = currentIndex.documents.filter((record) => record.documentId !== documentId);
+    await this.writeIndex(workspace.indexPath, {
+      schemaVersion: 1,
+      documents: nextRecords,
+    });
+    await rm(resolveKnowledgePath(workspace.rootPath, target.filePath), { force: true });
+
+    return {
+      groupJid,
+      documentId,
+      filePath: target.filePath,
+      deleted: true,
+    };
+  }
+
+  private async readRawIndex(groupJid: string, indexPath: string): Promise<GroupKnowledgeIndexFile> {
+    try {
+      return JSON.parse(await readFile(indexPath, 'utf8')) as GroupKnowledgeIndexFile;
+    } catch (error) {
+      if (isNodeError(error) && error.code === 'ENOENT') {
+        return {
+          schemaVersion: 1,
+          documents: [],
+        };
+      }
+
+      throw error;
+    }
+  }
+
+  private async writeIndex(indexPath: string, index: GroupKnowledgeIndexFile): Promise<void> {
+    await mkdir(dirname(indexPath), { recursive: true });
+    await writeFile(indexPath, `${JSON.stringify(index, null, 2)}\n`, 'utf8');
   }
 
   private async readDocument(
@@ -130,4 +209,9 @@ function resolveKnowledgePath(rootPath: string, filePath: string): string {
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error;
+}
+
+function ensureTrailingNewline(value: string): string {
+  const trimmed = value.replace(/\r\n/gu, '\n');
+  return trimmed.endsWith('\n') ? trimmed : `${trimmed}\n`;
 }

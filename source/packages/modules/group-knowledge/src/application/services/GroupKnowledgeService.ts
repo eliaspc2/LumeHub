@@ -1,4 +1,6 @@
 import type {
+  GroupKnowledgeDocumentDeleteResult,
+  GroupKnowledgeDocumentUpsertInput,
   GroupKnowledgeDocument,
   GroupKnowledgeIndexDocument,
   GroupKnowledgeRetrievalInput,
@@ -18,6 +20,14 @@ export class GroupKnowledgeService {
 
   async listDocuments(groupJid: string): Promise<readonly GroupKnowledgeDocument[]> {
     return (await this.repository.readIndex(groupJid)).documents;
+  }
+
+  async upsertDocument(input: GroupKnowledgeDocumentUpsertInput): Promise<GroupKnowledgeDocument> {
+    return this.repository.upsertDocument(input);
+  }
+
+  async deleteDocument(groupJid: string, documentId: string): Promise<GroupKnowledgeDocumentDeleteResult> {
+    return this.repository.deleteDocument(groupJid, documentId);
   }
 
   async retrieveRelevantSnippets(input: GroupKnowledgeRetrievalInput): Promise<readonly GroupKnowledgeSnippet[]> {

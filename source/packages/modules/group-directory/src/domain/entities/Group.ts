@@ -50,6 +50,10 @@ export interface GroupLlmInstructionsDocument {
   readonly content: string | null;
 }
 
+export interface GroupLlmInstructionsUpdateInput {
+  readonly content: string;
+}
+
 export interface GroupPromptDocument {
   readonly filePath: string;
   readonly exists: boolean;

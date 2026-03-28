@@ -4,6 +4,7 @@ import type {
   DistributionSummary,
   FrontendUiEvent,
   Group,
+  GroupIntelligenceSnapshot,
   PersonRole,
   SettingsSnapshot,
   WhatsAppWorkspaceSnapshot,
@@ -27,7 +28,12 @@ import {
 import type { WeekPlannerSnapshot } from '@lume-hub/week-planner';
 
 import type { FrontendTransportMode } from '../app/BrowserTransportFactory.js';
-import type { AppRouteDefinition, AppRouter, WhatsAppManagementPageData } from '../app/AppRouter.js';
+import type {
+  AppRouteDefinition,
+  AppRouter,
+  GroupManagementPageData,
+  WhatsAppManagementPageData,
+} from '../app/AppRouter.js';
 import type { WebAppBootstrap } from '../app/WebAppBootstrap.js';
 
 type PreviewState = 'none' | 'loading' | 'empty' | 'offline' | 'error';
@@ -54,6 +60,25 @@ interface GuidedDistributionDraft {
   readonly confirmationMode: string;
 }
 
+interface GroupKnowledgeDraft {
+  readonly documentId: string;
+  readonly filePath: string;
+  readonly title: string;
+  readonly summary: string;
+  readonly aliases: string;
+  readonly tags: string;
+  readonly enabled: string;
+  readonly content: string;
+}
+
+interface GroupManagementDraft {
+  readonly selectedGroupJid: string | null;
+  readonly instructions: string;
+  readonly previewText: string;
+  readonly selectedDocumentId: string | null;
+  readonly knowledgeDocument: GroupKnowledgeDraft;
+}
+
 interface AppShellState {
   readonly mode: FrontendTransportMode;
   readonly previewState: PreviewState;
@@ -67,6 +92,7 @@ interface AppShellState {
   readonly lastLoadedAt: string | null;
   readonly scheduleDraft: GuidedScheduleDraft;
   readonly distributionDraft: GuidedDistributionDraft;
+  readonly groupManagementDraft: GroupManagementDraft;
   readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
   readonly whatsappQrPreviewVisible: boolean;
   readonly pendingConfirmation: PendingConfirmation | null;
@@ -148,6 +174,7 @@ export class AppShell {
         urgency: 'normal',
         confirmationMode: 'rule_default',
       },
+      groupManagementDraft: createEmptyGroupManagementDraft(),
       whatsappRepairFocus: 'auth',
       whatsappQrPreviewVisible: false,
       pendingConfirmation: null,
@@ -341,6 +368,7 @@ export class AppShell {
         errorMessage: null,
         lastLoadedAt: new Date().toISOString(),
       };
+      this.syncRouteDraftState(page);
       this.recordUxEvent('positive', `${route.label} carregado em modo ${this.state.mode}.`);
       this.render();
       this.focusMainContent();
@@ -367,6 +395,35 @@ export class AppShell {
   private async refreshCurrentRouteData(): Promise<void> {
     this.currentBootstrap().queryClient.clear();
     await this.loadCurrentRoute({ replaceHistory: true });
+  }
+
+  private syncRouteDraftState(page: UiPage): void {
+    if (page.route === '/groups') {
+      this.syncGroupManagementDraft(page as UiPage<GroupManagementPageData>);
+    }
+  }
+
+  private syncGroupManagementDraft(page: UiPage<GroupManagementPageData>): void {
+    const { selectedGroupJid, intelligence, previewText } = page.data;
+    const selectedDocument =
+      intelligence?.knowledge.documents.find(
+        (document) => document.documentId === this.state.groupManagementDraft.selectedDocumentId,
+      ) ??
+      intelligence?.knowledge.documents[0] ??
+      null;
+
+    this.state = {
+      ...this.state,
+      groupManagementDraft: {
+        selectedGroupJid,
+        instructions: intelligence?.instructions.content ?? '',
+        previewText,
+        selectedDocumentId: selectedDocument?.documentId ?? null,
+        knowledgeDocument: selectedDocument
+          ? mapGroupKnowledgeDocumentToDraft(selectedDocument)
+          : createEmptyGroupKnowledgeDraft(),
+      },
+    };
   }
 
   private render(): void {
@@ -417,7 +474,7 @@ export class AppShell {
         <div class="shell-main">
           <header class="surface shell-header surface--strong">
             <div class="header-copy">
-              <p class="eyebrow">Wave 16</p>
+              <p class="eyebrow">Wave 27</p>
               <h1>${escapeHtml(currentRoute.label)}</h1>
               <p>${escapeHtml(currentRoute.description)}</p>
             </div>
@@ -489,12 +546,12 @@ export class AppShell {
           <section class="surface rail-card">
             <h3>Foco desta wave</h3>
             <p>
-              Nesta wave queremos fechar a experiencia diaria: foco visivel, confirmacoes seguras, historico claro e detalhes avancados sem poluir o fluxo principal.
+              Nesta wave queremos gerir instrucoes e conhecimento por grupo sem expor jargao, sem misturar turmas e com preview imediato do contexto da LLM.
             </p>
             <ul>
-              <li>Ver se consegues navegar com teclado, perceber o foco e usar a app sem te perderes.</li>
-              <li>Confirmar que acoes sensiveis pedem uma confirmacao clara antes de mexer em ownership ou acessos.</li>
-              <li>Perceber se o historico local e os estados do sistema transmitem confianca em linguagem humana.</li>
+              <li>Confirmar que escolheste um grupo, guardaste instrucoes e percebeste logo onde esse contexto vai ser usado.</li>
+              <li>Ver se a knowledge base do grupo fica clara, com ficheiros editaveis e sem mistura de referencias entre turmas.</li>
+              <li>Validar se o preview do contexto mostra snippets coerentes para a pergunta escrita.</li>
             </ul>
           </section>
 
@@ -647,7 +704,7 @@ export class AppShell {
       case '/week':
         return this.renderWeekPage(this.state.page as UiPage<WeekPlannerSnapshot>);
       case '/groups':
-        return this.renderGroupsPage(this.state.page as UiPage<readonly Group[]>);
+        return this.renderGroupsPage(this.state.page as UiPage<GroupManagementPageData>);
       case '/whatsapp':
         return this.renderWhatsAppPage(this.state.page as UiPage<WhatsAppManagementPageData>);
       case '/settings':
@@ -1081,54 +1138,433 @@ export class AppShell {
     `;
   }
 
-  private renderGroupsPage(page: UiPage<readonly Group[]>): string {
-    const groups = page.data;
+  private renderGroupsPage(page: UiPage<GroupManagementPageData>): string {
+    const { groups, intelligence, contextPreview } = page.data;
+    const selectedGroup =
+      groups.find((group) => group.groupJid === this.state.groupManagementDraft.selectedGroupJid) ?? null;
+    const selectedDocument =
+      intelligence?.knowledge.documents.find(
+        (document) => document.documentId === this.state.groupManagementDraft.selectedDocumentId,
+      ) ?? null;
     const groupsWithOwners = groups.filter((group) => group.groupOwners.length > 0).length;
+    const documentCount = intelligence?.knowledge.documents.length ?? 0;
+    const previewSnippetCount = contextPreview?.groupKnowledgeSnippets.length ?? 0;
+    const instructionsState = intelligence?.instructions.exists
+      ? intelligence.instructions.source === 'llm_instructions'
+        ? 'Canonico'
+        : 'Legacy'
+      : 'Em falta';
+    const instructionsTone =
+      intelligence?.instructions.source === 'llm_instructions'
+        ? 'positive'
+        : intelligence?.instructions.exists
+          ? 'warning'
+          : 'danger';
 
     return `
       <section class="surface hero surface--strong">
         <div>
-          <p class="eyebrow">Diretorio</p>
-          <h2>Grupos visiveis, ownership claro e acesso ao calendario sem linguagem interna.</h2>
+          <p class="eyebrow">Inteligencia por grupo</p>
+          <h2>Instrucoes LLM e knowledge base separadas por grupo, sem misturar contexto de aulas parecidas.</h2>
           <p>${escapeHtml(page.description)}</p>
+          <div class="action-row">
+            ${renderUiActionButton({
+              label: 'Atualizar preview do contexto',
+              dataAttributes: { 'group-action': 'refresh-preview' },
+            })}
+            ${renderUiActionButton({
+              label: 'Ver WhatsApp',
+              href: '/whatsapp',
+              variant: 'secondary',
+              dataAttributes: { route: '/whatsapp' },
+            })}
+          </div>
         </div>
         <div class="hero-panel">
           ${renderUiPanelCard({
-            title: 'Resumo',
-            badgeLabel: `${groups.length} grupos`,
-            badgeTone: 'neutral',
+            title: 'Grupo em foco',
+            badgeLabel: selectedGroup ? selectedGroup.preferredSubject : 'Escolher grupo',
+            badgeTone: selectedGroup ? 'positive' : 'warning',
             contentHtml: `<p>${escapeHtml(
-              `${groupsWithOwners} grupos ja tem owner atribuido. ${groups.length - groupsWithOwners} ainda pedem definicao.`,
+              selectedGroup
+                ? `Estavas a editar ${selectedGroup.preferredSubject}. Tudo o que guardares aqui fica isolado neste grupo.`
+                : 'Escolhe um grupo para comecar a gerir instrucoes e conhecimento canonico.',
+            )}</p>`,
+          })}
+          ${renderUiPanelCard({
+            title: 'Fonte das instrucoes',
+            badgeLabel: instructionsState,
+            badgeTone: instructionsTone,
+            contentHtml: `<p>${escapeHtml(
+              intelligence?.instructions.source === 'llm_instructions'
+                ? 'A LLM ja esta a ler um ficheiro canonico por grupo.'
+                : intelligence?.instructions.source === 'legacy_prompt'
+                  ? 'Ainda existe fallback legacy. Vale a pena guardar o ficheiro canonico aqui.'
+                  : 'Ainda nao ha instrucoes especificas para este grupo.',
             )}</p>`,
           })}
         </div>
       </section>
+
       <section class="card-grid">
-        ${groups
-          .map(
-            (group) =>
-              renderUiRecordCard({
-                title: group.preferredSubject,
-                subtitle: group.courseId ?? 'Sem curso associado',
-                badgeLabel: group.groupOwners.length > 0 ? 'Com owner' : 'Falta owner',
-                badgeTone: group.groupOwners.length > 0 ? 'positive' : 'warning',
-                chips: [
-                  { label: `Grupo ${group.calendarAccessPolicy.group}`, tone: 'positive' },
-                  { label: `Owner ${group.calendarAccessPolicy.groupOwner}`, tone: 'warning' },
-                  { label: `App ${group.calendarAccessPolicy.appOwner}`, tone: 'neutral' },
-                ],
-                bodyHtml: `
-                  <ul>
-                    <li>Owners: ${escapeHtml(group.groupOwners.map((owner) => owner.personId.replace('person-', '')).join(', ') || 'nenhum')}</li>
-                    <li>Atualizado: ${escapeHtml(formatShortDateTime(group.lastRefreshedAt))}</li>
-                    <li>Alias: ${escapeHtml(group.aliases.join(', ') || 'sem alias')}</li>
-                  </ul>
-                `,
-                detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
-                detailsHtml: this.state.advancedDetailsEnabled ? `<p>JID: ${escapeHtml(group.groupJid)}</p>` : undefined,
-              }),
-          )
-          .join('')}
+        ${renderUiMetricCard({
+          title: 'Grupos visiveis',
+          value: String(groups.length),
+          tone: 'neutral',
+          description: `${groupsWithOwners} com owner definido e ${groups.length - groupsWithOwners} ainda por rever.`,
+        })}
+        ${renderUiMetricCard({
+          title: 'Docs deste grupo',
+          value: String(documentCount),
+          tone: documentCount > 0 ? 'positive' : 'warning',
+          description: 'Cada documento fica fechado dentro da pasta canonica do grupo.',
+        })}
+        ${renderUiMetricCard({
+          title: 'Snippets no preview',
+          value: String(previewSnippetCount),
+          tone: previewSnippetCount > 0 ? 'positive' : 'neutral',
+          description: 'Trechos que a LLM recuperaria agora para esta pergunta.',
+        })}
+        ${renderUiMetricCard({
+          title: 'Instrucoes ativas',
+          value: instructionsState,
+          tone: instructionsTone,
+          description: 'Mostra se o grupo ja esta a usar ficheiro canonico, fallback legacy ou nada.',
+        })}
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-4">
+          <div class="card-header">
+            <h3>Grupos e ownership</h3>
+            ${renderUiBadge({ label: `${groups.length} grupos`, tone: 'neutral' })}
+          </div>
+          <div class="timeline">
+            ${groups
+              .map((group) => {
+                const isSelected = group.groupJid === selectedGroup?.groupJid;
+                const owners = group.groupOwners.map((owner) => owner.personId.replace('person-', '')).join(', ');
+
+                return `
+                  <button type="button" class="timeline-item group-tile ${isSelected ? 'group-tile--selected' : ''}" data-group-action="select-group" data-group-jid="${escapeHtml(group.groupJid)}">
+                    <strong>${escapeHtml(group.preferredSubject)}</strong>
+                    <time>${escapeHtml(group.courseId ?? 'Sem curso associado')}</time>
+                    <div class="ui-card__chips">
+                      ${renderUiBadge({
+                        label: group.groupOwners.length > 0 ? 'Com owner' : 'Falta owner',
+                        tone: group.groupOwners.length > 0 ? 'positive' : 'warning',
+                        style: 'chip',
+                      })}
+                      ${renderUiBadge({
+                        label: `ACL owner ${group.calendarAccessPolicy.groupOwner}`,
+                        tone: 'neutral',
+                        style: 'chip',
+                      })}
+                    </div>
+                    <p>${escapeHtml(owners.length > 0 ? `Owners: ${owners}` : 'Sem owner definido.')}</p>
+                  </button>
+                `;
+              })
+              .join('')}
+          </div>
+        </article>
+
+        <article class="surface content-card span-8">
+          <div class="card-header">
+            <div>
+              <h3>Instrucoes LLM do grupo</h3>
+              <p>Este ficheiro orienta a interpretacao da LLM so para o grupo selecionado.</p>
+            </div>
+            ${renderUiBadge({ label: instructionsState, tone: instructionsTone })}
+          </div>
+          ${
+            selectedGroup
+              ? `
+                <div class="ui-form-grid">
+                  ${renderUiTextAreaField({
+                    label: `Instrucoes canonicas para ${selectedGroup.preferredSubject}`,
+                    value: this.state.groupManagementDraft.instructions,
+                    dataKey: 'group.instructions',
+                    rows: 10,
+                    placeholder: 'Ex.: Neste grupo, Aula 1 refere-se sempre ao bloco tecnico base...',
+                    hint: 'Tudo o que escreveres aqui fica guardado no ficheiro canonico do grupo.',
+                  })}
+                  ${renderUiTextAreaField({
+                    label: 'Texto para testar o preview',
+                    value: this.state.groupManagementDraft.previewText,
+                    dataKey: 'group.previewText',
+                    rows: 6,
+                    placeholder: 'Ex.: A Aula 1 mudou de sala?',
+                    hint: 'Serve para veres logo o contexto que o assistente montaria para esta mensagem.',
+                  })}
+                </div>
+                <div class="action-row">
+                  ${renderUiActionButton({
+                    label: 'Guardar instrucoes',
+                    dataAttributes: { 'group-action': 'save-instructions' },
+                  })}
+                  ${renderUiActionButton({
+                    label: 'Atualizar preview',
+                    variant: 'secondary',
+                    dataAttributes: { 'group-action': 'refresh-preview' },
+                  })}
+                </div>
+                ${
+                  this.state.advancedDetailsEnabled && intelligence
+                    ? `
+                      <details class="ui-details">
+                        <summary>Detalhes tecnicos desta fonte</summary>
+                        <div class="ui-details__content">
+                          <p>Ficheiro canonico: ${escapeHtml(intelligence.instructions.primaryFilePath)}</p>
+                          <p>Fallback legacy: ${escapeHtml(intelligence.instructions.legacyFilePath)}</p>
+                          <p>Resolvido a partir de: ${escapeHtml(intelligence.instructions.resolvedFilePath ?? 'nenhum ficheiro')}</p>
+                        </div>
+                      </details>
+                    `
+                    : ''
+                }
+              `
+              : '<p>Escolhe um grupo na coluna da esquerda para comecares a editar instrucoes e preview.</p>'
+          }
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-5">
+          <div class="card-header">
+            <div>
+              <h3>Knowledge base deste grupo</h3>
+              <p>Documentos isolados por grupo, sem contaminar outras turmas.</p>
+            </div>
+            ${renderUiBadge({
+              label: `${documentCount} documento${documentCount === 1 ? '' : 's'}`,
+              tone: documentCount > 0 ? 'positive' : 'warning',
+            })}
+          </div>
+          <div class="action-row">
+            ${renderUiActionButton({
+              label: 'Novo documento',
+              variant: 'secondary',
+              dataAttributes: { 'group-action': 'new-document' },
+            })}
+          </div>
+          <div class="timeline">
+            ${
+              intelligence && intelligence.knowledge.documents.length > 0
+                ? intelligence.knowledge.documents
+                    .map((document) => {
+                      const isSelected = document.documentId === selectedDocument?.documentId;
+
+                      return `
+                        <article class="timeline-item ${isSelected ? 'group-document--selected' : ''}">
+                          <strong>${escapeHtml(document.title)}</strong>
+                          <time>${escapeHtml(document.filePath)}</time>
+                          <div class="ui-card__chips">
+                            ${renderUiBadge({
+                              label: document.enabled ? 'Ativo' : 'Desligado',
+                              tone: document.enabled ? 'positive' : 'warning',
+                              style: 'chip',
+                            })}
+                            ${document.tags.map((tag) => renderUiBadge({ label: tag, tone: 'neutral', style: 'chip' })).join('')}
+                          </div>
+                          <p>${escapeHtml(document.summary ?? 'Sem resumo ainda.')}</p>
+                          <div class="action-row">
+                            ${renderUiActionButton({
+                              label: isSelected ? 'A editar' : 'Editar',
+                              variant: isSelected ? 'primary' : 'secondary',
+                              dataAttributes: {
+                                'group-action': 'load-document',
+                                'group-document-id': document.documentId,
+                              },
+                            })}
+                            ${renderUiActionButton({
+                              label: 'Apagar',
+                              variant: 'secondary',
+                              dataAttributes: {
+                                'group-action': 'delete-document',
+                                'group-document-id': document.documentId,
+                              },
+                            })}
+                          </div>
+                        </article>
+                      `;
+                    })
+                    .join('')
+                : `
+                  <div class="timeline-item">
+                    <strong>Sem documentos ainda</strong>
+                    <time>Podes guardar o primeiro documento desta knowledge base aqui.</time>
+                  </div>
+                `
+            }
+          </div>
+        </article>
+
+        <article class="surface content-card span-7">
+          <div class="card-header">
+            <div>
+              <h3>Editor do documento</h3>
+              <p>O objetivo aqui e manter cada norma ou conhecimento dentro da pasta do proprio grupo.</p>
+            </div>
+            ${renderUiBadge({
+              label: this.state.groupManagementDraft.selectedDocumentId ? 'Documento existente' : 'Novo documento',
+              tone: this.state.groupManagementDraft.selectedDocumentId ? 'positive' : 'neutral',
+            })}
+          </div>
+          ${
+            selectedGroup
+              ? `
+                <div class="ui-form-grid ui-form-grid--triple">
+                  ${renderUiInputField({
+                    label: 'Document ID',
+                    value: this.state.groupManagementDraft.knowledgeDocument.documentId,
+                    dataKey: 'group.documentId',
+                    placeholder: 'ex.: aula-1-ballet',
+                    hint: 'Identificador estavel para queue, preview e auditoria.',
+                  })}
+                  ${renderUiInputField({
+                    label: 'Ficheiro relativo',
+                    value: this.state.groupManagementDraft.knowledgeDocument.filePath,
+                    dataKey: 'group.filePath',
+                    placeholder: 'ex.: aulas/aula-1.md',
+                    hint: 'Caminho relativo dentro de knowledge/.',
+                  })}
+                  ${renderUiSelectField({
+                    label: 'Estado',
+                    value: this.state.groupManagementDraft.knowledgeDocument.enabled,
+                    dataKey: 'group.enabled',
+                    options: [
+                      { value: 'enabled', label: 'Ativo' },
+                      { value: 'disabled', label: 'Desligado' },
+                    ],
+                  })}
+                </div>
+                <div class="ui-form-grid">
+                  ${renderUiInputField({
+                    label: 'Titulo humano',
+                    value: this.state.groupManagementDraft.knowledgeDocument.title,
+                    dataKey: 'group.title',
+                    placeholder: 'Ex.: Aula 1 de Ballet Iniciacao',
+                  })}
+                  ${renderUiInputField({
+                    label: 'Resumo curto',
+                    value: this.state.groupManagementDraft.knowledgeDocument.summary,
+                    dataKey: 'group.summary',
+                    placeholder: 'Resumo curto para identificar este documento.',
+                  })}
+                  ${renderUiInputField({
+                    label: 'Aliases',
+                    value: this.state.groupManagementDraft.knowledgeDocument.aliases,
+                    dataKey: 'group.aliases',
+                    placeholder: 'Ex.: Aula 1, Ballet Basico',
+                    hint: 'Separados por virgula.',
+                  })}
+                  ${renderUiInputField({
+                    label: 'Tags',
+                    value: this.state.groupManagementDraft.knowledgeDocument.tags,
+                    dataKey: 'group.tags',
+                    placeholder: 'Ex.: ballet, iniciacao',
+                    hint: 'Separadas por virgula.',
+                  })}
+                </div>
+                ${renderUiTextAreaField({
+                  label: 'Conteudo markdown',
+                  value: this.state.groupManagementDraft.knowledgeDocument.content,
+                  dataKey: 'group.content',
+                  rows: 12,
+                  placeholder: '# Aula 1\n\nExplica aqui a norma, o significado e as excecoes deste grupo.',
+                  hint: 'Este corpo e o que depois entra no retrieval isolado deste grupo.',
+                })}
+                <div class="action-row">
+                  ${renderUiActionButton({
+                    label: 'Guardar documento',
+                    dataAttributes: { 'group-action': 'save-document' },
+                  })}
+                  ${renderUiActionButton({
+                    label: 'Novo documento',
+                    variant: 'secondary',
+                    dataAttributes: { 'group-action': 'new-document' },
+                  })}
+                </div>
+              `
+              : '<p>Escolhe primeiro um grupo para comecares a gerir documentos de conhecimento.</p>'
+          }
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-12">
+          <div class="card-header">
+            <div>
+              <h3>Preview do contexto que a LLM receberia</h3>
+              <p>Serve para confirmar rapidamente se instrucoes e snippets estao a puxar o contexto certo do grupo.</p>
+            </div>
+            ${renderUiBadge({
+              label: `${previewSnippetCount} snippet${previewSnippetCount === 1 ? '' : 's'}`,
+              tone: previewSnippetCount > 0 ? 'positive' : 'neutral',
+            })}
+          </div>
+          ${
+            contextPreview
+              ? `
+                <div class="card-grid">
+                  ${renderUiPanelCard({
+                    title: 'Mensagem em teste',
+                    badgeLabel: contextPreview.groupInstructionsSource,
+                    badgeTone: instructionsTone,
+                    contentHtml: `<p>${escapeHtml(contextPreview.currentText || 'Sem texto de teste ainda.')}</p>`,
+                  })}
+                  ${renderUiPanelCard({
+                    title: 'Grupo resolvido',
+                    badgeLabel: contextPreview.group?.preferredSubject ?? 'Sem grupo',
+                    badgeTone: contextPreview.group ? 'positive' : 'warning',
+                    contentHtml: `<p>${escapeHtml(
+                      contextPreview.group
+                        ? `Aliases: ${contextPreview.group.aliases.join(', ') || 'sem aliases'}.`
+                        : 'O preview ainda nao conseguiu resolver um grupo valido.',
+                    )}</p>`,
+                  })}
+                  ${renderUiPanelCard({
+                    title: 'Instrucoes ativas',
+                    badgeLabel: contextPreview.groupInstructionsSource,
+                    badgeTone: instructionsTone,
+                    contentHtml: `<p>${escapeHtml(
+                      contextPreview.groupInstructions?.trim().slice(0, 220) || 'Ainda nao ha instrucoes especificas para este grupo.',
+                    )}</p>`,
+                  })}
+                </div>
+                <div class="card-grid">
+                  ${
+                    contextPreview.groupKnowledgeSnippets.length > 0
+                      ? contextPreview.groupKnowledgeSnippets
+                          .map((snippet) =>
+                            renderUiRecordCard({
+                              title: snippet.title,
+                              subtitle: snippet.filePath,
+                              badgeLabel: `${snippet.score} match`,
+                              badgeTone: 'positive',
+                              chips: snippet.matchedTerms.map((term) => ({ label: term, tone: 'neutral' })),
+                              bodyHtml: `<p>${escapeHtml(snippet.excerpt)}</p>`,
+                              detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
+                              detailsHtml: this.state.advancedDetailsEnabled
+                                ? `<p>Path absoluto: ${escapeHtml(snippet.absoluteFilePath)}</p>`
+                                : undefined,
+                            }),
+                          )
+                          .join('')
+                      : renderUiPanelCard({
+                          title: 'Sem snippets relevantes',
+                          badgeLabel: '0 matches',
+                          badgeTone: 'warning',
+                          contentHtml:
+                            '<p>Experimenta escrever outra pergunta ou enriquecer os documentos deste grupo para melhorar o retrieval.</p>',
+                        })
+                  }
+                </div>
+              `
+              : '<p>Atualiza o preview para veres aqui o contexto efetivo do grupo selecionado.</p>'
+          }
+        </article>
       </section>
     `;
   }
@@ -1954,6 +2390,39 @@ export class AppShell {
         };
         this.render();
         return;
+      case 'group.instructions':
+      case 'group.previewText':
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          groupManagementDraft: {
+            ...this.state.groupManagementDraft,
+            [fieldKey === 'group.instructions' ? 'instructions' : 'previewText']: value,
+          } as GroupManagementDraft,
+        };
+        this.render();
+        return;
+      case 'group.documentId':
+      case 'group.filePath':
+      case 'group.title':
+      case 'group.summary':
+      case 'group.aliases':
+      case 'group.tags':
+      case 'group.enabled':
+      case 'group.content':
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          groupManagementDraft: {
+            ...this.state.groupManagementDraft,
+            knowledgeDocument: {
+              ...this.state.groupManagementDraft.knowledgeDocument,
+              [fieldKey.replace('group.', '')]: value,
+            } as GroupKnowledgeDraft,
+          },
+        };
+        this.render();
+        return;
       default:
         return;
     }
@@ -2241,6 +2710,16 @@ export class AppShell {
     return page;
   }
 
+  private readGroupManagementPageData(): UiPage<GroupManagementPageData> | null {
+    const page = this.state.page as UiPage<GroupManagementPageData> | null;
+
+    if (!page || page.route !== '/groups') {
+      return null;
+    }
+
+    return page;
+  }
+
   private readWhatsAppPageData(): WhatsAppManagementPageData | null {
     const page = this.state.page as UiPage<WhatsAppManagementPageData> | null;
 
@@ -2249,6 +2728,243 @@ export class AppShell {
     }
 
     return page.data;
+  }
+
+  private async handleGroupAction(action: string, dataset: ActionDataset): Promise<void> {
+    const page = this.readGroupManagementPageData();
+
+    if (!page) {
+      return;
+    }
+
+    if (action === 'select-group') {
+      const groupJid = dataset.groupJid ?? null;
+      this.currentRouter().setGroupManagementSelection(groupJid);
+      this.state = {
+        ...this.state,
+        flowFeedback: null,
+      };
+      await this.refreshCurrentRouteData();
+      return;
+    }
+
+    if (action === 'refresh-preview') {
+      this.currentRouter().setGroupManagementPreviewText(this.state.groupManagementDraft.previewText);
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A reconstruir o contexto deste grupo para veres o preview atualizado.',
+        },
+      };
+      this.render();
+      await this.refreshCurrentRouteData();
+      return;
+    }
+
+    if (action === 'save-instructions') {
+      const selectedGroupJid = this.state.groupManagementDraft.selectedGroupJid;
+
+      if (!selectedGroupJid) {
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A guardar o ficheiro canonico de instrucoes deste grupo.',
+        },
+      };
+      this.render();
+
+      try {
+        await this.currentClient().updateGroupLlmInstructions(
+          selectedGroupJid,
+          this.state.groupManagementDraft.instructions,
+        );
+        this.recordUxEvent('positive', `Instrucoes do grupo ${selectedGroupJid} guardadas.`);
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'positive',
+            message: 'Instrucoes LLM guardadas no ficheiro canonico do grupo.',
+          },
+        };
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel guardar as instrucoes. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
+    if (action === 'new-document') {
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'Editor limpo para um novo documento deste grupo.',
+        },
+        groupManagementDraft: {
+          ...this.state.groupManagementDraft,
+          selectedDocumentId: null,
+          knowledgeDocument: createEmptyGroupKnowledgeDraft(),
+        },
+      };
+      this.recordUxEvent('neutral', 'Editor de knowledge base limpo para novo documento.');
+      this.render();
+      return;
+    }
+
+    if (action === 'load-document') {
+      const documentId = dataset.groupDocumentId;
+      const document = page.data.intelligence?.knowledge.documents.find(
+        (candidate) => candidate.documentId === documentId,
+      );
+
+      if (!document) {
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'positive',
+          message: `Documento ${document.title} carregado no editor.`,
+        },
+        groupManagementDraft: {
+          ...this.state.groupManagementDraft,
+          selectedDocumentId: document.documentId,
+          knowledgeDocument: mapGroupKnowledgeDocumentToDraft(document),
+        },
+      };
+      this.recordUxEvent('positive', `Documento ${document.documentId} aberto no editor.`);
+      this.render();
+      return;
+    }
+
+    if (action === 'save-document') {
+      const selectedGroupJid = this.state.groupManagementDraft.selectedGroupJid;
+
+      if (!selectedGroupJid) {
+        return;
+      }
+
+      const draft = this.state.groupManagementDraft.knowledgeDocument;
+
+      if (!draft.documentId.trim() || !draft.filePath.trim() || !draft.title.trim() || !draft.content.trim()) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message: 'Preenche document ID, ficheiro, titulo e conteudo antes de guardar.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A guardar este documento na knowledge base isolada do grupo.',
+        },
+      };
+      this.render();
+
+      try {
+        const saved = await this.currentClient().upsertGroupKnowledgeDocument(selectedGroupJid, {
+          documentId: draft.documentId.trim(),
+          filePath: draft.filePath.trim(),
+          title: draft.title.trim(),
+          summary: draft.summary.trim() || null,
+          aliases: parseCommaSeparatedValues(draft.aliases),
+          tags: parseCommaSeparatedValues(draft.tags),
+          enabled: draft.enabled !== 'disabled',
+          content: draft.content,
+        });
+        this.recordUxEvent('positive', `Documento ${saved.documentId} guardado na knowledge base.`);
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'positive',
+            message: `Documento ${saved.title} guardado na knowledge base do grupo.`,
+          },
+        };
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel guardar o documento. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
+    if (action === 'delete-document') {
+      const selectedGroupJid = this.state.groupManagementDraft.selectedGroupJid;
+      const documentId = dataset.groupDocumentId;
+
+      if (!selectedGroupJid || !documentId) {
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A remover este documento da knowledge base do grupo.',
+        },
+      };
+      this.render();
+
+      try {
+        const result = await this.currentClient().deleteGroupKnowledgeDocument(selectedGroupJid, documentId);
+        this.recordUxEvent(
+          result.deleted ? 'positive' : 'warning',
+          result.deleted
+            ? `Documento ${documentId} removido da knowledge base.`
+            : `Tentativa de apagar ${documentId} sem documento existente.`,
+        );
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: result.deleted ? 'positive' : 'warning',
+            message: result.deleted
+              ? 'Documento removido da knowledge base deste grupo.'
+              : 'Esse documento ja nao existia quando tentaste apagar.',
+          },
+        };
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel apagar o documento. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+    }
   }
 
   private async runWhatsAppMutation(task: () => Promise<void>, successMessage: string): Promise<void> {
@@ -2839,6 +3555,19 @@ export class AppShell {
       });
     }
 
+    for (const element of this.root.querySelectorAll<HTMLElement>('[data-group-action]')) {
+      element.addEventListener('click', (event) => {
+        event.preventDefault();
+        const action = element.dataset.groupAction;
+
+        if (!action) {
+          return;
+        }
+
+        void this.handleGroupAction(action, element.dataset);
+      });
+    }
+
     for (const element of this.root.querySelectorAll<HTMLElement>('[data-whatsapp-action]')) {
       element.addEventListener('click', (event) => {
         event.preventDefault();
@@ -3272,6 +4001,51 @@ function buildWorkspacePeople(pageData: WhatsAppManagementPageData): readonly Wo
 
     return left.displayName.localeCompare(right.displayName, 'pt-PT');
   });
+}
+
+function createEmptyGroupManagementDraft(): GroupManagementDraft {
+  return {
+    selectedGroupJid: null,
+    instructions: '',
+    previewText: 'A Aula 1 mudou?',
+    selectedDocumentId: null,
+    knowledgeDocument: createEmptyGroupKnowledgeDraft(),
+  };
+}
+
+function createEmptyGroupKnowledgeDraft(): GroupKnowledgeDraft {
+  return {
+    documentId: '',
+    filePath: '',
+    title: '',
+    summary: '',
+    aliases: '',
+    tags: '',
+    enabled: 'enabled',
+    content: '',
+  };
+}
+
+function mapGroupKnowledgeDocumentToDraft(
+  document: GroupIntelligenceSnapshot['knowledge']['documents'][number],
+): GroupKnowledgeDraft {
+  return {
+    documentId: document.documentId,
+    filePath: document.filePath,
+    title: document.title,
+    summary: document.summary ?? '',
+    aliases: document.aliases.join(', '),
+    tags: document.tags.join(', '),
+    enabled: document.enabled ? 'enabled' : 'disabled',
+    content: document.content ?? '',
+  };
+}
+
+function parseCommaSeparatedValues(value: string): readonly string[] {
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
 }
 
 function renderWhatsAppAclField(

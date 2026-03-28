@@ -217,7 +217,7 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 26` ja foram executadas e validadas.
+As `Wave 0` a `Wave 27` ja foram executadas e validadas.
 O storage canonico de inteligencia por grupo ja ficou aberto com:
 
 - `data/groups/<jid>/llm/instructions.md`
@@ -256,7 +256,7 @@ Neste momento:
   - alinhamento final de docs e backlog ao estado real
 - nova ronda aberta:
   - `Wave 25` a `Wave 29` para instrucoes LLM e knowledge base por grupo
-  - objetivo: separar storage canonico de policy, instrucoes LLM e conhecimento documental local por grupo
+  - objetivo: separar storage canonico de policy, instrucoes LLM e conhecimento documental local por grupo e fechar o uso live auditavel dessa memoria
 - ronda seguinte prevista:
   - `Wave 30` a `Wave 34` para media recebida, biblioteca de assets e distribuicao multi-grupo de video
   - objetivo: guardar um video recebido uma vez e depois distribui-lo com queue, dedupe e tracking por grupo
