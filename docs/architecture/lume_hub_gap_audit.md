@@ -66,9 +66,9 @@ As seguintes areas existem com base razoavel:
 Abriu uma nova ronda de simplificacao do GUI.
 Os gaps ativos desta serie sao de experiencia de uso, nao de runtime base:
 
-- a shell global ja ficou bastante mais limpa na `Wave 35`, mas ainda ha excesso de conteudo dentro das paginas principais
-- `Hoje`, `WhatsApp`, `Grupos` e `Media` ainda podem ser encurtadas e hierarquizadas melhor
-- parte das configuracoes avancadas continua demasiado perto do fluxo principal
+- a shell global ja ficou bastante mais limpa na `Wave 35`
+- a `Wave 36` ja encurtou `Hoje`, `WhatsApp`, `Grupos` e `Media`, com menos cartoes e menos leitura lateral
+- o gap ativo que sobra nesta ronda e sobretudo mover configuracao avancada e detalhe tecnico ainda mais para segundo plano
 
 O storage canonico da serie de inteligencia por grupo continua fechado em:
 

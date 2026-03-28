@@ -857,6 +857,14 @@ export class AppShell {
   private renderTodayPage(page: UiPage<DashboardSnapshot>): string {
     const snapshot = page.data;
     const readyTone = snapshot.readiness.ready ? 'positive' : 'warning';
+    const nextStep =
+      snapshot.watchdog.openIssues > 0
+        ? 'Comeca por rever as issues abertas do watchdog.'
+        : snapshot.whatsapp.phase !== 'open'
+          ? 'Abre o WhatsApp e confirma a ligacao da sessao.'
+          : snapshot.distributions.running + snapshot.distributions.queued > 0
+            ? 'Confirma as distribuicoes em curso antes de criares novas.'
+            : 'Segue para a semana e cria o proximo agendamento.';
 
     return `
       <section class="surface hero surface--strong">
@@ -866,7 +874,7 @@ export class AppShell {
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({ label: 'Ver WhatsApp', href: '/whatsapp', dataAttributes: { route: '/whatsapp' } })}
-            ${renderUiActionButton({ label: 'Abrir distribuicoes', href: '/distributions', variant: 'secondary', dataAttributes: { route: '/distributions' } })}
+            ${renderUiActionButton({ label: 'Abrir semana', href: '/week', variant: 'secondary', dataAttributes: { route: '/week' } })}
           </div>
         </div>
         <div class="hero-panel">
@@ -882,11 +890,7 @@ export class AppShell {
           })}
           ${renderUiPanelCard({
             title: 'Proximo passo recomendado',
-            contentHtml: `<p>${escapeHtml(
-              snapshot.watchdog.openIssues > 0
-                ? 'Comeca por rever as issues abertas do watchdog e confirmar a situacao das entregas.'
-                : 'Segue para a area de WhatsApp e valida grupos, owners e estado do auth.',
-            )}</p>`,
+            contentHtml: `<p>${escapeHtml(nextStep)}</p>`,
           })}
         </div>
       </section>
@@ -895,122 +899,63 @@ export class AppShell {
         ${renderUiMetricCard({ title: 'WhatsApp pronto', value: readableSessionPhase(snapshot.whatsapp.phase), tone: toneForSessionPhase(snapshot.whatsapp.phase), description: 'Estado live da sessao WhatsApp.' })}
         ${renderUiMetricCard({ title: 'Problemas ativos', value: String(snapshot.watchdog.openIssues), tone: snapshot.watchdog.openIssues > 0 ? 'warning' : 'positive', description: 'Issues que merecem acao agora.' })}
         ${renderUiMetricCard({ title: 'Distribuicoes em curso', value: String(snapshot.distributions.running + snapshot.distributions.queued), tone: snapshot.distributions.running > 0 ? 'warning' : 'neutral', description: 'Campanhas a correr ou em espera.' })}
-        ${renderUiMetricCard({ title: 'Grupos com owner', value: `${snapshot.groups.withOwners}/${snapshot.groups.total}`, tone: 'neutral', description: 'Cobertura operacional do diretorio de grupos.' })}
-      </section>
-
-      <section class="card-grid">
-        ${renderUiRecordCard({
-          title: 'Criar agendamento',
-          subtitle: 'Fluxo guiado com preview antes de confirmar.',
-          badgeLabel: 'Passo a passo',
-          badgeTone: 'positive',
-          bodyHtml: `
-            <p>Escolhe grupo, hora e notas sem ver IDs internos.</p>
-            <div class="action-row">
-              ${renderUiActionButton({ label: 'Abrir fluxo', href: '/week', dataAttributes: { route: '/week' } })}
-            </div>
-          `,
-        })}
-        ${renderUiRecordCard({
-          title: 'Distribuir mensagem',
-          subtitle: 'Preview de fan-out multi-grupo com confirmacao clara.',
-          badgeLabel: 'Com preview',
-          badgeTone: 'warning',
-          bodyHtml: `
-            <p>Prepara a distribuicao e valida os alvos antes de enviar.</p>
-            <div class="action-row">
-              ${renderUiActionButton({ label: 'Abrir distribuicoes', href: '/distributions', dataAttributes: { route: '/distributions' } })}
-            </div>
-          `,
-        })}
-        ${renderUiRecordCard({
-          title: 'Ligar ou reparar WhatsApp',
-          subtitle: 'Checklist guiada para auth, descoberta e permissoes.',
-          badgeLabel: readableSessionPhase(snapshot.whatsapp.phase),
-          badgeTone: toneForSessionPhase(snapshot.whatsapp.phase),
-          bodyHtml: `
-            <p>Segue uma ordem clara para recuperar a ligacao sem mexer as cegas.</p>
-            <div class="action-row">
-              ${renderUiActionButton({ label: 'Abrir WhatsApp', href: '/whatsapp', dataAttributes: { route: '/whatsapp' } })}
-            </div>
-          `,
-        })}
-        ${renderUiRecordCard({
-          title: 'Resolver problema watchdog',
-          subtitle: 'Inbox operacional com proximo passo recomendado.',
-          badgeLabel: snapshot.watchdog.openIssues > 0 ? 'Resolver agora' : 'Sem bloqueios',
-          badgeTone: snapshot.watchdog.openIssues > 0 ? 'warning' : 'positive',
-          bodyHtml: `
-            <p>Ve a issue mais urgente e marca-a como revista quando terminares.</p>
-            <div class="action-row">
-              ${renderUiActionButton({ label: 'Abrir watchdog', href: '/watchdog', dataAttributes: { route: '/watchdog' } })}
-            </div>
-          `,
-        })}
+        ${renderUiMetricCard({ title: 'Grupos prontos', value: `${snapshot.groups.withOwners}/${snapshot.groups.total}`, tone: 'neutral', description: 'Grupos com owner definido e prontos para operar.' })}
       </section>
 
       <section class="content-grid">
         <article class="surface content-card span-7">
           <div class="card-header">
-            <h3>Distribuicoes e ritmo de trabalho</h3>
-            ${renderUiBadge({ label: `${snapshot.distributions.completed} concluidas`, tone: 'positive' })}
-          </div>
-          <ul>
-            <li>${snapshot.distributions.queued} campanhas em fila e ${snapshot.distributions.running} a correr.</li>
-            <li>${snapshot.distributions.partialFailed} com falha parcial e ${snapshot.distributions.failed} totalmente falhadas.</li>
-            <li>${snapshot.routing.totalRules} regras ativas de routing, ${snapshot.routing.confirmationRules} com confirmacao.</li>
-            <li>${snapshot.routing.totalPlannedTargets} destinos declarados nas regras atuais.</li>
-          </ul>
-        </article>
-
-        <article class="surface content-card span-5">
-          <div class="card-header">
-            <h3>Host companion</h3>
-            ${renderUiBadge({ label: snapshot.hostCompanion.autostartEnabled ? 'Autostart ativo' : 'Autostart desligado', tone: snapshot.hostCompanion.autostartEnabled ? 'positive' : 'warning' })}
-          </div>
-          <ul>
-            <li>Host: ${escapeHtml(snapshot.hostCompanion.hostId)}</li>
-            <li>Mesmo auth do Codex: ${snapshot.hostCompanion.sameAsCodexCanonical ? 'sim' : 'nao'}</li>
-            <li>Ultimo heartbeat: ${escapeHtml(formatShortDateTime(snapshot.hostCompanion.lastHeartbeatAt))}</li>
-            <li>Ultimo erro: ${escapeHtml(snapshot.hostCompanion.lastError ?? 'sem erros recentes')}</li>
-          </ul>
-        </article>
-
-        <article class="surface content-card span-6">
-          <div class="card-header">
-            <h3>Watchdog</h3>
-            ${renderUiBadge({ label: snapshot.watchdog.openIssues > 0 ? 'Precisa de atencao' : 'Sem bloqueios', tone: snapshot.watchdog.openIssues > 0 ? 'warning' : 'positive' })}
+            <h3>O que merece atencao agora</h3>
+            ${renderUiBadge({
+              label: snapshot.watchdog.openIssues > 0 ? 'Agir agora' : 'Tudo sob controlo',
+              tone: snapshot.watchdog.openIssues > 0 ? 'warning' : 'positive',
+            })}
           </div>
           <ul>
             ${
               snapshot.watchdog.recentIssues.length > 0
                 ? snapshot.watchdog.recentIssues
+                    .slice(0, 3)
                     .map(
                       (issue) =>
-                        `<li><strong>${escapeHtml(issue.groupLabel)}</strong>: ${escapeHtml(issue.summary)} ${renderUiBadge({ label: formatShortDateTime(issue.openedAt), tone: 'warning', style: 'chip' })}</li>`,
+                        `<li><strong>${escapeHtml(issue.groupLabel)}</strong>: ${escapeHtml(issue.summary)}</li>`,
                     )
                     .join('')
                 : '<li>Sem issues abertas neste momento.</li>'
             }
+            <li>${snapshot.distributions.queued} distribuicoes em fila e ${snapshot.distributions.running} a correr.</li>
+            <li>${snapshot.distributions.partialFailed} com falha parcial e ${snapshot.distributions.failed} falhadas.</li>
           </ul>
         </article>
 
-        <article class="surface content-card span-6">
+        <article class="surface content-card span-5">
           <div class="card-header">
-            <h3>Saude do sistema</h3>
-            ${renderUiBadge({ label: snapshot.health.status, tone: toneFromHealth(snapshot.health.status) })}
+            <h3>Atalhos principais</h3>
+            ${renderUiBadge({ label: 'Uso diario', tone: 'positive' })}
           </div>
-          <ul>
-            <li>Jobs pendentes: ${snapshot.health.jobs.pending}</li>
-            <li>A espera de confirmacao: ${snapshot.health.jobs.waitingConfirmation}</li>
-            <li>Enviados: ${snapshot.health.jobs.sent}</li>
-            ${snapshot.health.modules
-              .map(
-                (module, index) =>
-                  `<li>Modulo ${index + 1}: ${escapeHtml(module.status)}${module.details ? ` (${escapeHtml(JSON.stringify(module.details))})` : ''}</li>`,
-              )
-              .join('')}
-          </ul>
+          <div class="card-grid">
+            ${renderUiRecordCard({
+              title: 'Criar agendamento',
+              subtitle: 'Abrir a semana e preparar a proxima aula.',
+              badgeLabel: 'Semana',
+              badgeTone: 'positive',
+              bodyHtml: `<div class="action-row">${renderUiActionButton({ label: 'Abrir semana', href: '/week', dataAttributes: { route: '/week' } })}</div>`,
+            })}
+            ${renderUiRecordCard({
+              title: 'Distribuir mensagem',
+              subtitle: 'Preparar e confirmar o proximo envio.',
+              badgeLabel: 'Distribuicoes',
+              badgeTone: 'warning',
+              bodyHtml: `<div class="action-row">${renderUiActionButton({ label: 'Abrir distribuicoes', href: '/distributions', dataAttributes: { route: '/distributions' } })}</div>`,
+            })}
+            ${renderUiRecordCard({
+              title: 'Rever WhatsApp',
+              subtitle: 'Confirmar ligacao, grupos e QR quando fizer falta.',
+              badgeLabel: readableSessionPhase(snapshot.whatsapp.phase),
+              badgeTone: toneForSessionPhase(snapshot.whatsapp.phase),
+              bodyHtml: `<div class="action-row">${renderUiActionButton({ label: 'Abrir WhatsApp', href: '/whatsapp', dataAttributes: { route: '/whatsapp' } })}</div>`,
+            })}
+          </div>
         </article>
       </section>
     `;
@@ -1281,17 +1226,16 @@ export class AppShell {
     const latestAsset = assets[0] ?? null;
     const selectedAsset = assets.find((asset) => asset.assetId === draft.assetId) ?? null;
     const videoAssets = assets.filter((asset) => asset.mediaType === 'video');
-    const videoCount = assets.filter((asset) => asset.mediaType === 'video').length;
     const selectedGroups = groups.filter((group) => draft.targetGroupJids.includes(group.groupJid));
     const allGroupsSelected = groups.length > 0 && selectedGroups.length === groups.length;
-    const recentInstructions = mediaInstructions.slice(0, 6);
-    const failedGroupCount = recentInstructions.flatMap((instruction) => instruction.actions).filter((action) => action.status === 'failed').length;
+    const recentInstructions = mediaInstructions.slice(0, 5);
+    const selectableAssets = videoAssets.length > 0 ? videoAssets : assets;
 
     return `
       <section class="surface hero surface--strong">
         <div>
           <p class="eyebrow">Biblioteca operacional</p>
-          <h2>Escolher um video recebido, selecionar os grupos e disparar a distribuicao sem tocar em payloads tecnicos.</h2>
+          <h2>Escolher um video recebido e espalha-lo pelos grupos certos sem entrar em detalhes tecnicos.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
@@ -1319,54 +1263,22 @@ export class AppShell {
             )}</p>`,
           })}
           ${renderUiPanelCard({
-            title: 'Politica atual',
-            badgeLabel: 'Manual',
-            badgeTone: 'neutral',
+            title: 'Pronto para o proximo envio',
+            badgeLabel: selectedAsset && selectedGroups.length > 0 ? 'Pronto' : 'Faltam escolhas',
+            badgeTone: selectedAsset && selectedGroups.length > 0 ? 'positive' : 'warning',
             contentHtml: `<p>${escapeHtml(
-              latestAsset?.retentionPolicy.description ??
-                'A media fica guardada ate limpeza manual nesta ronda, sem expiracao automatica.',
+              selectedAsset && selectedGroups.length > 0
+                ? `Ja tens ${selectedGroups.length} grupo(s) marcado(s) para receber este asset.`
+                : 'Primeiro escolhe um video e pelo menos um grupo para o envio ficar pronto.',
             )}</p>`,
           })}
         </div>
       </section>
 
-      <section class="card-grid">
-        ${renderUiMetricCard({
-          title: 'Assets guardados',
-          value: String(assets.length),
-          tone: assets.length > 0 ? 'positive' : 'warning',
-          description: 'Total de media recebida que ja entrou no storage canonico.',
-        })}
-        ${renderUiMetricCard({
-          title: 'Videos',
-          value: String(videoCount),
-          tone: videoCount > 0 ? 'positive' : 'neutral',
-          description: 'Videos recebidos que ja podem entrar no fluxo guiado de distribuicao.',
-        })}
-        ${renderUiMetricCard({
-          title: 'Grupos selecionados',
-          value: `${selectedGroups.length}/${groups.length}`,
-          tone: selectedGroups.length > 0 ? 'positive' : 'warning',
-          description: 'Cobertura atual do fan-out manual para o video escolhido.',
-        })}
-        ${renderUiMetricCard({
-          title: 'Distribuicoes media',
-          value: String(mediaInstructions.length),
-          tone: mediaInstructions.length > 0 ? 'positive' : 'neutral',
-          description: 'Runs de media ja registados na queue com tracking por grupo.',
-        })}
-        ${renderUiMetricCard({
-          title: 'Falhas por grupo',
-          value: String(failedGroupCount),
-          tone: failedGroupCount > 0 ? 'warning' : 'positive',
-          description: 'Alvos que ainda ficaram falhados nas ultimas distribuicoes de media.',
-        })}
-      </section>
-
       <section class="content-grid">
         <article class="surface content-card span-5">
           <div class="card-header">
-            <h3>Passo 1. Escolher video recebido</h3>
+            <h3>Escolher video recebido</h3>
             ${renderUiBadge({
               label: selectedAsset ? 'Video pronto' : 'Falta escolher video',
               tone: selectedAsset ? 'positive' : 'warning',
@@ -1380,11 +1292,11 @@ export class AppShell {
                     label: videoAssets.length > 0 ? 'Video recebido' : 'Asset recebido',
                     value: draft.assetId ?? '',
                     dataKey: 'media.assetId',
-                    options: (videoAssets.length > 0 ? videoAssets : assets).map((asset) => ({
+                    options: selectableAssets.map((asset) => ({
                       value: asset.assetId,
                       label: `${readableMediaType(asset.mediaType)} • ${asset.caption ?? readableSourceChat(asset.sourceChatJid)}`,
                     })),
-                    hint: 'Escolhe primeiro o video recebido que queres reaproveitar para esta distribuicao.',
+                    hint: 'Escolhe o ficheiro que queres reaproveitar neste envio.',
                   })}
                 </div>
                 ${
@@ -1399,33 +1311,15 @@ export class AppShell {
                     `
                     : ''
                 }
-                <div class="card-grid">
-                  ${(videoAssets.length > 0 ? videoAssets : assets)
-                    .slice(0, 6)
-                    .map((asset) =>
-                      renderUiRecordCard({
-                        title: asset.caption ?? `${readableMediaType(asset.mediaType)} sem caption`,
-                        subtitle: `${readableMediaType(asset.mediaType)} • ${asset.mimeType}`,
-                        badgeLabel: readableMediaType(asset.mediaType),
-                        badgeTone: toneForMediaType(asset.mediaType),
-                        chips: [
-                          {
-                            label: formatFileSize(asset.fileSize),
-                            tone: 'neutral',
-                          },
-                          {
-                            label: asset.exists ? 'No disco' : 'Em falta',
-                            tone: asset.exists ? 'positive' : 'danger',
-                          },
-                          {
-                            label: readableSourceChat(asset.sourceChatJid),
-                            tone: asset.sourceChatJid.endsWith('@g.us') ? 'positive' : 'warning',
-                          },
-                        ],
-                        bodyHtml: `
-                          <p><strong>Origem</strong>: ${escapeHtml(readableSourceChat(asset.sourceChatJid))}</p>
-                          <p><strong>Mensagem</strong>: ${escapeHtml(asset.sourceMessageId)}</p>
-                          <p><strong>Recebido</strong>: ${escapeHtml(formatShortDateTime(asset.storedAt))}</p>
+                <div class="timeline">
+                  ${selectableAssets
+                    .slice(0, 4)
+                    .map(
+                      (asset) => `
+                        <article class="timeline-item">
+                          <strong>${escapeHtml(asset.caption ?? `${readableMediaType(asset.mediaType)} sem caption`)}</strong>
+                          <time>${escapeHtml(`${readableSourceChat(asset.sourceChatJid)} • ${formatShortDateTime(asset.storedAt)}`)}</time>
+                          <p>${escapeHtml(`${readableMediaType(asset.mediaType)} • ${formatFileSize(asset.fileSize)} • ${asset.exists ? 'guardado' : 'em falta'}`)}</p>
                           <div class="action-row">
                             ${renderUiActionButton({
                               label: asset.assetId === draft.assetId ? 'Video em uso' : 'Usar este video',
@@ -1436,17 +1330,8 @@ export class AppShell {
                               },
                             })}
                           </div>
-                        `,
-                        detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
-                        detailsHtml: this.state.advancedDetailsEnabled
-                          ? `
-                              <p>Asset ID: ${escapeHtml(asset.assetId)}</p>
-                              <p>SHA-256: ${escapeHtml(asset.sha256)}</p>
-                              <p>Binary path: ${escapeHtml(asset.binaryPath)}</p>
-                              <p>Metadata path: ${escapeHtml(asset.metadataPath)}</p>
-                            `
-                          : undefined,
-                      }),
+                        </article>
+                      `,
                     )
                     .join('')}
                 </div>
@@ -1462,7 +1347,7 @@ export class AppShell {
 
         <article class="surface content-card span-7">
           <div class="card-header">
-            <h3>Passo 2. Escolher grupos alvo</h3>
+            <h3>Destino e envio</h3>
             ${renderUiBadge({
               label: `${selectedGroups.length}/${groups.length} grupos`,
               tone: selectedGroups.length > 0 ? 'positive' : 'warning',
@@ -1502,6 +1387,43 @@ export class AppShell {
                     )
                     .join('')}
                 </div>
+                <div class="ui-form-grid">
+                  ${renderUiTextAreaField({
+                    label: 'Caption para distribuir',
+                    value: draft.caption,
+                    dataKey: 'media.caption',
+                    rows: 4,
+                    placeholder: 'Ex.: Video da coreografia final. Confirmem rececao no grupo.',
+                    hint: 'Se precisares, ajusta aqui o texto que vai acompanhar o video.',
+                  })}
+                </div>
+                <div class="guide-preview">
+                  <p><strong>Video</strong>: ${escapeHtml(
+                    selectedAsset?.caption ?? (selectedAsset ? `${readableMediaType(selectedAsset.mediaType)} sem caption` : 'Escolhe primeiro um video'),
+                  )}</p>
+                  <p><strong>Caption final</strong>: ${escapeHtml(draft.caption || 'Sem caption adicional. O asset vai seguir sem texto extra.')}</p>
+                  <p><strong>Grupos alvo</strong>: ${escapeHtml(
+                    selectedGroups.length > 0
+                      ? selectedGroups.map((group) => group.preferredSubject).join(', ')
+                      : 'Ainda nao escolheste grupos.',
+                  )}</p>
+                </div>
+                <div class="action-row">
+                  ${renderUiActionButton({
+                    label: 'Criar dry run',
+                    dataAttributes: { 'flow-action': 'media-distribute-dry-run' },
+                  })}
+                  ${renderUiActionButton({
+                    label: 'Distribuir agora',
+                    variant: 'secondary',
+                    dataAttributes: { 'flow-action': 'media-distribute-confirmed' },
+                  })}
+                  ${renderUiActionButton({
+                    label: 'Limpar fluxo',
+                    variant: 'secondary',
+                    dataAttributes: { 'flow-action': 'media-clear' },
+                  })}
+                </div>
               `
               : `
                 <div class="timeline-item">
@@ -1516,67 +1438,9 @@ export class AppShell {
       <section class="content-grid">
         <article class="surface content-card span-12">
           <div class="card-header">
-            <h3>Passo 3. Confirmar e distribuir</h3>
-            ${renderUiBadge({
-              label: selectedAsset && selectedGroups.length > 0 ? 'Pronto a testar' : 'Faltam escolhas',
-              tone: selectedAsset && selectedGroups.length > 0 ? 'positive' : 'warning',
-            })}
-          </div>
-          <div class="content-grid">
-            <div class="span-5">
-              <div class="ui-form-grid">
-                ${renderUiTextAreaField({
-                  label: 'Caption para distribuir',
-                  value: draft.caption,
-                  dataKey: 'media.caption',
-                  rows: 4,
-                  placeholder: 'Ex.: Video da coreografia final. Confirmem rececao no grupo.',
-                  hint: 'Podes reaproveitar a caption original ou ajustar o texto para esta distribuicao.',
-                })}
-              </div>
-            </div>
-            <div class="span-7">
-              <div class="guide-preview">
-                <p><strong>Video</strong>: ${escapeHtml(
-                  selectedAsset?.caption ?? (selectedAsset ? `${readableMediaType(selectedAsset.mediaType)} sem caption` : 'Escolhe primeiro um video'),
-                )}</p>
-                <p><strong>Origem</strong>: ${escapeHtml(
-                  selectedAsset ? readableSourceChat(selectedAsset.sourceChatJid) : 'Sem origem selecionada',
-                )}</p>
-                <p><strong>Caption final</strong>: ${escapeHtml(draft.caption || 'Sem caption adicional. O asset vai seguir sem texto extra.')}</p>
-                <p><strong>Grupos alvo</strong>: ${escapeHtml(
-                  selectedGroups.length > 0
-                    ? selectedGroups.map((group) => group.preferredSubject).join(', ')
-                    : 'Ainda nao escolheste grupos.',
-                )}</p>
-              </div>
-              <div class="action-row">
-                ${renderUiActionButton({
-                  label: 'Criar dry run',
-                  dataAttributes: { 'flow-action': 'media-distribute-dry-run' },
-                })}
-                ${renderUiActionButton({
-                  label: 'Distribuir agora',
-                  variant: 'secondary',
-                  dataAttributes: { 'flow-action': 'media-distribute-confirmed' },
-                })}
-                ${renderUiActionButton({
-                  label: 'Limpar fluxo',
-                  variant: 'secondary',
-                  dataAttributes: { 'flow-action': 'media-clear' },
-                })}
-              </div>
-            </div>
-          </div>
-        </article>
-      </section>
-
-      <section class="content-grid">
-        <article class="surface content-card span-12">
-          <div class="card-header">
             <div>
-              <h3>Estado de entrega por grupo</h3>
-              <p>Visao recente das distribuicoes de media, com estados por grupo para perceber logo o que entregou e o que falhou.</p>
+              <h3>Ultimos envios de media</h3>
+              <p>Historico curto para perceber logo o que entregou, o que falhou e o que ainda esta a correr.</p>
             </div>
             ${renderUiBadge({
               label: `${recentInstructions.length} run${recentInstructions.length === 1 ? '' : 's'}`,
@@ -1586,28 +1450,21 @@ export class AppShell {
           ${
             recentInstructions.length > 0
               ? `
-                <div class="card-grid">
+                <div class="timeline">
                   ${recentInstructions
                     .map((instruction) => {
                       const payload = readMediaInstructionPayload(instruction);
                       const asset = payload ? assets.find((candidate) => candidate.assetId === payload.assetId) ?? null : null;
+                      const failedActions = instruction.actions.filter((action) => action.status === 'failed');
+                      const pendingActions = instruction.actions.filter(
+                        (action) => action.status === 'pending' || action.status === 'running',
+                      );
 
-                      return renderUiRecordCard({
-                        title: payload?.caption ?? asset?.caption ?? 'Distribuicao de video sem caption',
-                        subtitle: `${instruction.mode === 'confirmed' ? 'Envio confirmado' : 'Dry run'} • ${formatShortDateTime(instruction.updatedAt)}`,
-                        badgeLabel: instruction.status,
-                        badgeTone: toneFromDistribution(instruction.status),
-                        chips: [
-                          {
-                            label: `${instruction.actions.length} grupos`,
-                            tone: 'neutral',
-                          },
-                          {
-                            label: asset ? readableMediaType(asset.mediaType) : 'Media',
-                            tone: 'positive',
-                          },
-                        ],
-                        bodyHtml: `
+                      return `
+                        <article class="timeline-item">
+                          <strong>${escapeHtml(payload?.caption ?? asset?.caption ?? 'Distribuicao de video sem caption')}</strong>
+                          <time>${escapeHtml(`${instruction.mode === 'confirmed' ? 'Envio confirmado' : 'Dry run'} • ${formatShortDateTime(instruction.updatedAt)}`)}</time>
+                          <p>${escapeHtml(`${instruction.actions.length} grupo(s) • ${failedActions.length} falha(s) • ${pendingActions.length} em curso`)}</p>
                           <ul>
                             ${instruction.actions
                               .map((action) => {
@@ -1621,16 +1478,22 @@ export class AppShell {
                               })
                               .join('')}
                           </ul>
-                        `,
-                        detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
-                        detailsHtml: this.state.advancedDetailsEnabled
-                          ? `
-                              <p>Instruction ID: ${escapeHtml(instruction.instructionId)}</p>
-                              <p>Asset ID: ${escapeHtml(payload?.assetId ?? 'desconhecido')}</p>
-                              <p>Source message: ${escapeHtml(instruction.sourceMessageId ?? 'manual')}</p>
-                            `
-                          : undefined,
-                      });
+                          ${
+                            this.state.advancedDetailsEnabled
+                              ? `
+                                <details class="ui-details">
+                                  <summary>Detalhes avancados</summary>
+                                  <div class="ui-details__content">
+                                    <p>Instruction ID: ${escapeHtml(instruction.instructionId)}</p>
+                                    <p>Asset ID: ${escapeHtml(payload?.assetId ?? 'desconhecido')}</p>
+                                    <p>Source message: ${escapeHtml(instruction.sourceMessageId ?? 'manual')}</p>
+                                  </div>
+                                </details>
+                              `
+                              : ''
+                          }
+                        </article>
+                      `;
                     })
                     .join('')}
                 </div>
@@ -1655,7 +1518,6 @@ export class AppShell {
       intelligence?.knowledge.documents.find(
         (document) => document.documentId === this.state.groupManagementDraft.selectedDocumentId,
       ) ?? null;
-    const groupsWithOwners = groups.filter((group) => group.groupOwners.length > 0).length;
     const documentCount = intelligence?.knowledge.documents.length ?? 0;
     const previewSnippetCount = contextPreview?.groupKnowledgeSnippets.length ?? 0;
     const instructionsState = intelligence?.instructions.exists ? 'Canonico' : 'Em falta';
@@ -1671,14 +1533,14 @@ export class AppShell {
       <section class="surface hero surface--strong">
         <div>
           <p class="eyebrow">Inteligencia por grupo</p>
-          <h2>Instrucoes LLM e knowledge base separadas por grupo, sem misturar contexto de aulas parecidas.</h2>
+          <h2>Editar instrucoes e documentos do grupo certo sem misturar contexto com outras turmas.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
-              label: 'Atualizar preview do contexto',
+              label: 'Atualizar preview',
               dataAttributes: { 'group-action': 'refresh-preview' },
             })}
-          ${renderUiActionButton({
+            ${renderUiActionButton({
               label: 'Ver WhatsApp',
               href: '/whatsapp',
               variant: 'secondary',
@@ -1693,18 +1555,18 @@ export class AppShell {
             badgeTone: selectedGroup ? 'positive' : 'warning',
             contentHtml: `<p>${escapeHtml(
               selectedGroup
-                ? `Estavas a editar ${selectedGroup.preferredSubject}. Tudo o que guardares aqui fica isolado neste grupo.`
-                : 'Escolhe um grupo para comecar a gerir instrucoes e conhecimento canonico.',
+                ? `Estas a gerir ${selectedGroup.preferredSubject}. O contexto fica isolado neste grupo.`
+                : 'Escolhe um grupo para veres instrucoes, documentos e preview.',
             )}</p>`,
           })}
           ${renderUiPanelCard({
-            title: 'Fonte das instrucoes',
+            title: 'Estado das instrucoes',
             badgeLabel: instructionsState,
             badgeTone: instructionsTone,
             contentHtml: `<p>${escapeHtml(
               intelligence?.instructions.source === 'llm_instructions'
-                ? 'A LLM ja esta a ler um ficheiro canonico por grupo.'
-                : 'Ainda nao ha instrucoes especificas para este grupo.',
+                ? 'A LLM ja esta a usar o ficheiro canonico deste grupo.'
+                : 'Ainda falta criar ou guardar instrucoes especificas para este grupo.',
             )}</p>`,
           })}
         </div>
@@ -1720,52 +1582,23 @@ export class AppShell {
           : ''
       }
 
-      <section class="card-grid">
-        ${renderUiMetricCard({
-          title: 'Grupos visiveis',
-          value: String(groups.length),
-          tone: 'neutral',
-          description: `${groupsWithOwners} com owner definido e ${groups.length - groupsWithOwners} ainda por rever.`,
-        })}
-        ${renderUiMetricCard({
-          title: 'Docs deste grupo',
-          value: String(documentCount),
-          tone: documentCount > 0 ? 'positive' : 'warning',
-          description: 'Cada documento fica fechado dentro da pasta canonica do grupo.',
-        })}
-        ${renderUiMetricCard({
-          title: 'Snippets no preview',
-          value: String(previewSnippetCount),
-          tone: previewSnippetCount > 0 ? 'positive' : 'neutral',
-          description: 'Trechos que a LLM recuperaria agora para esta pergunta.',
-        })}
-        ${renderUiMetricCard({
-          title: 'Instrucoes ativas',
-          value: instructionsState,
-          tone: instructionsTone,
-          description: 'Mostra se o grupo ja esta a usar ficheiro canonico ou se ainda falta criar instrucoes.',
-        })}
-        ${renderUiMetricCard({
-          title: 'Master switch',
-          value: page.data.commandSettings.assistantEnabled ? 'Ligado' : 'Desligado',
-          tone: page.data.commandSettings.assistantEnabled ? 'positive' : 'warning',
-          description: page.data.commandSettings.assistantEnabled
-            ? 'O assistente continua ativo para os grupos que estiverem autorizados abaixo.'
-            : 'Ativa-o na coluna da direita para voltar a permitir uso por grupos.',
-        })}
-        ${renderUiMetricCard({
-          title: 'Grupos WA autorizados',
-          value: `${authorizedGroupJids.length}/${groups.length}`,
-          tone: authorizedGroupJids.length > 0 ? 'positive' : 'warning',
-          description: 'Cada switch abaixo decide onde o assistente pode operar neste momento.',
-        })}
-      </section>
-
       <section class="content-grid">
         <article class="surface content-card span-4">
           <div class="card-header">
-            <h3>Grupos e ownership</h3>
+            <h3>Grupos</h3>
             ${renderUiBadge({ label: `${groups.length} grupos`, tone: 'neutral' })}
+          </div>
+          <div class="action-row">
+            ${renderUiSwitch({
+              label: 'Assistente nos grupos',
+              checked: page.data.commandSettings.assistantEnabled,
+              description: page.data.commandSettings.assistantEnabled
+                ? 'Ligado. Usa os switches individuais para bloquear so alguns grupos.'
+                : 'Desligado. Liga aqui para voltar a permitir uso nos grupos autorizados.',
+              dataAttributes: {
+                'group-action': 'toggle-assistant-master',
+              },
+            })}
           </div>
           <div class="timeline">
             ${groups
@@ -1784,29 +1617,13 @@ export class AppShell {
                     >
                       <strong>${escapeHtml(group.preferredSubject)}</strong>
                       <time>${escapeHtml(group.courseId ?? 'Sem curso associado')}</time>
-                      <div class="ui-card__chips">
-                        ${renderUiBadge({
-                          label: group.groupOwners.length > 0 ? 'Com owner' : 'Falta owner',
-                          tone: group.groupOwners.length > 0 ? 'positive' : 'warning',
-                          style: 'chip',
-                        })}
-                        ${renderUiBadge({
-                          label: `ACL owner ${group.calendarAccessPolicy.groupOwner}`,
-                          tone: 'neutral',
-                          style: 'chip',
-                        })}
-                      </div>
-                      <p>${escapeHtml(owners.length > 0 ? `Owners: ${owners}` : 'Sem owner definido.')}</p>
+                      <p>${escapeHtml(owners.length > 0 ? `Responsavel: ${owners}` : 'Sem responsavel definido.')}</p>
                     </button>
                     <div class="group-tile__switch">
                       ${renderUiSwitch({
                         label: 'Assistente neste grupo',
                         checked: groupAuthorized,
-                        description: page.data.commandSettings.assistantEnabled
-                          ? groupAuthorized
-                            ? 'Ligado para este grupo.'
-                            : 'Desligado so neste grupo.'
-                          : 'Desligado pelo master switch.',
+                        description: groupAuthorized ? 'Ligado neste grupo.' : 'Bloqueado neste grupo.',
                         dataAttributes: {
                           'group-action': 'toggle-group-authorized',
                           'group-jid': group.groupJid,
@@ -1823,8 +1640,8 @@ export class AppShell {
         <article class="surface content-card span-8">
           <div class="card-header">
             <div>
-              <h3>Instrucoes LLM do grupo</h3>
-              <p>Este ficheiro orienta a interpretacao da LLM so para o grupo selecionado.</p>
+              <h3>Instrucoes e preview</h3>
+              <p>Aqui defines como a LLM deve interpretar este grupo e confirmas logo o contexto que seria usado.</p>
             </div>
             ${renderUiBadge({ label: instructionsState, tone: instructionsTone })}
           </div>
@@ -1833,7 +1650,7 @@ export class AppShell {
               ? `
                 <div class="ui-form-grid">
                   ${renderUiTextAreaField({
-                    label: `Instrucoes canonicas para ${selectedGroup.preferredSubject}`,
+                    label: `Instrucoes para ${selectedGroup.preferredSubject}`,
                     value: this.state.groupManagementDraft.instructions,
                     dataKey: 'group.instructions',
                     rows: 10,
@@ -1841,12 +1658,12 @@ export class AppShell {
                     hint: 'Tudo o que escreveres aqui fica guardado no ficheiro canonico do grupo.',
                   })}
                   ${renderUiTextAreaField({
-                    label: 'Texto para testar o preview',
+                    label: 'Pergunta para testar o preview',
                     value: this.state.groupManagementDraft.previewText,
                     dataKey: 'group.previewText',
                     rows: 6,
                     placeholder: 'Ex.: A Aula 1 mudou de sala?',
-                    hint: 'Serve para veres logo o contexto que o assistente montaria para esta mensagem.',
+                    hint: 'Serve para confirmar logo o contexto que o assistente montaria para esta mensagem.',
                   })}
                 </div>
                 <div class="action-row">
@@ -1860,6 +1677,42 @@ export class AppShell {
                     dataAttributes: { 'group-action': 'refresh-preview' },
                   })}
                 </div>
+                ${
+                  contextPreview
+                    ? `
+                      <div class="guide-preview">
+                        <p><strong>Mensagem em teste</strong>: ${escapeHtml(contextPreview.currentText || 'Sem texto de teste ainda.')}</p>
+                        <p><strong>Fonte ativa</strong>: ${escapeHtml(contextPreview.groupInstructionsSource)}</p>
+                        <p><strong>Snippets encontrados</strong>: ${escapeHtml(String(previewSnippetCount))}</p>
+                      </div>
+                      ${
+                        contextPreview.groupKnowledgeSnippets.length > 0
+                          ? `
+                            <div class="timeline">
+                              ${contextPreview.groupKnowledgeSnippets
+                                .slice(0, 3)
+                                .map(
+                                  (snippet) => `
+                                    <article class="timeline-item">
+                                      <strong>${escapeHtml(snippet.title)}</strong>
+                                      <time>${escapeHtml(`${snippet.filePath} • ${snippet.score} match`)}</time>
+                                      <p>${escapeHtml(snippet.excerpt)}</p>
+                                    </article>
+                                  `,
+                                )
+                                .join('')}
+                            </div>
+                          `
+                          : `
+                            <div class="timeline-item">
+                              <strong>Sem snippets relevantes</strong>
+                              <time>Experimenta outra pergunta ou reforca os documentos deste grupo.</time>
+                            </div>
+                          `
+                      }
+                    `
+                    : '<p>Ainda nao atualizaste o preview deste grupo.</p>'
+                }
                 ${
                   this.state.advancedDetailsEnabled && intelligence
                     ? `
@@ -1880,239 +1733,149 @@ export class AppShell {
       </section>
 
       <section class="content-grid">
-        <article class="surface content-card span-5">
+        <article class="surface content-card span-12">
           <div class="card-header">
             <div>
-              <h3>Knowledge base deste grupo</h3>
-              <p>Documentos isolados por grupo, sem contaminar outras turmas.</p>
+              <h3>Documentos deste grupo</h3>
+              <p>Normas, excecoes e conhecimento ficam guardados na pasta do proprio grupo.</p>
             </div>
             ${renderUiBadge({
               label: `${documentCount} documento${documentCount === 1 ? '' : 's'}`,
               tone: documentCount > 0 ? 'positive' : 'warning',
             })}
           </div>
-          <div class="action-row">
-            ${renderUiActionButton({
-              label: 'Novo documento',
-              variant: 'secondary',
-              dataAttributes: { 'group-action': 'new-document' },
-            })}
-          </div>
-          <div class="timeline">
-            ${
-              intelligence && intelligence.knowledge.documents.length > 0
-                ? intelligence.knowledge.documents
-                    .map((document) => {
-                      const isSelected = document.documentId === selectedDocument?.documentId;
-
-                      return `
-                        <article class="timeline-item ${isSelected ? 'group-document--selected' : ''}">
-                          <strong>${escapeHtml(document.title)}</strong>
-                          <time>${escapeHtml(document.filePath)}</time>
-                          <div class="ui-card__chips">
-                            ${renderUiBadge({
-                              label: document.enabled ? 'Ativo' : 'Desligado',
-                              tone: document.enabled ? 'positive' : 'warning',
-                              style: 'chip',
-                            })}
-                            ${document.tags.map((tag) => renderUiBadge({ label: tag, tone: 'neutral', style: 'chip' })).join('')}
-                          </div>
-                          <p>${escapeHtml(document.summary ?? 'Sem resumo ainda.')}</p>
-                          <div class="action-row">
-                            ${renderUiActionButton({
-                              label: isSelected ? 'A editar' : 'Editar',
-                              variant: isSelected ? 'primary' : 'secondary',
-                              dataAttributes: {
-                                'group-action': 'load-document',
-                                'group-document-id': document.documentId,
-                              },
-                            })}
-                            ${renderUiActionButton({
-                              label: 'Apagar',
-                              variant: 'secondary',
-                              dataAttributes: {
-                                'group-action': 'delete-document',
-                                'group-document-id': document.documentId,
-                              },
-                            })}
-                          </div>
-                        </article>
-                      `;
-                    })
-                    .join('')
-                : `
-                  <div class="timeline-item">
-                    <strong>Sem documentos ainda</strong>
-                    <time>Podes guardar o primeiro documento desta knowledge base aqui.</time>
-                  </div>
-                `
-            }
-          </div>
-        </article>
-
-        <article class="surface content-card span-7">
-          <div class="card-header">
-            <div>
-              <h3>Editor do documento</h3>
-              <p>O objetivo aqui e manter cada norma ou conhecimento dentro da pasta do proprio grupo.</p>
-            </div>
-            ${renderUiBadge({
-              label: this.state.groupManagementDraft.selectedDocumentId ? 'Documento existente' : 'Novo documento',
-              tone: this.state.groupManagementDraft.selectedDocumentId ? 'positive' : 'neutral',
-            })}
-          </div>
           ${
             selectedGroup
               ? `
-                <div class="ui-form-grid ui-form-grid--triple">
-                  ${renderUiInputField({
-                    label: 'Document ID',
-                    value: this.state.groupManagementDraft.knowledgeDocument.documentId,
-                    dataKey: 'group.documentId',
-                    placeholder: 'ex.: aula-1-ballet',
-                    hint: 'Identificador estavel para queue, preview e auditoria.',
-                  })}
-                  ${renderUiInputField({
-                    label: 'Ficheiro relativo',
-                    value: this.state.groupManagementDraft.knowledgeDocument.filePath,
-                    dataKey: 'group.filePath',
-                    placeholder: 'ex.: aulas/aula-1.md',
-                    hint: 'Caminho relativo dentro de knowledge/.',
-                  })}
-                  ${renderUiSelectField({
-                    label: 'Estado',
-                    value: this.state.groupManagementDraft.knowledgeDocument.enabled,
-                    dataKey: 'group.enabled',
-                    options: [
-                      { value: 'enabled', label: 'Ativo' },
-                      { value: 'disabled', label: 'Desligado' },
-                    ],
-                  })}
-                </div>
-                <div class="ui-form-grid">
-                  ${renderUiInputField({
-                    label: 'Titulo humano',
-                    value: this.state.groupManagementDraft.knowledgeDocument.title,
-                    dataKey: 'group.title',
-                    placeholder: 'Ex.: Aula 1 de Ballet Iniciacao',
-                  })}
-                  ${renderUiInputField({
-                    label: 'Resumo curto',
-                    value: this.state.groupManagementDraft.knowledgeDocument.summary,
-                    dataKey: 'group.summary',
-                    placeholder: 'Resumo curto para identificar este documento.',
-                  })}
-                  ${renderUiInputField({
-                    label: 'Aliases',
-                    value: this.state.groupManagementDraft.knowledgeDocument.aliases,
-                    dataKey: 'group.aliases',
-                    placeholder: 'Ex.: Aula 1, Ballet Basico',
-                    hint: 'Separados por virgula.',
-                  })}
-                  ${renderUiInputField({
-                    label: 'Tags',
-                    value: this.state.groupManagementDraft.knowledgeDocument.tags,
-                    dataKey: 'group.tags',
-                    placeholder: 'Ex.: ballet, iniciacao',
-                    hint: 'Separadas por virgula.',
-                  })}
-                </div>
-                ${renderUiTextAreaField({
-                  label: 'Conteudo markdown',
-                  value: this.state.groupManagementDraft.knowledgeDocument.content,
-                  dataKey: 'group.content',
-                  rows: 12,
-                  placeholder: '# Aula 1\n\nExplica aqui a norma, o significado e as excecoes deste grupo.',
-                  hint: 'Este corpo e o que depois entra no retrieval isolado deste grupo.',
-                })}
                 <div class="action-row">
-                  ${renderUiActionButton({
-                    label: 'Guardar documento',
-                    dataAttributes: { 'group-action': 'save-document' },
-                  })}
                   ${renderUiActionButton({
                     label: 'Novo documento',
                     variant: 'secondary',
                     dataAttributes: { 'group-action': 'new-document' },
                   })}
                 </div>
+                <div class="content-grid">
+                  <div class="span-4">
+                    <div class="timeline">
+                      ${
+                        intelligence && intelligence.knowledge.documents.length > 0
+                          ? intelligence.knowledge.documents
+                              .map((document) => {
+                                const isSelected = document.documentId === selectedDocument?.documentId;
+
+                                return `
+                                  <article class="timeline-item ${isSelected ? 'group-document--selected' : ''}">
+                                    <strong>${escapeHtml(document.title)}</strong>
+                                    <time>${escapeHtml(document.filePath)}</time>
+                                    <p>${escapeHtml(document.summary ?? 'Sem resumo ainda.')}</p>
+                                    <div class="action-row">
+                                      ${renderUiActionButton({
+                                        label: isSelected ? 'A editar' : 'Editar',
+                                        variant: isSelected ? 'primary' : 'secondary',
+                                        dataAttributes: {
+                                          'group-action': 'load-document',
+                                          'group-document-id': document.documentId,
+                                        },
+                                      })}
+                                      ${renderUiActionButton({
+                                        label: 'Apagar',
+                                        variant: 'secondary',
+                                        dataAttributes: {
+                                          'group-action': 'delete-document',
+                                          'group-document-id': document.documentId,
+                                        },
+                                      })}
+                                    </div>
+                                  </article>
+                                `;
+                              })
+                              .join('')
+                          : `
+                            <div class="timeline-item">
+                              <strong>Sem documentos ainda</strong>
+                              <time>Podes guardar aqui o primeiro documento desta knowledge base.</time>
+                            </div>
+                          `
+                      }
+                    </div>
+                  </div>
+                  <div class="span-8">
+                    <div class="ui-form-grid ui-form-grid--triple">
+                      ${renderUiInputField({
+                        label: 'Document ID',
+                        value: this.state.groupManagementDraft.knowledgeDocument.documentId,
+                        dataKey: 'group.documentId',
+                        placeholder: 'ex.: aula-1-ballet',
+                        hint: 'Identificador estavel para preview e auditoria.',
+                      })}
+                      ${renderUiInputField({
+                        label: 'Ficheiro relativo',
+                        value: this.state.groupManagementDraft.knowledgeDocument.filePath,
+                        dataKey: 'group.filePath',
+                        placeholder: 'ex.: aulas/aula-1.md',
+                        hint: 'Caminho relativo dentro de knowledge/.',
+                      })}
+                      ${renderUiSelectField({
+                        label: 'Estado',
+                        value: this.state.groupManagementDraft.knowledgeDocument.enabled,
+                        dataKey: 'group.enabled',
+                        options: [
+                          { value: 'enabled', label: 'Ativo' },
+                          { value: 'disabled', label: 'Desligado' },
+                        ],
+                      })}
+                    </div>
+                    <div class="ui-form-grid">
+                      ${renderUiInputField({
+                        label: 'Titulo humano',
+                        value: this.state.groupManagementDraft.knowledgeDocument.title,
+                        dataKey: 'group.title',
+                        placeholder: 'Ex.: Aula 1 de Ballet Iniciacao',
+                      })}
+                      ${renderUiInputField({
+                        label: 'Resumo curto',
+                        value: this.state.groupManagementDraft.knowledgeDocument.summary,
+                        dataKey: 'group.summary',
+                        placeholder: 'Resumo curto para identificar este documento.',
+                      })}
+                      ${renderUiInputField({
+                        label: 'Aliases',
+                        value: this.state.groupManagementDraft.knowledgeDocument.aliases,
+                        dataKey: 'group.aliases',
+                        placeholder: 'Ex.: Aula 1, Ballet Basico',
+                        hint: 'Separados por virgula.',
+                      })}
+                      ${renderUiInputField({
+                        label: 'Tags',
+                        value: this.state.groupManagementDraft.knowledgeDocument.tags,
+                        dataKey: 'group.tags',
+                        placeholder: 'Ex.: ballet, iniciacao',
+                        hint: 'Separadas por virgula.',
+                      })}
+                    </div>
+                    ${renderUiTextAreaField({
+                      label: 'Conteudo markdown',
+                      value: this.state.groupManagementDraft.knowledgeDocument.content,
+                      dataKey: 'group.content',
+                      rows: 12,
+                      placeholder: '# Aula 1\n\nExplica aqui a norma, o significado e as excecoes deste grupo.',
+                      hint: 'Este corpo e o que depois entra no retrieval isolado deste grupo.',
+                    })}
+                    <div class="action-row">
+                      ${renderUiActionButton({
+                        label: 'Guardar documento',
+                        dataAttributes: { 'group-action': 'save-document' },
+                      })}
+                      ${renderUiActionButton({
+                        label: 'Novo documento',
+                        variant: 'secondary',
+                        dataAttributes: { 'group-action': 'new-document' },
+                      })}
+                    </div>
+                  </div>
+                </div>
               `
               : '<p>Escolhe primeiro um grupo para comecares a gerir documentos de conhecimento.</p>'
-          }
-        </article>
-      </section>
-
-      <section class="content-grid">
-        <article class="surface content-card span-12">
-          <div class="card-header">
-            <div>
-              <h3>Preview do contexto que a LLM receberia</h3>
-              <p>Serve para confirmar rapidamente se instrucoes e snippets estao a puxar o contexto certo do grupo.</p>
-            </div>
-            ${renderUiBadge({
-              label: `${previewSnippetCount} snippet${previewSnippetCount === 1 ? '' : 's'}`,
-              tone: previewSnippetCount > 0 ? 'positive' : 'neutral',
-            })}
-          </div>
-          ${
-            contextPreview
-              ? `
-                <div class="card-grid">
-                  ${renderUiPanelCard({
-                    title: 'Mensagem em teste',
-                    badgeLabel: contextPreview.groupInstructionsSource,
-                    badgeTone: instructionsTone,
-                    contentHtml: `<p>${escapeHtml(contextPreview.currentText || 'Sem texto de teste ainda.')}</p>`,
-                  })}
-                  ${renderUiPanelCard({
-                    title: 'Grupo resolvido',
-                    badgeLabel: contextPreview.group?.preferredSubject ?? 'Sem grupo',
-                    badgeTone: contextPreview.group ? 'positive' : 'warning',
-                    contentHtml: `<p>${escapeHtml(
-                      contextPreview.group
-                        ? `Aliases: ${contextPreview.group.aliases.join(', ') || 'sem aliases'}.`
-                        : 'O preview ainda nao conseguiu resolver um grupo valido.',
-                    )}</p>`,
-                  })}
-                  ${renderUiPanelCard({
-                    title: 'Instrucoes ativas',
-                    badgeLabel: contextPreview.groupInstructionsSource,
-                    badgeTone: instructionsTone,
-                    contentHtml: `<p>${escapeHtml(
-                      contextPreview.groupInstructions?.trim().slice(0, 220) || 'Ainda nao ha instrucoes especificas para este grupo.',
-                    )}</p>`,
-                  })}
-                </div>
-                <div class="card-grid">
-                  ${
-                    contextPreview.groupKnowledgeSnippets.length > 0
-                      ? contextPreview.groupKnowledgeSnippets
-                          .map((snippet) =>
-                            renderUiRecordCard({
-                              title: snippet.title,
-                              subtitle: snippet.filePath,
-                              badgeLabel: `${snippet.score} match`,
-                              badgeTone: 'positive',
-                              chips: snippet.matchedTerms.map((term) => ({ label: term, tone: 'neutral' })),
-                              bodyHtml: `<p>${escapeHtml(snippet.excerpt)}</p>`,
-                              detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
-                              detailsHtml: this.state.advancedDetailsEnabled
-                                ? `<p>Path absoluto: ${escapeHtml(snippet.absoluteFilePath)}</p>`
-                                : undefined,
-                            }),
-                          )
-                          .join('')
-                      : renderUiPanelCard({
-                          title: 'Sem snippets relevantes',
-                          badgeLabel: '0 matches',
-                          badgeTone: 'warning',
-                          contentHtml:
-                            '<p>Experimenta escrever outra pergunta ou enriquecer os documentos deste grupo para melhorar o retrieval.</p>',
-                        })
-                  }
-                </div>
-              `
-              : '<p>Atualiza o preview para veres aqui o contexto efetivo do grupo selecionado.</p>'
           }
         </article>
       </section>
@@ -2123,12 +1886,19 @@ export class AppShell {
     const snapshot = page.data.workspace;
     const people = buildWorkspacePeople(page.data);
     const liveQrVisible = this.state.whatsappQrPreviewVisible && snapshot.runtime.qr.available && snapshot.runtime.qr.svg;
+    const nextWhatsAppStep = snapshot.runtime.qr.available
+      ? 'Faz o scan do QR e confirma se a sessao passa para ligada.'
+      : !snapshot.runtime.session.connected
+        ? 'Atualiza a sessao e confirma se o auth ainda esta valido.'
+        : snapshot.permissionSummary.authorizedGroups === 0
+          ? 'Autoriza os grupos onde o assistente deve poder operar.'
+          : 'A ligacao parece pronta; revê apenas grupos e responsaveis.';
 
     return `
       <section class="surface hero surface--strong">
         <div>
           <p class="eyebrow">Canal WhatsApp</p>
-          <h2>Ligacao, onboarding, ownership e ACL tratados como operacao humana e nao como configuracao tecnica.</h2>
+          <h2>Ver o estado da sessao, quem controla a app e em que grupos o assistente pode atuar.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
@@ -2150,85 +1920,31 @@ export class AppShell {
             badgeTone: toneForSessionPhase(snapshot.runtime.session.phase),
             contentHtml: `<p>${escapeHtml(
               snapshot.runtime.session.connected
-                ? 'A sessao WhatsApp esta aberta e pronta para descoberta e envio real.'
+                ? 'A sessao esta aberta e pronta para discovery e envio real.'
                 : snapshot.runtime.session.loginRequired
-                  ? 'Ainda falta autenticar a sessao. Assim que o QR aparecer, ja consegues ligar a conta operadora.'
-                  : 'A ligacao existe mas ainda nao esta operacional. Vale a pena confirmar QR, reconnect e discovery.',
+                  ? 'Ainda falta autenticar a sessao. O QR aparece quando o backend o publicar.'
+                  : 'A ligacao existe mas ainda nao esta pronta. Vale a pena rever QR e reconnect.',
             )}</p>`,
           })}
           ${renderUiPanelCard({
-            title: 'Onboarding',
-            badgeLabel: snapshot.runtime.qr.available ? 'QR pronto' : 'Guia pronto',
-            badgeTone: snapshot.runtime.qr.available ? 'positive' : 'neutral',
-            contentHtml: `<p>${escapeHtml(
-              snapshot.runtime.qr.available
-                ? 'O backend ja publicou um QR real. Se abrires a area abaixo, consegues validar a clareza do fluxo com o dado live.'
-                : 'Abertura da sessao, diagnostico e recuperacao ficam explicados sem linguagem interna.',
-            )}</p>`,
+            title: 'Proximo passo',
+            badgeLabel: snapshot.runtime.qr.available ? 'QR pronto' : 'Rever ligacao',
+            badgeTone: snapshot.runtime.qr.available ? 'positive' : 'warning',
+            contentHtml: `<p>${escapeHtml(nextWhatsAppStep)}</p>`,
           })}
         </div>
       </section>
 
       <section class="card-grid">
-        ${renderUiMetricCard({ title: 'Grupos autorizados', value: `${snapshot.permissionSummary.authorizedGroups}/${snapshot.permissionSummary.knownGroups}`, tone: 'neutral', description: 'Cobertura atual do assistente nos grupos conhecidos.' })}
-        ${renderUiMetricCard({ title: 'Privados autorizados', value: `${snapshot.permissionSummary.authorizedPrivateConversations}/${snapshot.permissionSummary.knownPrivateConversations}`, tone: 'neutral', description: 'Conversas privadas onde o assistente pode responder.' })}
+        ${renderUiMetricCard({ title: 'Sessao', value: readableSessionPhase(snapshot.runtime.session.phase), tone: toneForSessionPhase(snapshot.runtime.session.phase), description: 'Estado live da ligacao WhatsApp.' })}
+        ${renderUiMetricCard({ title: 'Grupos ligados', value: `${snapshot.permissionSummary.authorizedGroups}/${snapshot.permissionSummary.knownGroups}`, tone: snapshot.permissionSummary.authorizedGroups > 0 ? 'positive' : 'warning', description: 'Grupos onde o assistente pode atuar agora.' })}
         ${renderUiMetricCard({ title: 'App owners', value: String(snapshot.permissionSummary.appOwners), tone: 'positive', description: 'Pessoas com controlo global da aplicacao.' })}
-        ${renderUiMetricCard({ title: 'Sessao live', value: readableSessionPhase(snapshot.runtime.session.phase), tone: toneForSessionPhase(snapshot.runtime.session.phase), description: 'Estado real da ligacao WhatsApp neste momento.' })}
-        ${renderUiMetricCard({ title: 'Descobertos live', value: `${snapshot.runtime.discoveredGroups}/${snapshot.runtime.discoveredConversations}`, tone: 'neutral', description: 'Grupos e privados descobertos pelo runtime real.' })}
-        ${renderUiMetricCard({ title: 'Mesmo auth do Codex', value: snapshot.host.sameAsCodexCanonical ? 'Sim' : 'Nao', tone: snapshot.host.sameAsCodexCanonical ? 'positive' : 'warning', description: 'Partilha do auth live com o ambiente principal.' })}
-        ${renderUiMetricCard({ title: 'Pessoas visiveis', value: String(people.length), tone: 'neutral', description: 'Base humana para gerir owners e acessos.' })}
       </section>
 
       <section class="content-grid">
-        <article class="surface content-card span-12">
+        <article class="surface content-card span-5">
           <div class="card-header">
-            <h3>Fluxo guiado para ligar ou reparar WhatsApp</h3>
-            ${renderUiBadge({ label: readableRepairFocus(this.state.whatsappRepairFocus), tone: repairTone(this.state.whatsappRepairFocus, snapshot) })}
-          </div>
-          <div class="action-row">
-            ${renderUiActionButton({
-              label: 'Auth',
-              variant: this.state.whatsappRepairFocus === 'auth' ? 'primary' : 'secondary',
-              dataAttributes: { 'flow-action': 'repair-focus', 'flow-value': 'auth' },
-            })}
-            ${renderUiActionButton({
-              label: 'Grupos',
-              variant: this.state.whatsappRepairFocus === 'groups' ? 'primary' : 'secondary',
-              dataAttributes: { 'flow-action': 'repair-focus', 'flow-value': 'groups' },
-            })}
-            ${renderUiActionButton({
-              label: 'Permissoes',
-              variant: this.state.whatsappRepairFocus === 'permissions' ? 'primary' : 'secondary',
-              dataAttributes: { 'flow-action': 'repair-focus', 'flow-value': 'permissions' },
-            })}
-          </div>
-          <div class="content-grid">
-            <article class="surface content-card span-7">
-              <div class="card-header">
-                <h3>Passos recomendados</h3>
-              </div>
-              ${renderRepairChecklist(this.state.whatsappRepairFocus, snapshot)}
-            </article>
-            <article class="surface content-card span-5">
-              <div class="card-header">
-                <h3>Leitura rapida do estado</h3>
-              </div>
-              <ul>
-                <li>Fase da sessao: ${escapeHtml(readableSessionPhase(snapshot.runtime.session.phase))}</li>
-                <li>Auth presente: ${snapshot.runtime.session.sessionPresent ? 'sim' : 'nao'}</li>
-                <li>QR disponivel: ${snapshot.runtime.qr.available ? 'sim' : 'nao'}</li>
-                <li>Descoberta de grupos: ${snapshot.settings.whatsapp.groupDiscoveryEnabled ? 'ativa' : 'desligada'}</li>
-                <li>Descoberta de conversas: ${snapshot.settings.whatsapp.conversationDiscoveryEnabled ? 'ativa' : 'desligada'}</li>
-                <li>Assistente privado: ${snapshot.settings.commands.allowPrivateAssistant ? 'permitido' : 'bloqueado'}</li>
-                <li>Ultima discovery: ${escapeHtml(formatShortDateTime(snapshot.runtime.lastDiscoveryAt))}</li>
-              </ul>
-            </article>
-          </div>
-        </article>
-
-        <article class="surface content-card span-6">
-          <div class="card-header">
-            <h3>Onboarding e controlos da sessao</h3>
+            <h3>Sessao e emparelhamento</h3>
             ${renderUiBadge({ label: readableSessionPhase(snapshot.runtime.session.phase), tone: toneForSessionPhase(snapshot.runtime.session.phase) })}
           </div>
           <div class="ui-card__content">
@@ -2237,7 +1953,7 @@ export class AppShell {
                 <div class="qr-preview__code qr-preview__code--svg" aria-label="QR de emparelhamento live do WhatsApp">${snapshot.runtime.qr.svg ?? ''}</div>
                 <div class="qr-preview__body">
                   <strong>QR live pronto para scan</strong>
-                  <p>Aponta o telemovel da conta operadora a este QR grande para autenticar a sessao real do LumeHub sem precisares de zoom manual.</p>
+                  <p>Aponta o telemovel da conta operadora a este QR para autenticar a sessao real do LumeHub.</p>
                   <p>Gerado: ${escapeHtml(formatShortDateTime(snapshot.runtime.qr.updatedAt))}</p>
                   <div class="action-row qr-preview__actions">
                     <a class="ui-button ui-button--secondary" href="/api/qr.svg" target="_blank" rel="noreferrer noopener">Abrir QR isolado</a>
@@ -2246,9 +1962,8 @@ export class AppShell {
               </div>
             ` : `
               <div class="guide-preview">
-                <p><strong>Quando mostrar QR</strong>: quando o auth faltar, expirar ou precisares de trocar de conta.</p>
-                <p><strong>Depois do scan</strong>: confirmar fase open, descoberta live e permissoes base.</p>
                 <p><strong>Estado atual</strong>: ${escapeHtml(snapshot.runtime.session.lastError ?? 'sem erro live conhecido')}</p>
+                <p><strong>Depois do scan</strong>: confirmar sessao ligada, grupos descobertos e permissoes base.</p>
               </div>
             `}
             <div class="action-row">
@@ -2263,103 +1978,136 @@ export class AppShell {
                 dataAttributes: { 'whatsapp-action': 'toggle-private-assistant-global' },
               })}
             </div>
-            <div class="ui-card__chips">
-              ${renderUiBadge({ label: snapshot.runtime.session.sessionPresent ? 'Sessao presente' : 'Sessao em falta', tone: snapshot.runtime.session.sessionPresent ? 'positive' : 'warning', style: 'chip' })}
-              ${renderUiBadge({ label: snapshot.runtime.qr.available ? 'QR publicado' : 'Sem QR ativo', tone: snapshot.runtime.qr.available ? 'positive' : 'neutral', style: 'chip' })}
-              ${renderUiBadge({ label: snapshot.settings.whatsapp.sharedAuthWithCodex ? 'Mesmo auth do Codex' : 'Auth isolado', tone: snapshot.settings.whatsapp.sharedAuthWithCodex ? 'positive' : 'warning', style: 'chip' })}
-              ${renderUiBadge({ label: snapshot.settings.whatsapp.groupDiscoveryEnabled ? 'Descoberta grupos ativa' : 'Descoberta grupos desligada', tone: snapshot.settings.whatsapp.groupDiscoveryEnabled ? 'positive' : 'warning', style: 'chip' })}
-              ${renderUiBadge({ label: snapshot.settings.whatsapp.conversationDiscoveryEnabled ? 'Descoberta conversas ativa' : 'Descoberta conversas desligada', tone: snapshot.settings.whatsapp.conversationDiscoveryEnabled ? 'positive' : 'warning', style: 'chip' })}
-            </div>
-            <div class="action-row">
-              ${renderUiActionButton({
-                label: snapshot.settings.whatsapp.sharedAuthWithCodex ? 'Usar auth isolado' : 'Partilhar auth do Codex',
-                variant: 'secondary',
-                dataAttributes: { 'whatsapp-action': 'toggle-shared-auth' },
-              })}
-              ${renderUiActionButton({
-                label: snapshot.settings.whatsapp.groupDiscoveryEnabled ? 'Pausar descoberta de grupos' : 'Ativar descoberta de grupos',
-                variant: 'secondary',
-                dataAttributes: { 'whatsapp-action': 'toggle-group-discovery' },
-              })}
-              ${renderUiActionButton({
-                label: snapshot.settings.whatsapp.conversationDiscoveryEnabled ? 'Pausar descoberta de conversas' : 'Ativar descoberta de conversas',
-                variant: 'secondary',
-                dataAttributes: { 'whatsapp-action': 'toggle-conversation-discovery' },
-              })}
-            </div>
+            <details class="ui-details">
+              <summary>Ajustes menos frequentes</summary>
+              <div class="ui-details__content">
+                <div class="ui-card__chips">
+                  ${renderUiBadge({ label: snapshot.runtime.session.sessionPresent ? 'Sessao presente' : 'Sessao em falta', tone: snapshot.runtime.session.sessionPresent ? 'positive' : 'warning', style: 'chip' })}
+                  ${renderUiBadge({ label: snapshot.runtime.qr.available ? 'QR publicado' : 'Sem QR ativo', tone: snapshot.runtime.qr.available ? 'positive' : 'neutral', style: 'chip' })}
+                  ${renderUiBadge({ label: snapshot.settings.whatsapp.sharedAuthWithCodex ? 'Mesmo auth do Codex' : 'Auth isolado', tone: snapshot.settings.whatsapp.sharedAuthWithCodex ? 'positive' : 'warning', style: 'chip' })}
+                  ${renderUiBadge({ label: snapshot.settings.whatsapp.groupDiscoveryEnabled ? 'Descoberta grupos ativa' : 'Descoberta grupos desligada', tone: snapshot.settings.whatsapp.groupDiscoveryEnabled ? 'positive' : 'warning', style: 'chip' })}
+                  ${renderUiBadge({ label: snapshot.settings.whatsapp.conversationDiscoveryEnabled ? 'Descoberta conversas ativa' : 'Descoberta conversas desligada', tone: snapshot.settings.whatsapp.conversationDiscoveryEnabled ? 'positive' : 'warning', style: 'chip' })}
+                </div>
+                <div class="action-row">
+                  ${renderUiActionButton({
+                    label: snapshot.settings.whatsapp.sharedAuthWithCodex ? 'Usar auth isolado' : 'Partilhar auth do Codex',
+                    variant: 'secondary',
+                    dataAttributes: { 'whatsapp-action': 'toggle-shared-auth' },
+                  })}
+                  ${renderUiActionButton({
+                    label: snapshot.settings.whatsapp.groupDiscoveryEnabled ? 'Pausar descoberta de grupos' : 'Ativar descoberta de grupos',
+                    variant: 'secondary',
+                    dataAttributes: { 'whatsapp-action': 'toggle-group-discovery' },
+                  })}
+                  ${renderUiActionButton({
+                    label: snapshot.settings.whatsapp.conversationDiscoveryEnabled ? 'Pausar descoberta de conversas' : 'Ativar descoberta de conversas',
+                    variant: 'secondary',
+                    dataAttributes: { 'whatsapp-action': 'toggle-conversation-discovery' },
+                  })}
+                </div>
+              </div>
+            </details>
           </div>
         </article>
 
-        <article class="surface content-card span-6">
+        <article class="surface content-card span-7">
           <div class="card-header">
-            <h3>Pessoas, app owners e acesso privado</h3>
-            ${renderUiBadge({ label: `${people.filter((person) => person.personId).length} pessoas geriveis`, tone: 'neutral' })}
+            <div>
+              <h3>Pessoas com controlo</h3>
+              <p>Daqui decides quem pode gerir a app e quem pode falar com o assistente em privado.</p>
+            </div>
+            ${renderUiBadge({ label: `${people.filter((person) => person.personId).length} pessoas`, tone: 'neutral' })}
           </div>
-          <div class="card-grid">
-            ${people
-              .map((person) =>
-                renderUiRecordCard({
-                  title: person.displayName,
-                  subtitle:
-                    person.whatsappJids.length > 0
-                      ? `${person.whatsappJids.length} contacto(s) WhatsApp conhecido(s)`
-                      : 'Sem contacto WhatsApp conhecido',
-                  badgeLabel: person.globalRoles.includes('app_owner') ? 'App owner' : 'Membro',
-                  badgeTone: person.globalRoles.includes('app_owner') ? 'positive' : 'neutral',
-                  chips: [
-                    {
-                      label: person.privateAssistantAuthorized ? 'Privado permitido' : 'Privado bloqueado',
-                      tone: person.privateAssistantAuthorized ? 'positive' : 'warning',
-                    },
-                    ...(person.ownedGroupJids.length > 0
-                      ? [{ label: `${person.ownedGroupJids.length} grupos associados`, tone: 'neutral' as const }]
-                      : []),
-                  ],
-                  bodyHtml: `
-                    <div class="action-row">
-                      ${
-                        person.personId
-                          ? renderUiActionButton({
-                              label: person.globalRoles.includes('app_owner') ? 'Remover app owner' : 'Tornar app owner',
-                              variant: person.globalRoles.includes('app_owner') ? 'secondary' : 'primary',
-                              dataAttributes: {
-                                'whatsapp-action': 'toggle-app-owner',
-                                'person-id': person.personId,
-                              },
-                            })
-                          : ''
-                      }
-                      ${
-                        person.personId && person.whatsappJids.length > 0
-                          ? renderUiActionButton({
-                              label: person.privateAssistantAuthorized ? 'Bloquear privado' : 'Permitir privado',
-                              variant: 'secondary',
-                              dataAttributes: {
-                                'whatsapp-action': 'toggle-private-person',
-                                'person-id': person.personId,
-                              },
-                            })
-                          : ''
-                      }
-                    </div>
-                  `,
-                  detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
-                  detailsHtml: this.state.advancedDetailsEnabled
-                    ? `
-                        <p>JIDs: ${escapeHtml(person.whatsappJids.join(', ') || 'sem JID')}</p>
-                        <p>Conhecido pelo bot: ${person.knownToBot ? 'sim' : 'nao'}</p>
-                      `
-                    : undefined,
-                }),
-              )
-              .join('')}
+          <div class="timeline">
+            ${people.length > 0
+              ? people
+                  .map(
+                    (person) => `
+                      <article class="timeline-item">
+                        <strong>${escapeHtml(person.displayName)}</strong>
+                        <time>${escapeHtml(person.globalRoles.includes('app_owner') ? 'App owner' : 'Membro')}</time>
+                        <p>${escapeHtml(
+                          person.whatsappJids.length > 0
+                            ? `${person.whatsappJids.length} contacto(s) WhatsApp conhecido(s) • ${person.privateAssistantAuthorized ? 'privado permitido' : 'privado bloqueado'}`
+                            : 'Sem contacto WhatsApp conhecido',
+                        )}</p>
+                        <div class="action-row">
+                          ${
+                            person.personId
+                              ? renderUiActionButton({
+                                  label: person.globalRoles.includes('app_owner') ? 'Remover app owner' : 'Tornar app owner',
+                                  variant: person.globalRoles.includes('app_owner') ? 'secondary' : 'primary',
+                                  dataAttributes: {
+                                    'whatsapp-action': 'toggle-app-owner',
+                                    'person-id': person.personId,
+                                  },
+                                })
+                              : ''
+                          }
+                          ${
+                            person.personId && person.whatsappJids.length > 0
+                              ? renderUiActionButton({
+                                  label: person.privateAssistantAuthorized ? 'Bloquear privado' : 'Permitir privado',
+                                  variant: 'secondary',
+                                  dataAttributes: {
+                                    'whatsapp-action': 'toggle-private-person',
+                                    'person-id': person.personId,
+                                  },
+                                })
+                              : ''
+                          }
+                        </div>
+                      </article>
+                    `,
+                  )
+                  .join('')
+              : `
+                  <div class="timeline-item">
+                    <strong>Sem pessoas conhecidas</strong>
+                    <time>Assim que o runtime reconhecer pessoas, esta lista passa a ficar gerivel aqui.</time>
+                  </div>
+                `}
           </div>
+          <details class="ui-details">
+            <summary>Conversas privadas conhecidas</summary>
+            <div class="ui-details__content">
+              <div class="timeline">
+                ${snapshot.conversations.length > 0
+                  ? snapshot.conversations
+                      .map(
+                        (conversation) => `
+                          <article class="timeline-item">
+                            <strong>${escapeHtml(conversation.displayName)}</strong>
+                            <time>${escapeHtml(conversation.privateAssistantAuthorized ? 'Privado permitido' : 'Privado bloqueado')}</time>
+                            <p>${escapeHtml(
+                              conversation.ownedGroupJids.length > 0
+                                ? `${conversation.ownedGroupJids.length} grupo(s) associado(s)`
+                                : 'Sem grupos associados',
+                            )}</p>
+                          </article>
+                        `,
+                      )
+                      .join('')
+                  : `
+                      <div class="timeline-item">
+                        <strong>Sem privados conhecidos</strong>
+                        <time>Quando houver conversas privadas reconhecidas, aparecem aqui.</time>
+                      </div>
+                    `}
+              </div>
+            </div>
+          </details>
         </article>
+      </section>
 
+      <section class="content-grid">
         <article class="surface content-card span-12">
           <div class="card-header">
-            <h3>Grupos, responsaveis e acesso ao calendario</h3>
-            ${renderUiBadge({ label: 'Gestao visual direta', tone: 'positive' })}
+            <div>
+              <h3>Grupos do WhatsApp</h3>
+              <p>O foco aqui e simples: ligar ou bloquear o assistente, rever responsaveis e ajustar acessos quando fizer falta.</p>
+            </div>
+            ${renderUiBadge({ label: `${snapshot.groups.length} grupos`, tone: 'neutral' })}
           </div>
           <div class="group-access-grid">
             ${snapshot.groups
@@ -2368,96 +2116,76 @@ export class AppShell {
                   ${renderUiRecordCard({
                     title: group.preferredSubject,
                     subtitle: group.ownerLabels.join(', ') || 'Sem responsavel definido',
-                    badgeLabel: group.assistantAuthorized ? 'Assistente ativo' : 'Acesso bloqueado',
+                    badgeLabel: group.assistantAuthorized ? 'Ligado' : 'Bloqueado',
                     badgeTone: group.assistantAuthorized ? 'positive' : 'warning',
                     bodyHtml: `
-                      <div class="ui-card__content">
-                        <p><strong>Responsaveis atuais</strong>: ${escapeHtml(group.ownerLabels.join(', ') || 'nenhum')}</p>
-                        <div class="action-row">
-                          ${renderUiActionButton({
-                            label: group.assistantAuthorized ? 'Bloquear grupo' : 'Autorizar grupo',
-                            variant: group.assistantAuthorized ? 'secondary' : 'primary',
-                            dataAttributes: {
-                              'whatsapp-action': 'toggle-group-authorized',
-                              'group-jid': group.groupJid,
-                            },
-                          })}
-                          ${group.ownerPersonIds.length > 0
-                            ? renderUiActionButton({
-                                label: 'Limpar responsaveis',
-                                variant: 'secondary',
-                                dataAttributes: {
-                                  'whatsapp-action': 'clear-group-owners',
-                                  'group-jid': group.groupJid,
-                                },
-                              })
-                            : ''
-                          }
-                        </div>
-                        <div class="ui-card__chips">
-                          ${people
-                            .filter((person) => person.personId)
-                            .map((person) =>
-                              renderUiActionButton({
-                                label: person.displayName,
-                                variant:
-                                  person.personId && group.ownerPersonIds.includes(person.personId)
-                                    ? 'primary'
-                                    : 'secondary',
-                                dataAttributes: {
-                                  'whatsapp-action': 'toggle-group-owner',
-                                  'group-jid': group.groupJid,
-                                  'person-id': person.personId ?? '',
-                                },
-                              }),
-                            )
-                            .join('')}
-                        </div>
-                        <div class="acl-access-list">
-                          <div class="acl-access-list__header">
-                            <strong>Calendario do grupo</strong>
-                            <span>Escolhe quem so pode ver e quem tambem pode editar.</span>
-                          </div>
-                          ${renderWhatsAppAclField(group.groupJid, 'group', group.calendarAccessPolicy.group)}
-                          ${renderWhatsAppAclField(group.groupJid, 'groupOwner', group.calendarAccessPolicy.groupOwner)}
-                          ${renderWhatsAppAclField(group.groupJid, 'appOwner', group.calendarAccessPolicy.appOwner)}
-                        </div>
+                      <p><strong>Assistente</strong>: ${escapeHtml(
+                        group.assistantAuthorized ? 'ligado neste grupo' : 'bloqueado neste grupo',
+                      )}.</p>
+                      <p><strong>Calendario</strong>: ${escapeHtml(
+                        `Membros ${readableCalendarAccessMode(group.calendarAccessPolicy.group)}, Responsavel ${readableCalendarAccessMode(group.calendarAccessPolicy.groupOwner)}, Admin ${readableCalendarAccessMode(group.calendarAccessPolicy.appOwner)}.`,
+                      )}</p>
+                      <div class="action-row">
+                        ${renderUiActionButton({
+                          label: group.assistantAuthorized ? 'Bloquear grupo' : 'Autorizar grupo',
+                          variant: group.assistantAuthorized ? 'secondary' : 'primary',
+                          dataAttributes: {
+                            'whatsapp-action': 'toggle-group-authorized',
+                            'group-jid': group.groupJid,
+                          },
+                        })}
                       </div>
+                      <details class="ui-details">
+                        <summary>Editar responsaveis e acessos</summary>
+                        <div class="ui-details__content">
+                          <div class="ui-card__chips">
+                            ${people
+                              .filter((person) => person.personId)
+                              .map((person) =>
+                                renderUiActionButton({
+                                  label: person.displayName,
+                                  variant:
+                                    person.personId && group.ownerPersonIds.includes(person.personId)
+                                      ? 'primary'
+                                      : 'secondary',
+                                  dataAttributes: {
+                                    'whatsapp-action': 'toggle-group-owner',
+                                    'group-jid': group.groupJid,
+                                    'person-id': person.personId ?? '',
+                                  },
+                                }),
+                              )
+                              .join('')}
+                          </div>
+                          ${
+                            group.ownerPersonIds.length > 0
+                              ? `
+                                <div class="action-row">
+                                  ${renderUiActionButton({
+                                    label: 'Limpar responsaveis',
+                                    variant: 'secondary',
+                                    dataAttributes: {
+                                      'whatsapp-action': 'clear-group-owners',
+                                      'group-jid': group.groupJid,
+                                    },
+                                  })}
+                                </div>
+                              `
+                              : ''
+                          }
+                          <div class="acl-access-list">
+                            ${renderWhatsAppAclField(group.groupJid, 'group', group.calendarAccessPolicy.group)}
+                            ${renderWhatsAppAclField(group.groupJid, 'groupOwner', group.calendarAccessPolicy.groupOwner)}
+                            ${renderWhatsAppAclField(group.groupJid, 'appOwner', group.calendarAccessPolicy.appOwner)}
+                          </div>
+                        </div>
+                      </details>
                     `,
                     detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
                     detailsHtml: this.state.advancedDetailsEnabled
                       ? `
                           <p>JID: ${escapeHtml(group.groupJid)}</p>
                           <p>Alias: ${escapeHtml(group.aliases.join(', ') || 'sem alias')}</p>
-                        `
-                      : undefined,
-                  })}
-                `,
-              )
-              .join('')}
-          </div>
-        </article>
-        <article class="surface content-card span-12">
-          <div class="card-header">
-            <h3>Conversas privadas</h3>
-          </div>
-          <div class="card-grid">
-            ${snapshot.conversations
-              .map(
-                (conversation) => `
-                  ${renderUiRecordCard({
-                    title: conversation.displayName,
-                    subtitle:
-                      conversation.ownedGroupJids.length > 0
-                        ? `${conversation.ownedGroupJids.length} grupos associados`
-                        : 'Sem grupos associados',
-                    badgeLabel: conversation.privateAssistantAuthorized ? 'Acesso privado' : 'Sem acesso',
-                    badgeTone: conversation.privateAssistantAuthorized ? 'positive' : 'warning',
-                    detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
-                    detailsHtml: this.state.advancedDetailsEnabled
-                      ? `
-                          <p>JIDs: ${escapeHtml(conversation.whatsappJids.join(', ') || 'sem JID')}</p>
-                          <p>Roles globais: ${escapeHtml(conversation.globalRoles.join(', '))}</p>
                         `
                       : undefined,
                   })}

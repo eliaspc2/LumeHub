@@ -40,38 +40,6 @@ O fluxo guiado desta ronda tambem ja ficou aberto com:
 
 Existe agora uma ronda ativa de simplificacao forte do GUI.
 
-### Wave 36 - Simplificacao das paginas principais
-
-Objetivo:
-- cortar blocos secundarios dentro das paginas mais usadas
-- deixar `Hoje`, `WhatsApp`, `Grupos` e `Media` muito mais diretas
-
-Entregaveis:
-- homepage com menos cartoes e menos resumo duplicado
-- `WhatsApp` com menos explicacao repetida e menos controlos expostos
-- `Grupos` com foco em acao principal e menos detalhe auxiliar
-- `Media` com fluxo mais curto e menos leitura lateral
-
-Criterios de aceitacao:
-- cada pagina principal deve ter uma hierarquia obvia
-- deve existir menos scrolling para chegar ao que interessa
-- configuracoes secundarias devem sair do caminho principal
-
-Rebuild e validacao minima:
-- `corepack pnpm --filter @lume-hub/lume-hub-web typecheck`
-- `corepack pnpm --filter @lume-hub/lume-hub-web build`
-- reload headless de `/today`, `/whatsapp`, `/groups` e `/media`
-
-Melhor momento para testar:
-- no fim desta wave
-- aqui vale a pena validar se o produto ja parece realmente simples para uso diario
-
-O que testar:
-- `Hoje`: se percebes logo o proximo passo
-- `WhatsApp`: se ownership e sessao ficam claros sem ler muito
-- `Grupos`: se a gestao do grupo cabe no espaco sem confusao
-- `Media`: se escolher e distribuir um video parece fluxo curto
-
 ### Wave 37 - Configuracao avancada sob demanda
 
 Objetivo:
