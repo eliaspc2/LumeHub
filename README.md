@@ -217,7 +217,7 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 39` ja foram executadas e validadas.
+As `Wave 0` a `Wave 40` ja foram executadas e validadas.
 
 Mas isso nao significa, por si so, que o `WA-notify` ja deva ser desligado.
 
@@ -309,8 +309,8 @@ Neste momento:
   - `Wave 30` a `Wave 34`
   - objetivo fechado: storage canonico, ingest live, distribuicao multi-grupo, UX guiada e limpeza final da ronda
 - rondas ativas agora:
-  - `Wave 40` a `Wave 42`
-  - objetivo: endurecer a pagina `Projeto` com diffs, aprovacao, guardrails e limpeza final da serie
+  - `Wave 41` a `Wave 42`
+  - objetivo: fechar aprovacao, guardrails e limpeza final da pagina `Projeto`
   - `Wave 43` a `Wave 49`
   - objetivo: fechar paridade e cutover real face ao `WA-notify`
 - regra de processo:

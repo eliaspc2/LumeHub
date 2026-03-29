@@ -316,6 +316,19 @@ export interface WorkspaceAgentRunSnapshot {
   readonly exitCode: number | null;
   readonly timedOut: boolean;
   readonly changedFiles: readonly string[];
+  readonly structuredSummary: {
+    readonly summary: string;
+    readonly suggestedFiles: readonly string[];
+    readonly readFiles: readonly string[];
+    readonly notes: readonly string[];
+  };
+  readonly fileDiffs: readonly {
+    readonly relativePath: string;
+    readonly changeType: 'added' | 'modified' | 'deleted';
+    readonly beforeStatus: string | null;
+    readonly afterStatus: string | null;
+    readonly diffText: string;
+  }[];
 }
 
 export interface DistributionExecutionResult {

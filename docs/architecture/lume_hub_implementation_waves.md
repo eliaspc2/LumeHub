@@ -10,7 +10,7 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 39` ja foram executadas e validadas.
+As `Wave 0` a `Wave 40` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
 O storage canonico da ronda de media ja ficou aberto com:
@@ -46,39 +46,11 @@ A ronda nova do agente de projeto ja ficou aberta com:
 
 ## Estado do plano
 
-As `Wave 35` a `Wave 39` ja foram executadas e validadas.
+As `Wave 35` a `Wave 40` ja foram executadas e validadas.
 A ronda de simplificacao do GUI ficou fechada com shell minima, paginas principais mais curtas, configuracao avancada sob demanda e limpeza final dos validadores e do copy de transicao.
+A `Wave 40` tambem ja fechou diffs por ficheiro, resumo estruturado de contexto e revisao guiada de ficheiro na pagina `Projeto`.
 
 Ronda ativa:
-
-### Wave 40 - Diffs e contexto guiado do agente de projeto
-
-Objetivo:
-- tornar a pagina `Projeto` mais segura e mais clara antes de cada aplicacao de alteracoes
-
-Entregaveis:
-- diff por ficheiro depois de cada run
-- resumo estruturado de ficheiros lidos, ficheiros mudados e ficheiros sugeridos
-- possibilidade de pedir ao agente para rever um ficheiro especifico sem o alterar
-- visao mais clara de contexto antes de correr `apply`
-
-Criterios de aceitacao:
-- o operador percebe logo o que foi lido e o que foi alterado
-- uma run com alteracoes passa a mostrar diff legivel por ficheiro
-- o fluxo continua simples para quem nao quer detalhes tecnicos excessivos
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave40`
-
-Melhor momento para testar:
-- assim que a wave fechar, porque aqui ainda e barato corrigir a linguagem e a forma como o diff aparece
-
-O que testar:
-- pedir um plano sem alteracoes
-- pedir uma alteracao pequena
-- confirmar se percebes logo que ficheiros entraram e o que mudou
 
 ### Wave 41 - Aprovação, fila e guardrails operacionais
 

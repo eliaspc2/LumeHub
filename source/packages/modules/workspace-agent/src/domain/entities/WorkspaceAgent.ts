@@ -1,5 +1,6 @@
 export type WorkspaceAgentRunMode = 'plan' | 'apply';
 export type WorkspaceAgentRunStatus = 'completed' | 'failed';
+export type WorkspaceAgentFileChangeType = 'added' | 'modified' | 'deleted';
 
 export interface WorkspaceFileEntry {
   readonly relativePath: string;
@@ -35,6 +36,23 @@ export interface WorkspaceAgentExecutionResult {
   readonly timedOut: boolean;
   readonly outputSummary: string;
   readonly changedFiles: readonly string[];
+  readonly structuredSummary: WorkspaceAgentStructuredSummary;
+  readonly fileDiffs: readonly WorkspaceAgentFileDiff[];
+}
+
+export interface WorkspaceAgentStructuredSummary {
+  readonly summary: string;
+  readonly suggestedFiles: readonly string[];
+  readonly readFiles: readonly string[];
+  readonly notes: readonly string[];
+}
+
+export interface WorkspaceAgentFileDiff {
+  readonly relativePath: string;
+  readonly changeType: WorkspaceAgentFileChangeType;
+  readonly beforeStatus: string | null;
+  readonly afterStatus: string | null;
+  readonly diffText: string;
 }
 
 export interface WorkspaceAgentRunRecord {
@@ -51,6 +69,8 @@ export interface WorkspaceAgentRunRecord {
   readonly exitCode: number | null;
   readonly timedOut: boolean;
   readonly changedFiles: readonly string[];
+  readonly structuredSummary: WorkspaceAgentStructuredSummary;
+  readonly fileDiffs: readonly WorkspaceAgentFileDiff[];
 }
 
 export interface WorkspaceAgentRunLog {

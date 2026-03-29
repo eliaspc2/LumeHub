@@ -3,7 +3,12 @@ import { join } from 'node:path';
 
 import { AtomicJsonWriter } from '@lume-hub/persistence-group-files';
 
-import type { WorkspaceAgentRunLog, WorkspaceAgentRunRecord } from '../../domain/entities/WorkspaceAgent.js';
+import type {
+  WorkspaceAgentFileDiff,
+  WorkspaceAgentRunLog,
+  WorkspaceAgentRunRecord,
+  WorkspaceAgentStructuredSummary,
+} from '../../domain/entities/WorkspaceAgent.js';
 
 const EMPTY_WORKSPACE_AGENT_RUN_LOG: WorkspaceAgentRunLog = {
   schemaVersion: 1,
@@ -70,7 +75,41 @@ function normalizeRun(run: WorkspaceAgentRunRecord): WorkspaceAgentRunRecord {
     exitCode: typeof run.exitCode === 'number' ? run.exitCode : null,
     timedOut: Boolean(run.timedOut),
     changedFiles: [...new Set(run.changedFiles.map((filePath) => filePath.trim()).filter(Boolean))],
+    structuredSummary: normalizeStructuredSummary(run),
+    fileDiffs: normalizeFileDiffs(run.fileDiffs),
   };
+}
+
+function normalizeStructuredSummary(run: WorkspaceAgentRunRecord): WorkspaceAgentStructuredSummary {
+  const summary = run.structuredSummary;
+
+  return {
+    summary:
+      typeof summary?.summary === 'string' && summary.summary.trim().length > 0
+        ? summary.summary.trim()
+        : run.outputSummary.trim(),
+    suggestedFiles: uniqueFileList(summary?.suggestedFiles ?? run.filePaths),
+    readFiles: uniqueFileList(summary?.readFiles ?? [...run.filePaths, ...run.changedFiles]),
+    notes: uniqueTextList(summary?.notes ?? []),
+  };
+}
+
+function normalizeFileDiffs(fileDiffs: readonly WorkspaceAgentRunRecord['fileDiffs'][number][] | undefined): readonly WorkspaceAgentFileDiff[] {
+  return (fileDiffs ?? []).map((fileDiff) => ({
+    relativePath: fileDiff.relativePath.trim(),
+    changeType: fileDiff.changeType,
+    beforeStatus: typeof fileDiff.beforeStatus === 'string' && fileDiff.beforeStatus.trim().length > 0 ? fileDiff.beforeStatus.trim() : null,
+    afterStatus: typeof fileDiff.afterStatus === 'string' && fileDiff.afterStatus.trim().length > 0 ? fileDiff.afterStatus.trim() : null,
+    diffText: truncateText(fileDiff.diffText, 40_000),
+  }));
+}
+
+function uniqueFileList(values: readonly string[]): readonly string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function uniqueTextList(values: readonly string[]): readonly string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
 function truncateText(value: string, maxLength = 20_000): string {

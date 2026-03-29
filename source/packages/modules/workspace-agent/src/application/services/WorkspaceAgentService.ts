@@ -9,6 +9,7 @@ import type {
   WorkspaceAgentExecutor,
   WorkspaceAgentRunInput,
   WorkspaceAgentRunRecord,
+  WorkspaceAgentStructuredSummary,
   WorkspaceFileContent,
   WorkspaceFileEntry,
 } from '../../domain/entities/WorkspaceAgent.js';
@@ -94,6 +95,13 @@ export class WorkspaceAgentService {
       exitCode: executionResult.exitCode,
       timedOut: executionResult.timedOut,
       changedFiles: executionResult.changedFiles,
+      structuredSummary: normalizeStructuredSummary(
+        executionResult.structuredSummary,
+        filePaths,
+        executionResult.changedFiles,
+        executionResult.outputSummary,
+      ),
+      fileDiffs: executionResult.fileDiffs,
     };
 
     await this.config.repository.append(runRecord);
@@ -160,6 +168,24 @@ export class WorkspaceAgentService {
 
     return normalized;
   }
+}
+
+function normalizeStructuredSummary(
+  summary: WorkspaceAgentExecutionResult['structuredSummary'] | undefined,
+  filePaths: readonly string[],
+  changedFiles: readonly string[],
+  outputSummary: string,
+): WorkspaceAgentStructuredSummary {
+  const suggestedFiles = dedupeStringList([...(summary?.suggestedFiles ?? []), ...filePaths]);
+  const readFiles = dedupeStringList([...(summary?.readFiles ?? []), ...changedFiles]);
+  const notes = dedupeStringList(summary?.notes ?? []);
+
+  return {
+    summary: summary?.summary?.trim().length ? summary.summary.trim() : outputSummary.trim(),
+    suggestedFiles,
+    readFiles,
+    notes,
+  };
 }
 
 async function listFilesRecursively(rootPath: string, currentPath: string): Promise<readonly string[]> {

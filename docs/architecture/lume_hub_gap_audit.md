@@ -200,10 +200,15 @@ Fecho planeado:
 
 ## Gaps ativos da ronda do agente de projeto
 
-A fundacao ja existe, mas esta ronda ainda ficou com trabalho aberto para as proximas waves:
+A fundacao ja existe e a `Wave 40` ja fechou:
 
 - diff por ficheiro depois de cada run
-- contexto mais guiado antes de correr `apply`
+- resumo estruturado de ficheiros lidos, ficheiros mudados e ficheiros sugeridos
+- possibilidade de pedir revisao de um ficheiro especifico sem o alterar
+- visao mais clara de contexto antes de correr `apply`
+
+Ainda ficam abertos para as proximas waves:
+
 - aprovacao explicita para runs com edicao
 - bloqueio de concorrencia para evitar duas runs destrutivas em simultaneo
 - auditoria mais forte do pedido, modo e resultado

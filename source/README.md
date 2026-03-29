@@ -36,13 +36,14 @@ Decisao de storage:
 
 ## Estado
 
-A base do monorepo ja existe e as `Wave 0` a `Wave 39` foram executadas.
+A base do monorepo ja existe e as `Wave 0` a `Wave 40` foram executadas.
 Hoje esta pasta ja contem:
 
 - `apps/lume-hub-backend`, `apps/lume-hub-web` e `apps/lume-hub-host`
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
+  - `validate:wave40`
   - `validate:wave39`
   - `validate:wave38`
   - `validate:wave34`
@@ -59,6 +60,9 @@ Tambem ja existe a primeira fundacao do agente de projeto:
 - API `/api/workspace/*`
 - pagina `/workspace`
 - runs `plan` e `apply` sobre o repo do `LumeHub`
+- diff por ficheiro depois de cada run
+- resumo estruturado de ficheiros lidos, ficheiros mudados e ficheiros sugeridos
+- fluxo guiado para rever um ficheiro especifico sem o alterar
 
 Nota operacional:
 

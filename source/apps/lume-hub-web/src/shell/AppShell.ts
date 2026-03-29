@@ -1538,12 +1538,14 @@ export class AppShell {
     const selectedFiles = draft.selectedFilePaths;
     const recentRuns = page.data.recentRuns;
     const latestRun = recentRuns[0] ?? null;
+    const reviewTargetPath = draft.previewContent?.relativePath ?? selectedFiles[0] ?? null;
+    const contextSummary = buildWorkspaceDraftContextSummary(draft);
 
     return `
       <section class="surface hero surface--strong">
         <div>
           <p class="eyebrow">Agente do projeto</p>
-          <h2>Pedir a uma LLM para ler o repo, escolher ficheiros e alterar codigo do LumeHub.</h2>
+          <h2>Pedir a uma LLM para rever o repo, escolher foco e alterar codigo do LumeHub com mais contexto.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
@@ -1555,6 +1557,18 @@ export class AppShell {
               variant: 'secondary',
               dataAttributes: { 'workspace-action': 'clear-selection' },
             })}
+            ${
+              reviewTargetPath
+                ? renderUiActionButton({
+                    label: 'Rever ficheiro aberto',
+                    variant: 'secondary',
+                    dataAttributes: {
+                      'workspace-action': 'review-file',
+                      'workspace-file-path': reviewTargetPath,
+                    },
+                  })
+                : ''
+            }
           </div>
         </div>
         <div class="hero-panel">
@@ -1569,12 +1583,37 @@ export class AppShell {
             )}</p>`,
           })}
           ${renderUiPanelCard({
+            title: 'Contexto antes de correr',
+            badgeLabel: contextSummary.badgeLabel,
+            badgeTone: contextSummary.badgeTone,
+            contentHtml: `
+              <p>${escapeHtml(contextSummary.summary)}</p>
+              <div class="ui-card__chips">
+                ${contextSummary.chips
+                  .map((chip) =>
+                    renderUiBadge({
+                      label: chip,
+                      tone: 'neutral',
+                      style: 'chip',
+                    }),
+                  )
+                  .join('')}
+              </div>
+            `,
+          })}
+          ${renderUiPanelCard({
             title: 'Ultima run',
             badgeLabel: latestRun ? readableWorkspaceRunStatus(latestRun.status) : 'Sem runs',
             badgeTone: latestRun ? toneForWorkspaceRunStatus(latestRun.status) : 'neutral',
             contentHtml: `<p>${escapeHtml(
               latestRun
-                ? `${latestRun.outputSummary} ${latestRun.changedFiles.length > 0 ? `Mudou ${latestRun.changedFiles.length} ficheiro(s).` : 'Sem alteracoes guardadas.'}`
+                ? `${latestRun.structuredSummary.summary} ${
+                    latestRun.changedFiles.length > 0
+                      ? `Mudou ${latestRun.changedFiles.length} ficheiro(s).`
+                      : latestRun.structuredSummary.readFiles.length > 0
+                        ? `Leu ${latestRun.structuredSummary.readFiles.length} ficheiro(s).`
+                        : 'Sem alteracoes guardadas.'
+                  }`
                 : 'Ainda nao ha runs deste agente neste ambiente.',
             )}</p>`,
           })}
@@ -1586,7 +1625,7 @@ export class AppShell {
           <div class="card-header">
             <div>
               <h3>Pedir trabalho ao agente</h3>
-              <p>Escreve em linguagem natural. O agente pode abrir outros ficheiros alem dos que marcares abaixo.</p>
+              <p>Escreve em linguagem natural. Podes orientar com ficheiros concretos ou pedir so revisao sem edicao.</p>
             </div>
             ${renderUiBadge({
               label: draft.running ? 'A correr' : draft.mode === 'plan' ? 'Sem edicao' : 'Com edicao',
@@ -1611,6 +1650,32 @@ export class AppShell {
               rows: 12,
               placeholder: 'Ex.: Refatora a pagina WhatsApp para ficar mais curta e clara. Atualiza a copy, os componentes e o CSS relevante.',
               hint: 'O agente trabalha apenas dentro do repo do LumeHub e nao faz commit nem push.',
+            })}
+          </div>
+          <div class="workspace-context-grid">
+            ${renderUiPanelCard({
+              title: 'Antes de aplicar',
+              badgeLabel: draft.mode === 'apply' ? 'Com alteracoes' : 'So leitura',
+              badgeTone: draft.mode === 'apply' ? 'warning' : 'neutral',
+              contentHtml: `<p>${escapeHtml(
+                draft.mode === 'apply'
+                  ? selectedFiles.length > 0
+                    ? `A LLM vai trabalhar com ${selectedFiles.length} ficheiro(s) em foco e ainda pode abrir outros se precisar.`
+                    : 'Nao ha ficheiros em foco. A LLM pode procurar sozinha o contexto antes de alterar.'
+                  : reviewTargetPath
+                    ? `Este modo e seguro para rever ${reviewTargetPath} sem editar nada.`
+                    : 'Este modo serve para perceber a abordagem antes de permitires alteracoes reais.'
+              )}</p>`,
+            })}
+            ${renderUiPanelCard({
+              title: 'Saida desta wave',
+              badgeLabel: latestRun?.fileDiffs.length ? 'Com diff' : 'Sem diff ainda',
+              badgeTone: latestRun?.fileDiffs.length ? 'positive' : 'neutral',
+              contentHtml: `<p>${escapeHtml(
+                latestRun?.fileDiffs.length
+                  ? `A ultima run ja mostra diff por ficheiro e resumo de contexto lido.`
+                  : 'Assim que houver uma run com alteracoes, os diffs aparecem por ficheiro aqui na pagina.'
+              )}</p>`,
             })}
           </div>
           ${
@@ -1677,28 +1742,36 @@ export class AppShell {
                         <article class="timeline-item workspace-file-item ${draft.previewPath === file.relativePath ? 'workspace-file-item--active' : ''}">
                           <strong>${escapeHtml(file.relativePath)}</strong>
                           <time>${escapeHtml(file.extension || 'sem extensao')}</time>
-                          <div class="action-row">
-                            ${renderUiActionButton({
-                              label: draft.previewPath === file.relativePath ? 'Preview aberto' : 'Abrir preview',
-                              variant: draft.previewPath === file.relativePath ? 'primary' : 'secondary',
-                              dataAttributes: {
+                  <div class="action-row">
+                    ${renderUiActionButton({
+                      label: draft.previewPath === file.relativePath ? 'Preview aberto' : 'Abrir preview',
+                      variant: draft.previewPath === file.relativePath ? 'primary' : 'secondary',
+                      dataAttributes: {
                                 'workspace-action': 'preview-file',
                                 'workspace-file-path': file.relativePath,
                               },
                             })}
-                            ${renderUiActionButton({
-                              label: selectedFiles.includes(file.relativePath) ? 'Retirar' : 'Usar no pedido',
-                              variant: selectedFiles.includes(file.relativePath) ? 'secondary' : 'primary',
-                              dataAttributes: {
-                                'workspace-action': 'toggle-file-selection',
-                                'workspace-file-path': file.relativePath,
-                              },
-                            })}
-                          </div>
-                        </article>
-                      `,
-                    )
-                    .join('')}
+                    ${renderUiActionButton({
+                      label: selectedFiles.includes(file.relativePath) ? 'Retirar' : 'Usar no pedido',
+                      variant: selectedFiles.includes(file.relativePath) ? 'secondary' : 'primary',
+                      dataAttributes: {
+                        'workspace-action': 'toggle-file-selection',
+                        'workspace-file-path': file.relativePath,
+                      },
+                    })}
+                    ${renderUiActionButton({
+                      label: 'Rever sem alterar',
+                      variant: 'secondary',
+                      dataAttributes: {
+                        'workspace-action': 'review-file',
+                        'workspace-file-path': file.relativePath,
+                      },
+                    })}
+                  </div>
+                </article>
+              `,
+            )
+            .join('')}
                 </div>
               `
               : `
@@ -1716,7 +1789,7 @@ export class AppShell {
           <div class="card-header">
             <div>
               <h3>Preview do ficheiro</h3>
-              <p>Leitura local do ficheiro selecionado antes de pedires uma run ou depois dela.</p>
+              <p>Leitura local do ficheiro selecionado antes da run, ou para rever o que acabou de ser alterado.</p>
             </div>
             ${renderUiBadge({
               label: draft.previewContent ? draft.previewContent.relativePath : 'Sem preview',
@@ -1736,6 +1809,24 @@ export class AppShell {
                   <div class="guide-preview">
                     <p><strong>Ficheiro</strong>: ${escapeHtml(draft.previewContent.relativePath)}</p>
                     <p><strong>Tamanho</strong>: ${escapeHtml(formatFileSize(draft.previewContent.sizeBytes))}${draft.previewContent.truncated ? ' • preview truncado' : ''}</p>
+                    <div class="action-row">
+                      ${renderUiActionButton({
+                        label: 'Rever este ficheiro sem alterar',
+                        variant: 'secondary',
+                        dataAttributes: {
+                          'workspace-action': 'review-file',
+                          'workspace-file-path': draft.previewContent.relativePath,
+                        },
+                      })}
+                      ${renderUiActionButton({
+                        label: selectedFiles.includes(draft.previewContent.relativePath) ? 'Ja esta no pedido' : 'Usar este ficheiro no pedido',
+                        variant: selectedFiles.includes(draft.previewContent.relativePath) ? 'secondary' : 'primary',
+                        dataAttributes: {
+                          'workspace-action': 'toggle-file-selection',
+                          'workspace-file-path': draft.previewContent.relativePath,
+                        },
+                      })}
+                    </div>
                   </div>
                   <pre class="workspace-code-preview">${escapeHtml(draft.previewContent.content)}</pre>
                 `
@@ -1767,31 +1858,69 @@ export class AppShell {
                     .map(
                       (run) => `
                         <article class="timeline-item">
-                          <strong>${escapeHtml(run.outputSummary)}</strong>
+                          <strong>${escapeHtml(run.structuredSummary.summary)}</strong>
                           <time>${escapeHtml(`${run.mode === 'plan' ? 'Plano' : 'Alteracao'} • ${formatShortDateTime(run.completedAt)}`)}</time>
                           <p>${escapeHtml(run.prompt)}</p>
-                          <div class="ui-card__chips">
-                            ${renderUiBadge({
-                              label: readableWorkspaceRunStatus(run.status),
-                              tone: toneForWorkspaceRunStatus(run.status),
-                              style: 'chip',
-                            })}
-                            ${renderUiBadge({
-                              label: `${run.changedFiles.length} ficheiro(s)`,
-                              tone: run.changedFiles.length > 0 ? 'positive' : 'neutral',
-                              style: 'chip',
-                            })}
+                          <div class="workspace-run-summary-grid">
+                            <div class="guide-preview">
+                              <p><strong>Estado</strong>: ${escapeHtml(readableWorkspaceRunStatus(run.status))}</p>
+                              <p><strong>Modo</strong>: ${escapeHtml(run.mode === 'plan' ? 'So leitura' : 'Com alteracoes')}</p>
+                            </div>
+                            <div class="guide-preview">
+                              <p><strong>Ficheiros sugeridos</strong>: ${escapeHtml(String(run.structuredSummary.suggestedFiles.length))}</p>
+                              <div class="ui-card__chips">${renderWorkspaceFileBadges(run.structuredSummary.suggestedFiles, 'neutral')}</div>
+                            </div>
+                            <div class="guide-preview">
+                              <p><strong>Ficheiros lidos</strong>: ${escapeHtml(String(run.structuredSummary.readFiles.length))}</p>
+                              <div class="ui-card__chips">${renderWorkspaceFileBadges(run.structuredSummary.readFiles, 'positive')}</div>
+                            </div>
+                            <div class="guide-preview">
+                              <p><strong>Ficheiros mudados</strong>: ${escapeHtml(String(run.changedFiles.length))}</p>
+                              <div class="ui-card__chips">${renderWorkspaceFileBadges(run.changedFiles, run.changedFiles.length > 0 ? 'warning' : 'neutral')}</div>
+                            </div>
                           </div>
                           ${
-                            run.changedFiles.length > 0
-                              ? `<ul>${run.changedFiles.map((filePath) => `<li>${escapeHtml(filePath)}</li>`).join('')}</ul>`
+                            run.structuredSummary.notes.length > 0
+                              ? `
+                                <div class="guide-preview">
+                                  <p><strong>Notas da run</strong></p>
+                                  <ul>
+                                    ${run.structuredSummary.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join('')}
+                                  </ul>
+                                </div>
+                              `
+                              : ''
+                          }
+                          ${
+                            run.fileDiffs.length > 0
+                              ? `
+                                <details class="ui-details">
+                                  <summary>Ver diff por ficheiro</summary>
+                                  <div class="ui-details__content workspace-diff-stack">
+                                    ${run.fileDiffs
+                                      .map(
+                                        (fileDiff) => `
+                                          <details class="ui-details workspace-diff-item">
+                                            <summary>${escapeHtml(fileDiff.relativePath)} • ${escapeHtml(readableWorkspaceChangeType(fileDiff.changeType))}</summary>
+                                            <div class="ui-details__content">
+                                              <p><strong>Estado antes</strong>: ${escapeHtml(fileDiff.beforeStatus ?? 'limpo ou sem tracking')}</p>
+                                              <p><strong>Estado depois</strong>: ${escapeHtml(fileDiff.afterStatus ?? 'removido')}</p>
+                                              <pre class="workspace-run-diff">${escapeHtml(fileDiff.diffText)}</pre>
+                                            </div>
+                                          </details>
+                                        `,
+                                      )
+                                      .join('')}
+                                  </div>
+                                </details>
+                              `
                               : ''
                           }
                           <details class="ui-details">
                             <summary>Ver saida desta run</summary>
                             <div class="ui-details__content">
                               <p><strong>Exit code</strong>: ${escapeHtml(String(run.exitCode ?? 'n/a'))}${run.timedOut ? ' • timeout' : ''}</p>
-                              ${run.filePaths.length > 0 ? `<p><strong>Ficheiros sugeridos</strong>: ${escapeHtml(run.filePaths.join(', '))}</p>` : ''}
+                              ${run.filePaths.length > 0 ? `<p><strong>Ficheiros sugeridos no pedido</strong>: ${escapeHtml(run.filePaths.join(', '))}</p>` : ''}
                               <pre class="workspace-run-output">${escapeHtml(run.stdout || run.stderr || 'Sem output textual guardado.')}</pre>
                             </div>
                           </details>
@@ -3772,6 +3901,42 @@ export class AppShell {
       return;
     }
 
+    if (action === 'review-file') {
+      const relativePath = dataset.workspaceFilePath ?? this.state.workspaceAgentDraft.previewContent?.relativePath;
+
+      if (!relativePath) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message: 'Escolhe primeiro um ficheiro para preparar uma revisao sem alteracoes.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      if (this.state.workspaceAgentDraft.previewPath !== relativePath) {
+        await this.loadWorkspacePreview(relativePath);
+      }
+
+      this.state = {
+        ...this.state,
+        workspaceAgentDraft: {
+          ...this.state.workspaceAgentDraft,
+          mode: 'plan',
+          prompt: buildWorkspaceReviewPrompt(relativePath),
+          selectedFilePaths: [relativePath],
+        },
+        flowFeedback: {
+          tone: 'positive',
+          message: `Prompt preparado para rever ${relativePath} sem alterar ficheiros.`,
+        },
+      };
+      this.render();
+      return;
+    }
+
     if (action === 'clear-selection') {
       this.state = {
         ...this.state,
@@ -3825,8 +3990,10 @@ export class AppShell {
         });
         await this.refreshCurrentRouteData();
 
-        if (run.changedFiles[0]) {
-          await this.loadWorkspacePreview(run.changedFiles[0]);
+        const previewTarget = run.changedFiles[0] ?? run.structuredSummary.readFiles[0];
+
+        if (previewTarget) {
+          await this.loadWorkspacePreview(previewTarget);
         }
 
         this.state = {
@@ -3840,8 +4007,8 @@ export class AppShell {
             message:
               run.status === 'completed'
                 ? run.changedFiles.length > 0
-                  ? `Run concluida. A LLM mudou ${run.changedFiles.length} ficheiro(s) dentro do LumeHub.`
-                  : 'Run concluida sem alterar ficheiros.'
+                  ? `Run concluida. ${run.structuredSummary.summary} Diff disponivel para ${run.changedFiles.length} ficheiro(s).`
+                  : `Run concluida sem alterar ficheiros. ${run.structuredSummary.summary}`
                 : `Run terminou com erro. ${run.outputSummary}`,
           },
         };
@@ -5436,6 +5603,54 @@ function createEmptyWorkspaceAgentDraft(): WorkspaceAgentDraft {
   };
 }
 
+function buildWorkspaceReviewPrompt(relativePath: string): string {
+  return [
+    `Reve o ficheiro ${relativePath}.`,
+    'Nao alteres nada.',
+    'Explica de forma curta:',
+    '- o que este ficheiro faz',
+    '- riscos ou problemas encontrados',
+    '- se vale a pena mexer noutro ficheiro a seguir',
+  ].join(' ');
+}
+
+function buildWorkspaceDraftContextSummary(draft: WorkspaceAgentDraft): {
+  readonly summary: string;
+  readonly badgeLabel: string;
+  readonly badgeTone: UiTone;
+  readonly chips: readonly string[];
+} {
+  const selectedCount = draft.selectedFilePaths.length;
+  const previewPath = draft.previewContent?.relativePath ?? draft.previewPath;
+  const chips = [
+    draft.mode === 'plan' ? 'So leitura' : 'Pode editar',
+    selectedCount > 0 ? `${selectedCount} ficheiro(s) em foco` : 'Sem foco explicito',
+    previewPath ? `Preview: ${previewPath}` : 'Sem preview aberto',
+  ];
+
+  if (draft.mode === 'apply') {
+    return {
+      summary:
+        selectedCount > 0
+          ? 'O agente vai começar pelos ficheiros em foco e pode abrir outros se precisar para fechar a alteracao.'
+          : 'O agente pode explorar o repo inteiro antes de alterar. Marca ficheiros se quiseres reduzir o raio de acao.',
+      badgeLabel: selectedCount > 0 ? 'Apply guiado' : 'Apply aberto',
+      badgeTone: selectedCount > 0 ? 'warning' : 'danger',
+      chips,
+    };
+  }
+
+  return {
+    summary:
+      previewPath
+        ? 'O modo de leitura esta pronto para rever o ficheiro aberto ou gerar um plano antes de editar.'
+        : 'Usa este modo para perceber a abordagem, pedir revisao ou limitar melhor o contexto antes de aplicar.',
+    badgeLabel: 'Seguro para rever',
+    badgeTone: 'positive',
+    chips,
+  };
+}
+
 function mapScheduleEventToDraft(
   event: Pick<WeekPlannerSnapshot['events'][number], 'eventId' | 'groupJid' | 'title' | 'dayLabel' | 'startTime' | 'durationMinutes' | 'notes'>,
 ): GuidedScheduleDraft {
@@ -5658,6 +5873,17 @@ function readableWorkspaceRunStatus(status: WorkspaceAgentRunSnapshot['status'])
   }
 }
 
+function readableWorkspaceChangeType(changeType: WorkspaceAgentRunSnapshot['fileDiffs'][number]['changeType']): string {
+  switch (changeType) {
+    case 'added':
+      return 'Ficheiro novo';
+    case 'deleted':
+      return 'Ficheiro removido';
+    case 'modified':
+      return 'Ficheiro alterado';
+  }
+}
+
 function toneForWorkspaceRunStatus(status: WorkspaceAgentRunSnapshot['status']): UiTone {
   switch (status) {
     case 'completed':
@@ -5665,6 +5891,26 @@ function toneForWorkspaceRunStatus(status: WorkspaceAgentRunSnapshot['status']):
     case 'failed':
       return 'danger';
   }
+}
+
+function renderWorkspaceFileBadges(filePaths: readonly string[], tone: UiTone): string {
+  if (filePaths.length === 0) {
+    return renderUiBadge({
+      label: 'Sem ficheiros',
+      tone: 'neutral',
+      style: 'chip',
+    });
+  }
+
+  return filePaths
+    .map((filePath) =>
+      renderUiBadge({
+        label: filePath,
+        tone,
+        style: 'chip',
+      }),
+    )
+    .join('');
 }
 
 function shouldAutoRefreshRoute(route: string, topic: string): boolean {

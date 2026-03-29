@@ -1349,6 +1349,28 @@ function createDemoState(): DemoState {
       exitCode: 0,
       timedOut: false,
       changedFiles: ['source/apps/lume-hub-web/src/shell/AppShell.ts'],
+      structuredSummary: {
+        summary: 'Atualizei a hero da homepage e o CTA principal.',
+        suggestedFiles: ['source/apps/lume-hub-web/src/shell/AppShell.ts'],
+        readFiles: ['source/apps/lume-hub-web/src/shell/AppShell.ts', 'README.md'],
+        notes: ['A copy do hero ficou mais curta.'],
+      },
+      fileDiffs: [
+        {
+          relativePath: 'source/apps/lume-hub-web/src/shell/AppShell.ts',
+          changeType: 'modified',
+          beforeStatus: null,
+          afterStatus: ' M',
+          diffText: [
+            'diff --git a/source/apps/lume-hub-web/src/shell/AppShell.ts b/source/apps/lume-hub-web/src/shell/AppShell.ts',
+            '--- a/source/apps/lume-hub-web/src/shell/AppShell.ts',
+            '+++ b/source/apps/lume-hub-web/src/shell/AppShell.ts',
+            '@@',
+            "-  <h2>Pedir a uma LLM para ler o repo, escolher ficheiros e alterar codigo do LumeHub.</h2>",
+            "+  <h2>Pedir a uma LLM para rever o repo e ajustar o LumeHub com contexto guiado.</h2>",
+          ].join('\n'),
+        },
+      ],
     },
     {
       runId: 'workspace-demo-run-001',
@@ -1364,6 +1386,20 @@ function createDemoState(): DemoState {
       exitCode: 0,
       timedOut: false,
       changedFiles: [],
+      structuredSummary: {
+        summary: 'Plano curto gerado para frontend, API e validacao.',
+        suggestedFiles: [
+          'source/apps/lume-hub-web/src/app/AppRouter.ts',
+          'source/apps/lume-hub-web/src/shell/AppShell.ts',
+        ],
+        readFiles: [
+          'source/apps/lume-hub-web/src/app/AppRouter.ts',
+          'source/apps/lume-hub-web/src/shell/AppShell.ts',
+          'source/packages/adapters/frontend-api-client/src/public/index.ts',
+        ],
+        notes: ['Comecar pela UI e so depois alinhar o backend.'],
+      },
+      fileDiffs: [],
     },
   ];
 
@@ -1567,6 +1603,45 @@ function createDemoWorkspaceRun(
         : filePaths.length > 0
           ? filePaths
           : ['source/apps/lume-hub-web/src/shell/AppShell.ts'],
+    structuredSummary: {
+      summary:
+        mode === 'plan'
+          ? 'Plano demo criado para os ficheiros selecionados.'
+          : 'Demo aplicou uma alteracao simulada dentro do LumeHub.',
+      suggestedFiles: filePaths,
+      readFiles:
+        mode === 'plan'
+          ? filePaths.length > 0
+            ? filePaths
+            : ['source/apps/lume-hub-web/src/shell/AppShell.ts']
+          : filePaths.length > 0
+            ? [...new Set([...filePaths, 'README.md'])]
+            : ['source/apps/lume-hub-web/src/shell/AppShell.ts', 'README.md'],
+      notes:
+        mode === 'plan'
+          ? ['Demo sem alteracoes reais.']
+          : ['Demo mostra o diff como se a alteracao tivesse sido aplicada.'],
+    },
+    fileDiffs:
+      mode === 'plan'
+        ? []
+        : [
+            {
+              relativePath:
+                filePaths[0] ?? 'source/apps/lume-hub-web/src/shell/AppShell.ts',
+              changeType: 'modified',
+              beforeStatus: null,
+              afterStatus: ' M',
+              diffText: [
+                `diff --git a/${filePaths[0] ?? 'source/apps/lume-hub-web/src/shell/AppShell.ts'} b/${filePaths[0] ?? 'source/apps/lume-hub-web/src/shell/AppShell.ts'}`,
+                `--- a/${filePaths[0] ?? 'source/apps/lume-hub-web/src/shell/AppShell.ts'}`,
+                `+++ b/${filePaths[0] ?? 'source/apps/lume-hub-web/src/shell/AppShell.ts'}`,
+                '@@',
+                '-// demo before',
+                '+// demo after',
+              ].join('\n'),
+            },
+          ],
   };
   state.workspaceRuns.unshift(run);
   state.workspaceRuns.splice(12);
