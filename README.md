@@ -227,6 +227,7 @@ O storage canonico de inteligencia por grupo ja ficou aberto com:
 O `assistant-context` ja usa `llm/instructions.md` como fonte canonica de instrucoes por grupo.
 Tambem ja existe retrieval isolado por grupo a partir de `knowledge/index.json` e documentos markdown da pasta `knowledge/`, para evitar mistura de contexto entre grupos com referencias parecidas.
 O runtime live do assistente e do scheduling ja audita de forma visivel que instrucoes e snippets locais de grupo entraram em cada run relevante.
+O template canonico inicial para preencher `llm/instructions.md` por grupo ficou em [lume_hub_group_llm_instructions_template.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_group_llm_instructions_template.md).
 O storage canonico de media recebida tambem ja ficou aberto com:
 
 - `data/runtime/media/assets/<assetId>/binary`
