@@ -1,14 +1,20 @@
 import type {
   AdminSettings,
+  AutomationDefinition,
+  AutomationsSettings,
   CommandsPolicySettings,
   LlmRuntimeStatusSnapshot,
+  MessageAlertsSettings,
+  MessageAlertRule,
   UiSettings,
   WhatsAppSettings,
 } from '@lume-hub/admin-config';
+import type { LegacyAlertImportReport, MessageAlertMatchRecord } from '@lume-hub/message-alerts';
 import type {
   AgentScheduleApplyPreview,
   AgentScheduleApplyResult,
 } from '@lume-hub/agent-runtime';
+import type { AutomationRunRecord, LegacyAutomationImportReport } from '@lume-hub/automations';
 import type {
   DistributionPlan,
   SenderAudienceRule,
@@ -158,6 +164,10 @@ export interface SettingsSnapshot {
 
 export type LegacyScheduleImportFileSnapshot = LegacyScheduleImportFileSummary;
 export type LegacyScheduleImportReportSnapshot = LegacyScheduleImportReport;
+export type LegacyAlertImportReportSnapshot = LegacyAlertImportReport;
+export type LegacyAutomationImportReportSnapshot = LegacyAutomationImportReport;
+export type MessageAlertMatchSnapshot = MessageAlertMatchRecord;
+export type AutomationRunSnapshot = AutomationRunRecord;
 
 export interface WhatsAppConversationSummary {
   readonly personId: string | null;
@@ -471,6 +481,78 @@ export class FrontendApiClient {
         method: 'POST',
         path: '/api/migrations/wa-notify/schedules/apply',
         body: input,
+      }),
+    );
+  }
+
+  async listAlertRules(): Promise<readonly MessageAlertRule[]> {
+    return this.expectOk(
+      await this.transport.request<readonly MessageAlertRule[]>({
+        method: 'GET',
+        path: '/api/alerts/rules',
+      }),
+    );
+  }
+
+  async listRecentAlertMatches(limit = 20): Promise<readonly MessageAlertMatchSnapshot[]> {
+    return this.expectOk(
+      await this.transport.request<readonly MessageAlertMatchSnapshot[]>({
+        method: 'GET',
+        path: `/api/alerts/matches?limit=${encodeURIComponent(String(limit))}`,
+      }),
+    );
+  }
+
+  async previewLegacyAlertsImport(): Promise<LegacyAlertImportReportSnapshot> {
+    return this.expectOk(
+      await this.transport.request<LegacyAlertImportReportSnapshot>({
+        method: 'POST',
+        path: '/api/migrations/wa-notify/alerts/preview',
+      }),
+    );
+  }
+
+  async applyLegacyAlertsImport(): Promise<LegacyAlertImportReportSnapshot> {
+    return this.expectOk(
+      await this.transport.request<LegacyAlertImportReportSnapshot>({
+        method: 'POST',
+        path: '/api/migrations/wa-notify/alerts/apply',
+      }),
+    );
+  }
+
+  async listAutomationDefinitions(): Promise<readonly AutomationDefinition[]> {
+    return this.expectOk(
+      await this.transport.request<readonly AutomationDefinition[]>({
+        method: 'GET',
+        path: '/api/automations/definitions',
+      }),
+    );
+  }
+
+  async listRecentAutomationRuns(limit = 20): Promise<readonly AutomationRunSnapshot[]> {
+    return this.expectOk(
+      await this.transport.request<readonly AutomationRunSnapshot[]>({
+        method: 'GET',
+        path: `/api/automations/runs?limit=${encodeURIComponent(String(limit))}`,
+      }),
+    );
+  }
+
+  async previewLegacyAutomationsImport(): Promise<LegacyAutomationImportReportSnapshot> {
+    return this.expectOk(
+      await this.transport.request<LegacyAutomationImportReportSnapshot>({
+        method: 'POST',
+        path: '/api/migrations/wa-notify/automations/preview',
+      }),
+    );
+  }
+
+  async applyLegacyAutomationsImport(): Promise<LegacyAutomationImportReportSnapshot> {
+    return this.expectOk(
+      await this.transport.request<LegacyAutomationImportReportSnapshot>({
+        method: 'POST',
+        path: '/api/migrations/wa-notify/automations/apply',
       }),
     );
   }

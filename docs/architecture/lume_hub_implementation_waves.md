@@ -10,7 +10,7 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 45` ja foram executadas e validadas.
+As `Wave 0` a `Wave 46` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
 O storage canonico da ronda de media ja ficou aberto com:
@@ -57,40 +57,11 @@ A `Wave 42` fechou a limpeza final da ronda do agente de projeto, consolidando v
 A `Wave 43` fechou a LLM live por defeito, com provider real ativo quando a auth existe e fallback deterministico visivel e auditavel quando a auth falha.
 A `Wave 44` fechou o scheduling live com `preview -> apply -> queue -> auditoria`, incluindo alteracao real do calendario por assistente e diff funcional visivel antes e depois do `apply`.
 A `Wave 45` fechou o importador idempotente de schedules do `WA-notify`, com pagina operacional em `Configuracao`, relatorio de itens importados/ambiguos e migracao real para o storage mensal canonico por grupo.
+A `Wave 46` fechou `alerts` e `automations` dentro da arquitetura nova, com import minimo de `alerts.json` e `automations.json`, execucao live, auditoria e pagina operacional em `Configuracao`.
 
 ## Ronda de paridade e cutover WA-notify
 
 Esta ronda existe para fechar os bloqueadores que ainda impedem migracao total do `WA-notify` para o `LumeHub`.
-
-### Wave 46 - Alerts e automations: paridade, substituicao ou decisao fechada
-
-Objetivo:
-- fechar definitivamente o que hoje ainda vive no `WA-notify` fora do `LumeHub`
-
-Entregaveis:
-- decisao implementada para `alerts` e `automations`:
-  - portar com modelo novo
-  - ou substituir com capacidade equivalente dentro da nova arquitetura
-- migracao minima de `alerts.json` e `automations.json`
-- UI/API operacional para o fluxo escolhido
-
-Criterios de aceitacao:
-- deixa de haver dependencia operacional do `WA-notify` para alerts/automations
-- o comportamento de produto fica coberto pelo `LumeHub`
-- a documentacao deixa claro qual foi a decisao final
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave46`
-
-Melhor momento para testar:
-- depois do import de schedules, porque aqui ja se testa uma semana de operacao quase completa
-
-O que testar:
-- alertas esperados
-- automatismos minimos equivalentes
-- regressao de dashboard e watchdog
 
 ### Wave 47 - Suite verde e hardening de restart/cutover
 

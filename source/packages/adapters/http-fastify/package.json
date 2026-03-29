@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@lume-hub/admin-config": "workspace:*",
+    "@lume-hub/automations": "workspace:*",
     "@lume-hub/audience-routing": "workspace:*",
     "@lume-hub/codex-auth-router": "workspace:*",
     "@lume-hub/group-directory": "workspace:*",
@@ -26,6 +27,7 @@
     "@lume-hub/instruction-queue": "workspace:*",
     "@lume-hub/llm-orchestrator": "workspace:*",
     "@lume-hub/media-library": "workspace:*",
+    "@lume-hub/message-alerts": "workspace:*",
     "@lume-hub/people-memory": "workspace:*",
     "@lume-hub/system-power": "workspace:*",
     "@lume-hub/watchdog": "workspace:*",

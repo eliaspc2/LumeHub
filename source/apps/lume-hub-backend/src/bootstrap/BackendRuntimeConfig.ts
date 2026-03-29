@@ -58,6 +58,8 @@ export interface BackendRuntimeConfig {
   readonly workspaceAgentRunLogFilePath?: string;
   readonly workspaceAgentExecutor?: WorkspaceAgentExecutor;
   readonly waNotifySchedulesRootPath?: string;
+  readonly waNotifyAlertsFilePath?: string;
+  readonly waNotifyAutomationsFilePath?: string;
 }
 
 export interface BackendRuntimePaths {
@@ -95,6 +97,11 @@ export interface BackendRuntimePaths {
   readonly workspaceAgentRootPath: string;
   readonly workspaceAgentRunLogFilePath: string;
   readonly waNotifySchedulesRootPath: string;
+  readonly waNotifyAlertsFilePath: string;
+  readonly waNotifyAutomationsFilePath: string;
+  readonly messageAlertsLogFilePath: string;
+  readonly automationsRunLogFilePath: string;
+  readonly automationsFiredStateFilePath: string;
 }
 
 export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): BackendRuntimePaths {
@@ -123,6 +130,9 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
     config.workspaceAgentRunLogFilePath ?? resolve(runtimeRootPath, 'workspace-agent-runs.json');
   const waNotifySchedulesRootPath =
     config.waNotifySchedulesRootPath ?? '/home/eliaspc/Containers/wa-notify/data/schedules';
+  const waNotifyAlertsFilePath = config.waNotifyAlertsFilePath ?? '/home/eliaspc/Containers/wa-notify/data/alerts.json';
+  const waNotifyAutomationsFilePath =
+    config.waNotifyAutomationsFilePath ?? '/home/eliaspc/Containers/wa-notify/data/automations.json';
 
   return {
     projectRoot,
@@ -167,6 +177,11 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
     workspaceAgentRootPath,
     workspaceAgentRunLogFilePath,
     waNotifySchedulesRootPath,
+    waNotifyAlertsFilePath,
+    waNotifyAutomationsFilePath,
+    messageAlertsLogFilePath: resolve(runtimeRootPath, 'message-alerts-log.json'),
+    automationsRunLogFilePath: resolve(runtimeRootPath, 'automations-run-log.json'),
+    automationsFiredStateFilePath: resolve(runtimeRootPath, 'automations-fired-state.json'),
   };
 }
 

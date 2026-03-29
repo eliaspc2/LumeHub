@@ -7,10 +7,14 @@ import type {
   GroupContextPreviewSnapshot,
   GroupIntelligenceSnapshot,
   Instruction,
+  LegacyAlertImportReportSnapshot,
+  LegacyAutomationImportReportSnapshot,
   LegacyScheduleImportFileSnapshot,
   LegacyScheduleImportReportSnapshot,
+  MessageAlertMatchSnapshot,
   MediaAssetSnapshot,
   SettingsSnapshot,
+  AutomationRunSnapshot,
   WorkspaceAgentStatusSnapshot,
   WorkspaceAgentRunSnapshot,
   WorkspaceFileSnapshot,
@@ -89,6 +93,10 @@ export interface SettingsPageData {
   readonly settings: SettingsSnapshot;
   readonly legacyScheduleImportFiles: readonly LegacyScheduleImportFileSnapshot[];
   readonly legacyScheduleImportReport: LegacyScheduleImportReportSnapshot | null;
+  readonly legacyAlertImportReport: LegacyAlertImportReportSnapshot | null;
+  readonly legacyAutomationImportReport: LegacyAutomationImportReportSnapshot | null;
+  readonly recentAlertMatches: readonly MessageAlertMatchSnapshot[];
+  readonly recentAutomationRuns: readonly AutomationRunSnapshot[];
 }
 
 export class AppRouter {
@@ -382,9 +390,11 @@ export class AppRouter {
         label: this.settings.config.label,
         description: 'Area secundaria para defaults, energia, host companion e auth.',
         render: async () => {
-          const [settings, legacyScheduleImportFiles] = await Promise.all([
+          const [settings, legacyScheduleImportFiles, recentAlertMatches, recentAutomationRuns] = await Promise.all([
             this.readQuery('settings', () => this.client.getSettings()),
             this.readQuery('legacy-schedule-import-files', () => this.client.listLegacyScheduleImportFiles()),
+            this.readQuery('alert-matches', () => this.client.listRecentAlertMatches(8)),
+            this.readQuery('automation-runs', () => this.client.listRecentAutomationRuns(8)),
           ]);
 
           return {
@@ -396,6 +406,10 @@ export class AppRouter {
               settings,
               legacyScheduleImportFiles,
               legacyScheduleImportReport: null,
+              legacyAlertImportReport: null,
+              legacyAutomationImportReport: null,
+              recentAlertMatches,
+              recentAutomationRuns,
             } satisfies SettingsPageData,
           };
         },

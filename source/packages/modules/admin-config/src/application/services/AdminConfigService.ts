@@ -1,10 +1,12 @@
 import type {
   AdminSettings,
+  AutomationsSettings,
   CommandsPolicySettings,
   LlmProviderReadinessSnapshot,
   LlmRuntimeSettings,
   LlmRuntimeStatusInput,
   LlmRuntimeStatusSnapshot,
+  MessageAlertsSettings,
   UiSettings,
   WhatsAppSettings,
 } from '../../domain/entities/AdminConfig.js';
@@ -47,6 +49,32 @@ export class AdminConfigService {
     return this.repository.saveSettings({
       ...current,
       whatsapp: mergeDefined(current.whatsapp, update),
+      updatedAt: now.toISOString(),
+    });
+  }
+
+  async updateAlertsSettings(update: Partial<MessageAlertsSettings>, now = new Date()): Promise<AdminSettings> {
+    const current = await this.getSettings();
+    return this.repository.saveSettings({
+      ...current,
+      alerts: {
+        ...current.alerts,
+        ...update,
+        rules: update.rules ?? current.alerts.rules,
+      },
+      updatedAt: now.toISOString(),
+    });
+  }
+
+  async updateAutomationSettings(update: Partial<AutomationsSettings>, now = new Date()): Promise<AdminSettings> {
+    const current = await this.getSettings();
+    return this.repository.saveSettings({
+      ...current,
+      automations: {
+        ...current.automations,
+        ...update,
+        definitions: update.definitions ?? current.automations.definitions,
+      },
       updatedAt: now.toISOString(),
     });
   }

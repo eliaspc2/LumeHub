@@ -35,6 +35,9 @@ importers:
       '@lume-hub/audience-routing':
         specifier: workspace:*
         version: link:../../packages/modules/audience-routing
+      '@lume-hub/automations':
+        specifier: workspace:*
+        version: link:../../packages/modules/automations
       '@lume-hub/clock':
         specifier: workspace:*
         version: link:../../packages/foundation/clock
@@ -86,6 +89,9 @@ importers:
       '@lume-hub/media-library':
         specifier: workspace:*
         version: link:../../packages/modules/media-library
+      '@lume-hub/message-alerts':
+        specifier: workspace:*
+        version: link:../../packages/modules/message-alerts
       '@lume-hub/notification-jobs':
         specifier: workspace:*
         version: link:../../packages/modules/notification-jobs
@@ -186,6 +192,9 @@ importers:
       '@lume-hub/audience-routing':
         specifier: workspace:*
         version: link:../../modules/audience-routing
+      '@lume-hub/automations':
+        specifier: workspace:*
+        version: link:../../modules/automations
       '@lume-hub/codex-auth-router':
         specifier: workspace:*
         version: link:../../modules/codex-auth-router
@@ -210,6 +219,9 @@ importers:
       '@lume-hub/media-library':
         specifier: workspace:*
         version: link:../../modules/media-library
+      '@lume-hub/message-alerts':
+        specifier: workspace:*
+        version: link:../../modules/message-alerts
       '@lume-hub/people-memory':
         specifier: workspace:*
         version: link:../../modules/people-memory
@@ -231,6 +243,9 @@ importers:
       '@lume-hub/audience-routing':
         specifier: workspace:*
         version: link:../../modules/audience-routing
+      '@lume-hub/automations':
+        specifier: workspace:*
+        version: link:../../modules/automations
       '@lume-hub/codex-auth-router':
         specifier: workspace:*
         version: link:../../modules/codex-auth-router
@@ -252,6 +267,9 @@ importers:
       '@lume-hub/media-library':
         specifier: workspace:*
         version: link:../../modules/media-library
+      '@lume-hub/message-alerts':
+        specifier: workspace:*
+        version: link:../../modules/message-alerts
       '@lume-hub/people-memory':
         specifier: workspace:*
         version: link:../../modules/people-memory
@@ -429,6 +447,24 @@ importers:
         specifier: workspace:*
         version: link:../../adapters/persistence-group-files
 
+  packages/modules/automations:
+    dependencies:
+      '@lume-hub/admin-config':
+        specifier: workspace:*
+        version: link:../admin-config
+      '@lume-hub/clock':
+        specifier: workspace:*
+        version: link:../../foundation/clock
+      '@lume-hub/group-directory':
+        specifier: workspace:*
+        version: link:../group-directory
+      '@lume-hub/kernel':
+        specifier: workspace:*
+        version: link:../../foundation/kernel
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
+
   packages/modules/codex-auth-router:
     dependencies:
       '@lume-hub/kernel':
@@ -590,6 +626,24 @@ importers:
       zod:
         specifier: ^4.1.12
         version: 4.3.6
+
+  packages/modules/message-alerts:
+    dependencies:
+      '@lume-hub/admin-config':
+        specifier: workspace:*
+        version: link:../admin-config
+      '@lume-hub/clock':
+        specifier: workspace:*
+        version: link:../../foundation/clock
+      '@lume-hub/kernel':
+        specifier: workspace:*
+        version: link:../../foundation/kernel
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
+      '@lume-hub/whatsapp-baileys':
+        specifier: workspace:*
+        version: link:../../adapters/whatsapp-baileys
 
   packages/modules/notification-jobs:
     dependencies:

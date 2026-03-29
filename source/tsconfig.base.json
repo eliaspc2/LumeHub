@@ -78,6 +78,12 @@
       "@lume-hub/media-library": [
         "packages/modules/media-library/src/public/index.ts"
       ],
+      "@lume-hub/message-alerts": [
+        "packages/modules/message-alerts/src/public/index.ts"
+      ],
+      "@lume-hub/automations": [
+        "packages/modules/automations/src/public/index.ts"
+      ],
       "@lume-hub/workspace-agent": [
         "packages/modules/workspace-agent/src/public/index.ts"
       ],

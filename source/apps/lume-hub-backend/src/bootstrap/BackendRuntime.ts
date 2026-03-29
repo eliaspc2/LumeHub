@@ -16,6 +16,7 @@ import type { IntentClassifierModule } from '@lume-hub/intent-classifier';
 import type { ApplicationKernel, IModule, ModuleContext, ModuleRegistration } from '@lume-hub/kernel';
 import type { LlmOrchestratorModule } from '@lume-hub/llm-orchestrator';
 import type { MediaLibraryModule } from '@lume-hub/media-library';
+import type { MessageAlertsModule } from '@lume-hub/message-alerts';
 import type { NotificationJobsModule } from '@lume-hub/notification-jobs';
 import type { NotificationRulesModule } from '@lume-hub/notification-rules';
 import type { OwnerControlModule } from '@lume-hub/owner-control';
@@ -23,6 +24,7 @@ import type { PeopleMemoryModule } from '@lume-hub/people-memory';
 import type { ScheduleEventsModule } from '@lume-hub/schedule-events';
 import type { ScheduleWeeksModule } from '@lume-hub/schedule-weeks';
 import type { SystemPowerModule } from '@lume-hub/system-power';
+import type { AutomationsModule } from '@lume-hub/automations';
 import type { WatchdogModule } from '@lume-hub/watchdog';
 import type { WeeklyPlannerModule } from '@lume-hub/weekly-planner';
 import type { WorkspaceAgentModule } from '@lume-hub/workspace-agent';
@@ -35,6 +37,7 @@ import type {
 } from './BackendRuntimeStateRepository.js';
 import { BackendRuntimeStateRepository } from './BackendRuntimeStateRepository.js';
 import type { ConversationPipelineRuntime } from './ConversationPipelineRuntime.js';
+import type { MessageAlertsRuntime } from './MessageAlertsRuntime.js';
 import type { WhatsAppWorkspaceRuntime } from './WhatsAppWorkspaceRuntime.js';
 
 export interface BackendRuntimeModules {
@@ -61,6 +64,8 @@ export interface BackendRuntimeModules {
   readonly intentClassifierModule: IntentClassifierModule;
   readonly llmOrchestratorModule: LlmOrchestratorModule;
   readonly mediaLibraryModule: MediaLibraryModule;
+  readonly messageAlertsModule: MessageAlertsModule;
+  readonly automationsModule: AutomationsModule;
   readonly ownerControlModule: OwnerControlModule;
   readonly agentRuntimeModule: AgentRuntimeModule;
   readonly conversationModule: ConversationModule;
@@ -90,6 +95,10 @@ export interface BackendOperationalTickSnapshot {
     readonly raised: number;
     readonly resolved: number;
   };
+  readonly automations: {
+    readonly executed: number;
+    readonly failed: number;
+  };
   readonly hostHeartbeatAt: string | null;
 }
 
@@ -102,6 +111,7 @@ export interface BackendRuntimeOptions {
   readonly paths: BackendRuntimePaths;
   readonly whatsAppWorkspaceRuntime: WhatsAppWorkspaceRuntime;
   readonly conversationPipelineRuntime: ConversationPipelineRuntime;
+  readonly messageAlertsRuntime: MessageAlertsRuntime;
   readonly diagnosticsRepository: BackendRuntimeStateRepository;
   readonly operationalTickIntervalMs?: number;
 }
@@ -168,6 +178,7 @@ export class BackendRuntime {
     await this.options.kernel.start();
     this.kernelStarted = true;
     await this.options.whatsAppWorkspaceRuntime.start();
+    await this.options.messageAlertsRuntime.start();
     await this.options.conversationPipelineRuntime.start();
     this.detachWhatsAppDiagnostics = this.options.whatsAppWorkspaceRuntime.gateway.subscribeRuntime(() => {
       void this.writeDiagnostics(this.lastOperationalError ? 'degraded' : 'running', new Date()).catch(() => undefined);
@@ -196,6 +207,7 @@ export class BackendRuntime {
     this.detachWhatsAppDiagnostics = undefined;
 
     await this.options.conversationPipelineRuntime.stop();
+    await this.options.messageAlertsRuntime.stop();
     await this.options.whatsAppWorkspaceRuntime.stop();
     await this.options.webSocketGateway.close();
     await this.options.httpServer.close();
@@ -264,6 +276,12 @@ export class BackendRuntime {
     try {
       await this.options.modules.systemPowerModule.evaluatePowerPolicy();
       const instructionQueueTick = await this.options.modules.instructionQueueModule.tickWorker(now);
+      const automationTick = await this.options.modules.automationsModule.tick(
+        {
+          sendText: (input) => this.options.whatsAppWorkspaceRuntime.sendText(input),
+        },
+        now,
+      );
       const watchdogResult = await this.options.modules.watchdogModule.tick({
         now,
       });
@@ -282,6 +300,10 @@ export class BackendRuntime {
         watchdog: {
           raised: watchdogResult.raised.length,
           resolved: watchdogResult.resolved.length,
+        },
+        automations: {
+          executed: automationTick.executedCount,
+          failed: automationTick.failedCount,
         },
         hostHeartbeatAt: hostStatus.runtime.lastHeartbeatAt,
       };

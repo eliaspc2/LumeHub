@@ -45,6 +45,14 @@ export class AdminConfigModule extends BaseModule implements AdminConfigModuleCo
     return this.service.updateWhatsAppSettings(update);
   }
 
+  async updateAlertsSettings(update: Parameters<AdminConfigService['updateAlertsSettings']>[0]) {
+    return this.service.updateAlertsSettings(update);
+  }
+
+  async updateAutomationSettings(update: Parameters<AdminConfigService['updateAutomationSettings']>[0]) {
+    return this.service.updateAutomationSettings(update);
+  }
+
   async updateUiSettings(update: Parameters<AdminConfigService['updateUiSettings']>[0]) {
     return this.service.updateUiSettings(update);
   }

@@ -7,8 +7,10 @@ import {
   DEFAULT_ADMIN_SETTINGS,
   type AdminConfigModuleContract,
   type AdminSettings,
+  type AutomationsSettings,
   type CommandsPolicySettings,
   type LlmRuntimeStatusSnapshot,
+  type MessageAlertsSettings,
   type WhatsAppSettings,
 } from '@lume-hub/admin-config';
 import type { AgentRuntimeModuleContract } from '@lume-hub/agent-runtime';
@@ -28,8 +30,10 @@ import type { HostLifecycleModuleContract } from '@lume-hub/host-lifecycle';
 import type { DistributionContentInput, Instruction, InstructionQueueModuleContract } from '@lume-hub/instruction-queue';
 import type { LlmChatInput, LlmOrchestratorModuleContract, LlmRunLogEntry } from '@lume-hub/llm-orchestrator';
 import type { MediaLibraryModuleContract } from '@lume-hub/media-library';
+import type { MessageAlertsModuleContract } from '@lume-hub/message-alerts';
 import type { PeopleMemoryModuleContract, Person, PersonRole, PersonUpsertInput } from '@lume-hub/people-memory';
 import type { SystemPowerModuleContract } from '@lume-hub/system-power';
+import type { AutomationsModuleContract } from '@lume-hub/automations';
 import type { WatchdogModuleContract } from '@lume-hub/watchdog';
 import type {
   LegacyScheduleImportInput,
@@ -83,7 +87,12 @@ export interface UiEventPublisherLike {
 
 export interface HttpApiModules {
   readonly adminConfig: Pick<AdminConfigModuleContract, 'getSettings' | 'getLlmRuntimeStatus' | 'updateUiSettings'> &
-    Partial<Pick<AdminConfigModuleContract, 'updateCommandsSettings' | 'updateLlmSettings' | 'updateWhatsAppSettings'>>;
+    Partial<
+      Pick<
+        AdminConfigModuleContract,
+        'updateAlertsSettings' | 'updateAutomationSettings' | 'updateCommandsSettings' | 'updateLlmSettings' | 'updateWhatsAppSettings'
+      >
+    >;
   readonly agentRuntime?: Pick<AgentRuntimeModuleContract, 'applyScheduleAction' | 'previewScheduleApply'>;
   readonly assistantContext?: Pick<AssistantContextModuleContract, 'buildChatContext'>;
   readonly audienceRouting: Pick<
@@ -116,6 +125,14 @@ export interface HttpApiModules {
   };
   readonly llmOrchestrator?: Pick<LlmOrchestratorModuleContract, 'chat' | 'listModels' | 'refreshModels'>;
   readonly mediaLibrary?: Pick<MediaLibraryModuleContract, 'getLibrary' | 'listAssets' | 'getAsset'>;
+  readonly messageAlerts?: Pick<
+    MessageAlertsModuleContract,
+    'applyLegacyImport' | 'listRecentMatches' | 'listRules' | 'previewLegacyImport'
+  >;
+  readonly automations?: Pick<
+    AutomationsModuleContract,
+    'applyLegacyImport' | 'listDefinitions' | 'listRecentRuns' | 'previewLegacyImport'
+  >;
   readonly peopleMemory?: Pick<PeopleMemoryModuleContract, 'listPeople' | 'upsertByIdentifiers' | 'updatePersonRoles'>;
   readonly runtimeDiagnostics?: {
     getSnapshot(): Promise<unknown>;
@@ -583,6 +600,103 @@ export class RouteRegistrar {
           updated: report.totals.updated,
           unchanged: report.totals.unchanged,
           ambiguous: report.totals.ambiguous,
+        });
+        return report;
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/alerts/rules',
+      handler: async () => {
+        if (!this.modules.messageAlerts) {
+          throw new ApiError(404, 'Message alerts are not configured.');
+        }
+
+        return this.modules.messageAlerts.listRules();
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/alerts/matches',
+      handler: async (context) => {
+        if (!this.modules.messageAlerts) {
+          throw new ApiError(404, 'Message alerts are not configured.');
+        }
+
+        return this.modules.messageAlerts.listRecentMatches(readOptionalPositiveIntegerQuery(context.query, 'limit') ?? 20);
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/migrations/wa-notify/alerts/preview',
+      handler: async () => {
+        if (!this.modules.messageAlerts) {
+          throw new ApiError(404, 'Message alerts are not configured.');
+        }
+
+        return this.modules.messageAlerts.previewLegacyImport();
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/migrations/wa-notify/alerts/apply',
+      handler: async () => {
+        if (!this.modules.messageAlerts) {
+          throw new ApiError(404, 'Message alerts are not configured.');
+        }
+
+        const report = await this.modules.messageAlerts.applyLegacyImport();
+        this.publish('alerts.import.completed', {
+          importedRules: report.totals.importedRules,
+        });
+        return report;
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/automations/definitions',
+      handler: async () => {
+        if (!this.modules.automations) {
+          throw new ApiError(404, 'Automations are not configured.');
+        }
+
+        return this.modules.automations.listDefinitions();
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/automations/runs',
+      handler: async (context) => {
+        if (!this.modules.automations) {
+          throw new ApiError(404, 'Automations are not configured.');
+        }
+
+        return this.modules.automations.listRecentRuns(readOptionalPositiveIntegerQuery(context.query, 'limit') ?? 20);
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/migrations/wa-notify/automations/preview',
+      handler: async () => {
+        if (!this.modules.automations) {
+          throw new ApiError(404, 'Automations are not configured.');
+        }
+
+        return this.modules.automations.previewLegacyImport();
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/migrations/wa-notify/automations/apply',
+      handler: async () => {
+        if (!this.modules.automations) {
+          throw new ApiError(404, 'Automations are not configured.');
+        }
+
+        const report = await this.modules.automations.applyLegacyImport();
+        this.publish('automations.import.completed', {
+          importedDefinitions: report.totals.importedDefinitions,
+          missingGroups: report.totals.missingGroups,
         });
         return report;
       },
@@ -1719,6 +1833,18 @@ function normaliseAdminSettings(input: Partial<AdminSettings>): AdminSettings {
       defaultNotificationRules: Array.isArray(input.ui?.defaultNotificationRules)
         ? input.ui.defaultNotificationRules
         : DEFAULT_ADMIN_SETTINGS.ui.defaultNotificationRules,
+    },
+    alerts: {
+      ...DEFAULT_ADMIN_SETTINGS.alerts,
+      ...(input.alerts ?? {}),
+      rules: Array.isArray(input.alerts?.rules) ? input.alerts.rules : DEFAULT_ADMIN_SETTINGS.alerts.rules,
+    },
+    automations: {
+      ...DEFAULT_ADMIN_SETTINGS.automations,
+      ...(input.automations ?? {}),
+      definitions: Array.isArray(input.automations?.definitions)
+        ? input.automations.definitions
+        : DEFAULT_ADMIN_SETTINGS.automations.definitions,
     },
     updatedAt: input.updatedAt ?? DEFAULT_ADMIN_SETTINGS.updatedAt,
   };

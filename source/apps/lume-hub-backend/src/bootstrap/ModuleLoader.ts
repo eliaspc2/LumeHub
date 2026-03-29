@@ -22,6 +22,7 @@ import {
   LlmProviderRegistry,
 } from '@lume-hub/llm-orchestrator';
 import { MediaLibraryModule } from '@lume-hub/media-library';
+import { MessageAlertsModule } from '@lume-hub/message-alerts';
 import { NotificationJobsModule } from '@lume-hub/notification-jobs';
 import { NotificationRulesModule } from '@lume-hub/notification-rules';
 import { OwnerControlModule } from '@lume-hub/owner-control';
@@ -29,6 +30,7 @@ import { PeopleMemoryModule } from '@lume-hub/people-memory';
 import { ScheduleEventsModule } from '@lume-hub/schedule-events';
 import { ScheduleWeeksModule } from '@lume-hub/schedule-weeks';
 import { SystemPowerModule } from '@lume-hub/system-power';
+import { AutomationsModule } from '@lume-hub/automations';
 import { WatchdogModule } from '@lume-hub/watchdog';
 import { WeeklyPlannerModule } from '@lume-hub/weekly-planner';
 import { WorkspaceAgentModule } from '@lume-hub/workspace-agent';
@@ -41,6 +43,7 @@ import { BackendRuntimeStateRepository } from './BackendRuntimeStateRepository.j
 import { resolveBackendRuntimePaths, type BackendRuntimeConfig, type BackendRuntimePaths } from './BackendRuntimeConfig.js';
 import { ConversationPipelineRuntime } from './ConversationPipelineRuntime.js';
 import { InstructionQueueExecutionRuntime } from './InstructionQueueExecutionRuntime.js';
+import { MessageAlertsRuntime } from './MessageAlertsRuntime.js';
 import { WhatsAppWorkspaceRuntime } from './WhatsAppWorkspaceRuntime.js';
 
 export interface LoadedBackendComposition {
@@ -50,6 +53,7 @@ export interface LoadedBackendComposition {
   readonly webSocketGateway: WebSocketGateway;
   readonly whatsAppWorkspaceRuntime: WhatsAppWorkspaceRuntime;
   readonly conversationPipelineRuntime: ConversationPipelineRuntime;
+  readonly messageAlertsRuntime: MessageAlertsRuntime;
   readonly diagnosticsRepository: BackendRuntimeStateRepository;
 }
 
@@ -113,6 +117,20 @@ export class ModuleLoader {
     });
     const mediaLibraryModule = new MediaLibraryModule({
       dataRootPath: paths.dataRootPath,
+    });
+    const messageAlertsModule = new MessageAlertsModule({
+      adminConfig: adminConfigModule,
+      legacyAlertsFilePath: paths.waNotifyAlertsFilePath,
+      auditFilePath: paths.messageAlertsLogFilePath,
+      fetchImpl: this.config.llmFetch,
+    });
+    const automationsModule = new AutomationsModule({
+      adminConfig: adminConfigModule,
+      groupDirectory: groupDirectoryModule,
+      legacyAutomationsFilePath: paths.waNotifyAutomationsFilePath,
+      runLogFilePath: paths.automationsRunLogFilePath,
+      firedStateFilePath: paths.automationsFiredStateFilePath,
+      fetchImpl: this.config.llmFetch,
     });
     const workspaceAgentModule = new WorkspaceAgentModule({
       workspaceRootPath: paths.workspaceAgentRootPath,
@@ -262,6 +280,11 @@ export class ModuleLoader {
       assistantContext: assistantContextModule,
       commandPolicy: commandPolicyModule,
     });
+    const messageAlertsRuntime = new MessageAlertsRuntime({
+      inboundSource: whatsAppWorkspaceRuntime.gateway,
+      messageAlerts: messageAlertsModule,
+      uiEventPublisher: webSocketGateway.publisher,
+    });
 
     const moduleList: BackendRuntimeModules['modules'][number][] = [];
     const healthMonitorModule = new HealthMonitorModule({
@@ -305,6 +328,8 @@ export class ModuleLoader {
       intentClassifierModule,
       llmOrchestratorModule,
       mediaLibraryModule,
+      messageAlertsModule,
+      automationsModule,
       ownerControlModule,
       agentRuntimeModule,
       conversationModule,
@@ -331,6 +356,9 @@ export class ModuleLoader {
         commandPolicyModule,
         intentClassifierModule,
         llmOrchestratorModule,
+        mediaLibraryModule,
+        messageAlertsModule,
+        automationsModule,
         ownerControlModule,
         agentRuntimeModule,
         conversationModule,
@@ -361,6 +389,8 @@ export class ModuleLoader {
       intentClassifierModule,
       llmOrchestratorModule,
       mediaLibraryModule,
+      messageAlertsModule,
+      automationsModule,
       ownerControlModule,
       agentRuntimeModule,
       conversationModule,
@@ -400,6 +430,8 @@ export class ModuleLoader {
           getStatus: getLlmRuntimeStatus,
         },
         mediaLibrary: mediaLibraryModule,
+        messageAlerts: messageAlertsModule,
+        automations: automationsModule,
         workspaceAgent: workspaceAgentModule,
         peopleMemory: peopleMemoryModule,
         systemPower: systemPowerModule,
@@ -428,6 +460,7 @@ export class ModuleLoader {
       webSocketGateway,
       whatsAppWorkspaceRuntime,
       conversationPipelineRuntime,
+      messageAlertsRuntime,
       diagnosticsRepository,
     };
   }

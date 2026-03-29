@@ -44,6 +44,7 @@ export class KernelFactory {
       paths: loaded.paths,
       whatsAppWorkspaceRuntime: loaded.whatsAppWorkspaceRuntime,
       conversationPipelineRuntime: loaded.conversationPipelineRuntime,
+      messageAlertsRuntime: loaded.messageAlertsRuntime,
       diagnosticsRepository: loaded.diagnosticsRepository,
       operationalTickIntervalMs: runtimeConfig.operationalTickIntervalMs,
     });

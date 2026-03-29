@@ -217,16 +217,20 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 45` ja foram executadas e validadas.
+As `Wave 0` a `Wave 46` ja foram executadas e validadas.
 
 Mas isso nao significa, por si so, que o `WA-notify` ja deva ser desligado.
 
 Em `2026-03-29`, a leitura canonica passa a ser esta:
 
 - o `LumeHub` ja esta forte em arquitetura, UI, ownership, media, knowledge por grupo e runtime live base
-- o `WA-notify` continua, no entanto, com mais paridade operacional em:
+- o `LumeHub` ja nao depende do `WA-notify` para:
   - fluxo live de alteracao efetiva de calendario
-  - `alerts` e `automations`
+  - `alerts`
+  - `automations`
+- os bloqueadores ativos para cutover total ficam agora reduzidos a:
+  - suite verde e hardening de restart/cutover
+  - shadow mode com dados reais
 - por isso, a recomendacao atual e:
   - `shadow mode`
   - ou migracao parcial por areas
@@ -320,10 +324,12 @@ Neste momento:
   - objetivo fechado: scheduling live com `apply` real, `preview` antes da alteracao, fila operacional e auditoria visivel do diff aplicado
 - `Wave 45` fechada:
   - objetivo fechado: importador idempotente de `wNNyYYYY.json`, preview/apply operacional em `Configuracao` e migracao real para o storage mensal por grupo
+- `Wave 46` fechada:
+  - objetivo fechado: `alerts` e `automations` portados para a arquitetura nova, com import minimo de `alerts.json` / `automations.json`, execucao live e auditoria visivel
 - rondas ativas agora:
-  - `Wave 46` a `Wave 49`
+  - `Wave 47` a `Wave 49`
   - objetivo: fechar paridade e cutover real face ao `WA-notify`
 - regra de processo:
   - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
 - o runtime `Live` atual continua a ser o estado canonico do produto novo
-- mas a migracao total do `WA-notify` so deve ser decidida depois da ronda `Wave 46` a `Wave 49`
+- mas a migracao total do `WA-notify` so deve ser decidida depois da ronda `Wave 47` a `Wave 49`

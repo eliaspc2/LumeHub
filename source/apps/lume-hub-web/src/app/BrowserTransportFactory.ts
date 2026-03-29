@@ -1,5 +1,7 @@
+import type { AutomationDefinition, MessageAlertRule } from '@lume-hub/admin-config';
 import type {
   AdminSettings,
+  AutomationRunSnapshot,
   AssistantScheduleApplySnapshot,
   AssistantSchedulePreviewSnapshot,
   CommandsPolicySettings,
@@ -19,6 +21,8 @@ import type {
   GroupKnowledgeDocumentSnapshot,
   GroupOwnerAssignmentInput,
   Instruction,
+  LegacyAlertImportReportSnapshot,
+  LegacyAutomationImportReportSnapshot,
   LegacyScheduleImportFileSnapshot,
   LegacyScheduleImportReportSnapshot,
   LlmChatInput,
@@ -26,6 +30,7 @@ import type {
   LlmModelDescriptor,
   LlmRunLogEntry,
   MediaAssetSnapshot,
+  MessageAlertMatchSnapshot,
   Person,
   PersonRole,
   SettingsSnapshot,
@@ -98,6 +103,15 @@ const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
         label: '30 min antes',
       },
     ],
+  },
+  alerts: {
+    enabled: true,
+    rules: [],
+  },
+  automations: {
+    enabled: true,
+    fireWindowMinutes: 5,
+    definitions: [],
   },
   updatedAt: null,
 };
@@ -490,6 +504,70 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       return this.ok(this.state.settings);
     }
 
+    if (request.method === 'GET' && pathname === '/api/alerts/rules') {
+      return this.ok(this.state.settings.adminSettings.alerts.rules);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/alerts/matches') {
+      return this.ok(readRecentDemoEntries(this.state.alertMatches, request.path, 20));
+    }
+
+    if (request.method === 'POST' && pathname === '/api/migrations/wa-notify/alerts/preview') {
+      return this.ok(buildDemoLegacyAlertImportReport(this.state, false));
+    }
+
+    if (request.method === 'POST' && pathname === '/api/migrations/wa-notify/alerts/apply') {
+      const report = buildDemoLegacyAlertImportReport(this.state, true);
+      this.state.settings = {
+        ...this.state.settings,
+        adminSettings: {
+          ...this.state.settings.adminSettings,
+          alerts: {
+            ...this.state.settings.adminSettings.alerts,
+            enabled: true,
+            rules: report.importedRulesSnapshot,
+          },
+          updatedAt: new Date().toISOString(),
+        },
+      };
+      this.emit('alerts.import.completed', {
+        importedRules: report.totals.importedRules,
+      });
+      return this.ok(report);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/automations/definitions') {
+      return this.ok(this.state.settings.adminSettings.automations.definitions);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/automations/runs') {
+      return this.ok(readRecentDemoEntries(this.state.automationRuns, request.path, 20));
+    }
+
+    if (request.method === 'POST' && pathname === '/api/migrations/wa-notify/automations/preview') {
+      return this.ok(buildDemoLegacyAutomationImportReport(this.state, false));
+    }
+
+    if (request.method === 'POST' && pathname === '/api/migrations/wa-notify/automations/apply') {
+      const report = buildDemoLegacyAutomationImportReport(this.state, true);
+      this.state.settings = {
+        ...this.state.settings,
+        adminSettings: {
+          ...this.state.settings.adminSettings,
+          automations: {
+            ...this.state.settings.adminSettings.automations,
+            enabled: true,
+            definitions: report.importedDefinitionsSnapshot,
+          },
+          updatedAt: new Date().toISOString(),
+        },
+      };
+      this.emit('automations.import.completed', {
+        importedDefinitions: report.totals.importedDefinitions,
+      });
+      return this.ok(report);
+    }
+
     if (request.method === 'GET' && pathname === '/api/llm/models') {
       return this.ok(this.state.llmModels);
     }
@@ -805,6 +883,8 @@ interface DemoState {
   llmModels: readonly LlmModelDescriptor[];
   llmRuns: LlmRunLogEntry[];
   conversationAudit: ConversationAuditRecord[];
+  alertMatches: MessageAlertMatchSnapshot[];
+  automationRuns: AutomationRunSnapshot[];
   readonly externalPrivateConversations: readonly WhatsAppConversationSummary[];
   settings: SettingsSnapshot;
 }
@@ -1015,6 +1095,112 @@ function createDemoState(): DemoState {
     },
   ];
 
+  const demoAlertRules: readonly MessageAlertRule[] = [
+    {
+      ruleId: 'alert-group-ajuda',
+      enabled: true,
+      label: 'Pedido de ajuda no grupo',
+      scope: { type: 'group', groupJid: groups[0].groupJid },
+      match: { type: 'includes', value: 'ajuda', caseInsensitive: true },
+      actions: [{ type: 'log' }],
+    },
+    {
+      ruleId: 'alert-chat-urgente',
+      enabled: true,
+      label: 'Urgente em privado',
+      scope: { type: 'chat', chatJid: '351910000004@s.whatsapp.net' },
+      match: { type: 'regex', pattern: '\\burgente\\b' },
+      actions: [{ type: 'webhook', url: 'https://example.invalid/hooks/alerts', method: 'POST' }],
+    },
+  ];
+
+  const demoAutomationDefinitions: readonly AutomationDefinition[] = [
+    {
+      automationId: `${groups[0].groupJid}:warmup-reminder`,
+      entryId: 'warmup-reminder',
+      enabled: true,
+      groupJid: groups[0].groupJid,
+      groupLabel: groups[0].preferredSubject,
+      schedule: { type: 'weekly', daysOfWeek: ['mon', 'wed'], time: '17:00' },
+      notifyBeforeMinutes: [60, 15],
+      messageTemplate: 'Lembrar aquecimento para {{group}} dentro de {{minutesLeft}} min.',
+      actions: [{ type: 'wa_send' }, { type: 'log' }],
+      importedFrom: '/home/eliaspc/Containers/wa-notify/data/automations.json',
+    },
+    {
+      automationId: `${groups[2].groupJid}:pilates-checkin`,
+      entryId: 'pilates-checkin',
+      enabled: true,
+      groupJid: groups[2].groupJid,
+      groupLabel: groups[2].preferredSubject,
+      schedule: { type: 'weekly', daysOfWeek: ['tue', 'thu'], time: '18:00' },
+      notifyBeforeMinutes: [30],
+      messageTemplate: 'Check-in rapido de {{group}} em {{minutesLeft}} min.',
+      actions: [{ type: 'webhook', url: 'https://example.invalid/hooks/automations', method: 'POST' }],
+      importedFrom: '/home/eliaspc/Containers/wa-notify/data/automations.json',
+    },
+  ];
+
+  const alertMatches: MessageAlertMatchSnapshot[] = [
+    {
+      matchId: 'alert-group-ajuda:wamid.demo.alert.1',
+      ruleId: 'alert-group-ajuda',
+      chatJid: groups[0].groupJid,
+      participantJid: '351910000001@s.whatsapp.net',
+      groupJid: groups[0].groupJid,
+      text: 'Preciso de ajuda com a Aula 1.',
+      matchedAt: iso(-32),
+      actionTypes: ['log'],
+      webhookDeliveries: 0,
+    },
+    {
+      matchId: 'alert-chat-urgente:wamid.demo.alert.2',
+      ruleId: 'alert-chat-urgente',
+      chatJid: '351910000004@s.whatsapp.net',
+      participantJid: '351910000004@s.whatsapp.net',
+      groupJid: null,
+      text: 'Isto e urgente, liga-me assim que puderes.',
+      matchedAt: iso(-11),
+      actionTypes: ['webhook'],
+      webhookDeliveries: 1,
+    },
+  ];
+
+  const automationRuns: AutomationRunSnapshot[] = [
+    {
+      runId: `${groups[0].groupJid}:warmup-reminder:${iso(-70)}:60`,
+      automationId: `${groups[0].groupJid}:warmup-reminder`,
+      entryId: 'warmup-reminder',
+      groupJid: groups[0].groupJid,
+      groupLabel: groups[0].preferredSubject,
+      offsetMinutes: 60,
+      scheduledFor: iso(-10),
+      firedAt: iso(-70),
+      text: 'Lembrar aquecimento para Ballet Iniciacao dentro de 60 min.',
+      actionTypes: ['wa_send', 'log'],
+      waMessageId: 'wamid.demo.automation.1',
+      webhookDeliveries: 0,
+      status: 'executed',
+      error: null,
+    },
+    {
+      runId: `${groups[2].groupJid}:pilates-checkin:${iso(-45)}:30`,
+      automationId: `${groups[2].groupJid}:pilates-checkin`,
+      entryId: 'pilates-checkin',
+      groupJid: groups[2].groupJid,
+      groupLabel: groups[2].preferredSubject,
+      offsetMinutes: 30,
+      scheduledFor: iso(-15),
+      firedAt: iso(-45),
+      text: 'Check-in rapido de Pilates Adultos em 30 min.',
+      actionTypes: ['webhook'],
+      waMessageId: null,
+      webhookDeliveries: 1,
+      status: 'executed',
+      error: null,
+    },
+  ];
+
   const demoAdminSettings: SettingsSnapshot['adminSettings'] = {
     ...DEFAULT_ADMIN_SETTINGS,
     llm: {
@@ -1022,6 +1208,15 @@ function createDemoState(): DemoState {
       provider: 'codex-oauth',
       model: 'gpt-5.4',
       streamingEnabled: true,
+    },
+    alerts: {
+      enabled: true,
+      rules: demoAlertRules,
+    },
+    automations: {
+      enabled: true,
+      fireWindowMinutes: 5,
+      definitions: demoAutomationDefinitions,
     },
     updatedAt: iso(-110),
   };
@@ -1643,6 +1838,8 @@ function createDemoState(): DemoState {
     llmModels,
     llmRuns,
     conversationAudit,
+    alertMatches,
+    automationRuns,
     settings,
     externalPrivateConversations: [
       {
@@ -2529,6 +2726,73 @@ function applyDemoLegacyScheduleImport(
   }
 }
 
+function buildDemoLegacyAlertImportReport(
+  state: DemoState,
+  apply: boolean,
+): LegacyAlertImportReportSnapshot {
+  const importedRulesSnapshot = state.settings.adminSettings.alerts.rules;
+
+  return {
+    mode: apply ? 'apply' : 'preview',
+    sourceFilePath: '/home/eliaspc/Containers/wa-notify/data/alerts.json',
+    totals: {
+      legacyRules: importedRulesSnapshot.length,
+      importedRules: importedRulesSnapshot.length,
+    },
+    rules: importedRulesSnapshot.map((rule) => ({
+      ruleId: rule.ruleId,
+      enabled: rule.enabled,
+      scopeLabel:
+        rule.scope.type === 'group'
+          ? `grupo ${rule.scope.groupJid}`
+          : rule.scope.type === 'group_subject'
+            ? `grupo ${rule.scope.subject}`
+            : rule.scope.type === 'chat'
+              ? `chat ${rule.scope.chatJid}`
+              : 'qualquer chat',
+      matcherLabel:
+        rule.match.type === 'regex'
+          ? `regex ${rule.match.pattern}`
+          : `contains ${rule.match.value}`,
+      actionLabels: rule.actions.map((action) => (action.type === 'webhook' ? `webhook ${action.url}` : 'log')),
+    })),
+    importedRulesSnapshot,
+  };
+}
+
+function buildDemoLegacyAutomationImportReport(
+  state: DemoState,
+  apply: boolean,
+): LegacyAutomationImportReportSnapshot {
+  const importedDefinitionsSnapshot = state.settings.adminSettings.automations.definitions;
+
+  return {
+    mode: apply ? 'apply' : 'preview',
+    sourceFilePath: '/home/eliaspc/Containers/wa-notify/data/automations.json',
+    totals: {
+      legacyGroups: dedupeStringList(importedDefinitionsSnapshot.map((definition) => definition.groupLabel)).length,
+      legacyEntries: importedDefinitionsSnapshot.length,
+      importedDefinitions: importedDefinitionsSnapshot.length,
+      missingGroups: 0,
+    },
+    missingGroups: [],
+    definitions: importedDefinitionsSnapshot.map((definition) => ({
+      automationId: definition.automationId,
+      entryId: definition.entryId,
+      groupJid: definition.groupJid,
+      groupLabel: definition.groupLabel,
+      scheduleLabel:
+        definition.schedule.type === 'weekly'
+          ? `${definition.schedule.daysOfWeek.join(', ')} @ ${definition.schedule.time}`
+          : definition.schedule.startsAt,
+      actionLabels: definition.actions.map((action) =>
+        action.type === 'webhook' ? `webhook ${action.url}` : action.type,
+      ),
+    })),
+    importedDefinitionsSnapshot,
+  };
+}
+
 function buildDemoAssistantSchedulePreview(
   state: DemoState,
   payload: Record<string, unknown>,
@@ -3039,6 +3303,10 @@ function readRecentDemoEntries<T>(entries: readonly T[], pathname: string, fallb
   const limit = Number.parseInt(url.searchParams.get('limit') ?? String(fallbackLimit), 10);
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : fallbackLimit;
   return entries.slice(0, safeLimit);
+}
+
+function dedupeStringList(values: readonly string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
 
 function resolveDemoLocalDate(dayLabel: string): string {

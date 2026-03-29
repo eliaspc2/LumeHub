@@ -110,25 +110,9 @@ O storage, o runtime, a UX guiada e a limpeza final da serie ficaram fechados.
 Esta e, neste momento, a ronda critica para substituicao real do sistema antigo.
 A `Wave 44` ja fechou o primeiro bloqueador critico: o assistente agora consegue fazer `preview -> apply -> queue -> auditoria` sobre schedules reais no calendario do grupo.
 A `Wave 45` fechou o segundo: os schedules reais do `WA-notify` ja podem ser migrados para o storage mensal canonico por grupo com re-run idempotente.
+A `Wave 46` fechou o terceiro: `alerts` e `automations` agora vivem em packages reais do workspace, com import minimo dos ficheiros legacy, runtime live e auditoria.
 
-### 1. Alerts e automations continuam por fechar
-
-Evidencia confirmada em `2026-03-29`:
-
-- o `WA-notify` ainda usa:
-  - [alerts.json](/home/eliaspc/Containers/wa-notify/data/alerts.json)
-  - [automations.json](/home/eliaspc/Containers/wa-notify/data/automations.json)
-- no `LumeHub`, esta area continua fora do scope implementado atual
-
-Implicacao:
-
-- ainda existe dependencia funcional do sistema antigo para comportamento que continua vivo em producao
-
-Fecho planeado:
-
-- `Wave 46`
-
-### 2. A validacao automatica ainda nao esta verde para cutover
+### 1. A validacao automatica ainda nao esta verde para cutover
 
 Evidencia confirmada em `2026-03-29`:
 
@@ -146,7 +130,7 @@ Fecho planeado:
 
 - `Wave 47`
 
-### 3. Ainda falta ensaio com dados reais antes do cutover
+### 2. Ainda falta ensaio com dados reais antes do cutover
 
 Estado encontrado:
 
@@ -174,12 +158,16 @@ A fundacao do agente, os diffs, os guardrails operacionais e a limpeza final da 
 ### 1. `alerts` e `automations`
 
 Estado atual:
-- os antigos packages `source/packages/modules/alerts` e `source/packages/modules/automations` eram stubs vazios
-- foram removidos na `Wave 17` para nao fingirem funcionalidade inexistente
-- ficou apenas `legacy_healthy_code/reference_engines/` como referencia residual de comportamento
+- os antigos stubs removidos na `Wave 17` foram substituidos por implementacoes reais:
+  - [message-alerts](/home/eliaspc/Documentos/lume-hub/source/packages/modules/message-alerts)
+  - [automations](/home/eliaspc/Documentos/lume-hub/source/packages/modules/automations)
+- a pagina `Configuracao` ja suporta preview/apply dos ficheiros legacy:
+  - [alerts.json](/home/eliaspc/Containers/wa-notify/data/alerts.json)
+  - [automations.json](/home/eliaspc/Containers/wa-notify/data/automations.json)
+- o runtime live ja executa `alerts` por inbound e `automations` por tick, com auditoria exposta em API/UI
 
 Regra daqui para a frente:
-- so reintroduzir estas areas quando houver desenho, contratos e validacao reais
+- manter esta area apenas com contratos reais, migracao explicita e validadores dedicados
 
 ## Nota final
 
@@ -194,8 +182,9 @@ Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resp
 - para media recebida, biblioteca e distribuicao multi-grupo, sim
 - para o agente do projeto, ja existe fundacao funcional
 - para migracao de schedules reais do `WA-notify`, sim
+- para `alerts` e `automations`, sim
 - para migracao total do `WA-notify`, ainda nao
 - em `2026-03-29`, a recomendacao correta continua a ser:
-  - fechar `Wave 46` a `Wave 49`
+  - fechar `Wave 47` a `Wave 49`
   - depois fazer shadow mode
   - e so depois decidir cutover

@@ -92,6 +92,13 @@ A `Wave 45` tambem ja ficou fechada:
 - os events importados passam para o storage mensal canonico por grupo
 - a validacao dedicada passou em `validate:wave45`
 
+A `Wave 46` tambem ja ficou fechada:
+
+- os modulos `message-alerts` e `automations` passaram a existir de forma canonica no workspace
+- a pagina `Configuracao` ja permite preview/apply de `alerts.json` e `automations.json`
+- o runtime live ja executa `alerts` por inbound e `automations` por tick, com auditoria em API/UI
+- a validacao dedicada passou em `validate:wave46`
+
 Nota operacional:
 
 - neste host, a validacao foi feita com `Node 20` local em `/opt/node-v20-current`

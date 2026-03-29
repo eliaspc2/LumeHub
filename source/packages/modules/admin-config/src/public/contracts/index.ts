@@ -14,6 +14,12 @@ export interface AdminConfigModuleContract {
   updateWhatsAppSettings(
     update: Partial<import('../../domain/entities/AdminConfig.js').WhatsAppSettings>,
   ): Promise<import('../../domain/entities/AdminConfig.js').AdminSettings>;
+  updateAlertsSettings(
+    update: Partial<import('../../domain/entities/AdminConfig.js').MessageAlertsSettings>,
+  ): Promise<import('../../domain/entities/AdminConfig.js').AdminSettings>;
+  updateAutomationSettings(
+    update: Partial<import('../../domain/entities/AdminConfig.js').AutomationsSettings>,
+  ): Promise<import('../../domain/entities/AdminConfig.js').AdminSettings>;
   updateUiSettings(
     update: Partial<import('../../domain/entities/AdminConfig.js').UiSettings>,
   ): Promise<import('../../domain/entities/AdminConfig.js').AdminSettings>;

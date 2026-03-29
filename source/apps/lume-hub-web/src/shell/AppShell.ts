@@ -1,4 +1,5 @@
 import type {
+  AutomationRunSnapshot,
   AssistantScheduleApplySnapshot,
   AssistantSchedulePreviewSnapshot,
   CalendarAccessMode,
@@ -9,10 +10,13 @@ import type {
   GroupContextPreviewSnapshot,
   GroupIntelligenceSnapshot,
   Instruction,
+  LegacyAlertImportReportSnapshot,
+  LegacyAutomationImportReportSnapshot,
   LegacyScheduleImportFileSnapshot,
   LegacyScheduleImportReportSnapshot,
   LlmChatInput,
   MediaAssetSnapshot,
+  MessageAlertMatchSnapshot,
   PersonRole,
   SettingsSnapshot,
   WhatsAppWorkspaceSnapshot,
@@ -130,6 +134,18 @@ interface LegacyScheduleMigrationDraft {
   readonly report: LegacyScheduleImportReportSnapshot | null;
 }
 
+interface LegacyAlertMigrationDraft {
+  readonly previewLoading: boolean;
+  readonly applying: boolean;
+  readonly report: LegacyAlertImportReportSnapshot | null;
+}
+
+interface LegacyAutomationMigrationDraft {
+  readonly previewLoading: boolean;
+  readonly applying: boolean;
+  readonly report: LegacyAutomationImportReportSnapshot | null;
+}
+
 interface AssistantRailMessage {
   readonly messageId: string;
   readonly role: 'user' | 'assistant' | 'system' | 'error';
@@ -166,6 +182,8 @@ interface AppShellState {
   readonly workspaceAgentDraft: WorkspaceAgentDraft;
   readonly assistantSchedulingDraft: AssistantSchedulingDraft;
   readonly legacyScheduleMigrationDraft: LegacyScheduleMigrationDraft;
+  readonly legacyAlertMigrationDraft: LegacyAlertMigrationDraft;
+  readonly legacyAutomationMigrationDraft: LegacyAutomationMigrationDraft;
   readonly assistantRailChat: AssistantRailChatState;
   readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
   readonly whatsappQrPreviewVisible: boolean;
@@ -266,6 +284,8 @@ export class AppShell {
       workspaceAgentDraft: createEmptyWorkspaceAgentDraft(),
       assistantSchedulingDraft: createEmptyAssistantSchedulingDraft(),
       legacyScheduleMigrationDraft: createEmptyLegacyScheduleMigrationDraft(),
+      legacyAlertMigrationDraft: createEmptyLegacyAlertMigrationDraft(),
+      legacyAutomationMigrationDraft: createEmptyLegacyAutomationMigrationDraft(),
       assistantRailChat: createInitialAssistantRailChatState(),
       whatsappRepairFocus: 'auth',
       whatsappQrPreviewVisible: false,
@@ -670,7 +690,7 @@ export class AppShell {
     }
 
     if (page.route === '/settings') {
-      this.syncLegacyScheduleMigrationDraft(page as UiPage<SettingsPageData>);
+      this.syncSettingsDrafts(page as UiPage<SettingsPageData>);
     }
   }
 
@@ -723,13 +743,21 @@ export class AppShell {
     };
   }
 
-  private syncLegacyScheduleMigrationDraft(page: UiPage<SettingsPageData>): void {
+  private syncSettingsDrafts(page: UiPage<SettingsPageData>): void {
     this.state = {
       ...this.state,
       legacyScheduleMigrationDraft: resolveLegacyScheduleMigrationDraft(
         this.state.legacyScheduleMigrationDraft,
         page.data.legacyScheduleImportFiles,
         page.data.legacyScheduleImportReport,
+      ),
+      legacyAlertMigrationDraft: resolveLegacyAlertMigrationDraft(
+        this.state.legacyAlertMigrationDraft,
+        page.data.legacyAlertImportReport,
+      ),
+      legacyAutomationMigrationDraft: resolveLegacyAutomationMigrationDraft(
+        this.state.legacyAutomationMigrationDraft,
+        page.data.legacyAutomationImportReport,
       ),
     };
   }
@@ -3340,6 +3368,14 @@ export class AppShell {
       legacyFiles,
       page.data.legacyScheduleImportReport,
     );
+    const alertDraft = resolveLegacyAlertMigrationDraft(
+      this.state.legacyAlertMigrationDraft,
+      page.data.legacyAlertImportReport,
+    );
+    const automationDraft = resolveLegacyAutomationMigrationDraft(
+      this.state.legacyAutomationMigrationDraft,
+      page.data.legacyAutomationImportReport,
+    );
     const selectedLegacyFile = legacyFiles.find((file) => file.fileName === draft.fileName) ?? legacyFiles[0] ?? null;
     const defaultRuleSummary =
       snapshot.adminSettings.ui.defaultNotificationRules.length > 0
@@ -3360,6 +3396,8 @@ export class AppShell {
         : snapshot.llmRuntime.mode === 'fallback'
           ? 'Fallback deterministico'
           : 'LLM live desligada';
+    const alertRulesCount = snapshot.adminSettings.alerts.rules.length;
+    const automationDefinitionsCount = snapshot.adminSettings.automations.definitions.length;
 
     return `
       <section class="surface hero surface--strong">
@@ -3585,6 +3623,173 @@ export class AppShell {
                     `
                   : ''
               }
+            </div>
+          </details>
+          <details class="ui-details">
+            <summary>Migracao de alerts do WA-notify</summary>
+            <div class="ui-details__content">
+              <p>Regras de alerta atuais: <strong>${alertRulesCount}</strong>.</p>
+              <div class="action-row">
+                ${renderUiActionButton({
+                  label: alertDraft.previewLoading ? 'A gerar preview...' : 'Gerar preview dos alerts',
+                  disabled: alertDraft.previewLoading || alertDraft.applying,
+                  dataAttributes: { 'settings-action': 'preview-alerts-import' },
+                })}
+                ${renderUiActionButton({
+                  label: alertDraft.applying ? 'A importar...' : 'Importar alerts',
+                  variant: 'secondary',
+                  disabled: alertDraft.previewLoading || alertDraft.applying,
+                  dataAttributes: { 'settings-action': 'apply-alerts-import' },
+                })}
+                ${
+                  alertDraft.report
+                    ? renderUiActionButton({
+                        label: 'Limpar relatorio',
+                        variant: 'secondary',
+                        dataAttributes: { 'settings-action': 'clear-alerts-import-report' },
+                      })
+                    : ''
+                }
+              </div>
+              ${
+                alertDraft.report
+                  ? `
+                      <div class="guide-preview">
+                        <p><strong>Modo</strong>: ${escapeHtml(alertDraft.report.mode === 'apply' ? 'Import aplicado' : 'Preview')}</p>
+                        <p><strong>Ficheiro</strong>: ${escapeHtml(alertDraft.report.sourceFilePath)}</p>
+                        <p><strong>Regras legacy</strong>: ${alertDraft.report.totals.legacyRules} · <strong>Importadas</strong>: ${alertDraft.report.totals.importedRules}</p>
+                      </div>
+                    `
+                  : ''
+              }
+              <details class="ui-details">
+                <summary>Regras importadas</summary>
+                <div class="ui-details__content">
+                  <ul>
+                    ${(alertDraft.report?.rules ?? snapshot.adminSettings.alerts.rules.map((rule) => ({
+                      ruleId: rule.ruleId,
+                      enabled: rule.enabled,
+                      scopeLabel:
+                        rule.scope.type === 'group'
+                          ? `grupo ${rule.scope.groupJid}`
+                          : rule.scope.type === 'group_subject'
+                            ? `grupo ${rule.scope.subject}`
+                            : rule.scope.type === 'chat'
+                              ? `chat ${rule.scope.chatJid}`
+                              : 'qualquer chat',
+                      matcherLabel:
+                        rule.match.type === 'regex'
+                          ? `regex ${rule.match.pattern}`
+                          : `contains ${rule.match.value}`,
+                      actionLabels: rule.actions.map((action) =>
+                        action.type === 'webhook' ? `webhook ${action.url}` : 'log',
+                      ),
+                    })))
+                      .slice(0, 8)
+                      .map(
+                        (rule) =>
+                          `<li>${escapeHtml(rule.ruleId)} · ${escapeHtml(rule.scopeLabel)} · ${escapeHtml(rule.matcherLabel)} · ${escapeHtml(rule.actionLabels.join(', '))}</li>`,
+                      )
+                      .join('')}
+                  </ul>
+                </div>
+              </details>
+              <details class="ui-details">
+                <summary>Matches recentes</summary>
+                <div class="ui-details__content">
+                  <ul>
+                    ${page.data.recentAlertMatches.length > 0
+                      ? page.data.recentAlertMatches
+                          .map(
+                            (match: MessageAlertMatchSnapshot) =>
+                              `<li>${escapeHtml(match.ruleId)} · ${escapeHtml(match.text)} · ${escapeHtml(formatShortDateTime(match.matchedAt))}</li>`,
+                          )
+                          .join('')
+                      : '<li>Sem matches recentes nesta instalacao.</li>'}
+                  </ul>
+                </div>
+              </details>
+            </div>
+          </details>
+          <details class="ui-details">
+            <summary>Migracao de automations do WA-notify</summary>
+            <div class="ui-details__content">
+              <p>Automations atuais: <strong>${automationDefinitionsCount}</strong>.</p>
+              <div class="action-row">
+                ${renderUiActionButton({
+                  label: automationDraft.previewLoading ? 'A gerar preview...' : 'Gerar preview das automations',
+                  disabled: automationDraft.previewLoading || automationDraft.applying,
+                  dataAttributes: { 'settings-action': 'preview-automations-import' },
+                })}
+                ${renderUiActionButton({
+                  label: automationDraft.applying ? 'A importar...' : 'Importar automations',
+                  variant: 'secondary',
+                  disabled: automationDraft.previewLoading || automationDraft.applying,
+                  dataAttributes: { 'settings-action': 'apply-automations-import' },
+                })}
+                ${
+                  automationDraft.report
+                    ? renderUiActionButton({
+                        label: 'Limpar relatorio',
+                        variant: 'secondary',
+                        dataAttributes: { 'settings-action': 'clear-automations-import-report' },
+                      })
+                    : ''
+                }
+              </div>
+              ${
+                automationDraft.report
+                  ? `
+                      <div class="guide-preview">
+                        <p><strong>Modo</strong>: ${escapeHtml(automationDraft.report.mode === 'apply' ? 'Import aplicado' : 'Preview')}</p>
+                        <p><strong>Ficheiro</strong>: ${escapeHtml(automationDraft.report.sourceFilePath)}</p>
+                        <p><strong>Entradas legacy</strong>: ${automationDraft.report.totals.legacyEntries} · <strong>Importadas</strong>: ${automationDraft.report.totals.importedDefinitions}</p>
+                        <p><strong>Grupos em falta</strong>: ${automationDraft.report.totals.missingGroups}</p>
+                      </div>
+                    `
+                  : ''
+              }
+              <details class="ui-details">
+                <summary>Automations importadas</summary>
+                <div class="ui-details__content">
+                  <ul>
+                    ${(automationDraft.report?.definitions ?? snapshot.adminSettings.automations.definitions.map((definition) => ({
+                      automationId: definition.automationId,
+                      entryId: definition.entryId,
+                      groupJid: definition.groupJid,
+                      groupLabel: definition.groupLabel,
+                      scheduleLabel:
+                        definition.schedule.type === 'weekly'
+                          ? `${definition.schedule.daysOfWeek.join(', ')} @ ${definition.schedule.time}`
+                          : definition.schedule.startsAt,
+                      actionLabels: definition.actions.map((action) =>
+                        action.type === 'webhook' ? `webhook ${action.url}` : action.type,
+                      ),
+                    })))
+                      .slice(0, 8)
+                      .map(
+                        (definition) =>
+                          `<li>${escapeHtml(definition.entryId)} · ${escapeHtml(definition.groupLabel)} · ${escapeHtml(definition.scheduleLabel)} · ${escapeHtml(definition.actionLabels.join(', '))}</li>`,
+                      )
+                      .join('')}
+                  </ul>
+                </div>
+              </details>
+              <details class="ui-details">
+                <summary>Execucoes recentes</summary>
+                <div class="ui-details__content">
+                  <ul>
+                    ${page.data.recentAutomationRuns.length > 0
+                      ? page.data.recentAutomationRuns
+                          .map(
+                            (run: AutomationRunSnapshot) =>
+                              `<li>${escapeHtml(run.entryId)} · ${escapeHtml(run.groupLabel)} · ${escapeHtml(run.status)} · ${escapeHtml(formatShortDateTime(run.firedAt))}</li>`,
+                          )
+                          .join('')
+                      : '<li>Sem execucoes recentes nesta instalacao.</li>'}
+                  </ul>
+                </div>
+              </details>
             </div>
           </details>
         </article>
@@ -4915,6 +5120,294 @@ export class AppShell {
         },
       };
       this.render();
+      return;
+    }
+
+    if (action === 'clear-alerts-import-report') {
+      this.state = {
+        ...this.state,
+        legacyAlertMigrationDraft: {
+          ...this.state.legacyAlertMigrationDraft,
+          report: null,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'Relatorio da migracao de alerts limpo desta sessao.',
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'clear-automations-import-report') {
+      this.state = {
+        ...this.state,
+        legacyAutomationMigrationDraft: {
+          ...this.state.legacyAutomationMigrationDraft,
+          report: null,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'Relatorio da migracao de automations limpo desta sessao.',
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'preview-alerts-import') {
+      this.state = {
+        ...this.state,
+        legacyAlertMigrationDraft: {
+          ...this.state.legacyAlertMigrationDraft,
+          previewLoading: true,
+          applying: false,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A gerar preview da migracao de alerts do WA-notify.',
+        },
+      };
+      this.render();
+
+      try {
+        const report = await this.currentClient().previewLegacyAlertsImport();
+        this.state = {
+          ...this.state,
+          legacyAlertMigrationDraft: {
+            ...this.state.legacyAlertMigrationDraft,
+            previewLoading: false,
+            applying: false,
+            report,
+          },
+          flowFeedback: {
+            tone: 'positive',
+            message: `Preview de alerts pronto com ${report.totals.importedRules} regra(s).`,
+          },
+        };
+        this.recordUxEvent('positive', `Preview de alerts gerado com ${report.totals.importedRules} regra(s).`);
+        this.render();
+      } catch (error) {
+        const message = `Nao foi possivel gerar o preview dos alerts. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          legacyAlertMigrationDraft: {
+            ...this.state.legacyAlertMigrationDraft,
+            previewLoading: false,
+          },
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
+    if (action === 'apply-alerts-import') {
+      if (!options.confirmed) {
+        this.state = {
+          ...this.state,
+          pendingConfirmation: {
+            domain: 'settings',
+            key: 'alerts-import',
+            action,
+            dataset: {},
+            title: 'Importar alerts legacy?',
+            description: 'Isto substitui a lista atual de regras de alerts pela migracao vinda do WA-notify.',
+            confirmLabel: 'Importar alerts',
+            tone: 'warning',
+          },
+          flowFeedback: {
+            tone: 'warning',
+            message: 'Confirma primeiro a importacao real dos alerts legacy.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        legacyAlertMigrationDraft: {
+          ...this.state.legacyAlertMigrationDraft,
+          previewLoading: false,
+          applying: true,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A importar alerts legacy para a configuracao real.',
+        },
+      };
+      this.render();
+
+      try {
+        const report = await this.currentClient().applyLegacyAlertsImport();
+        this.state = {
+          ...this.state,
+          legacyAlertMigrationDraft: {
+            ...this.state.legacyAlertMigrationDraft,
+            previewLoading: false,
+            applying: false,
+            report,
+          },
+          flowFeedback: {
+            tone: 'positive',
+            message: `Import de alerts aplicado com ${report.totals.importedRules} regra(s).`,
+          },
+        };
+        this.recordUxEvent('positive', `Import de alerts aplicado com ${report.totals.importedRules} regra(s).`);
+        this.render();
+      } catch (error) {
+        const message = `Nao foi possivel aplicar o import dos alerts. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          legacyAlertMigrationDraft: {
+            ...this.state.legacyAlertMigrationDraft,
+            applying: false,
+            previewLoading: false,
+          },
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
+    if (action === 'preview-automations-import') {
+      this.state = {
+        ...this.state,
+        legacyAutomationMigrationDraft: {
+          ...this.state.legacyAutomationMigrationDraft,
+          previewLoading: true,
+          applying: false,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A gerar preview da migracao de automations do WA-notify.',
+        },
+      };
+      this.render();
+
+      try {
+        const report = await this.currentClient().previewLegacyAutomationsImport();
+        this.state = {
+          ...this.state,
+          legacyAutomationMigrationDraft: {
+            ...this.state.legacyAutomationMigrationDraft,
+            previewLoading: false,
+            applying: false,
+            report,
+          },
+          flowFeedback: {
+            tone: report.totals.missingGroups > 0 ? 'warning' : 'positive',
+            message:
+              report.totals.missingGroups > 0
+                ? `Preview pronto com ${report.totals.importedDefinitions} automations e ${report.totals.missingGroups} grupo(s) em falta.`
+                : `Preview pronto com ${report.totals.importedDefinitions} automations.`,
+          },
+        };
+        this.recordUxEvent('positive', `Preview de automations gerado com ${report.totals.importedDefinitions} item(ns).`);
+        this.render();
+      } catch (error) {
+        const message = `Nao foi possivel gerar o preview das automations. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          legacyAutomationMigrationDraft: {
+            ...this.state.legacyAutomationMigrationDraft,
+            previewLoading: false,
+          },
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
+    if (action === 'apply-automations-import') {
+      if (!options.confirmed) {
+        this.state = {
+          ...this.state,
+          pendingConfirmation: {
+            domain: 'settings',
+            key: 'automations-import',
+            action,
+            dataset: {},
+            title: 'Importar automations legacy?',
+            description: 'Isto substitui a lista atual de automations pela migracao vinda do WA-notify.',
+            confirmLabel: 'Importar automations',
+            tone: 'warning',
+          },
+          flowFeedback: {
+            tone: 'warning',
+            message: 'Confirma primeiro a importacao real das automations legacy.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        legacyAutomationMigrationDraft: {
+          ...this.state.legacyAutomationMigrationDraft,
+          previewLoading: false,
+          applying: true,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A importar automations legacy para a configuracao real.',
+        },
+      };
+      this.render();
+
+      try {
+        const report = await this.currentClient().applyLegacyAutomationsImport();
+        this.state = {
+          ...this.state,
+          legacyAutomationMigrationDraft: {
+            ...this.state.legacyAutomationMigrationDraft,
+            previewLoading: false,
+            applying: false,
+            report,
+          },
+          flowFeedback: {
+            tone: report.totals.missingGroups > 0 ? 'warning' : 'positive',
+            message:
+              report.totals.missingGroups > 0
+                ? `Import aplicado com ${report.totals.importedDefinitions} automations e ${report.totals.missingGroups} grupo(s) em falta para rever.`
+                : `Import de automations aplicado com ${report.totals.importedDefinitions} item(ns).`,
+          },
+        };
+        this.recordUxEvent('positive', `Import de automations aplicado com ${report.totals.importedDefinitions} item(ns).`);
+        this.render();
+      } catch (error) {
+        const message = `Nao foi possivel aplicar o import das automations. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          legacyAutomationMigrationDraft: {
+            ...this.state.legacyAutomationMigrationDraft,
+            applying: false,
+            previewLoading: false,
+          },
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
       return;
     }
 
@@ -6718,6 +7211,22 @@ function createEmptyLegacyScheduleMigrationDraft(): LegacyScheduleMigrationDraft
   };
 }
 
+function createEmptyLegacyAlertMigrationDraft(): LegacyAlertMigrationDraft {
+  return {
+    previewLoading: false,
+    applying: false,
+    report: null,
+  };
+}
+
+function createEmptyLegacyAutomationMigrationDraft(): LegacyAutomationMigrationDraft {
+  return {
+    previewLoading: false,
+    applying: false,
+    report: null,
+  };
+}
+
 function resolveAssistantSchedulingGroupJid(
   selectedGroupJid: string,
   groups: readonly Group[],
@@ -6753,6 +7262,26 @@ function resolveLegacyScheduleMigrationDraft(
   return {
     ...draft,
     fileName: selectedFileName,
+    report: report ?? draft.report,
+  };
+}
+
+function resolveLegacyAlertMigrationDraft(
+  draft: LegacyAlertMigrationDraft,
+  report: LegacyAlertImportReportSnapshot | null,
+): LegacyAlertMigrationDraft {
+  return {
+    ...draft,
+    report: report ?? draft.report,
+  };
+}
+
+function resolveLegacyAutomationMigrationDraft(
+  draft: LegacyAutomationMigrationDraft,
+  report: LegacyAutomationImportReportSnapshot | null,
+): LegacyAutomationMigrationDraft {
+  return {
+    ...draft,
     report: report ?? draft.report,
   };
 }

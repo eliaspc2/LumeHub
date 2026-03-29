@@ -1,0 +1,26 @@
+{
+  "name": "@lume-hub/message-alerts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/modules/message-alerts/src/public/index.js",
+  "types": "./dist/modules/message-alerts/src/public/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/modules/message-alerts/src/public/index.d.ts",
+      "default": "./dist/modules/message-alerts/src/public/index.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "test": "node -e \"console.log('No tests yet for @lume-hub/message-alerts.')\""
+  },
+  "dependencies": {
+    "@lume-hub/admin-config": "workspace:*",
+    "@lume-hub/clock": "workspace:*",
+    "@lume-hub/kernel": "workspace:*",
+    "@lume-hub/persistence-group-files": "workspace:*",
+    "@lume-hub/whatsapp-baileys": "workspace:*"
+  }
+}
