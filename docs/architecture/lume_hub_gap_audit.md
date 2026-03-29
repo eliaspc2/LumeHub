@@ -25,7 +25,14 @@ Conclusao curta:
 - a `Wave 32` ja fechou a distribuicao multi-grupo de media com queue, dedupe e retry por alvo
 - a `Wave 33` ja fechou o fluxo guiado de UI para escolher video, grupos, `dry_run` e envio real com leitura por grupo
 - a `Wave 34` ja fechou a limpeza final da ronda, com docs e validadores alinhados ao fluxo final
-- a `Wave 39` ja abriu a pagina `/workspace` com backend live para pesquisar ficheiros, ler previews e correr um agente LLM com alteracoes reais dentro do repo do `LumeHub`
+- a `Wave 39` abriu a pagina `/workspace` com backend live para pesquisar ficheiros, ler previews e correr um agente LLM com alteracoes reais dentro do repo do `LumeHub`
+- a `Wave 40` a `Wave 42` fecharam essa ronda com:
+  - diff por ficheiro
+  - contexto guiado antes de `apply`
+  - aprovacao explicita
+  - bloqueio de concorrencia
+  - auditoria visivel
+  - limpeza final de docs e validadores
 - no entanto, em `2026-03-29`, ainda nao e recomendavel fazer cutover total do `WA-notify` para o `LumeHub`
 - a recomendacao atual continua a ser:
   - `shadow mode`
@@ -200,20 +207,8 @@ Fecho planeado:
 
 ## Gaps ativos da ronda do agente de projeto
 
-A fundacao ja existe e as `Wave 40` a `Wave 41` ja fecharam:
-
-- diff por ficheiro depois de cada run
-- resumo estruturado de ficheiros lidos, ficheiros mudados e ficheiros sugeridos
-- possibilidade de pedir revisao de um ficheiro especifico sem o alterar
-- visao mais clara de contexto antes de correr `apply`
-- aprovacao explicita antes de runs com edicao
-- bloqueio de concorrencia para evitar duas runs destrutivas em simultaneo
-- auditoria mais forte do pedido, modo e resultado
-- estado visivel de fila e guardrails na pagina `Projeto`
-
-Ainda ficam abertos para as proximas waves:
-
-- limpeza final de docs, copy e validadores da serie
+Nao restam gaps funcionais ativos nesta ronda.
+A fundacao do agente, os diffs, os guardrails operacionais e a limpeza final da serie ficaram fechados.
 
 ## Trabalho futuro fora do scope atual
 

@@ -1693,7 +1693,7 @@ export class AppShell {
               )}</p>`,
             })}
             ${renderUiPanelCard({
-              title: 'Saida desta wave',
+              title: 'Resultado recente',
               badgeLabel: latestRun?.fileDiffs.length ? 'Com diff' : 'Sem diff ainda',
               badgeTone: latestRun?.fileDiffs.length ? 'positive' : 'neutral',
               contentHtml: `<p>${escapeHtml(

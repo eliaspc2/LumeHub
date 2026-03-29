@@ -173,7 +173,6 @@ export class AppRouter {
         route: '/workspace',
         label: 'Projeto',
         description: 'Pedir a uma LLM para ler, rever e alterar ficheiros do LumeHub sem sair da interface.',
-        legacyRoutes: ['/workspace-agent'],
         render: async () => {
           const [files, recentRuns, status] = await Promise.all([
             this.readQuery('workspace-files', () => this.client.searchWorkspaceFiles('', 40)),

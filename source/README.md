@@ -36,15 +36,14 @@ Decisao de storage:
 
 ## Estado
 
-A base do monorepo ja existe e as `Wave 0` a `Wave 41` foram executadas.
+A base do monorepo ja existe e as `Wave 0` a `Wave 42` foram executadas.
 Hoje esta pasta ja contem:
 
 - `apps/lume-hub-backend`, `apps/lume-hub-web` e `apps/lume-hub-host`
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
-  - `validate:wave40`
-  - `validate:wave39`
+  - `validate:wave42`
   - `validate:wave38`
   - `validate:wave34`
   - `validate:wave29`
@@ -54,7 +53,7 @@ Hoje esta pasta ja contem:
 A ronda de inteligencia por grupo ficou fechada, o storage canonico de media recebida tambem, o ingest live com biblioteca operacional ficou concluido, a distribuicao multi-grupo de media ja existe no runtime, e o fluxo guiado da pagina `Media` ja esta funcional.
 A ronda de media distribuida tambem ficou fechada com limpeza final de docs, naming e validadores.
 A ronda de simplificacao do GUI ficou fechada com shell minima, paginas principais mais curtas, configuracao avancada sob demanda e limpeza final dos validadores e do copy de transicao.
-Tambem ja existe a primeira fundacao do agente de projeto:
+Tambem ja existe o fluxo operacional do agente de projeto:
 
 - modulo `@lume-hub/workspace-agent`
 - API `/api/workspace/*`
@@ -67,6 +66,7 @@ Tambem ja existe a primeira fundacao do agente de projeto:
 - bloqueio de concorrencia para runs destrutivas
 - auditoria de `requestedBy`, aprovacao, execucao e guardrail
 - endpoint `/api/workspace/status`
+- validacao consolidada em `validate:wave42`
 
 Nota operacional:
 

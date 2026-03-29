@@ -1399,7 +1399,7 @@ function createDemoState(): DemoState {
       status: 'completed',
       outputSummary: 'Plano curto gerado para frontend, API e validacao.',
       guardrailReason: null,
-      stdout: 'Plano: AppRouter, AppShell, frontend-api-client, validate-wave.',
+      stdout: 'Plano: AppRouter, AppShell, frontend-api-client, validacao final.',
       stderr: '',
       exitCode: 0,
       timedOut: false,

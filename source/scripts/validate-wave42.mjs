@@ -18,10 +18,8 @@ const { WorkspaceAgentService } = await import(
 
 const SOURCE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB_DIST_ROOT = resolve(SOURCE_ROOT, 'apps', 'lume-hub-web', 'dist');
-const sandboxPath = await mkdtemp(join(tmpdir(), 'lume-hub-wave39-'));
+const sandboxPath = await mkdtemp(join(tmpdir(), 'lume-hub-wave42-'));
 const workspaceRootPath = join(sandboxPath, 'repo');
-const runtimeRootPath = join(sandboxPath, 'runtime');
-const runLogFilePath = join(runtimeRootPath, 'workspace-agent-runs.json');
 
 let server = null;
 
@@ -29,44 +27,55 @@ try {
   await mkdir(join(workspaceRootPath, 'source', 'apps', 'lume-hub-web', 'src'), {
     recursive: true,
   });
-  await mkdir(runtimeRootPath, {
-    recursive: true,
-  });
 
-  await writeFile(join(workspaceRootPath, 'README.md'), '# Demo workspace\n\nEstado inicial para validar o agente do projeto.\n');
+  await writeFile(join(workspaceRootPath, 'README.md'), '# Demo workspace\n\nEstado inicial para validar guardrails.\n');
   await writeFile(
     join(workspaceRootPath, 'source', 'apps', 'lume-hub-web', 'src', 'AppShell.ts'),
     'export const workspaceDemo = "LumeHub workspace route";\n',
   );
-  await writeFile(join(workspaceRootPath, 'docs.md'), 'Documento auxiliar.\n');
+
+  const runLog = {
+    schemaVersion: 1,
+    runs: [],
+  };
+
+  let releaseApplyGate = () => {};
+  let applyGate = new Promise((resolvePromise) => {
+    releaseApplyGate = resolvePromise;
+  });
 
   const fakeExecutor = {
     async run(input) {
       if (input.mode === 'plan') {
         return {
-          stdout: 'Plano: rever AppShell.ts e README.md antes de editar.',
+          stdout: 'Plano: rever README.md e AppShell.ts antes de alterar.',
           stderr: '',
           exitCode: 0,
           timedOut: false,
-          outputSummary: 'Plano gerado para o workspace.',
+          outputSummary: 'Plano guiado preparado.',
           changedFiles: [],
           structuredSummary: {
-            summary: 'Plano gerado para o workspace.',
+            summary: 'Plano guiado preparado.',
             suggestedFiles: input.filePaths,
             readFiles: ['README.md', 'source/apps/lume-hub-web/src/AppShell.ts'],
-            notes: ['Demo de leitura sem alteracoes.'],
+            notes: ['Comeca por confirmar o foco antes de passar para apply.'],
           },
           fileDiffs: [],
         };
       }
 
+      await applyGate;
       const targetPath = input.filePaths[0] ?? 'README.md';
       const absoluteTargetPath = resolve(input.workspaceRootPath, targetPath);
       const currentContent = await readFile(absoluteTargetPath, 'utf8').catch(() => '');
       await writeFile(
         absoluteTargetPath,
-        `${currentContent.trimEnd()}\n\n<!-- workspace-agent: touched -->\n`,
+        `${currentContent.trimEnd()}\n\n<!-- workspace-agent-wave42: touched -->\n`,
       );
+
+      applyGate = new Promise((resolvePromise) => {
+        releaseApplyGate = resolvePromise;
+      });
 
       return {
         stdout: `Alterado ${targetPath}.`,
@@ -76,10 +85,10 @@ try {
         outputSummary: `Alterei ${targetPath}.`,
         changedFiles: [targetPath],
         structuredSummary: {
-          summary: `Alterei ${targetPath}.`,
+          summary: `Alterei ${targetPath} com aprovacao explicita.`,
           suggestedFiles: input.filePaths,
           readFiles: [targetPath, 'README.md'],
-          notes: ['Demo com alteracao real para validar a fundacao.'],
+          notes: ['Guardrails operacionais ativos nesta run.'],
         },
         fileDiffs: [
           {
@@ -92,7 +101,7 @@ try {
               `--- a/${targetPath}`,
               `+++ b/${targetPath}`,
               '@@',
-              '+<!-- workspace-agent: touched -->',
+              '+<!-- workspace-agent-wave42: touched -->',
             ].join('\n'),
           },
         ],
@@ -100,12 +109,9 @@ try {
     },
   };
 
-  const runLog = {
-    schemaVersion: 1,
-    runs: [],
-  };
   const workspaceAgent = new WorkspaceAgentService({
     workspaceRootPath,
+    maxFocusedFiles: 3,
     repository: {
       async read() {
         return runLog;
@@ -162,10 +168,10 @@ try {
           return [];
         },
         async upsertSenderAudienceRule() {
-          throw new Error('Not used in wave39 validation.');
+          throw new Error('Not used in wave42 validation.');
         },
         async previewDistributionPlan() {
-          throw new Error('Not used in wave39 validation.');
+          throw new Error('Not used in wave42 validation.');
         },
       },
       groupDirectory: {
@@ -239,13 +245,13 @@ try {
       },
       instructionQueue: {
         async enqueueDistributionPlan() {
-          throw new Error('Not used in wave39 validation.');
+          throw new Error('Not used in wave42 validation.');
         },
         async listInstructions() {
           return [];
         },
         async retryInstruction() {
-          throw new Error('Not used in wave39 validation.');
+          throw new Error('Not used in wave42 validation.');
         },
       },
       systemPower: {
@@ -274,38 +280,82 @@ try {
     },
   });
 
-  const files = await client.searchWorkspaceFiles('app', 10);
-  assert.ok(files.some((entry) => entry.relativePath === 'source/apps/lume-hub-web/src/AppShell.ts'));
-
-  const preview = await client.getWorkspaceFile('README.md');
-  assert.match(preview.content, /Demo workspace/u);
-  assert.equal(preview.relativePath, 'README.md');
-
-  const planRun = await client.runWorkspaceAgent({
-    prompt: 'Analisa o repo e diz por onde começarias.',
-    mode: 'plan',
-    filePaths: ['README.md'],
-  });
-  assert.equal(planRun.status, 'completed');
-  assert.equal(planRun.changedFiles.length, 0);
-  assert.equal(planRun.structuredSummary.suggestedFiles.length, 1);
-
-  const applyRun = await client.runWorkspaceAgent({
-    prompt: 'Atualiza o README para registar esta validação.',
+  const rejectedWithoutConfirmation = await client.runWorkspaceAgent({
+    prompt: 'Muda o README sem confirmar.',
     mode: 'apply',
     filePaths: ['README.md'],
+    requestedBy: 'wave42-validator',
   });
-  assert.equal(applyRun.status, 'completed');
-  assert.deepEqual(applyRun.changedFiles, ['README.md']);
-  assert.equal(applyRun.fileDiffs.length, 1);
+  assert.equal(rejectedWithoutConfirmation.executionState, 'rejected');
+  assert.equal(rejectedWithoutConfirmation.approvalState, 'missing_confirmation');
+  assert.match(
+    rejectedWithoutConfirmation.guardrailReason ?? '',
+    /confirmacao explicita/u,
+  );
 
-  const updatedPreview = await client.getWorkspaceFile('README.md');
-  assert.match(updatedPreview.content, /workspace-agent: touched/u);
+  const initialFiles = await client.searchWorkspaceFiles('AppShell', 10);
+  assert.ok(initialFiles.some((file) => file.relativePath === 'source/apps/lume-hub-web/src/AppShell.ts'));
 
-  const recentRuns = await client.listWorkspaceAgentRuns(5);
-  assert.equal(recentRuns.length, 2);
-  assert.equal(recentRuns[0].runId, applyRun.runId);
-  assert.equal(recentRuns[1].runId, planRun.runId);
+  const preview = await client.getWorkspaceFile('README.md');
+  assert.match(preview.content, /Estado inicial para validar guardrails/u);
+
+  const planRun = await client.runWorkspaceAgent({
+    prompt: 'Analisa o repo e prepara um plano curto.',
+    mode: 'plan',
+    filePaths: ['README.md'],
+    requestedBy: 'wave42-validator',
+  });
+  assert.equal(planRun.status, 'completed');
+  assert.equal(planRun.executionState, 'executed');
+  assert.equal(planRun.changedFiles.length, 0);
+  assert.deepEqual(planRun.structuredSummary.suggestedFiles, ['README.md']);
+
+  const runningApplyPromise = client.runWorkspaceAgent({
+    prompt: 'Primeira alteracao controlada.',
+    mode: 'apply',
+    filePaths: ['README.md'],
+    confirmedApply: true,
+    requestedBy: 'wave42-validator',
+  });
+  await new Promise((resolvePromise) => setTimeout(resolvePromise, 25));
+
+  const busyStatus = await client.getWorkspaceAgentStatus();
+  assert.equal(busyStatus.busy, true);
+  assert.equal(busyStatus.activeMode, 'apply');
+  assert.match(busyStatus.activePromptSummary ?? '', /Primeira alteracao controlada/u);
+
+  const rejectedConcurrentApply = await client.runWorkspaceAgent({
+    prompt: 'Segunda alteracao concorrente.',
+    mode: 'apply',
+    filePaths: ['README.md'],
+    confirmedApply: true,
+    requestedBy: 'wave42-validator',
+  });
+  assert.equal(rejectedConcurrentApply.executionState, 'rejected');
+  assert.match(rejectedConcurrentApply.guardrailReason ?? '', /outra run com alteracoes em curso/u);
+
+  releaseApplyGate();
+  const completedApply = await runningApplyPromise;
+  assert.equal(completedApply.status, 'completed');
+  assert.equal(completedApply.executionState, 'executed');
+  assert.equal(completedApply.approvalState, 'confirmed');
+  assert.equal(completedApply.requestedBy, 'wave42-validator');
+  assert.deepEqual(completedApply.changedFiles, ['README.md']);
+  assert.equal(completedApply.fileDiffs.length, 1);
+  assert.match(completedApply.fileDiffs[0].diffText, /workspace-agent-wave42: touched/u);
+
+  const relaxedStatus = await client.getWorkspaceAgentStatus();
+  assert.equal(relaxedStatus.busy, false);
+  assert.ok(relaxedStatus.lastCompletedAt);
+  assert.ok(relaxedStatus.lastRejectedAt);
+  assert.match(relaxedStatus.lastRejectedReason ?? '', /outra run com alteracoes em curso/u);
+
+  const recentRuns = await client.listWorkspaceAgentRuns(6);
+  assert.equal(recentRuns.length, 4);
+  assert.equal(recentRuns[0].runId, completedApply.runId);
+  assert.equal(recentRuns[1].executionState, 'rejected');
+  assert.equal(recentRuns[2].approvalState, 'not_required');
+  assert.equal(recentRuns[3].approvalState, 'missing_confirmation');
 
   const address = await server.listen({
     host: '127.0.0.1',
@@ -320,14 +370,16 @@ try {
   const dump = await runChromeDump(`${address.origin}/workspace?mode=live`);
 
   assert.match(dump.stdout, /LumeHub \| Projeto/u);
-  assert.match(dump.stdout, /Pedir trabalho ao agente/u);
-  assert.match(dump.stdout, /Explorar ficheiros do repo/u);
-  assert.match(dump.stdout, /Preview do ficheiro/u);
-  assert.match(dump.stdout, /Runs recentes/u);
+  assert.match(dump.stdout, /Aplicar alteracoes/u);
+  assert.match(dump.stdout, /Fila e guardrails/u);
+  assert.match(dump.stdout, /Resultado recente/u);
+  assert.match(dump.stdout, /Rejeitada por guardrail/u);
+  assert.match(dump.stdout, /Aprovacao/u);
+  assert.match(dump.stdout, /Ver diff por ficheiro/u);
   assert.doesNotMatch(dump.stdout, /Algo falhou ao carregar esta pagina/u);
   assert.doesNotMatch(dump.stderr, /(TypeError|ReferenceError|Uncaught)/u);
 
-  console.log('validate-wave39: ok');
+  console.log('validate-wave42: ok');
 } finally {
   if (server) {
     await server.close().catch(() => undefined);

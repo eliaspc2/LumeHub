@@ -10,7 +10,7 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 41` ja foram executadas e validadas.
+As `Wave 0` a `Wave 42` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
 O storage canonico da ronda de media ja ficou aberto com:
@@ -36,50 +36,24 @@ O fluxo guiado desta ronda tambem ja ficou aberto com:
 - `dry_run` e envio `confirmed` a partir da mesma pagina
 - visao recente de entrega por grupo sem sair do fluxo
 
-A ronda nova do agente de projeto ja ficou aberta com:
+A ronda do agente de projeto tambem ja ficou fechada com:
 
 - pagina `/workspace` no frontend
 - modulo `workspace-agent` no backend
 - API live para pesquisar ficheiros, ler preview e correr runs do agente
 - execucao real via `codex exec` limitada ao repo do `LumeHub`
 - historico recente de runs e ficheiros alterados
+- diff por ficheiro e contexto guiado antes de `apply`
+- aprovacao explicita, bloqueio de concorrencia e auditoria visivel
+- limpeza final de docs, naming e validadores da serie
 
 ## Estado do plano
 
-As `Wave 35` a `Wave 41` ja foram executadas e validadas.
+As `Wave 35` a `Wave 42` ja foram executadas e validadas.
 A ronda de simplificacao do GUI ficou fechada com shell minima, paginas principais mais curtas, configuracao avancada sob demanda e limpeza final dos validadores e do copy de transicao.
 A `Wave 40` tambem ja fechou diffs por ficheiro, resumo estruturado de contexto e revisao guiada de ficheiro na pagina `Projeto`.
 A `Wave 41` ja fechou aprovacao explicita para `apply`, bloqueio de concorrencia, auditoria visivel do pedido/modo/resultado e guardrails operacionais no backend e na UI.
-
-Ronda ativa:
-
-### Wave 42 - Limpeza final da ronda do agente de projeto
-
-Objetivo:
-- fechar a ronda com docs, validadores e naming coerentes ao estado final
-
-Entregaveis:
-- consolidacao dos validadores desta ronda
-- remocao de copy provisoria e naming de transicao
-- docs alinhadas ao fluxo final da pagina `Projeto`
-
-Criterios de aceitacao:
-- nao ficam scripts obsoletos, copy provisoria nem referencias a estados intermédios
-- o plano volta a ficar curto e legivel
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave42`
-
-Melhor momento para testar:
-- no fim da ronda, como regressao curta
-
-O que testar:
-- abertura da pagina `Projeto`
-- run em `plan`
-- run em `apply`
-- leitura do historico depois da limpeza final
+A `Wave 42` fechou a limpeza final da ronda do agente de projeto, consolidando validadores, removendo copy provisoria e alinhando docs ao estado final da pagina `Projeto`.
 
 ## Ronda de paridade e cutover WA-notify
 
