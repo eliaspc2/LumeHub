@@ -771,7 +771,7 @@ export class AppShell {
   }
 
   private shouldRenderAssistantRail(currentRoute: AppRouteDefinition): boolean {
-    return currentRoute.route !== '/assistant' && currentRoute.route !== '/settings';
+    return currentRoute.route !== '/settings';
   }
 
   private renderMainContent(currentRoute: AppRouteDefinition): string {
