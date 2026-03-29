@@ -4,8 +4,10 @@ import type {
   InstructionAction,
   InstructionActionExecutionResult,
   InstructionActionExecutorHandler,
+  ScheduleApplyActionPayload,
 } from '@lume-hub/instruction-queue';
 import type { MediaAsset, MediaLibraryModuleContract } from '@lume-hub/media-library';
+import type { WeeklyPlannerEventSummary, WeeklyPlannerModuleContract } from '@lume-hub/weekly-planner';
 import type { WhatsAppSendMediaInput } from '@lume-hub/whatsapp-baileys';
 
 interface UiEventPublisherLike {
@@ -40,6 +42,7 @@ interface WhatsAppDistributionRuntimeLike {
 export interface InstructionQueueExecutionRuntimeConfig {
   readonly whatsAppRuntime: WhatsAppDistributionRuntimeLike;
   readonly mediaLibrary: Pick<MediaLibraryModuleContract, 'getAsset' | 'readBinary'>;
+  readonly weeklyPlanner: Pick<WeeklyPlannerModuleContract, 'deleteSchedule' | 'saveSchedule'>;
   readonly uiEventPublisher?: UiEventPublisherLike;
 }
 
@@ -54,19 +57,23 @@ export class InstructionQueueExecutionRuntime {
     action: InstructionAction,
     instruction: Instruction,
   ): Promise<InstructionActionExecutionResult> {
-    if (action.type !== 'distribution_delivery') {
-      return {
-        note: `noop:${action.type}`,
-      };
+    if (action.type === 'schedule_apply') {
+      return this.executeScheduleApply(action, instruction);
     }
 
-    const payload = readDistributionActionPayload(action);
+    if (action.type === 'distribution_delivery') {
+      const payload = readDistributionActionPayload(action);
 
-    if (payload.kind === 'media') {
-      return this.executeMediaDistribution(action, instruction, payload);
+      if (payload.kind === 'media') {
+        return this.executeMediaDistribution(action, instruction, payload);
+      }
+
+      return this.executeTextDistribution(action, instruction, payload);
     }
 
-    return this.executeTextDistribution(action, instruction, payload);
+    return {
+      note: `noop:${action.type}`,
+    };
   }
 
   private async executeTextDistribution(
@@ -145,6 +152,86 @@ export class InstructionQueueExecutionRuntime {
     return result;
   }
 
+  private async executeScheduleApply(
+    action: InstructionAction,
+    instruction: Instruction,
+  ): Promise<InstructionActionExecutionResult> {
+    const payload = readScheduleApplyPayload(action);
+
+    if (payload.operation === 'delete') {
+      if (!payload.deleteEventId) {
+        throw new Error(`Schedule delete payload for action '${action.actionId}' is missing deleteEventId.`);
+      }
+
+      const deleted = await this.config.weeklyPlanner.deleteSchedule(payload.deleteEventId, {
+        groupJid: payload.groupJid,
+      });
+
+      if (!deleted) {
+        throw new Error(`Schedule '${payload.deleteEventId}' could not be deleted.`);
+      }
+
+      const result = {
+        note: 'schedule_deleted',
+        metadata: {
+          contentKind: 'schedule_apply',
+          operation: payload.operation,
+          groupJid: payload.groupJid,
+          groupLabel: payload.groupLabel,
+          weekId: payload.weekId,
+          eventId: payload.deleteEventId,
+          title: payload.targetEvent?.title ?? null,
+          previewSummary: payload.previewSummary,
+        },
+      } satisfies InstructionActionExecutionResult;
+
+      this.publish('schedules.deleted', {
+        eventId: payload.deleteEventId,
+        deleted: true,
+      });
+      this.publish('instruction.schedule_apply.completed', {
+        instructionId: instruction.instructionId,
+        actionId: action.actionId,
+        ...result.metadata,
+      });
+      return result;
+    }
+
+    if (!payload.upsert) {
+      throw new Error(`Schedule ${payload.operation} payload for action '${action.actionId}' is missing upsert data.`);
+    }
+
+    const saved = await this.config.weeklyPlanner.saveSchedule(payload.upsert);
+    const result = {
+      note: payload.operation === 'create' ? 'schedule_created' : 'schedule_updated',
+      metadata: {
+        contentKind: 'schedule_apply',
+        operation: payload.operation,
+        groupJid: saved.groupJid,
+        groupLabel: saved.groupLabel,
+        weekId: saved.weekId,
+        eventId: saved.eventId,
+        title: saved.title,
+        startTime: saved.startTime,
+        localDate: saved.localDate,
+        previewSummary: payload.previewSummary,
+        appliedEvent: saved,
+      },
+    } satisfies InstructionActionExecutionResult;
+
+    this.publish('schedules.updated', {
+      eventId: saved.eventId,
+      groupJid: saved.groupJid,
+      weekId: saved.weekId,
+    });
+    this.publish('instruction.schedule_apply.completed', {
+      instructionId: instruction.instructionId,
+      actionId: action.actionId,
+      ...result.metadata,
+    });
+    return result;
+  }
+
   private async readRequiredMediaAsset(assetId: string): Promise<MediaAsset> {
     const asset = await this.config.mediaLibrary.getAsset(assetId);
 
@@ -211,8 +298,122 @@ function readDistributionActionPayload(
   throw new Error(`Unsupported distribution payload for action '${action.actionId}'.`);
 }
 
+function readScheduleApplyPayload(action: InstructionAction): ScheduleApplyActionPayload {
+  const payload = action.payload as Partial<ScheduleApplyActionPayload>;
+
+  if (
+    payload.kind !== 'schedule_apply' ||
+    typeof payload.groupJid !== 'string' ||
+    !payload.groupJid.trim() ||
+    typeof payload.weekId !== 'string' ||
+    !payload.weekId.trim() ||
+    typeof payload.previewFingerprint !== 'string' ||
+    !payload.previewFingerprint.trim() ||
+    typeof payload.previewSummary !== 'string' ||
+    !payload.previewSummary.trim() ||
+    !isScheduleApplyOperation(payload.operation)
+  ) {
+    throw new Error(`Unsupported schedule apply payload for action '${action.actionId}'.`);
+  }
+
+  return {
+    kind: 'schedule_apply',
+    operation: payload.operation,
+    sourceMessageId: normaliseRequiredString(payload.sourceMessageId, 'sourceMessageId', action.actionId),
+    requestedText: normaliseRequiredString(payload.requestedText, 'requestedText', action.actionId),
+    requestedByPersonId: normaliseOptionalString(payload.requestedByPersonId),
+    requestedByDisplayName: normaliseOptionalString(payload.requestedByDisplayName),
+    requestedAccessMode:
+      payload.requestedAccessMode === 'read' || payload.requestedAccessMode === 'read_write'
+        ? payload.requestedAccessMode
+        : null,
+    previewFingerprint: payload.previewFingerprint.trim(),
+    previewSummary: payload.previewSummary.trim(),
+    groupJid: payload.groupJid.trim(),
+    groupLabel: normaliseOptionalString(payload.groupLabel),
+    weekId: payload.weekId.trim(),
+    targetEventId: normaliseOptionalString(payload.targetEventId),
+    targetEvent: normaliseOptionalWeeklyPlannerEvent(payload.targetEvent),
+    diff: Array.isArray(payload.diff)
+      ? payload.diff.map((entry) => ({
+          label: typeof entry?.label === 'string' ? entry.label.trim() : 'campo',
+          before: typeof entry?.before === 'string' ? entry.before.trim() : entry?.before == null ? null : String(entry.before),
+          after: typeof entry?.after === 'string' ? entry.after.trim() : entry?.after == null ? null : String(entry.after),
+          changed: Boolean(entry?.changed),
+        }))
+      : [],
+    upsert: payload.upsert && typeof payload.upsert === 'object' ? (payload.upsert as ScheduleApplyActionPayload['upsert']) : null,
+    deleteEventId: normaliseOptionalString(payload.deleteEventId),
+  };
+}
+
 function normaliseOptionalString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function normaliseRequiredString(value: unknown, fieldName: string, actionId: string): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`Schedule apply payload for action '${actionId}' is missing '${fieldName}'.`);
+  }
+
+  return value.trim();
+}
+
+function isScheduleApplyOperation(value: unknown): value is ScheduleApplyActionPayload['operation'] {
+  return value === 'create' || value === 'update' || value === 'delete';
+}
+
+function normaliseOptionalWeeklyPlannerEvent(value: unknown): WeeklyPlannerEventSummary | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const event = value as Partial<WeeklyPlannerEventSummary>;
+
+  if (
+    typeof event.eventId !== 'string' ||
+    typeof event.weekId !== 'string' ||
+    typeof event.groupJid !== 'string' ||
+    typeof event.groupLabel !== 'string' ||
+    typeof event.title !== 'string' ||
+    typeof event.eventAt !== 'string' ||
+    typeof event.localDate !== 'string' ||
+    typeof event.dayLabel !== 'string' ||
+    typeof event.startTime !== 'string' ||
+    typeof event.durationMinutes !== 'number' ||
+    typeof event.notes !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    eventId: event.eventId,
+    weekId: event.weekId,
+    groupJid: event.groupJid,
+    groupLabel: event.groupLabel,
+    title: event.title,
+    eventAt: event.eventAt,
+    localDate: event.localDate,
+    dayLabel: event.dayLabel,
+    startTime: event.startTime,
+    durationMinutes: event.durationMinutes,
+    notes: event.notes,
+    notificationRuleLabels: Array.isArray(event.notificationRuleLabels) ? event.notificationRuleLabels : [],
+    notifications:
+      event.notifications && typeof event.notifications === 'object'
+        ? {
+            pending: Number(event.notifications.pending ?? 0),
+            waitingConfirmation: Number(event.notifications.waitingConfirmation ?? 0),
+            sent: Number(event.notifications.sent ?? 0),
+            total: Number(event.notifications.total ?? 0),
+          }
+        : {
+            pending: 0,
+            waitingConfirmation: 0,
+            sent: 0,
+            total: 0,
+          },
+  };
 }
 
 function buildIdempotencyKey(instruction: Instruction, action: InstructionAction): string {

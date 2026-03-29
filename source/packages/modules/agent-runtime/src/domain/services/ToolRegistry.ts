@@ -18,6 +18,10 @@ const DEFAULT_TOOLS: readonly AgentTool[] = [
     description: 'Interpreta linguagem natural de scheduling sem alterar o dominio.',
   },
   {
+    name: 'schedule_apply',
+    description: 'Prepara e aplica alteracoes reais no calendario com aprovacao e auditoria.',
+  },
+  {
     name: 'chat_reply',
     description: 'Formula uma resposta conversacional apoiada no contexto e nos factos do dominio.',
   },

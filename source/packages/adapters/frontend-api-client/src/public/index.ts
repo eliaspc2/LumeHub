@@ -6,6 +6,10 @@ import type {
   WhatsAppSettings,
 } from '@lume-hub/admin-config';
 import type {
+  AgentScheduleApplyPreview,
+  AgentScheduleApplyResult,
+} from '@lume-hub/agent-runtime';
+import type {
   DistributionPlan,
   SenderAudienceRule,
   SenderAudienceRuleUpsertInput,
@@ -294,6 +298,8 @@ export interface GroupContextPreviewSnapshot {
 }
 
 export type MediaAssetSnapshot = MediaAsset;
+export type AssistantSchedulePreviewSnapshot = AgentScheduleApplyPreview;
+export type AssistantScheduleApplySnapshot = AgentScheduleApplyResult;
 
 export interface WorkspaceFileSnapshot {
   readonly relativePath: string;
@@ -597,6 +603,41 @@ export class FrontendApiClient {
       await this.transport.request<GroupContextPreviewSnapshot>({
         method: 'POST',
         path: `/api/groups/${encodeURIComponent(groupJid)}/context-preview`,
+        body: input,
+      }),
+    );
+  }
+
+  async previewAssistantSchedule(input: {
+    readonly text: string;
+    readonly groupJid: string;
+    readonly personId?: string;
+    readonly senderDisplayName?: string;
+    readonly weekId?: string;
+    readonly requestedAccessMode?: CalendarAccessMode;
+  }): Promise<AssistantSchedulePreviewSnapshot> {
+    return this.expectOk(
+      await this.transport.request<AssistantSchedulePreviewSnapshot>({
+        method: 'POST',
+        path: '/api/assistant/schedules/preview',
+        body: input,
+      }),
+    );
+  }
+
+  async applyAssistantSchedule(input: {
+    readonly text: string;
+    readonly groupJid: string;
+    readonly previewFingerprint: string;
+    readonly personId?: string;
+    readonly senderDisplayName?: string;
+    readonly weekId?: string;
+    readonly requestedAccessMode?: CalendarAccessMode;
+  }): Promise<AssistantScheduleApplySnapshot> {
+    return this.expectOk(
+      await this.transport.request<AssistantScheduleApplySnapshot>({
+        method: 'POST',
+        path: '/api/assistant/schedules/apply',
         body: input,
       }),
     );

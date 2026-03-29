@@ -6,6 +6,7 @@ import { InstructionQueueModule } from '@lume-hub/instruction-queue';
 import { IntentClassifierModule } from '@lume-hub/intent-classifier';
 import { LlmOrchestratorModule } from '@lume-hub/llm-orchestrator';
 import { OwnerControlModule } from '@lume-hub/owner-control';
+import { WeeklyPlannerModule } from '@lume-hub/weekly-planner';
 
 import { AgentRuntime } from '../application/services/AgentRuntime.js';
 import type { AgentRuntimeModuleContract } from '../public/contracts/index.js';
@@ -30,6 +31,7 @@ export class AgentRuntimeModule extends BaseModule implements AgentRuntimeModule
         'intent-classifier',
         'llm-orchestrator',
         'owner-control',
+        'weekly-planner',
       ],
     });
 
@@ -40,6 +42,7 @@ export class AgentRuntimeModule extends BaseModule implements AgentRuntimeModule
     const intentClassifier = config.intentClassifier ?? new IntentClassifierModule();
     const llmOrchestrator = config.llmOrchestrator ?? new LlmOrchestratorModule();
     const ownerControl = config.ownerControl ?? new OwnerControlModule();
+    const weeklyPlanner = config.weeklyPlanner ?? new WeeklyPlannerModule();
 
     this.service =
       config.service ??
@@ -51,6 +54,7 @@ export class AgentRuntimeModule extends BaseModule implements AgentRuntimeModule
         intentClassifier,
         llmOrchestrator,
         ownerControl,
+        weeklyPlanner,
         config.toolRegistry ?? new ToolRegistry(),
         config.toolCallPolicy ?? new ToolCallPolicy(),
         config.decisionService ?? new AgentDecisionService(),
@@ -63,6 +67,14 @@ export class AgentRuntimeModule extends BaseModule implements AgentRuntimeModule
 
   async executeAssistantTurn(input: Parameters<AgentRuntime['executeAssistantTurn']>[0]) {
     return this.service.executeAssistantTurn(input);
+  }
+
+  async previewScheduleApply(input: Parameters<AgentRuntime['previewScheduleApply']>[0]) {
+    return this.service.previewScheduleApply(input);
+  }
+
+  async applyScheduleAction(input: Parameters<AgentRuntime['applyScheduleAction']>[0]) {
+    return this.service.applyScheduleAction(input);
   }
 
   listTools() {

@@ -1,4 +1,6 @@
 import type { DistributionPlan } from '@lume-hub/audience-routing';
+import type { CalendarAccessMode } from '@lume-hub/group-directory';
+import type { WeeklyPlannerEventSummary, WeeklyPlannerUpsertInput } from '@lume-hub/weekly-planner';
 
 export type InstructionStatus = 'queued' | 'running' | 'completed' | 'partial_failed' | 'failed';
 export type InstructionActionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
@@ -97,4 +99,39 @@ export interface DistributionPlanEnqueueInput {
   readonly plan: DistributionPlan;
   readonly content: DistributionContentInput;
   readonly mode: InstructionMode;
+}
+
+export type ScheduleApplyOperation = 'create' | 'update' | 'delete';
+
+export interface ScheduleApplyDiffEntry {
+  readonly label: string;
+  readonly before: string | null;
+  readonly after: string | null;
+  readonly changed: boolean;
+}
+
+export interface ScheduleApplyActionPayload {
+  readonly kind: 'schedule_apply';
+  readonly operation: ScheduleApplyOperation;
+  readonly sourceMessageId: string;
+  readonly requestedText: string;
+  readonly requestedByPersonId: string | null;
+  readonly requestedByDisplayName: string | null;
+  readonly requestedAccessMode: CalendarAccessMode | null;
+  readonly previewFingerprint: string;
+  readonly previewSummary: string;
+  readonly groupJid: string;
+  readonly groupLabel: string | null;
+  readonly weekId: string;
+  readonly targetEventId: string | null;
+  readonly targetEvent: WeeklyPlannerEventSummary | null;
+  readonly diff: readonly ScheduleApplyDiffEntry[];
+  readonly upsert: WeeklyPlannerUpsertInput | null;
+  readonly deleteEventId: string | null;
+}
+
+export interface ScheduleApplyEnqueueInput {
+  readonly payload: ScheduleApplyActionPayload;
+  readonly mode: InstructionMode;
+  readonly dedupeKey?: string | null;
 }

@@ -25,6 +25,7 @@
     "@lume-hub/kernel": "workspace:*",
     "@lume-hub/llm-orchestrator": "workspace:*",
     "@lume-hub/owner-control": "workspace:*",
-    "@lume-hub/people-memory": "workspace:*"
+    "@lume-hub/people-memory": "workspace:*",
+    "@lume-hub/weekly-planner": "workspace:*"
   }
 }

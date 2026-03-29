@@ -1,7 +1,8 @@
-import { AssistantConsoleUiModule } from '@lume-hub/assistant-console';
 import { DashboardUiModule } from '@lume-hub/dashboard';
 import { DeliveryMonitorUiModule } from '@lume-hub/delivery-monitor';
 import type {
+  AssistantScheduleApplySnapshot,
+  AssistantSchedulePreviewSnapshot,
   FrontendApiClient,
   GroupContextPreviewSnapshot,
   GroupIntelligenceSnapshot,
@@ -58,6 +59,30 @@ export interface WorkspaceAgentPageData {
   readonly status: WorkspaceAgentStatusSnapshot;
 }
 
+export interface AssistantSchedulingAuditEntry {
+  readonly instructionId: string;
+  readonly status: Instruction['status'];
+  readonly operation: 'create' | 'update' | 'delete' | null;
+  readonly groupJid: string | null;
+  readonly groupLabel: string | null;
+  readonly requestedText: string;
+  readonly previewSummary: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly resultNote: string | null;
+  readonly appliedEventTitle: string | null;
+}
+
+export interface AssistantPageData {
+  readonly settings: SettingsSnapshot;
+  readonly groups: readonly import('@lume-hub/frontend-api-client').Group[];
+  readonly recentLlmRuns: readonly import('@lume-hub/frontend-api-client').LlmRunLogEntry[];
+  readonly recentConversationAudit: readonly import('@lume-hub/frontend-api-client').ConversationAuditRecord[];
+  readonly recentSchedulingAudit: readonly AssistantSchedulingAuditEntry[];
+  readonly schedulingPreview: AssistantSchedulePreviewSnapshot | null;
+  readonly lastAppliedSchedule: AssistantScheduleApplySnapshot | null;
+}
+
 export class AppRouter {
   private groupManagementSelection: {
     selectedGroupJid: string | null;
@@ -71,7 +96,6 @@ export class AppRouter {
     label: 'Hoje',
   });
   private readonly weekPlanner = new WeekPlannerUiModule();
-  private readonly assistant = new AssistantConsoleUiModule();
   private readonly routing = new QueueConsoleUiModule({
     route: '/distributions',
     label: 'Distribuicoes',
@@ -126,52 +150,49 @@ export class AppRouter {
         render: async () => this.weekPlanner.render(await this.readQuery('weekly-planner', () => this.client.getWeeklyPlanner())),
       },
       {
-        route: this.assistant.config.route,
-        label: this.assistant.config.label,
+        route: '/assistant',
+        label: 'Assistente',
         description: 'Entrada dedicada ao assistente, com linguagem simples e espaco para contexto.',
         legacyRoutes: ['/assistant-console'],
         render: async () => {
-          const [settings, models, recentRuns, recentConversationAudit] = await Promise.all([
+          const [settings, recentRuns, recentConversationAudit, groups, queue] = await Promise.all([
             this.readQuery('settings', () => this.client.getSettings()),
-            this.readQuery('llm-models', () => this.client.listLlmModels({ refresh: false })),
             this.readQuery('llm-logs', () => this.client.listLlmLogs(8)),
             this.readQuery('conversation-logs', () => this.client.listConversationLogs(8)),
+            this.readQuery('groups', () => this.client.listGroups()),
+            this.readQuery('instruction-queue', () => this.client.listInstructionQueue()),
           ]);
 
-          return this.assistant.render({
-            provider: settings.adminSettings.llm.provider,
-            model: settings.adminSettings.llm.model,
-            runtimeMode: settings.llmRuntime.mode,
-            effectiveProvider: settings.llmRuntime.effectiveProviderId,
-            effectiveModel: settings.llmRuntime.effectiveModelId,
-            fallbackReason: settings.llmRuntime.fallbackReason,
-            authReadinessSummary: describeLlmAuthReadiness(settings),
-            assistantEnabled: settings.adminSettings.commands.assistantEnabled,
-            directRepliesEnabled: settings.adminSettings.commands.directRepliesEnabled,
-            availableModels: models.map((model) => ({
-              providerId: model.providerId,
-              modelId: model.modelId,
-              label: model.label,
-            })),
-            recentRuns: recentRuns.map((entry) => ({
-              runId: entry.runId,
-              operation: entry.operation,
-              providerId: entry.providerId,
-              modelId: entry.modelId,
-              createdAt: entry.createdAt,
-              outputSummary: entry.outputSummary,
-              memorySummary: describeRunMemory(entry),
-            })),
-            recentConversationAudit: recentConversationAudit.map((entry) => ({
-              auditId: entry.auditId,
-              chatJid: entry.chatJid,
-              intent: entry.intent,
-              replyMode: entry.replyMode,
-              createdAt: entry.createdAt,
-              replyText: entry.replyText,
-              memorySummary: describeConversationMemory(entry),
-            })),
-          });
+          return {
+            route: '/assistant',
+            title: 'Assistente',
+            description: 'Entrada dedicada ao assistente, com linguagem simples e espaco para contexto.',
+            sections: [
+              {
+                title: 'LLM live',
+                lines: [
+                  `Configurado: ${settings.adminSettings.llm.provider} / ${settings.adminSettings.llm.model}`,
+                  `Em uso agora: ${settings.llmRuntime.effectiveProviderId} / ${settings.llmRuntime.effectiveModelId}`,
+                  `Estado live: ${settings.llmRuntime.mode}`,
+                  settings.llmRuntime.fallbackReason ? `Motivo do fallback: ${settings.llmRuntime.fallbackReason}` : 'Provider real ativo.',
+                ],
+              },
+            ],
+            data: {
+              settings,
+              groups,
+              recentLlmRuns: recentRuns,
+              recentConversationAudit,
+              recentSchedulingAudit: queue
+                .filter((instruction) => instruction.sourceType === 'assistant_schedule_apply')
+                .slice()
+                .reverse()
+                .slice(0, 8)
+                .map((instruction) => mapAssistantSchedulingAuditEntry(instruction)),
+              schedulingPreview: null,
+              lastAppliedSchedule: null,
+            } satisfies AssistantPageData,
+          };
         },
       },
       {
@@ -479,6 +500,44 @@ function describeConversationMemory(
   ]
     .filter((value): value is string => Boolean(value))
     .join(' | ');
+}
+
+function mapAssistantSchedulingAuditEntry(instruction: Instruction): AssistantSchedulingAuditEntry {
+  const metadata = instruction.metadata as {
+    readonly operation?: unknown;
+    readonly groupJid?: unknown;
+    readonly groupLabel?: unknown;
+    readonly requestedText?: unknown;
+    readonly previewSummary?: unknown;
+  };
+  const completedAction = instruction.actions.find((action) => action.status === 'completed');
+  const actionMetadata = (completedAction?.result?.metadata ?? null) as
+    | {
+        readonly appliedEvent?: {
+          readonly title?: unknown;
+        } | null;
+      }
+    | null;
+
+  return {
+    instructionId: instruction.instructionId,
+    status: instruction.status,
+    operation: isAssistantScheduleOperation(metadata.operation) ? metadata.operation : null,
+    groupJid: typeof metadata.groupJid === 'string' ? metadata.groupJid : null,
+    groupLabel: typeof metadata.groupLabel === 'string' ? metadata.groupLabel : null,
+    requestedText: typeof metadata.requestedText === 'string' ? metadata.requestedText : 'Sem texto guardado.',
+    previewSummary:
+      typeof metadata.previewSummary === 'string' ? metadata.previewSummary : 'Sem resumo do preview guardado.',
+    createdAt: instruction.createdAt,
+    updatedAt: instruction.updatedAt,
+    resultNote: completedAction?.result?.note ?? instruction.actions.find((action) => action.lastError)?.lastError ?? null,
+    appliedEventTitle:
+      typeof actionMetadata?.appliedEvent?.title === 'string' ? actionMetadata.appliedEvent.title : null,
+  };
+}
+
+function isAssistantScheduleOperation(value: unknown): value is AssistantSchedulingAuditEntry['operation'] {
+  return value === 'create' || value === 'update' || value === 'delete';
 }
 
 function isMediaInstruction(instruction: Instruction): boolean {

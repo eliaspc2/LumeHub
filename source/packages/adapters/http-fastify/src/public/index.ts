@@ -11,12 +11,14 @@ import {
   type LlmRuntimeStatusSnapshot,
   type WhatsAppSettings,
 } from '@lume-hub/admin-config';
+import type { AgentRuntimeModuleContract } from '@lume-hub/agent-runtime';
 import type { AssistantContextModuleContract } from '@lume-hub/assistant-context';
 import type { AudienceRoutingModuleContract } from '@lume-hub/audience-routing';
 import type { CodexAuthRouterModuleContract } from '@lume-hub/codex-auth-router';
 import type { ConversationAuditRecord } from '@lume-hub/conversation';
 import {
   DEFAULT_GROUP_CALENDAR_ACCESS_POLICY,
+  type CalendarAccessMode,
   type GroupCalendarAccessPolicy,
   type GroupDirectoryModuleContract,
 } from '@lume-hub/group-directory';
@@ -81,6 +83,7 @@ export interface UiEventPublisherLike {
 export interface HttpApiModules {
   readonly adminConfig: Pick<AdminConfigModuleContract, 'getSettings' | 'getLlmRuntimeStatus' | 'updateUiSettings'> &
     Partial<Pick<AdminConfigModuleContract, 'updateCommandsSettings' | 'updateLlmSettings' | 'updateWhatsAppSettings'>>;
+  readonly agentRuntime?: Pick<AgentRuntimeModuleContract, 'applyScheduleAction' | 'previewScheduleApply'>;
   readonly assistantContext?: Pick<AssistantContextModuleContract, 'buildChatContext'>;
   readonly audienceRouting: Pick<
     AudienceRoutingModuleContract,
@@ -977,6 +980,71 @@ export class RouteRegistrar {
       },
     });
     server.registerRoute({
+      method: 'POST',
+      path: '/api/assistant/schedules/preview',
+      handler: async (context) => {
+        if (!this.modules.agentRuntime) {
+          throw new ApiError(404, 'Agent runtime is not configured.');
+        }
+
+        const payload = readAssistantScheduleBody(context.body, false);
+        const operator = await this.resolveAssistantScheduleOperator(payload.groupJid, payload.personId);
+        const preview = await this.modules.agentRuntime.previewScheduleApply({
+          messageId: `assistant-schedule-preview-${randomUUID()}`,
+          chatJid: payload.groupJid,
+          chatType: 'group',
+          groupJid: payload.groupJid,
+          personId: operator.personId,
+          senderDisplayName: payload.senderDisplayName ?? operator.displayName ?? 'Operador LumeHub',
+          text: payload.text,
+          allowActions: true,
+          weekId: payload.weekId,
+          requestedAccessMode: payload.requestedAccessMode,
+        });
+        this.publish('assistant.schedule.preview.generated', {
+          groupJid: preview.groupJid,
+          groupLabel: preview.groupLabel,
+          operation: preview.operation,
+          canApply: preview.canApply,
+          previewFingerprint: preview.previewFingerprint,
+        });
+        return preview;
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/assistant/schedules/apply',
+      handler: async (context) => {
+        if (!this.modules.agentRuntime) {
+          throw new ApiError(404, 'Agent runtime is not configured.');
+        }
+
+        const payload = readAssistantScheduleBody(context.body, true);
+        const operator = await this.resolveAssistantScheduleOperator(payload.groupJid, payload.personId);
+        const result = await this.modules.agentRuntime.applyScheduleAction({
+          messageId: `assistant-schedule-apply-${randomUUID()}`,
+          chatJid: payload.groupJid,
+          chatType: 'group',
+          groupJid: payload.groupJid,
+          personId: operator.personId,
+          senderDisplayName: payload.senderDisplayName ?? operator.displayName ?? 'Operador LumeHub',
+          text: payload.text,
+          allowActions: true,
+          weekId: payload.weekId,
+          requestedAccessMode: payload.requestedAccessMode,
+          previewFingerprint: payload.previewFingerprint,
+        });
+        this.publish('assistant.schedule.apply.completed', {
+          instructionId: result.instruction.instructionId,
+          groupJid: result.preview.groupJid,
+          groupLabel: result.preview.groupLabel,
+          operation: result.preview.operation,
+          appliedEventId: result.appliedEvent?.eventId ?? null,
+        });
+        return result;
+      },
+    });
+    server.registerRoute({
       method: 'GET',
       path: '/api/logs/llm',
       handler: async (context) => {
@@ -1234,6 +1302,46 @@ export class RouteRegistrar {
       powerStatus,
       hostStatus,
       authRouterStatus,
+    };
+  }
+
+  private async resolveAssistantScheduleOperator(
+    groupJid: string,
+    explicitPersonId?: string,
+  ): Promise<{ readonly personId: string | null; readonly displayName: string | null }> {
+    if (!this.modules.peopleMemory) {
+      return {
+        personId: explicitPersonId ?? null,
+        displayName: null,
+      };
+    }
+
+    const people = await this.modules.peopleMemory.listPeople();
+
+    if (explicitPersonId) {
+      const explicit = people.find((person) => person.personId === explicitPersonId);
+      return {
+        personId: explicit?.personId ?? explicitPersonId,
+        displayName: explicit?.displayName ?? null,
+      };
+    }
+
+    const appOwner = people.find((person) => person.globalRoles.includes('app_owner'));
+
+    if (appOwner) {
+      return {
+        personId: appOwner.personId,
+        displayName: appOwner.displayName,
+      };
+    }
+
+    const groups = await this.modules.groupDirectory.listGroups();
+    const groupOwnerId = groups.find((group) => group.groupJid === groupJid)?.groupOwners[0]?.personId ?? null;
+    const groupOwner = groupOwnerId ? people.find((person) => person.personId === groupOwnerId) : null;
+
+    return {
+      personId: groupOwnerId,
+      displayName: groupOwner?.displayName ?? null,
     };
   }
 
@@ -2065,6 +2173,42 @@ function readLlmChatBody(body: unknown): LlmChatInput {
     intent: readOptionalTrimmedStringValue(payload.intent, 'intent') ?? null,
     contextSummary: readOptionalStringArrayValue(payload.contextSummary, 'contextSummary'),
     domainFacts: readOptionalStringArrayValue(payload.domainFacts, 'domainFacts'),
+  };
+}
+
+function readAssistantScheduleBody(
+  body: unknown,
+  requirePreviewFingerprint: boolean,
+): {
+  readonly text: string;
+  readonly groupJid: string;
+  readonly personId?: string;
+  readonly senderDisplayName?: string;
+  readonly weekId?: string;
+  readonly requestedAccessMode: CalendarAccessMode;
+  readonly previewFingerprint?: string;
+} {
+  const payload = readBodyObject(body, 'Assistant scheduling payload must be an object.');
+  const requestedAccessMode = readOptionalTrimmedStringValue(payload.requestedAccessMode, 'requestedAccessMode') ?? 'read_write';
+
+  if (requestedAccessMode !== 'read' && requestedAccessMode !== 'read_write') {
+    throw new ApiError(400, "requestedAccessMode must be 'read' or 'read_write'.");
+  }
+
+  const previewFingerprint = readOptionalTrimmedStringValue(payload.previewFingerprint, 'previewFingerprint');
+
+  if (requirePreviewFingerprint && !previewFingerprint) {
+    throw new ApiError(400, 'previewFingerprint is required to apply a scheduling change.');
+  }
+
+  return {
+    text: readRequiredStringValue(payload.text, 'text'),
+    groupJid: readRequiredStringValue(payload.groupJid, 'groupJid'),
+    personId: readOptionalTrimmedStringValue(payload.personId, 'personId'),
+    senderDisplayName: readOptionalTrimmedStringValue(payload.senderDisplayName, 'senderDisplayName'),
+    weekId: readOptionalTrimmedStringValue(payload.weekId, 'weekId'),
+    requestedAccessMode,
+    previewFingerprint: previewFingerprint ?? undefined,
   };
 }
 

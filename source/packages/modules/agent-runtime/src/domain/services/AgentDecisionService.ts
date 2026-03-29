@@ -36,10 +36,16 @@ export class AgentDecisionService {
       case 'scheduling_request':
         return {
           intent: classification.intent,
-          selectedTools: ['schedule_parse', 'chat_reply'],
+          selectedTools:
+            classification.requestedAccessMode === 'read_write'
+              ? ['schedule_parse', 'schedule_apply', 'chat_reply']
+              : ['schedule_parse', 'chat_reply'],
           allowReply: true,
           replyMode: 'same_chat',
-          notes: ['schedule_parse_required'],
+          notes:
+            classification.requestedAccessMode === 'read_write'
+              ? ['schedule_parse_required', 'schedule_apply_available']
+              : ['schedule_parse_required'],
         };
       case 'local_summary_request':
       case 'operational_instruction':

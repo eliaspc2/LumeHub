@@ -389,6 +389,9 @@ importers:
       '@lume-hub/people-memory':
         specifier: workspace:*
         version: link:../people-memory
+      '@lume-hub/weekly-planner':
+        specifier: workspace:*
+        version: link:../weekly-planner
 
   packages/modules/assistant-context:
     dependencies:
@@ -548,12 +551,18 @@ importers:
       '@lume-hub/audience-routing':
         specifier: workspace:*
         version: link:../audience-routing
+      '@lume-hub/group-directory':
+        specifier: workspace:*
+        version: link:../group-directory
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel
       '@lume-hub/persistence-group-files':
         specifier: workspace:*
         version: link:../../adapters/persistence-group-files
+      '@lume-hub/weekly-planner':
+        specifier: workspace:*
+        version: link:../weekly-planner
 
   packages/modules/intent-classifier:
     dependencies:

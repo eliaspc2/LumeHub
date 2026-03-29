@@ -1,5 +1,7 @@
 import type {
   AdminSettings,
+  AssistantScheduleApplySnapshot,
+  AssistantSchedulePreviewSnapshot,
   CommandsPolicySettings,
   ConversationAuditRecord,
   DashboardSnapshot,
@@ -476,6 +478,40 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
         providerId: result.providerId,
         modelId: result.modelId,
       });
+      return this.ok(result);
+    }
+
+    if (request.method === 'POST' && pathname === '/api/assistant/schedules/preview') {
+      return this.ok(buildDemoAssistantSchedulePreview(this.state, request.body as Record<string, unknown>));
+    }
+
+    if (request.method === 'POST' && pathname === '/api/assistant/schedules/apply') {
+      const preview = buildDemoAssistantSchedulePreview(this.state, request.body as Record<string, unknown>);
+
+      if (!preview.canApply || !preview.previewFingerprint) {
+        return this.error(400, preview.blockingReason ?? 'Demo preview is not ready to apply.');
+      }
+
+      const result = applyDemoAssistantSchedule(this.state, request.body as Record<string, unknown>, preview);
+      this.emit('assistant.schedule.apply.completed', {
+        instructionId: result.instruction.instructionId,
+        groupJid: result.preview.groupJid,
+        groupLabel: result.preview.groupLabel,
+        operation: result.preview.operation,
+        appliedEventId: result.appliedEvent?.eventId ?? null,
+      });
+      if (result.appliedEvent) {
+        this.emit('schedules.updated', {
+          eventId: result.appliedEvent.eventId,
+          groupJid: result.appliedEvent.groupJid,
+          weekId: result.appliedEvent.weekId,
+        });
+      } else if (preview.targetEvent) {
+        this.emit('schedules.deleted', {
+          eventId: preview.targetEvent.eventId,
+          deleted: true,
+        });
+      }
       return this.ok(result);
     }
 
@@ -2353,6 +2389,253 @@ function upsertDemoSchedule(state: DemoState, payload: Record<string, unknown>):
   }
 
   return nextEvent;
+}
+
+function buildDemoAssistantSchedulePreview(
+  state: DemoState,
+  payload: Record<string, unknown>,
+): AssistantSchedulePreviewSnapshot {
+  const text = typeof payload.text === 'string' ? payload.text.trim() : '';
+  const groupJid =
+    typeof payload.groupJid === 'string' && payload.groupJid.length > 0
+      ? payload.groupJid
+      : state.groups[0]?.groupJid ?? null;
+  const group = state.groups.find((candidate) => candidate.groupJid === groupJid) ?? null;
+  const weekId = typeof payload.weekId === 'string' && payload.weekId.length > 0 ? payload.weekId : '2026-W13';
+  const targetEvent = group
+    ? state.scheduleEvents.find((event) => event.groupJid === group.groupJid) ?? null
+    : null;
+  const operation = resolveDemoAssistantScheduleOperation(text, targetEvent);
+  const candidate = buildDemoAssistantCandidate(text, targetEvent);
+  const canApply =
+    text.length > 0 &&
+    group !== null &&
+    (operation === 'create' || targetEvent !== null) &&
+    (operation !== null);
+  const blockingReason = !text
+    ? 'Escreve primeiro o pedido para a agenda.'
+    : !group
+      ? 'Escolhe primeiro um grupo.'
+      : operation !== 'create' && !targetEvent
+        ? 'Nao encontramos um evento real para atualizar ou apagar neste grupo.'
+        : null;
+  const diff = buildDemoAssistantDiff(operation, targetEvent, candidate);
+
+  return {
+    requestText: text,
+    requestedAccessMode: 'read_write',
+    groupJid: group?.groupJid ?? null,
+    groupLabel: group?.preferredSubject ?? null,
+    weekId,
+    previewFingerprint: canApply ? `demo-preview-${group?.groupJid ?? 'none'}-${normaliseTextForId(text)}` : null,
+    operation,
+    confidence: canApply ? 'medium' : null,
+    summary: !canApply
+      ? blockingReason ?? 'O preview nao ficou pronto.'
+      : buildDemoAssistantPreviewSummary(operation, candidate?.title ?? null, group?.preferredSubject ?? null),
+    canApply,
+    blockingReason,
+    targetEvent,
+    candidate,
+    diff,
+    parserNotes: ['Preview demo simplificado para validar a interface sem depender do backend real.'],
+  };
+}
+
+function applyDemoAssistantSchedule(
+  state: DemoState,
+  payload: Record<string, unknown>,
+  preview: AssistantSchedulePreviewSnapshot,
+): AssistantScheduleApplySnapshot {
+  let appliedEvent: WeeklyPlannerEventSummary | null = null;
+
+  if (preview.operation === 'delete' && preview.targetEvent) {
+    state.scheduleEvents = state.scheduleEvents.filter((event) => event.eventId !== preview.targetEvent?.eventId);
+  } else if (preview.candidate && preview.groupJid && preview.weekId) {
+    appliedEvent = upsertDemoSchedule(state, {
+      eventId: preview.targetEvent?.eventId ?? undefined,
+      groupJid: preview.groupJid,
+      title: preview.candidate.title ?? 'Evento atualizado pelo assistente',
+      localDate: preview.candidate.localDate ?? resolveDemoLocalDate(preview.candidate.dayLabel ?? 'sexta-feira'),
+      dayLabel: preview.candidate.dayLabel ?? 'sexta-feira',
+      startTime: preview.candidate.startTime ?? '18:30',
+      durationMinutes: preview.candidate.durationMinutes ?? 60,
+      notes: preview.candidate.notes ?? '',
+    });
+  }
+
+  const instruction: Instruction = {
+    instructionId: `instruction-demo-schedule-${Date.now()}`,
+    sourceType: 'assistant_schedule_apply',
+    sourceMessageId:
+      typeof payload.text === 'string' && payload.text.trim().length > 0
+        ? `assistant-demo-${normaliseTextForId(payload.text)}`
+        : null,
+    mode: 'confirmed',
+    status: 'completed',
+    metadata: {
+      contentKind: 'schedule_apply',
+      operation: preview.operation,
+      requestedText: preview.requestText,
+      previewSummary: preview.summary,
+      previewFingerprint: preview.previewFingerprint,
+      groupJid: preview.groupJid,
+      groupLabel: preview.groupLabel,
+      weekId: preview.weekId,
+      diff: preview.diff,
+    },
+    actions: [
+      {
+        actionId: `action-demo-schedule-${Date.now()}`,
+        type: 'schedule_apply',
+        dedupeKey: preview.previewFingerprint,
+        targetGroupJid: preview.groupJid,
+        payload: {
+          kind: 'schedule_apply',
+          operation: preview.operation,
+        },
+        status: 'completed',
+        attemptCount: 1,
+        lastError: null,
+        result: {
+          note:
+            appliedEvent?.title ??
+            (preview.operation === 'delete'
+              ? 'Evento removido da agenda demo.'
+              : 'Alteracao aplicada na agenda demo.'),
+          metadata: {
+            appliedEvent,
+          },
+        },
+        lastAttemptAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      },
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  state.instructionQueue = [instruction, ...state.instructionQueue].slice(0, 16);
+
+  return {
+    preview,
+    instruction,
+    appliedInstruction: instruction,
+    appliedEvent,
+  };
+}
+
+function resolveDemoAssistantScheduleOperation(
+  text: string,
+  targetEvent: WeeklyPlannerEventSummary | null,
+): AssistantSchedulePreviewSnapshot['operation'] {
+  const normalized = text.toLowerCase();
+
+  if (/(apaga|apagar|cancela|cancelar|remove|remover)/u.test(normalized)) {
+    return 'delete';
+  }
+
+  if (/(move|muda|mudar|altera|alterar|troca|trocar|passa|adiar)/u.test(normalized) && targetEvent) {
+    return 'update';
+  }
+
+  return 'create';
+}
+
+function buildDemoAssistantCandidate(
+  text: string,
+  targetEvent: WeeklyPlannerEventSummary | null,
+): AssistantSchedulePreviewSnapshot['candidate'] {
+  const normalized = text.toLowerCase();
+  const timeMatch = text.match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/u);
+  const titleMatch = text.match(/aula\s+([a-z0-9 ]+)/iu);
+  const dayLabel =
+    ['segunda-feira', 'terca-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sabado', 'domingo'].find(
+      (label) => normalized.includes(label),
+    ) ?? targetEvent?.dayLabel ?? 'sexta-feira';
+
+  return {
+    title:
+      titleMatch?.[0]?.trim() ??
+      targetEvent?.title ??
+      'Aula criada pelo assistente',
+    localDate: targetEvent?.localDate ?? resolveDemoLocalDate(dayLabel),
+    dayLabel,
+    startTime: timeMatch ? `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}` : targetEvent?.startTime ?? '18:30',
+    durationMinutes:
+      typeof targetEvent?.durationMinutes === 'number' ? targetEvent.durationMinutes : 60,
+    notes: text,
+  };
+}
+
+function buildDemoAssistantDiff(
+  operation: AssistantSchedulePreviewSnapshot['operation'],
+  targetEvent: WeeklyPlannerEventSummary | null,
+  candidate: AssistantSchedulePreviewSnapshot['candidate'],
+): AssistantSchedulePreviewSnapshot['diff'] {
+  if (!candidate) {
+    return [];
+  }
+
+  if (operation === 'delete') {
+    return [
+      {
+        label: 'Estado',
+        before: targetEvent ? targetEvent.title : 'Sem evento encontrado',
+        after: 'Removido da agenda',
+        changed: true,
+      },
+    ];
+  }
+
+  return [
+    {
+      label: 'Titulo',
+      before: targetEvent?.title ?? null,
+      after: candidate.title ?? null,
+      changed: (targetEvent?.title ?? null) !== (candidate.title ?? null),
+    },
+    {
+      label: 'Dia',
+      before: targetEvent?.dayLabel ?? null,
+      after: candidate.dayLabel ?? null,
+      changed: (targetEvent?.dayLabel ?? null) !== (candidate.dayLabel ?? null),
+    },
+    {
+      label: 'Hora',
+      before: targetEvent?.startTime ?? null,
+      after: candidate.startTime ?? null,
+      changed: (targetEvent?.startTime ?? null) !== (candidate.startTime ?? null),
+    },
+  ].filter((entry) => entry.before !== null || entry.after !== null);
+}
+
+function buildDemoAssistantPreviewSummary(
+  operation: AssistantSchedulePreviewSnapshot['operation'],
+  title: string | null,
+  groupLabel: string | null,
+): string {
+  const label = title ?? 'evento';
+  const group = groupLabel ?? 'grupo atual';
+
+  switch (operation) {
+    case 'create':
+      return `Criar ${label} em ${group}.`;
+    case 'update':
+      return `Atualizar ${label} em ${group}.`;
+    case 'delete':
+      return `Apagar ${label} de ${group}.`;
+    default:
+      return 'Sem operacao reconhecida.';
+  }
+}
+
+function normaliseTextForId(value: unknown): string {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/giu, '-')
+    .replace(/^-+|-+$/gu, '')
+    .slice(0, 32);
 }
 
 function buildDemoDistributionPlan(state: DemoState, payload: Record<string, unknown>): DistributionPlan {

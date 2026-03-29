@@ -55,39 +55,11 @@ A `Wave 40` tambem ja fechou diffs por ficheiro, resumo estruturado de contexto 
 A `Wave 41` ja fechou aprovacao explicita para `apply`, bloqueio de concorrencia, auditoria visivel do pedido/modo/resultado e guardrails operacionais no backend e na UI.
 A `Wave 42` fechou a limpeza final da ronda do agente de projeto, consolidando validadores, removendo copy provisoria e alinhando docs ao estado final da pagina `Projeto`.
 A `Wave 43` fechou a LLM live por defeito, com provider real ativo quando a auth existe e fallback deterministico visivel e auditavel quando a auth falha.
+A `Wave 44` fechou o scheduling live com `preview -> apply -> queue -> auditoria`, incluindo alteracao real do calendario por assistente e diff funcional visivel antes e depois do `apply`.
 
 ## Ronda de paridade e cutover WA-notify
 
 Esta ronda existe para fechar os bloqueadores que ainda impedem migracao total do `WA-notify` para o `LumeHub`.
-
-### Wave 44 - Scheduling live com apply real e auditoria de alteracoes
-
-Objetivo:
-- passar de parsing para alteracao real do calendario no fluxo do assistente
-
-Entregaveis:
-- tool de `schedule_apply` no `agent-runtime`
-- caminho de aprovacao -> queue -> persistencia para criar/editar/apagar schedules reais
-- auditoria visivel do que foi pedido, do que foi aplicado e em que grupo
-- copy/UX clara entre preview e apply
-
-Criterios de aceitacao:
-- uma mensagem de scheduling pode criar ou editar um evento real no calendario do grupo
-- o operador consegue ver preview antes de aplicar
-- a auditoria mostra diff funcional do calendario afetado
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave44`
-
-Melhor momento para testar:
-- imediatamente a seguir, porque aqui se valida a paridade funcional mais critica do assistente
-
-O que testar:
-- criar agendamento via assistente
-- editar um agendamento existente
-- confirmar persistencia real e auditoria
 
 ### Wave 45 - Importador e migracao de schedules do WA-notify
 

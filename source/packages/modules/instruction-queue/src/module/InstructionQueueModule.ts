@@ -2,7 +2,12 @@ import { BaseModule } from '@lume-hub/kernel';
 
 import { FanOutDistributionService } from '../application/services/FanOutDistributionService.js';
 import { InstructionQueueService } from '../application/services/InstructionQueueService.js';
-import type { DistributionPlanEnqueueInput, InstructionEnqueueInput } from '../domain/entities/InstructionQueue.js';
+import { ScheduleApplyService } from '../application/services/ScheduleApplyService.js';
+import type {
+  DistributionPlanEnqueueInput,
+  InstructionEnqueueInput,
+  ScheduleApplyEnqueueInput,
+} from '../domain/entities/InstructionQueue.js';
 import { InstructionActionExecutor } from '../domain/services/InstructionActionExecutor.js';
 import { InstructionWorker } from '../domain/services/InstructionWorker.js';
 import { StaleActionRecoveryService } from '../domain/services/StaleActionRecoveryService.js';
@@ -15,6 +20,7 @@ export class InstructionQueueModule extends BaseModule implements InstructionQue
   readonly service: InstructionQueueService;
   readonly worker: InstructionWorker;
   readonly distributionService: FanOutDistributionService;
+  readonly scheduleApplyService: ScheduleApplyService;
 
   constructor(readonly config: InstructionQueueModuleConfig = {}) {
     super({
@@ -35,6 +41,7 @@ export class InstructionQueueModule extends BaseModule implements InstructionQue
     this.service = config.service ?? new InstructionQueueService(repository, actionExecutor, staleActionRecovery);
     this.worker = config.worker ?? new InstructionWorker(this.service);
     this.distributionService = config.distributionService ?? new FanOutDistributionService(this.service);
+    this.scheduleApplyService = config.scheduleApplyService ?? new ScheduleApplyService(this.service);
   }
 
   async enqueueInstruction(input: InstructionEnqueueInput) {
@@ -43,6 +50,10 @@ export class InstructionQueueModule extends BaseModule implements InstructionQue
 
   async enqueueDistributionPlan(input: DistributionPlanEnqueueInput) {
     return this.distributionService.enqueueDistributionPlan(input);
+  }
+
+  async enqueueScheduleApply(input: ScheduleApplyEnqueueInput) {
+    return this.scheduleApplyService.enqueueScheduleApply(input);
   }
 
   async retryInstruction(instructionId: string) {

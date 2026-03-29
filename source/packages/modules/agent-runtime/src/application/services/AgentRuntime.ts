@@ -1,17 +1,33 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
-import type { AssistantContextModuleContract } from '@lume-hub/assistant-context';
+import type { AssistantContextModuleContract, AssistantChatContext, SchedulingContext } from '@lume-hub/assistant-context';
 import type { AudienceRoutingModuleContract, DistributionPlan } from '@lume-hub/audience-routing';
+import type { CalendarAccessMode } from '@lume-hub/group-directory';
 import type { CommandPolicyModuleContract, PolicyActorContext } from '@lume-hub/command-policy';
-import type { InstructionQueueModuleContract } from '@lume-hub/instruction-queue';
+import type {
+  Instruction,
+  InstructionQueueModuleContract,
+  ScheduleApplyActionPayload,
+  ScheduleApplyOperation,
+} from '@lume-hub/instruction-queue';
 import type { IntentClassifierModuleContract } from '@lume-hub/intent-classifier';
-import type { LlmOrchestratorModuleContract } from '@lume-hub/llm-orchestrator';
+import type {
+  LlmOrchestratorModuleContract,
+  LlmScheduleCandidate,
+  LlmScheduleParseResult,
+} from '@lume-hub/llm-orchestrator';
 import type { OwnerControlModuleContract } from '@lume-hub/owner-control';
+import type { WeeklyPlannerEventSummary, WeeklyPlannerModuleContract, WeeklyPlannerSnapshot } from '@lume-hub/weekly-planner';
 
 import type {
   AgentAssistantTurnInput,
-  AgentMemoryUsage,
   AgentExecutionPlan,
+  AgentMemoryUsage,
+  AgentScheduleActionInput,
+  AgentScheduleApplyInput,
+  AgentScheduleApplyPreview,
+  AgentScheduleApplyResult,
+  AgentScheduleDiffEntry,
   AgentSchedulingInsight,
   AgentToolResult,
   AgentTurnResult,
@@ -19,6 +35,41 @@ import type {
 import { AgentDecisionService } from '../../domain/services/AgentDecisionService.js';
 import { ToolCallPolicy } from '../../domain/services/ToolCallPolicy.js';
 import { ToolRegistry } from '../../domain/services/ToolRegistry.js';
+
+const DEFAULT_SCHEDULE_DURATION_MINUTES = 60;
+const GENERIC_CANDIDATE_TITLES = new Set(['evento sem titulo explicito', 'evento sem título explicito']);
+const DAY_LABEL_TO_INDEX = new Map<string, number>([
+  ['segunda', 1],
+  ['segunda-feira', 1],
+  ['terca', 2],
+  ['terça', 2],
+  ['terca-feira', 2],
+  ['terça-feira', 2],
+  ['quarta', 3],
+  ['quarta-feira', 3],
+  ['quinta', 4],
+  ['quinta-feira', 4],
+  ['sexta', 5],
+  ['sexta-feira', 5],
+  ['sabado', 6],
+  ['sábado', 6],
+  ['sabado-feira', 6],
+  ['sábado-feira', 6],
+  ['domingo', 7],
+]);
+
+interface SchedulingEvaluation {
+  readonly classification: ReturnType<IntentClassifierModuleContract['classifyMessage']>;
+  readonly chatContext: AssistantChatContext;
+  readonly schedulingContext: SchedulingContext;
+  readonly schedulingMemoryUsage: AgentMemoryUsage;
+  readonly targetGroupJid: string | null;
+  readonly targetGroupLabel: string | null;
+  readonly requestedAccessMode: CalendarAccessMode | null;
+  readonly hasAccess: boolean;
+  readonly weekSnapshot: WeeklyPlannerSnapshot | null;
+  readonly parseResult: LlmScheduleParseResult | null;
+}
 
 export class AgentRuntime {
   constructor(
@@ -31,13 +82,17 @@ export class AgentRuntime {
       CommandPolicyModuleContract,
       'canManageCalendar' | 'canUseAssistant'
     >,
-    private readonly instructionQueue: Pick<InstructionQueueModuleContract, 'enqueueDistributionPlan'>,
+    private readonly instructionQueue: Pick<
+      InstructionQueueModuleContract,
+      'enqueueDistributionPlan' | 'enqueueScheduleApply' | 'listInstructions' | 'tickWorker'
+    >,
     private readonly intentClassifier: Pick<IntentClassifierModuleContract, 'classifyMessage'>,
     private readonly llmOrchestrator: Pick<
       LlmOrchestratorModuleContract,
       'chat' | 'parseSchedules'
     >,
     private readonly ownerControl: Pick<OwnerControlModuleContract, 'detectOwnerCommand' | 'executeOwnerCommand'>,
+    private readonly weeklyPlanner: Pick<WeeklyPlannerModuleContract, 'getWeekSnapshot'>,
     private readonly toolRegistry = new ToolRegistry(),
     private readonly toolCallPolicy = new ToolCallPolicy(),
     private readonly decisionService = new AgentDecisionService(),
@@ -49,6 +104,43 @@ export class AgentRuntime {
 
   async executeConversationTurn(input: AgentAssistantTurnInput): Promise<AgentTurnResult> {
     return this.executeAssistantTurn(input);
+  }
+
+  async previewScheduleApply(input: AgentScheduleActionInput): Promise<AgentScheduleApplyPreview> {
+    const evaluation = await this.evaluateSchedulingRequest(input, input.requestedAccessMode ?? 'read_write');
+    return this.buildScheduleApplyPreview(evaluation, input);
+  }
+
+  async applyScheduleAction(input: AgentScheduleApplyInput): Promise<AgentScheduleApplyResult> {
+    const preview = await this.previewScheduleApply(input);
+
+    if (!preview.canApply || !preview.previewFingerprint || !preview.operation || !preview.groupJid || !preview.weekId) {
+      throw new Error(preview.blockingReason ?? 'Scheduling preview is not ready to apply.');
+    }
+
+    if (input.previewFingerprint?.trim() && input.previewFingerprint.trim() !== preview.previewFingerprint) {
+      throw new Error('O preview mudou desde a ultima leitura. Atualiza o preview antes de aplicar.');
+    }
+
+    const payload = this.buildScheduleApplyPayload(preview, input);
+    const instruction = await this.instructionQueue.enqueueScheduleApply({
+      payload,
+      mode: 'confirmed',
+      dedupeKey: buildScheduleApplyDedupeKey(payload),
+    });
+
+    await this.instructionQueue.tickWorker(new Date());
+    const appliedInstruction =
+      (await this.instructionQueue.listInstructions()).find((candidate) => candidate.instructionId === instruction.instructionId) ??
+      instruction;
+    const appliedEvent = readAppliedEventFromInstruction(appliedInstruction);
+
+    return {
+      preview,
+      instruction,
+      appliedInstruction,
+      appliedEvent,
+    };
   }
 
   async executeAssistantTurn(input: AgentAssistantTurnInput): Promise<AgentTurnResult> {
@@ -91,6 +183,8 @@ export class AgentRuntime {
     let ownerCommandResult: AgentTurnResult['ownerCommandResult'] = null;
     let scheduleParseResult: AgentTurnResult['scheduleParseResult'] = null;
     let llmChatResult: AgentTurnResult['llmChatResult'] = null;
+    let scheduleApplyPreview: AgentTurnResult['scheduleApplyPreview'] = null;
+    let scheduleApplyResult: AgentTurnResult['scheduleApplyResult'] = null;
     let schedulingInsight: AgentTurnResult['schedulingInsight'] = schedulingContext
       ? {
           requestedAccessMode: schedulingContext.requestedAccessMode,
@@ -118,6 +212,8 @@ export class AgentRuntime {
         session,
         memoryUsage: chatMemoryUsage,
         schedulingInsight,
+        scheduleApplyPreview,
+        scheduleApplyResult,
         toolResults,
         replyText,
         distributionPlan,
@@ -134,6 +230,8 @@ export class AgentRuntime {
         session,
         memoryUsage: chatMemoryUsage,
         schedulingInsight,
+        scheduleApplyPreview,
+        scheduleApplyResult,
         toolResults,
         replyText,
         distributionPlan,
@@ -223,6 +321,22 @@ export class AgentRuntime {
           summary: `schedule_candidates:${scheduleParseResult.candidates.length}`,
           data: scheduleParseResult,
         });
+
+        if (requestedAccessMode === 'read_write' && input.allowActions) {
+          scheduleApplyPreview = await this.previewScheduleApply({
+            ...input,
+            requestedAccessMode,
+          });
+          toolResults.push({
+            toolName: 'schedule_apply',
+            status: scheduleApplyPreview.canApply ? 'success' : 'blocked',
+            summary: scheduleApplyPreview.canApply
+              ? `schedule_apply_preview:${scheduleApplyPreview.operation ?? 'unknown'}`
+              : `schedule_apply_blocked:${scheduleApplyPreview.blockingReason ?? 'indefinido'}`,
+            data: scheduleApplyPreview,
+          });
+        }
+
         llmChatResult = await this.llmOrchestrator.chat({
           text: input.text,
           intent: classification.intent,
@@ -234,6 +348,13 @@ export class AgentRuntime {
               (candidate) =>
                 `candidato:${candidate.title}:${candidate.dateHint ?? 'sem_data'}:${candidate.timeHint ?? 'sem_hora'}`,
             ),
+            ...(scheduleApplyPreview
+              ? [
+                  `schedule_preview_operation=${scheduleApplyPreview.operation ?? 'indefinida'}`,
+                  `schedule_preview_can_apply=${scheduleApplyPreview.canApply}`,
+                  `schedule_preview_summary=${scheduleApplyPreview.summary}`,
+                ]
+              : []),
           ],
           memoryScope: toLlmMemoryScope(schedulingMemoryUsage),
         });
@@ -260,6 +381,8 @@ export class AgentRuntime {
       session,
       memoryUsage: chatMemoryUsage,
       schedulingInsight,
+      scheduleApplyPreview,
+      scheduleApplyResult,
       toolResults,
       replyText,
       distributionPlan,
@@ -267,6 +390,222 @@ export class AgentRuntime {
       ownerCommandResult,
       scheduleParseResult,
       llmChatResult,
+    };
+  }
+
+  private async evaluateSchedulingRequest(
+    input: AgentScheduleActionInput,
+    defaultRequestedAccessMode: CalendarAccessMode,
+  ): Promise<SchedulingEvaluation> {
+    const classification = this.intentClassifier.classifyMessage({
+      text: input.text,
+      chatType: input.chatType,
+      wasTagged: input.wasTagged,
+      isReplyToBot: input.isReplyToBot,
+    });
+    const requestedAccessMode = input.requestedAccessMode ?? classification.requestedAccessMode ?? defaultRequestedAccessMode;
+    const chatContext = await this.assistantContext.buildChatContext(input);
+    const schedulingContext = await this.assistantContext.buildSchedulingContext({
+      ...input,
+      requestedAccessMode,
+    });
+    const targetGroupJid = schedulingContext.resolvedGroupJids[0] ?? input.groupJid ?? null;
+    const schedulingMemoryUsage = buildMemoryUsage(schedulingContext.chatContext, targetGroupJid);
+    const hasAccess =
+      targetGroupJid === null
+        ? requestedAccessMode === 'read'
+        : await this.commandPolicy.canManageCalendar(targetGroupJid, input.personId ?? null, requestedAccessMode);
+    const weekSnapshot = targetGroupJid
+      ? await this.weeklyPlanner.getWeekSnapshot({
+          groupJid: targetGroupJid,
+          weekId: input.weekId ?? undefined,
+        })
+      : null;
+    const parseResult =
+      classification.intent === 'scheduling_request' && hasAccess && targetGroupJid
+        ? await this.llmOrchestrator.parseSchedules({
+            text: input.text,
+            contextSummary: summariseContext(chatContext, schedulingMemoryUsage),
+            domainFacts: buildSchedulingFacts(schedulingContext.chatContext, schedulingMemoryUsage, targetGroupJid, weekSnapshot),
+            memoryScope: toLlmMemoryScope(schedulingMemoryUsage),
+          })
+        : null;
+
+    return {
+      classification,
+      chatContext,
+      schedulingContext,
+      schedulingMemoryUsage,
+      targetGroupJid,
+      targetGroupLabel: weekSnapshot?.groups.find((group) => group.groupJid === targetGroupJid)?.preferredSubject
+        ?? schedulingContext.chatContext.group?.preferredSubject
+        ?? null,
+      requestedAccessMode,
+      hasAccess,
+      weekSnapshot,
+      parseResult,
+    };
+  }
+
+  private buildScheduleApplyPreview(
+    evaluation: SchedulingEvaluation,
+    input: AgentScheduleActionInput,
+  ): AgentScheduleApplyPreview {
+    if (evaluation.classification.intent !== 'scheduling_request') {
+      return createBlockedSchedulePreview({
+        requestText: input.text,
+        requestedAccessMode: evaluation.requestedAccessMode,
+        groupJid: evaluation.targetGroupJid,
+        groupLabel: evaluation.targetGroupLabel,
+        weekId: evaluation.weekSnapshot?.focusWeekLabel ?? null,
+        blockingReason: 'Este texto nao parece um pedido de agendamento ou alteracao de calendario.',
+      });
+    }
+
+    if (!evaluation.targetGroupJid || !evaluation.weekSnapshot) {
+      return createBlockedSchedulePreview({
+        requestText: input.text,
+        requestedAccessMode: evaluation.requestedAccessMode,
+        groupJid: null,
+        groupLabel: null,
+        weekId: null,
+        blockingReason: 'Nao foi possivel resolver o grupo certo para aplicar este pedido de calendario.',
+      });
+    }
+
+    if (!evaluation.hasAccess) {
+      return createBlockedSchedulePreview({
+        requestText: input.text,
+        requestedAccessMode: evaluation.requestedAccessMode,
+        groupJid: evaluation.targetGroupJid,
+        groupLabel: evaluation.targetGroupLabel,
+        weekId: evaluation.weekSnapshot.focusWeekLabel,
+        blockingReason: `A ACL deste grupo nao permite acesso '${evaluation.requestedAccessMode ?? 'read'}' para esta alteracao.`,
+      });
+    }
+
+    if (!evaluation.parseResult || evaluation.parseResult.candidates.length === 0) {
+      return createBlockedSchedulePreview({
+        requestText: input.text,
+        requestedAccessMode: evaluation.requestedAccessMode,
+        groupJid: evaluation.targetGroupJid,
+        groupLabel: evaluation.targetGroupLabel,
+        weekId: evaluation.weekSnapshot.focusWeekLabel,
+        blockingReason: 'A LLM nao conseguiu extrair dados suficientes para montar um agendamento aplicavel.',
+      });
+    }
+
+    const candidate = evaluation.parseResult.candidates[0];
+    const targetEvent = resolveScheduleTargetEvent(input.text, candidate, evaluation.weekSnapshot.events);
+    const operation = resolveScheduleOperation(input.text, targetEvent);
+    const localDate = resolveLocalDateFromHint(candidate.dateHint, evaluation.weekSnapshot.focusWeekLabel);
+    const startTime = normaliseTimeHint(candidate.timeHint) ?? targetEvent?.startTime ?? null;
+    const dayLabel = localDate ? localDateToDayLabel(localDate) : targetEvent?.dayLabel ?? null;
+    const durationMinutes = parseDurationMinutes(input.text) ?? targetEvent?.durationMinutes ?? DEFAULT_SCHEDULE_DURATION_MINUTES;
+    const title = resolveCandidateTitle(candidate.title) ?? targetEvent?.title ?? null;
+    const notes = extractScheduleNotes(input.text) ?? targetEvent?.notes ?? null;
+    const upsert =
+      operation === 'delete'
+        ? null
+        : ({
+            eventId: operation === 'update' ? targetEvent?.eventId : undefined,
+            weekId: evaluation.weekSnapshot.focusWeekLabel,
+            groupJid: evaluation.targetGroupJid,
+            title: title ?? '',
+            localDate: localDate ?? undefined,
+            startTime: startTime ?? '',
+            durationMinutes,
+            notes,
+          } satisfies ScheduleApplyActionPayload['upsert']);
+    const diff = buildScheduleDiff(operation, targetEvent, {
+      title,
+      localDate,
+      dayLabel,
+      startTime,
+      durationMinutes,
+      notes,
+    });
+    const blockingReason = resolveScheduleBlockingReason(operation, targetEvent, title, localDate, startTime, diff);
+    const previewFingerprint =
+      !blockingReason && operation
+        ? buildScheduleApplyFingerprint({
+            operation,
+            groupJid: evaluation.targetGroupJid,
+            weekId: evaluation.weekSnapshot.focusWeekLabel,
+            targetEventId: targetEvent?.eventId ?? null,
+            title,
+            localDate,
+            startTime,
+            durationMinutes,
+            notes,
+            requestText: input.text,
+          })
+        : null;
+
+    return {
+      requestText: input.text,
+      requestedAccessMode: evaluation.requestedAccessMode,
+      groupJid: evaluation.targetGroupJid,
+      groupLabel: evaluation.targetGroupLabel,
+      weekId: evaluation.weekSnapshot.focusWeekLabel,
+      previewFingerprint,
+      operation,
+      confidence: candidate.confidence,
+      summary: buildSchedulePreviewSummary(operation, evaluation.targetGroupLabel, targetEvent, {
+        title,
+        localDate,
+        startTime,
+      }),
+      canApply: !blockingReason,
+      blockingReason,
+      targetEvent,
+      candidate: {
+        title,
+        localDate,
+        dayLabel,
+        startTime,
+        durationMinutes,
+        notes,
+      },
+      diff,
+      parserNotes: [...evaluation.parseResult.notes, ...candidate.notes],
+    };
+  }
+
+  private buildScheduleApplyPayload(
+    preview: AgentScheduleApplyPreview,
+    input: AgentScheduleApplyInput,
+  ): ScheduleApplyActionPayload {
+    return {
+      kind: 'schedule_apply',
+      operation: preview.operation ?? 'create',
+      sourceMessageId: input.messageId,
+      requestedText: input.text,
+      requestedByPersonId: input.personId ?? null,
+      requestedByDisplayName: input.senderDisplayName ?? null,
+      requestedAccessMode: preview.requestedAccessMode,
+      previewFingerprint: preview.previewFingerprint ?? `preview-${randomUUID()}`,
+      previewSummary: preview.summary,
+      groupJid: preview.groupJid ?? input.groupJid ?? '',
+      groupLabel: preview.groupLabel,
+      weekId: preview.weekId ?? input.weekId ?? '',
+      targetEventId: preview.targetEvent?.eventId ?? null,
+      targetEvent: preview.targetEvent,
+      diff: preview.diff,
+      upsert:
+        preview.operation === 'delete' || !preview.candidate
+          ? null
+          : {
+              eventId: preview.operation === 'update' ? preview.targetEvent?.eventId : undefined,
+              weekId: preview.weekId ?? undefined,
+              groupJid: preview.groupJid ?? input.groupJid ?? '',
+              title: preview.candidate.title ?? '',
+              localDate: preview.candidate.localDate ?? undefined,
+              startTime: preview.candidate.startTime ?? '',
+              durationMinutes: preview.candidate.durationMinutes ?? DEFAULT_SCHEDULE_DURATION_MINUTES,
+              notes: preview.candidate.notes,
+            },
+      deleteEventId: preview.operation === 'delete' ? preview.targetEvent?.eventId ?? null : null,
     };
   }
 }
@@ -315,10 +654,12 @@ function buildSchedulingFacts(
   chatContext: AgentTurnResult['session']['chatContext'],
   memoryUsage: AgentMemoryUsage,
   targetGroupJid: string | null,
+  weekSnapshot?: WeeklyPlannerSnapshot | null,
 ): readonly string[] {
   return [
     targetGroupJid ? `grupo_resolvido=${targetGroupJid}` : 'grupo_resolvido=indefinido',
     chatContext.activeReference ? `referente_ativo=${chatContext.activeReference.label}` : null,
+    ...(weekSnapshot?.events ?? []).slice(0, 6).map((event) => `evento_semana=${event.title}:${event.localDate}:${event.startTime}`),
     ...buildMemoryFacts(memoryUsage),
   ].filter((value): value is string => Boolean(value));
 }
@@ -411,5 +752,432 @@ function toLlmMemoryScope(memoryUsage: AgentMemoryUsage): {
       score: document.score,
       matchedTerms: document.matchedTerms,
     })),
+  };
+}
+
+function createBlockedSchedulePreview(input: {
+  readonly requestText: string;
+  readonly requestedAccessMode: CalendarAccessMode | null;
+  readonly groupJid: string | null;
+  readonly groupLabel: string | null;
+  readonly weekId: string | null;
+  readonly blockingReason: string;
+}): AgentScheduleApplyPreview {
+  return {
+    requestText: input.requestText,
+    requestedAccessMode: input.requestedAccessMode,
+    groupJid: input.groupJid,
+    groupLabel: input.groupLabel,
+    weekId: input.weekId,
+    previewFingerprint: null,
+    operation: null,
+    confidence: null,
+    summary: 'Ainda nao foi possivel montar um preview aplicavel.',
+    canApply: false,
+    blockingReason: input.blockingReason,
+    targetEvent: null,
+    candidate: null,
+    diff: [],
+    parserNotes: [],
+  };
+}
+
+function resolveScheduleOperation(text: string, targetEvent: WeeklyPlannerEventSummary | null): ScheduleApplyOperation {
+  if (/\b(cancela|cancelar|apaga|apagar|remove|remover)\b/iu.test(text)) {
+    return 'delete';
+  }
+
+  if (/\b(muda|mudar|mudou|altera|alterar|atualiza|atualizar|reagenda|reagendar|passa para|troca|trocar|adianta|adiar|fica\b)\b/iu.test(text) && targetEvent) {
+    return 'update';
+  }
+
+  return targetEvent ? 'update' : 'create';
+}
+
+function resolveScheduleTargetEvent(
+  text: string,
+  candidate: LlmScheduleCandidate,
+  events: readonly WeeklyPlannerEventSummary[],
+): WeeklyPlannerEventSummary | null {
+  if (events.length === 0) {
+    return null;
+  }
+
+  const title = resolveCandidateTitle(candidate.title);
+  const localDate = resolveLocalDateFromHint(candidate.dateHint, null);
+  const startTime = normaliseTimeHint(candidate.timeHint);
+  const titleMatches = title
+    ? events.filter((event) => normaliseTitleForMatch(event.title) === normaliseTitleForMatch(title))
+    : [];
+
+  if (titleMatches.length === 1) {
+    return titleMatches[0];
+  }
+
+  const dateMatches = localDate
+    ? events.filter(
+        (event) =>
+          event.localDate === localDate &&
+          (startTime ? event.startTime === startTime : true) &&
+          (title ? normaliseTitleForMatch(event.title) === normaliseTitleForMatch(title) : true),
+      )
+    : [];
+
+  if (dateMatches.length === 1) {
+    return dateMatches[0];
+  }
+
+  if (/\b(cancela|cancelar|apaga|apagar|remove|remover|muda|mudar|altera|alterar|reagenda|reagendar)\b/iu.test(text)) {
+    return titleMatches[0] ?? dateMatches[0] ?? (events.length === 1 ? events[0] : null);
+  }
+
+  return null;
+}
+
+function resolveCandidateTitle(title: string | null): string | null {
+  if (!title?.trim()) {
+    return null;
+  }
+
+  const normalised = title.trim();
+  return GENERIC_CANDIDATE_TITLES.has(normaliseTitleForMatch(normalised)) ? null : normalised;
+}
+
+function normaliseTitleForMatch(title: string): string {
+  return title
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/\s+/gu, ' ');
+}
+
+function resolveLocalDateFromHint(dateHint: string | null, weekId: string | null, now = new Date()): string | null {
+  if (!dateHint?.trim()) {
+    return null;
+  }
+
+  const value = dateHint.trim();
+
+  if (/^\d{4}-\d{2}-\d{2}$/u.test(value)) {
+    return value;
+  }
+
+  const lower = normaliseTitleForMatch(value);
+
+  if (lower === 'hoje') {
+    return formatIsoDate(now);
+  }
+
+  if (lower === 'amanha' || lower === 'amanhã') {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return formatIsoDate(tomorrow);
+  }
+
+  const dayIndex = DAY_LABEL_TO_INDEX.get(lower);
+
+  if (dayIndex !== undefined && weekId) {
+    return isoWeekDate(weekId, dayIndex);
+  }
+
+  return null;
+}
+
+function isoWeekDate(weekId: string, isoDayIndex: number): string | null {
+  const match = /^(\d{4})-W(\d{2})$/u.exec(weekId.trim());
+
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const week = Number(match[2]);
+
+  if (!Number.isFinite(year) || !Number.isFinite(week)) {
+    return null;
+  }
+
+  const januaryFourth = new Date(Date.UTC(year, 0, 4, 12));
+  const januaryFourthIsoDay = januaryFourth.getUTCDay() || 7;
+  const monday = new Date(januaryFourth);
+  monday.setUTCDate(januaryFourth.getUTCDate() - januaryFourthIsoDay + 1 + (week - 1) * 7 + (isoDayIndex - 1));
+
+  return monday.toISOString().slice(0, 10);
+}
+
+function normaliseTimeHint(timeHint: string | null): string | null {
+  if (!timeHint?.trim()) {
+    return null;
+  }
+
+  const match = /^(\d{1,2}):(\d{2})$/u.exec(timeHint.trim());
+
+  if (!match) {
+    return null;
+  }
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return null;
+  }
+
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function parseDurationMinutes(text: string): number | null {
+  const match = /\b(\d{1,3})\s*(?:min|mins|minuto|minutos)\b/iu.exec(text);
+
+  if (!match) {
+    return null;
+  }
+
+  const duration = Number(match[1]);
+  return Number.isFinite(duration) && duration > 0 ? duration : null;
+}
+
+function extractScheduleNotes(text: string): string | null {
+  const match = /(?:nota(?:s)?|observa(?:cao|ção|coes|ções)|obs)\s*[:\-]\s*(.+)$/iu.exec(text);
+  return match?.[1]?.trim() || null;
+}
+
+function buildScheduleDiff(
+  operation: ScheduleApplyOperation,
+  targetEvent: WeeklyPlannerEventSummary | null,
+  candidate: {
+    readonly title: string | null;
+    readonly localDate: string | null;
+    readonly dayLabel: string | null;
+    readonly startTime: string | null;
+    readonly durationMinutes: number | null;
+    readonly notes: string | null;
+  },
+): readonly AgentScheduleDiffEntry[] {
+  if (operation === 'delete') {
+    return [
+      {
+        label: 'Evento',
+        before: targetEvent ? summariseEvent(targetEvent) : null,
+        after: 'Removido do calendario',
+        changed: true,
+      },
+    ];
+  }
+
+  return [
+    diffEntry('Titulo', targetEvent?.title ?? null, candidate.title),
+    diffEntry('Data', targetEvent?.localDate ?? null, candidate.localDate),
+    diffEntry('Hora', targetEvent?.startTime ?? null, candidate.startTime),
+    diffEntry(
+      'Duracao',
+      targetEvent ? `${targetEvent.durationMinutes} min` : null,
+      candidate.durationMinutes ? `${candidate.durationMinutes} min` : null,
+    ),
+    diffEntry('Notas', targetEvent?.notes || null, candidate.notes || null),
+  ];
+}
+
+function diffEntry(label: string, before: string | null, after: string | null): AgentScheduleDiffEntry {
+  return {
+    label,
+    before,
+    after,
+    changed: (before ?? '') !== (after ?? ''),
+  };
+}
+
+function resolveScheduleBlockingReason(
+  operation: ScheduleApplyOperation,
+  targetEvent: WeeklyPlannerEventSummary | null,
+  title: string | null,
+  localDate: string | null,
+  startTime: string | null,
+  diff: readonly AgentScheduleDiffEntry[],
+): string | null {
+  if (operation === 'delete' && !targetEvent) {
+    return 'Nao encontrei um evento claro para remover neste grupo.';
+  }
+
+  if (operation === 'update' && !targetEvent) {
+    return 'Nao encontrei um evento claro para atualizar neste grupo.';
+  }
+
+  if (operation !== 'delete' && !title) {
+    return 'Ainda falta um titulo claro para o evento.';
+  }
+
+  if (operation !== 'delete' && !localDate) {
+    return 'Ainda falta uma data clara para conseguir aplicar o evento.';
+  }
+
+  if (operation !== 'delete' && !startTime) {
+    return 'Ainda falta uma hora clara para conseguir aplicar o evento.';
+  }
+
+  if (operation === 'update' && !diff.some((entry) => entry.changed)) {
+    return 'Nao detetei nenhuma diferenca funcional para atualizar neste evento.';
+  }
+
+  return null;
+}
+
+function buildSchedulePreviewSummary(
+  operation: ScheduleApplyOperation,
+  groupLabel: string | null,
+  targetEvent: WeeklyPlannerEventSummary | null,
+  candidate: {
+    readonly title: string | null;
+    readonly localDate: string | null;
+    readonly startTime: string | null;
+  },
+): string {
+  const label = groupLabel ?? 'este grupo';
+
+  if (operation === 'delete') {
+    return `Remover ${targetEvent ? `"${targetEvent.title}"` : 'o evento escolhido'} de ${label}.`;
+  }
+
+  if (operation === 'update') {
+    return `Atualizar ${targetEvent ? `"${targetEvent.title}"` : 'o evento escolhido'} em ${label} para ${candidate.localDate ?? 'data por confirmar'} às ${candidate.startTime ?? 'hora por confirmar'}.`;
+  }
+
+  return `Criar "${candidate.title ?? 'novo evento'}" em ${label} para ${candidate.localDate ?? 'data por confirmar'} às ${candidate.startTime ?? 'hora por confirmar'}.`;
+}
+
+function summariseEvent(event: WeeklyPlannerEventSummary): string {
+  return `${event.title} • ${event.localDate} • ${event.startTime}`;
+}
+
+function localDateToDayLabel(localDate: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/u.test(localDate)) {
+    return null;
+  }
+
+  const date = new Date(`${localDate}T12:00:00Z`);
+  const day = date.getUTCDay() || 7;
+  switch (day) {
+    case 1:
+      return 'segunda-feira';
+    case 2:
+      return 'terca-feira';
+    case 3:
+      return 'quarta-feira';
+    case 4:
+      return 'quinta-feira';
+    case 5:
+      return 'sexta-feira';
+    case 6:
+      return 'sabado';
+    case 7:
+      return 'domingo';
+    default:
+      return null;
+  }
+}
+
+function formatIsoDate(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function buildScheduleApplyFingerprint(input: {
+  readonly operation: ScheduleApplyOperation;
+  readonly groupJid: string;
+  readonly weekId: string;
+  readonly targetEventId: string | null;
+  readonly title: string | null;
+  readonly localDate: string | null;
+  readonly startTime: string | null;
+  readonly durationMinutes: number;
+  readonly notes: string | null;
+  readonly requestText: string;
+}): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify({
+        operation: input.operation,
+        groupJid: input.groupJid,
+        weekId: input.weekId,
+        targetEventId: input.targetEventId,
+        title: input.title,
+        localDate: input.localDate,
+        startTime: input.startTime,
+        durationMinutes: input.durationMinutes,
+        notes: input.notes,
+        requestText: input.requestText,
+      }),
+    )
+    .digest('hex')
+    .slice(0, 16);
+}
+
+function buildScheduleApplyDedupeKey(payload: ScheduleApplyActionPayload): string {
+  return [
+    'assistant_schedule_apply',
+    payload.groupJid,
+    payload.operation,
+    payload.targetEventId ?? 'new',
+    payload.previewFingerprint,
+  ].join(':');
+}
+
+function readAppliedEventFromInstruction(instruction: Instruction | null): WeeklyPlannerEventSummary | null {
+  if (!instruction) {
+    return null;
+  }
+
+  const action = instruction.actions.find((candidate) => candidate.type === 'schedule_apply');
+  const appliedEvent = action?.result?.metadata?.appliedEvent;
+
+  if (!appliedEvent || typeof appliedEvent !== 'object') {
+    return null;
+  }
+
+  const event = appliedEvent as Partial<WeeklyPlannerEventSummary>;
+
+  if (
+    typeof event.eventId !== 'string' ||
+    typeof event.weekId !== 'string' ||
+    typeof event.groupJid !== 'string' ||
+    typeof event.groupLabel !== 'string' ||
+    typeof event.title !== 'string' ||
+    typeof event.eventAt !== 'string' ||
+    typeof event.localDate !== 'string' ||
+    typeof event.dayLabel !== 'string' ||
+    typeof event.startTime !== 'string' ||
+    typeof event.durationMinutes !== 'number' ||
+    typeof event.notes !== 'string'
+  ) {
+    return null;
+  }
+
+  return {
+    eventId: event.eventId,
+    weekId: event.weekId,
+    groupJid: event.groupJid,
+    groupLabel: event.groupLabel,
+    title: event.title,
+    eventAt: event.eventAt,
+    localDate: event.localDate,
+    dayLabel: event.dayLabel,
+    startTime: event.startTime,
+    durationMinutes: event.durationMinutes,
+    notes: event.notes,
+    notificationRuleLabels: Array.isArray(event.notificationRuleLabels) ? event.notificationRuleLabels : [],
+    notifications:
+      event.notifications && typeof event.notifications === 'object'
+        ? {
+            pending: Number(event.notifications.pending ?? 0),
+            waitingConfirmation: Number(event.notifications.waitingConfirmation ?? 0),
+            sent: Number(event.notifications.sent ?? 0),
+            total: Number(event.notifications.total ?? 0),
+          }
+        : {
+            pending: 0,
+            waitingConfirmation: 0,
+            sent: 0,
+            total: 0,
+          },
   };
 }

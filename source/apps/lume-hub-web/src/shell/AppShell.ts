@@ -1,4 +1,6 @@
 import type {
+  AssistantScheduleApplySnapshot,
+  AssistantSchedulePreviewSnapshot,
   CalendarAccessMode,
   DashboardSnapshot,
   DistributionSummary,
@@ -37,6 +39,7 @@ import type { WeekPlannerSnapshot } from '@lume-hub/week-planner';
 
 import type { FrontendTransportMode } from '../app/BrowserTransportFactory.js';
 import type {
+  AssistantPageData,
   AppRouteDefinition,
   AppRouter,
   GroupManagementPageData,
@@ -108,6 +111,15 @@ interface WorkspaceAgentDraft {
   readonly running: boolean;
 }
 
+interface AssistantSchedulingDraft {
+  readonly groupJid: string;
+  readonly text: string;
+  readonly previewLoading: boolean;
+  readonly applying: boolean;
+  readonly preview: AssistantSchedulePreviewSnapshot | null;
+  readonly lastApplied: AssistantScheduleApplySnapshot | null;
+}
+
 interface AssistantRailMessage {
   readonly messageId: string;
   readonly role: 'user' | 'assistant' | 'system' | 'error';
@@ -142,6 +154,7 @@ interface AppShellState {
   readonly mediaDistributionDraft: GuidedMediaDistributionDraft;
   readonly groupManagementDraft: GroupManagementDraft;
   readonly workspaceAgentDraft: WorkspaceAgentDraft;
+  readonly assistantSchedulingDraft: AssistantSchedulingDraft;
   readonly assistantRailChat: AssistantRailChatState;
   readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
   readonly whatsappQrPreviewVisible: boolean;
@@ -173,7 +186,7 @@ interface UxTelemetryEntry {
 }
 
 interface PendingConfirmation {
-  readonly domain: 'whatsapp' | 'workspace';
+  readonly domain: 'assistant' | 'whatsapp' | 'workspace';
   readonly key: string;
   readonly action: string;
   readonly dataset: ActionDataset;
@@ -240,6 +253,7 @@ export class AppShell {
       mediaDistributionDraft: createEmptyMediaDistributionDraft(),
       groupManagementDraft: createEmptyGroupManagementDraft(),
       workspaceAgentDraft: createEmptyWorkspaceAgentDraft(),
+      assistantSchedulingDraft: createEmptyAssistantSchedulingDraft(),
       assistantRailChat: createInitialAssistantRailChatState(),
       whatsappRepairFocus: 'auth',
       whatsappQrPreviewVisible: false,
@@ -638,6 +652,10 @@ export class AppShell {
     if (page.route === '/groups') {
       this.syncGroupManagementDraft(page as UiPage<GroupManagementPageData>);
     }
+
+    if (page.route === '/assistant') {
+      this.syncAssistantSchedulingDraft(page as UiPage<AssistantPageData>);
+    }
   }
 
   private syncMediaDistributionDraft(page: UiPage<MediaLibraryPageData>): void {
@@ -670,6 +688,21 @@ export class AppShell {
         knowledgeDocument: selectedDocument
           ? mapGroupKnowledgeDocumentToDraft(selectedDocument)
           : createEmptyGroupKnowledgeDraft(),
+      },
+    };
+  }
+
+  private syncAssistantSchedulingDraft(page: UiPage<AssistantPageData>): void {
+    const selectedGroupJid = resolveAssistantSchedulingGroupJid(
+      this.state.assistantSchedulingDraft.groupJid,
+      page.data.groups,
+    );
+
+    this.state = {
+      ...this.state,
+      assistantSchedulingDraft: {
+        ...this.state.assistantSchedulingDraft,
+        groupJid: selectedGroupJid,
       },
     };
   }
@@ -857,6 +890,8 @@ export class AppShell {
         return this.renderTodayPage(this.state.page as UiPage<DashboardSnapshot>);
       case '/week':
         return this.renderWeekPage(this.state.page as UiPage<WeekPlannerSnapshot>);
+      case '/assistant':
+        return this.renderAssistantPage(this.state.page as UiPage<AssistantPageData>);
       case '/media':
         return this.renderMediaPage(this.state.page as UiPage<MediaLibraryPageData>);
       case '/workspace':
@@ -1234,6 +1269,281 @@ export class AppShell {
                 }),
               )
               .join('')}
+          </div>
+        </article>
+      </section>
+    `;
+  }
+
+  private renderAssistantPage(page: UiPage<AssistantPageData>): string {
+    const draft = resolveAssistantSchedulingDraft(this.state.assistantSchedulingDraft, page.data.groups);
+    const selectedGroup = page.data.groups.find((group) => group.groupJid === draft.groupJid) ?? null;
+    const preview = draft.preview;
+    const canApply = Boolean(preview?.canApply && preview.previewFingerprint);
+    const latestAudit = page.data.recentSchedulingAudit[0] ?? null;
+
+    return `
+      <section class="surface hero surface--strong">
+        <div>
+          <p class="eyebrow">Assistente live</p>
+          <h2>Pedir uma alteracao em linguagem natural, ver o preview e so depois aplicar na agenda real.</h2>
+          <p>${escapeHtml(page.description)}</p>
+          <div class="action-row">
+            ${renderUiActionButton({
+              label: draft.previewLoading ? 'A gerar preview...' : 'Gerar preview',
+              disabled: draft.previewLoading || draft.applying,
+              dataAttributes: { 'assistant-action': 'preview-schedule' },
+            })}
+            ${renderUiActionButton({
+              label: draft.applying ? 'A aplicar...' : 'Aplicar alteracao',
+              variant: 'secondary',
+              disabled: !canApply || draft.previewLoading || draft.applying,
+              dataAttributes: { 'assistant-action': 'apply-schedule' },
+            })}
+            ${renderUiActionButton({
+              label: 'Limpar pedido',
+              variant: 'secondary',
+              dataAttributes: { 'assistant-action': 'clear-schedule' },
+            })}
+          </div>
+        </div>
+        <div class="hero-panel">
+          ${renderUiPanelCard({
+            title: 'LLM em uso',
+            badgeLabel: page.data.settings.llmRuntime.effectiveProviderId,
+            badgeTone: page.data.settings.llmRuntime.mode === 'live' ? 'positive' : 'warning',
+            contentHtml: `<p>${escapeHtml(
+              `${page.data.settings.llmRuntime.effectiveProviderId} / ${page.data.settings.llmRuntime.effectiveModelId}`,
+            )}</p>`,
+          })}
+          ${renderUiPanelCard({
+            title: 'Ultima alteracao',
+            badgeLabel: latestAudit ? readableInstructionStatus(latestAudit.status) : 'Sem auditoria',
+            badgeTone: latestAudit ? toneForInstructionStatus(latestAudit.status) : 'neutral',
+            contentHtml: `<p>${escapeHtml(
+              latestAudit
+                ? `${latestAudit.groupLabel ?? latestAudit.groupJid ?? 'Grupo'} • ${latestAudit.previewSummary}`
+                : 'Assim que aplicares um pedido, a ultima alteracao aparece aqui.',
+            )}</p>`,
+          })}
+        </div>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-7">
+          <div class="card-header">
+            <div>
+              <h3>Pedir mudanca na agenda</h3>
+              <p>Escreve como escreverias num chat: criar, mudar ou apagar uma aula/evento.</p>
+            </div>
+            ${renderUiBadge({
+              label: selectedGroup ? selectedGroup.preferredSubject : 'Escolher grupo',
+              tone: selectedGroup ? 'positive' : 'warning',
+            })}
+          </div>
+          <div class="ui-form-grid">
+            ${renderUiSelectField({
+              label: 'Grupo',
+              value: draft.groupJid,
+              dataKey: 'assistant.groupJid',
+              options: page.data.groups.map((group) => ({
+                value: group.groupJid,
+                label: group.preferredSubject,
+              })),
+              hint: 'O preview e o apply correm sempre dentro do grupo escolhido.',
+            })}
+            ${renderUiTextAreaField({
+              label: 'Pedido em linguagem natural',
+              value: draft.text,
+              dataKey: 'assistant.text',
+              rows: 8,
+              placeholder: 'Ex.: Move a Aula 1 de sexta para sabado as 10:00 e deixa nota para levar figurinos.',
+              hint: 'Primeiro sai um preview com diff e resumo. O apply real pede confirmacao.',
+            })}
+          </div>
+          <div class="guide-preview">
+            <p><strong>Grupo em foco</strong>: ${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe primeiro um grupo.')}</p>
+            <p><strong>Acesso pedido</strong>: Ver e editar calendario</p>
+            <p><strong>Estado do preview</strong>: ${escapeHtml(
+              draft.previewLoading ? 'a gerar preview' : preview ? preview.summary : 'sem preview ainda',
+            )}</p>
+          </div>
+        </article>
+
+        <article class="surface content-card span-5">
+          <div class="card-header">
+            <div>
+              <h3>Preview antes de aplicar</h3>
+              <p>Confirma a operacao, o alvo e as diferencas antes de mexer na agenda real.</p>
+            </div>
+            ${renderUiBadge({
+              label: preview
+                ? preview.canApply
+                  ? 'Pronto a aplicar'
+                  : 'Bloqueado'
+                : 'Sem preview',
+              tone: preview ? (preview.canApply ? 'positive' : 'warning') : 'neutral',
+            })}
+          </div>
+          ${
+            preview
+              ? `
+                <div class="guide-preview">
+                  <p><strong>Operacao</strong>: ${escapeHtml(readableAssistantOperation(preview.operation))}</p>
+                  <p><strong>Grupo</strong>: ${escapeHtml(preview.groupLabel ?? preview.groupJid ?? 'Sem grupo')}</p>
+                  <p><strong>Semana</strong>: ${escapeHtml(preview.weekId ?? 'Sem semana')}</p>
+                  <p><strong>Resumo</strong>: ${escapeHtml(preview.summary)}</p>
+                  ${
+                    preview.blockingReason
+                      ? `<p><strong>Bloqueio</strong>: ${escapeHtml(preview.blockingReason)}</p>`
+                      : ''
+                  }
+                </div>
+                ${
+                  preview.diff.length > 0
+                    ? `
+                      <div class="timeline">
+                        ${preview.diff
+                          .map(
+                            (entry) => `
+                              <article class="timeline-item">
+                                <strong>${escapeHtml(entry.label)}</strong>
+                                <p>Antes: ${escapeHtml(entry.before ?? 'vazio')}</p>
+                                <p>Depois: ${escapeHtml(entry.after ?? 'vazio')}</p>
+                              </article>
+                            `,
+                          )
+                          .join('')}
+                      </div>
+                    `
+                    : '<p>Este preview ainda nao mostrou diferencas concretas.</p>'
+                }
+              `
+              : `
+                <div class="timeline-item">
+                  <strong>Sem preview ainda</strong>
+                  <time>Escreve o pedido e carrega em "Gerar preview" para ver a alteracao antes de aplicar.</time>
+                </div>
+              `
+          }
+          ${
+            draft.lastApplied
+              ? `
+                <details class="ui-details" open>
+                  <summary>Ultimo apply desta sessao</summary>
+                  <div class="ui-details__content">
+                    <p><strong>Instruction</strong>: ${escapeHtml(draft.lastApplied.instruction.instructionId)}</p>
+                    <p><strong>Resultado</strong>: ${escapeHtml(
+                      draft.lastApplied.appliedEvent
+                        ? `${draft.lastApplied.appliedEvent.title} atualizado na agenda.`
+                        : draft.lastApplied.appliedInstruction?.status ?? 'sem estado',
+                    )}</p>
+                  </div>
+                </details>
+              `
+              : ''
+          }
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-7">
+          <div class="card-header">
+            <div>
+              <h3>Auditoria recente do scheduling</h3>
+              <p>Fila e alteracoes mais recentes aplicadas a partir do assistente.</p>
+            </div>
+            ${renderUiBadge({
+              label: `${page.data.recentSchedulingAudit.length} entrada${page.data.recentSchedulingAudit.length === 1 ? '' : 's'}`,
+              tone: page.data.recentSchedulingAudit.length > 0 ? 'positive' : 'neutral',
+            })}
+          </div>
+          ${
+            page.data.recentSchedulingAudit.length > 0
+              ? `
+                <div class="timeline">
+                  ${page.data.recentSchedulingAudit
+                    .map(
+                      (entry) => `
+                        <article class="timeline-item">
+                          <strong>${escapeHtml(entry.groupLabel ?? entry.groupJid ?? 'Grupo')}</strong>
+                          <time>${escapeHtml(`${readableAssistantOperation(entry.operation)} • ${formatShortDateTime(entry.updatedAt)}`)}</time>
+                          <p>${escapeHtml(entry.previewSummary)}</p>
+                          <ul>
+                            <li>Pedido: ${escapeHtml(entry.requestedText)}</li>
+                            <li>Estado: ${escapeHtml(readableInstructionStatus(entry.status))}</li>
+                            ${
+                              entry.appliedEventTitle
+                                ? `<li>Evento aplicado: ${escapeHtml(entry.appliedEventTitle)}</li>`
+                                : ''
+                            }
+                            ${
+                              entry.resultNote
+                                ? `<li>Nota: ${escapeHtml(entry.resultNote)}</li>`
+                                : ''
+                            }
+                          </ul>
+                        </article>
+                      `,
+                    )
+                    .join('')}
+                </div>
+              `
+              : `
+                <div class="timeline-item">
+                  <strong>Sem alteracoes ainda</strong>
+                  <time>Assim que aplicares um pedido de scheduling, ele aparece aqui com auditoria.</time>
+                </div>
+              `
+          }
+        </article>
+
+        <article class="surface content-card span-5">
+          <div class="card-header">
+            <div>
+              <h3>Contexto e runs recentes</h3>
+              <p>Sinais curtos para perceber se a LLM e a memoria de grupo estao a ser usadas como esperado.</p>
+            </div>
+            ${renderUiBadge({ label: 'Live', tone: 'positive' })}
+          </div>
+          <div class="timeline">
+            ${
+              page.data.recentLlmRuns.length > 0
+                ? page.data.recentLlmRuns
+                    .slice(0, 3)
+                    .map(
+                      (entry) => `
+                        <article class="timeline-item">
+                          <strong>${escapeHtml(entry.providerId)} / ${escapeHtml(entry.modelId)}</strong>
+                          <time>${escapeHtml(formatShortDateTime(entry.createdAt))}</time>
+                          <p>${escapeHtml(entry.outputSummary)}</p>
+                        </article>
+                      `,
+                    )
+                    .join('')
+                : `
+                    <article class="timeline-item">
+                      <strong>Sem runs LLM recentes</strong>
+                      <time>Quando houver parsing ou respostas live, elas aparecem aqui.</time>
+                    </article>
+                  `
+            }
+            ${
+              page.data.recentConversationAudit.length > 0
+                ? page.data.recentConversationAudit
+                    .slice(0, 2)
+                    .map(
+                      (entry) => `
+                        <article class="timeline-item">
+                          <strong>${escapeHtml(entry.intent)}</strong>
+                          <time>${escapeHtml(formatShortDateTime(entry.createdAt))}</time>
+                          <p>${escapeHtml(describeAssistantConversationMemory(entry))}</p>
+                        </article>
+                      `,
+                    )
+                    .join('')
+                : ''
+            }
           </div>
         </article>
       </section>
@@ -3296,6 +3606,19 @@ export class AppShell {
         };
         this.render();
         return;
+      case 'assistant.groupJid':
+      case 'assistant.text':
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          assistantSchedulingDraft: {
+            ...this.state.assistantSchedulingDraft,
+            [fieldKey === 'assistant.groupJid' ? 'groupJid' : 'text']: value,
+            ...(fieldKey === 'assistant.text' ? { preview: null, lastApplied: null } : {}),
+          } as AssistantSchedulingDraft,
+        };
+        this.render();
+        return;
       case 'railChat.input':
         this.state = {
           ...this.state,
@@ -3815,6 +4138,16 @@ export class AppShell {
     return page;
   }
 
+  private readAssistantPageData(): UiPage<AssistantPageData> | null {
+    const page = this.state.page as UiPage<AssistantPageData> | null;
+
+    if (!page || page.route !== '/assistant') {
+      return null;
+    }
+
+    return page;
+  }
+
   private readMediaPageData(): UiPage<MediaLibraryPageData> | null {
     const page = this.state.page as UiPage<MediaLibraryPageData> | null;
 
@@ -4179,6 +4512,219 @@ export class AppShell {
         this.recordUxEvent('danger', summarizeTelemetryMessage(message));
         this.render();
       }
+    }
+  }
+
+  private buildAssistantScheduleConfirmation(preview: AssistantSchedulePreviewSnapshot): PendingConfirmation | null {
+    if (!preview.previewFingerprint || !preview.canApply) {
+      return null;
+    }
+
+    return {
+      domain: 'assistant',
+      key: `assistant-schedule:${preview.previewFingerprint}`,
+      action: 'apply-schedule',
+      dataset: {
+        assistantPreviewFingerprint: preview.previewFingerprint,
+      },
+      title: 'Aplicar alteracao na agenda?',
+      description: `${preview.summary} Esta acao vai mexer no calendario real do grupo ${
+        preview.groupLabel ?? preview.groupJid ?? 'selecionado'
+      }.`,
+      confirmLabel: 'Aplicar agora',
+      tone: 'warning',
+    };
+  }
+
+  private async handleAssistantAction(
+    action: string,
+    dataset: ActionDataset,
+    options: {
+      readonly confirmed?: boolean;
+    } = {},
+  ): Promise<void> {
+    const page = this.readAssistantPageData();
+
+    if (!page) {
+      return;
+    }
+
+    if (action === 'clear-schedule') {
+      this.state = {
+        ...this.state,
+        assistantSchedulingDraft: resolveAssistantSchedulingDraft(createEmptyAssistantSchedulingDraft(), page.data.groups),
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'Pedido do assistente limpo para criares um preview novo.',
+        },
+      };
+      this.render();
+      return;
+    }
+
+    const draft = resolveAssistantSchedulingDraft(this.state.assistantSchedulingDraft, page.data.groups);
+
+    if (!draft.groupJid || !draft.text.trim()) {
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'warning',
+          message: 'Escolhe um grupo e escreve o pedido antes de continuares.',
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'preview-schedule') {
+      this.state = {
+        ...this.state,
+        assistantSchedulingDraft: {
+          ...this.state.assistantSchedulingDraft,
+          previewLoading: true,
+          lastApplied: null,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A pedir ao assistente um preview da alteracao na agenda.',
+        },
+      };
+      this.render();
+
+      try {
+        const preview = await this.currentClient().previewAssistantSchedule({
+          text: draft.text.trim(),
+          groupJid: draft.groupJid,
+          requestedAccessMode: 'read_write',
+        });
+        this.state = {
+          ...this.state,
+          assistantSchedulingDraft: {
+            ...this.state.assistantSchedulingDraft,
+            previewLoading: false,
+            preview,
+            lastApplied: null,
+          },
+          flowFeedback: {
+            tone: preview.canApply ? 'positive' : 'warning',
+            message: preview.canApply
+              ? 'Preview pronto. Confirma o diff e aplica quando estiveres satisfeito.'
+              : preview.blockingReason ?? 'O preview ficou bloqueado e precisa de ajuste.',
+          },
+        };
+        this.recordUxEvent(preview.canApply ? 'positive' : 'warning', `Preview de scheduling gerado para ${preview.groupLabel ?? preview.groupJid ?? 'grupo'}.`);
+        this.render();
+      } catch (error) {
+        const message = `Nao foi possivel gerar o preview do scheduling. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          assistantSchedulingDraft: {
+            ...this.state.assistantSchedulingDraft,
+            previewLoading: false,
+          },
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
+    if (action !== 'apply-schedule') {
+      return;
+    }
+
+    const previewFingerprint =
+      dataset.assistantPreviewFingerprint ?? this.state.assistantSchedulingDraft.preview?.previewFingerprint ?? null;
+    const preview = this.state.assistantSchedulingDraft.preview;
+
+    if (!preview || !previewFingerprint || preview.previewFingerprint !== previewFingerprint) {
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'warning',
+          message: 'Atualiza primeiro o preview antes de aplicares a alteracao real.',
+        },
+      };
+      this.render();
+      return;
+    }
+
+    const pendingConfirmation = !options.confirmed
+      ? this.buildAssistantScheduleConfirmation(preview)
+      : null;
+
+    if (pendingConfirmation) {
+      this.state = {
+        ...this.state,
+        pendingConfirmation,
+        flowFeedback: {
+          tone: 'warning',
+          message: pendingConfirmation.description,
+        },
+      };
+      this.recordUxEvent('warning', `Confirmacao pedida: ${pendingConfirmation.title}`);
+      this.render();
+      return;
+    }
+
+    this.state = {
+      ...this.state,
+      assistantSchedulingDraft: {
+        ...this.state.assistantSchedulingDraft,
+        applying: true,
+      },
+      flowFeedback: {
+        tone: 'neutral',
+        message: 'A aplicar a alteracao no calendario real e a guardar auditoria.',
+      },
+    };
+    this.render();
+
+    try {
+      const result = await this.currentClient().applyAssistantSchedule({
+        text: draft.text.trim(),
+        groupJid: draft.groupJid,
+        previewFingerprint,
+        requestedAccessMode: 'read_write',
+      });
+
+      this.state = {
+        ...this.state,
+        assistantSchedulingDraft: {
+          ...this.state.assistantSchedulingDraft,
+          applying: false,
+          preview: result.preview,
+          lastApplied: result,
+        },
+        flowFeedback: {
+          tone: result.appliedInstruction?.status === 'completed' ? 'positive' : 'warning',
+          message:
+            result.appliedEvent
+              ? `${result.appliedEvent.title} ja foi refletido na agenda real.`
+              : `Pedido colocado na fila com estado ${result.appliedInstruction?.status ?? result.instruction.status}.`,
+        },
+      };
+      this.recordUxEvent('positive', `Alteracao de scheduling aplicada para ${result.preview.groupLabel ?? result.preview.groupJid ?? 'grupo'}.`);
+      await this.refreshCurrentRouteData();
+    } catch (error) {
+      const message = `Nao foi possivel aplicar esta alteracao na agenda. ${readErrorMessage(error)}`;
+      this.state = {
+        ...this.state,
+        assistantSchedulingDraft: {
+          ...this.state.assistantSchedulingDraft,
+          applying: false,
+        },
+        flowFeedback: {
+          tone: 'danger',
+          message,
+        },
+      };
+      this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+      this.render();
     }
   }
 
@@ -5302,6 +5848,13 @@ export class AppShell {
       pendingConfirmation: null,
     };
 
+    if (pendingConfirmation.domain === 'assistant') {
+      await this.handleAssistantAction(pendingConfirmation.action, pendingConfirmation.dataset, {
+        confirmed: true,
+      });
+      return;
+    }
+
     if (pendingConfirmation.domain === 'workspace') {
       await this.handleWorkspaceAction(pendingConfirmation.action, pendingConfirmation.dataset, {
         confirmed: true,
@@ -5449,6 +6002,19 @@ export class AppShell {
         }
 
         void this.handleGroupAction(action, element.dataset);
+      });
+    }
+
+    for (const element of this.root.querySelectorAll<HTMLElement>('[data-assistant-action]')) {
+      element.addEventListener('click', (event) => {
+        event.preventDefault();
+        const action = element.dataset.assistantAction;
+
+        if (!action) {
+          return;
+        }
+
+        void this.handleAssistantAction(action, element.dataset);
       });
     }
 
@@ -5764,6 +6330,38 @@ function createEmptyWorkspaceAgentDraft(): WorkspaceAgentDraft {
   };
 }
 
+function createEmptyAssistantSchedulingDraft(): AssistantSchedulingDraft {
+  return {
+    groupJid: '',
+    text: '',
+    previewLoading: false,
+    applying: false,
+    preview: null,
+    lastApplied: null,
+  };
+}
+
+function resolveAssistantSchedulingGroupJid(
+  selectedGroupJid: string,
+  groups: readonly Group[],
+): string {
+  if (selectedGroupJid && groups.some((group) => group.groupJid === selectedGroupJid)) {
+    return selectedGroupJid;
+  }
+
+  return groups[0]?.groupJid ?? '';
+}
+
+function resolveAssistantSchedulingDraft(
+  draft: AssistantSchedulingDraft,
+  groups: readonly Group[],
+): AssistantSchedulingDraft {
+  return {
+    ...draft,
+    groupJid: resolveAssistantSchedulingGroupJid(draft.groupJid, groups),
+  };
+}
+
 function buildWorkspaceReviewPrompt(relativePath: string): string {
   return [
     `Reve o ficheiro ${relativePath}.`,
@@ -5773,6 +6371,74 @@ function buildWorkspaceReviewPrompt(relativePath: string): string {
     '- riscos ou problemas encontrados',
     '- se vale a pena mexer noutro ficheiro a seguir',
   ].join(' ');
+}
+
+function readableAssistantOperation(operation: 'create' | 'update' | 'delete' | null): string {
+  switch (operation) {
+    case 'create':
+      return 'Criar';
+    case 'update':
+      return 'Atualizar';
+    case 'delete':
+      return 'Apagar';
+    default:
+      return 'Sem operacao';
+  }
+}
+
+function describeAssistantConversationMemory(
+  entry: AssistantPageData['recentConversationAudit'][number],
+): string {
+  if (!entry.memoryUsage || entry.memoryUsage.scope !== 'group') {
+    return 'Sem memoria de grupo';
+  }
+
+  const documentLabel =
+    entry.memoryUsage.knowledgeDocuments.length > 0
+      ? `docs ${entry.memoryUsage.knowledgeDocuments
+          .slice(0, 2)
+          .map((document) => document.title)
+          .join(', ')}`
+      : 'sem docs';
+
+  return [
+    `grupo ${entry.memoryUsage.groupLabel ?? entry.memoryUsage.groupJid ?? 'desconhecido'}`,
+    `instr ${entry.memoryUsage.instructionsSource ?? 'missing'}`,
+    `${entry.memoryUsage.knowledgeSnippetCount} snippet(s)`,
+    documentLabel,
+  ].join(' | ');
+}
+
+function readableInstructionStatus(status: Instruction['status']): string {
+  switch (status) {
+    case 'queued':
+      return 'Em fila';
+    case 'running':
+      return 'A correr';
+    case 'completed':
+      return 'Concluido';
+    case 'partial_failed':
+      return 'Falha parcial';
+    case 'failed':
+      return 'Falhou';
+    default:
+      return status;
+  }
+}
+
+function toneForInstructionStatus(status: Instruction['status']): UiTone {
+  switch (status) {
+    case 'completed':
+      return 'positive';
+    case 'queued':
+    case 'running':
+      return 'warning';
+    case 'partial_failed':
+    case 'failed':
+      return 'danger';
+    default:
+      return 'neutral';
+  }
 }
 
 function buildWorkspaceDraftContextSummary(draft: WorkspaceAgentDraft): {
@@ -6100,12 +6766,20 @@ function shouldAutoRefreshRoute(route: string, topic: string): boolean {
     return route === '/workspace';
   }
 
+  if (topic.startsWith('assistant.schedule.')) {
+    return route === '/assistant';
+  }
+
   if (topic.startsWith('media.')) {
     return route === '/media' || route === '/whatsapp';
   }
 
   if (topic.startsWith('routing.') || topic.startsWith('instruction.')) {
-    return route === '/media' || route === '/distributions' || route === '/today';
+    return route === '/assistant' || route === '/media' || route === '/distributions' || route === '/today';
+  }
+
+  if (topic.startsWith('schedules.')) {
+    return route === '/assistant' || route === '/week' || route === '/today';
   }
 
   if (topic.startsWith('whatsapp.')) {

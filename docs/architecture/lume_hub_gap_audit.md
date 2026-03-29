@@ -104,23 +104,9 @@ O storage, o runtime, a UX guiada e a limpeza final da serie ficaram fechados.
 ## Gaps ativos da paridade e cutover WA-notify
 
 Esta e, neste momento, a ronda critica para substituicao real do sistema antigo.
+A `Wave 44` ja fechou o primeiro bloqueador critico: o assistente agora consegue fazer `preview -> apply -> queue -> auditoria` sobre schedules reais no calendario do grupo.
 
-### 1. O assistente ainda nao fecha o ciclo de scheduling live com apply real
-
-Estado encontrado:
-
-- o `agent-runtime` continua orientado a parsing/preview de scheduling em vez de aplicar alteracoes reais via queue no calendario
-- a queue operacional existente continua mais forte em fan-out/distribution do que em `schedule_apply`
-
-Implicacao:
-
-- o caminho "pedir ao assistente para criar/editar uma aula e isso ficar mesmo aplicado" ainda nao esta com paridade operacional suficiente
-
-Fecho planeado:
-
-- `Wave 44`
-
-### 2. Os schedules reais do WA-notify ainda nao estao dentro do LumeHub
+### 1. Os schedules reais do WA-notify ainda nao estao dentro do LumeHub
 
 Evidencia confirmada em `2026-03-29`:
 
@@ -136,7 +122,7 @@ Fecho planeado:
 
 - `Wave 45`
 
-### 3. Alerts e automations continuam por fechar
+### 2. Alerts e automations continuam por fechar
 
 Evidencia confirmada em `2026-03-29`:
 
@@ -153,7 +139,7 @@ Fecho planeado:
 
 - `Wave 46`
 
-### 4. A validacao automatica ainda nao esta verde para cutover
+### 3. A validacao automatica ainda nao esta verde para cutover
 
 Evidencia confirmada em `2026-03-29`:
 
@@ -171,7 +157,7 @@ Fecho planeado:
 
 - `Wave 47`
 
-### 5. Ainda falta ensaio com dados reais antes do cutover
+### 4. Ainda falta ensaio com dados reais antes do cutover
 
 Estado encontrado:
 
@@ -220,6 +206,6 @@ Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resp
 - para o agente do projeto, ja existe fundacao funcional
 - para migracao total do `WA-notify`, ainda nao
 - em `2026-03-29`, a recomendacao correta continua a ser:
-  - fechar `Wave 44` a `Wave 49`
+  - fechar `Wave 45` a `Wave 49`
   - depois fazer shadow mode
   - e so depois decidir cutover

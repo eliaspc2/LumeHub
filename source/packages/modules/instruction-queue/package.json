@@ -19,6 +19,8 @@
   "dependencies": {
     "@lume-hub/audience-routing": "workspace:*",
     "@lume-hub/kernel": "workspace:*",
-    "@lume-hub/persistence-group-files": "workspace:*"
+    "@lume-hub/persistence-group-files": "workspace:*",
+    "@lume-hub/group-directory": "workspace:*",
+    "@lume-hub/weekly-planner": "workspace:*"
   }
 }

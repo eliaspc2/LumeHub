@@ -5,6 +5,7 @@ import type { InstructionQueueModuleContract } from '@lume-hub/instruction-queue
 import type { IntentClassifierModuleContract } from '@lume-hub/intent-classifier';
 import type { LlmOrchestratorModuleContract } from '@lume-hub/llm-orchestrator';
 import type { OwnerControlModuleContract } from '@lume-hub/owner-control';
+import type { WeeklyPlannerModuleContract } from '@lume-hub/weekly-planner';
 
 import type { AgentRuntime } from '../application/services/AgentRuntime.js';
 import type { AgentDecisionService } from '../domain/services/AgentDecisionService.js';
@@ -20,6 +21,7 @@ export interface AgentRuntimeModuleConfig {
   readonly intentClassifier?: IntentClassifierModuleContract;
   readonly llmOrchestrator?: LlmOrchestratorModuleContract;
   readonly ownerControl?: OwnerControlModuleContract;
+  readonly weeklyPlanner?: WeeklyPlannerModuleContract;
   readonly toolRegistry?: ToolRegistry;
   readonly toolCallPolicy?: ToolCallPolicy;
   readonly decisionService?: AgentDecisionService;

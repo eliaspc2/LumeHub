@@ -127,11 +127,6 @@ export class ModuleLoader {
       peopleMemory: peopleMemoryModule,
       uiEventPublisher: webSocketGateway.publisher,
     });
-    const instructionQueueExecutor = new InstructionQueueExecutionRuntime({
-      whatsAppRuntime: whatsAppWorkspaceRuntime,
-      mediaLibrary: mediaLibraryModule,
-      uiEventPublisher: webSocketGateway.publisher,
-    });
     const weeklyPlannerModule = new WeeklyPlannerModule({
       dataRootPath: paths.dataRootPath,
       adminConfig: adminConfigModule,
@@ -140,6 +135,12 @@ export class ModuleLoader {
       notificationRules: notificationRulesModule,
       scheduleEvents: scheduleEventsModule,
       scheduleWeeks: scheduleWeeksModule,
+    });
+    const instructionQueueExecutor = new InstructionQueueExecutionRuntime({
+      whatsAppRuntime: whatsAppWorkspaceRuntime,
+      mediaLibrary: mediaLibraryModule,
+      weeklyPlanner: weeklyPlannerModule,
+      uiEventPublisher: webSocketGateway.publisher,
     });
     const instructionQueueModule = new InstructionQueueModule({
       dataRootPath: paths.dataRootPath,
@@ -252,6 +253,7 @@ export class ModuleLoader {
       intentClassifier: intentClassifierModule,
       llmOrchestrator: llmOrchestratorModule,
       ownerControl: ownerControlModule,
+      weeklyPlanner: weeklyPlannerModule,
     });
     const conversationModule = new ConversationModule({
       dataRootPath: paths.dataRootPath,
@@ -392,6 +394,7 @@ export class ModuleLoader {
             return log.entries.slice(Math.max(0, log.entries.length - (limit ?? 20))).reverse();
           },
         },
+        agentRuntime: agentRuntimeModule,
         llmRuntime: {
           getStatus: getLlmRuntimeStatus,
         },
