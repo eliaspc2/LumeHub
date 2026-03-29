@@ -387,7 +387,9 @@ function describeRunMemory(
 function describeConversationMemory(
   entry: import('@lume-hub/frontend-api-client').ConversationAuditRecord,
 ): string {
-  if (entry.memoryUsage.scope !== 'group') {
+  const memoryUsage = entry.memoryUsage ?? null;
+
+  if (!memoryUsage || memoryUsage.scope !== 'group') {
     return 'sem memoria de grupo';
   }
 
@@ -396,17 +398,17 @@ function describeConversationMemory(
       ? `schedule ${entry.schedulingInsight.resolvedGroupJids.join(', ')}`
       : null;
   const documentLabel =
-    entry.memoryUsage.knowledgeDocuments.length > 0
-      ? `docs ${entry.memoryUsage.knowledgeDocuments
+    memoryUsage.knowledgeDocuments.length > 0
+      ? `docs ${memoryUsage.knowledgeDocuments
           .slice(0, 2)
           .map((document) => document.title)
           .join(', ')}`
       : 'sem docs';
 
   return [
-    `grupo ${entry.memoryUsage.groupLabel ?? entry.memoryUsage.groupJid ?? 'desconhecido'}`,
-    `instr ${entry.memoryUsage.instructionsSource ?? 'missing'}`,
-    `${entry.memoryUsage.knowledgeSnippetCount} snippet(s)`,
+    `grupo ${memoryUsage.groupLabel ?? memoryUsage.groupJid ?? 'desconhecido'}`,
+    `instr ${memoryUsage.instructionsSource ?? 'missing'}`,
+    `${memoryUsage.knowledgeSnippetCount} snippet(s)`,
     documentLabel,
     schedulingLabel,
   ]

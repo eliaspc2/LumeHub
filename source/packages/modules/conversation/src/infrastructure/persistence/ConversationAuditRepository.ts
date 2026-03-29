@@ -56,6 +56,13 @@ function normaliseAudit(audit: ConversationAuditFile): ConversationAuditFile {
 }
 
 function normaliseEntry(entry: ConversationAuditRecord): ConversationAuditRecord {
+  const memoryUsage = normaliseMemoryUsage(
+    (entry as ConversationAuditRecord & { readonly memoryUsage?: ConversationAuditRecord['memoryUsage'] }).memoryUsage,
+  );
+  const schedulingInsight = normaliseSchedulingInsight(
+    (entry as ConversationAuditRecord & { readonly schedulingInsight?: ConversationAuditRecord['schedulingInsight'] }).schedulingInsight,
+  );
+
   return {
     ...entry,
     auditId: entry.auditId.trim(),
@@ -66,33 +73,59 @@ function normaliseEntry(entry: ConversationAuditRecord): ConversationAuditRecord
     replyText: entry.replyText?.trim() || null,
     targetChatType: entry.targetChatType,
     targetChatJid: entry.targetChatJid?.trim() || null,
-    memoryUsage: {
-      scope: entry.memoryUsage.scope,
-      groupJid: entry.memoryUsage.groupJid?.trim() || null,
-      groupLabel: entry.memoryUsage.groupLabel?.trim() || null,
-      instructionsSource: entry.memoryUsage.instructionsSource ?? null,
-      instructionsApplied: entry.memoryUsage.instructionsApplied,
-      knowledgeSnippetCount: Number.isFinite(entry.memoryUsage.knowledgeSnippetCount)
-        ? Math.max(0, Math.trunc(entry.memoryUsage.knowledgeSnippetCount))
-        : 0,
-      knowledgeDocuments: entry.memoryUsage.knowledgeDocuments.map((document) => ({
-        documentId: document.documentId.trim(),
-        title: document.title.trim(),
-        filePath: document.filePath.trim(),
-      })),
-    },
-    schedulingInsight: entry.schedulingInsight
-      ? {
-          requestedAccessMode: entry.schedulingInsight.requestedAccessMode,
-          resolvedGroupJids: entry.schedulingInsight.resolvedGroupJids.map((groupJid) => groupJid.trim()),
-          memoryScope: entry.schedulingInsight.memoryScope,
-          memoryGroupJid: entry.schedulingInsight.memoryGroupJid?.trim() || null,
-          memoryGroupLabel: entry.schedulingInsight.memoryGroupLabel?.trim() || null,
-        }
-      : null,
+    memoryUsage,
+    schedulingInsight,
   };
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error;
+}
+
+function normaliseMemoryUsage(
+  memoryUsage: ConversationAuditRecord['memoryUsage'] | undefined,
+): ConversationAuditRecord['memoryUsage'] {
+  if (!memoryUsage) {
+    return {
+      scope: 'none',
+      groupJid: null,
+      groupLabel: null,
+      instructionsSource: null,
+      instructionsApplied: false,
+      knowledgeSnippetCount: 0,
+      knowledgeDocuments: [],
+    };
+  }
+
+  return {
+    scope: memoryUsage.scope,
+    groupJid: memoryUsage.groupJid?.trim() || null,
+    groupLabel: memoryUsage.groupLabel?.trim() || null,
+    instructionsSource: memoryUsage.instructionsSource ?? null,
+    instructionsApplied: memoryUsage.instructionsApplied,
+    knowledgeSnippetCount: Number.isFinite(memoryUsage.knowledgeSnippetCount)
+      ? Math.max(0, Math.trunc(memoryUsage.knowledgeSnippetCount))
+      : 0,
+    knowledgeDocuments: (memoryUsage.knowledgeDocuments ?? []).map((document) => ({
+      documentId: document.documentId.trim(),
+      title: document.title.trim(),
+      filePath: document.filePath.trim(),
+    })),
+  };
+}
+
+function normaliseSchedulingInsight(
+  schedulingInsight: ConversationAuditRecord['schedulingInsight'] | undefined,
+): ConversationAuditRecord['schedulingInsight'] {
+  if (!schedulingInsight) {
+    return null;
+  }
+
+  return {
+    requestedAccessMode: schedulingInsight.requestedAccessMode,
+    resolvedGroupJids: (schedulingInsight.resolvedGroupJids ?? []).map((groupJid) => groupJid.trim()),
+    memoryScope: schedulingInsight.memoryScope,
+    memoryGroupJid: schedulingInsight.memoryGroupJid?.trim() || null,
+    memoryGroupLabel: schedulingInsight.memoryGroupLabel?.trim() || null,
+  };
 }
