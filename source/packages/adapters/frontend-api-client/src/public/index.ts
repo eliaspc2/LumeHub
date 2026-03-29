@@ -307,10 +307,14 @@ export interface WorkspaceAgentRunSnapshot {
   readonly mode: 'plan' | 'apply';
   readonly prompt: string;
   readonly filePaths: readonly string[];
+  readonly requestedBy: string;
+  readonly approvalState: 'not_required' | 'confirmed' | 'missing_confirmation';
+  readonly executionState: 'executed' | 'rejected';
   readonly startedAt: string;
   readonly completedAt: string;
   readonly status: 'completed' | 'failed';
   readonly outputSummary: string;
+  readonly guardrailReason: string | null;
   readonly stdout: string;
   readonly stderr: string;
   readonly exitCode: number | null;
@@ -329,6 +333,19 @@ export interface WorkspaceAgentRunSnapshot {
     readonly afterStatus: string | null;
     readonly diffText: string;
   }[];
+}
+
+export interface WorkspaceAgentStatusSnapshot {
+  readonly busy: boolean;
+  readonly activeRunId: string | null;
+  readonly activeMode: 'plan' | 'apply' | null;
+  readonly activePromptSummary: string | null;
+  readonly activeStartedAt: string | null;
+  readonly lastCompletedAt: string | null;
+  readonly lastRejectedAt: string | null;
+  readonly lastRejectedReason: string | null;
+  readonly requiresApplyConfirmation: boolean;
+  readonly maxFocusedFiles: number;
 }
 
 export interface DistributionExecutionResult {
@@ -462,10 +479,21 @@ export class FrontendApiClient {
     );
   }
 
+  async getWorkspaceAgentStatus(): Promise<WorkspaceAgentStatusSnapshot> {
+    return this.expectOk(
+      await this.transport.request<WorkspaceAgentStatusSnapshot>({
+        method: 'GET',
+        path: '/api/workspace/status',
+      }),
+    );
+  }
+
   async runWorkspaceAgent(input: {
     readonly prompt: string;
     readonly mode?: 'plan' | 'apply';
     readonly filePaths?: readonly string[];
+    readonly confirmedApply?: boolean;
+    readonly requestedBy?: string | null;
   }): Promise<WorkspaceAgentRunSnapshot> {
     return this.expectOk(
       await this.transport.request<WorkspaceAgentRunSnapshot>({

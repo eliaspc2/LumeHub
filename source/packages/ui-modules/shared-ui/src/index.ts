@@ -57,6 +57,7 @@ export interface UiActionButtonSpec {
   readonly label: string;
   readonly href?: string;
   readonly variant?: 'primary' | 'secondary';
+  readonly disabled?: boolean;
   readonly dataAttributes?: Readonly<Record<string, string | undefined>>;
 }
 
@@ -148,16 +149,17 @@ export function renderUiToggleButton(spec: UiToggleButtonSpec): string {
 
 export function renderUiActionButton(spec: UiActionButtonSpec): string {
   const variant = spec.variant ?? 'primary';
+  const disabled = spec.disabled === true;
   const attributeList = Object.entries(spec.dataAttributes ?? {})
     .filter(([, value]) => value != null)
     .map(([key, value]) => ` data-${escapeHtml(key)}="${escapeHtml(value)}"`)
     .join('');
 
   if (spec.href) {
-    return `<a class="ui-button ui-button--${variant}" href="${escapeHtml(spec.href)}"${attributeList}>${escapeHtml(spec.label)}</a>`;
+    return `<a class="ui-button ui-button--${variant} ${disabled ? 'is-disabled' : ''}" href="${disabled ? '#' : escapeHtml(spec.href)}"${disabled ? ' aria-disabled="true" tabindex="-1"' : ''}${attributeList}>${escapeHtml(spec.label)}</a>`;
   }
 
-  return `<button class="ui-button ui-button--${variant}" type="button"${attributeList}>${escapeHtml(spec.label)}</button>`;
+  return `<button class="ui-button ui-button--${variant}" type="button"${disabled ? ' disabled' : ''}${attributeList}>${escapeHtml(spec.label)}</button>`;
 }
 
 export function renderUiSwitch(spec: UiSwitchSpec): string {

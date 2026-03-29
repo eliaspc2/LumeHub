@@ -8,6 +8,7 @@ import type {
   Instruction,
   MediaAssetSnapshot,
   SettingsSnapshot,
+  WorkspaceAgentStatusSnapshot,
   WorkspaceAgentRunSnapshot,
   WorkspaceFileSnapshot,
 } from '@lume-hub/frontend-api-client';
@@ -54,6 +55,7 @@ export interface MediaLibraryPageData {
 export interface WorkspaceAgentPageData {
   readonly files: readonly WorkspaceFileSnapshot[];
   readonly recentRuns: readonly WorkspaceAgentRunSnapshot[];
+  readonly status: WorkspaceAgentStatusSnapshot;
 }
 
 export class AppRouter {
@@ -173,9 +175,10 @@ export class AppRouter {
         description: 'Pedir a uma LLM para ler, rever e alterar ficheiros do LumeHub sem sair da interface.',
         legacyRoutes: ['/workspace-agent'],
         render: async () => {
-          const [files, recentRuns] = await Promise.all([
+          const [files, recentRuns, status] = await Promise.all([
             this.readQuery('workspace-files', () => this.client.searchWorkspaceFiles('', 40)),
             this.readQuery('workspace-runs', () => this.client.listWorkspaceAgentRuns(10)),
+            this.readQuery('workspace-status', () => this.client.getWorkspaceAgentStatus()),
           ]);
 
           return {
@@ -196,6 +199,7 @@ export class AppRouter {
             data: {
               files,
               recentRuns,
+              status,
             } satisfies WorkspaceAgentPageData,
           };
         },

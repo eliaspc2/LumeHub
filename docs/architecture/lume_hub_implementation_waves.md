@@ -10,7 +10,7 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 40` ja foram executadas e validadas.
+As `Wave 0` a `Wave 41` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
 O storage canonico da ronda de media ja ficou aberto com:
@@ -46,40 +46,12 @@ A ronda nova do agente de projeto ja ficou aberta com:
 
 ## Estado do plano
 
-As `Wave 35` a `Wave 40` ja foram executadas e validadas.
+As `Wave 35` a `Wave 41` ja foram executadas e validadas.
 A ronda de simplificacao do GUI ficou fechada com shell minima, paginas principais mais curtas, configuracao avancada sob demanda e limpeza final dos validadores e do copy de transicao.
 A `Wave 40` tambem ja fechou diffs por ficheiro, resumo estruturado de contexto e revisao guiada de ficheiro na pagina `Projeto`.
+A `Wave 41` ja fechou aprovacao explicita para `apply`, bloqueio de concorrencia, auditoria visivel do pedido/modo/resultado e guardrails operacionais no backend e na UI.
 
 Ronda ativa:
-
-### Wave 41 - Aprovação, fila e guardrails operacionais
-
-Objetivo:
-- endurecer o uso do agente antes de o tratar como fluxo normal de produto
-
-Entregaveis:
-- aprovacao explicita antes de runs `apply`
-- bloqueio de concorrencia para nao correr duas runs destrutivas ao mesmo tempo
-- auditoria visivel do pedido, modo e resultado
-- guardrails adicionais no backend para limitar operacoes fora do esperado
-
-Criterios de aceitacao:
-- nao e possivel disparar alteracoes destrutivas sem confirmacao
-- duas runs `apply` nao concorrem ao mesmo tempo
-- a auditoria recente permite perceber quem pediu o que e qual foi o resultado
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave41`
-
-Melhor momento para testar:
-- quando a UI da `Wave 40` ja estiver minimamente clara, porque aqui interessa validar risco operacional e confianca
-
-O que testar:
-- run `apply` com confirmacao
-- tentativa de disparar duas runs seguidas
-- leitura do historico e do estado de bloqueio
 
 ### Wave 42 - Limpeza final da ronda do agente de projeto
 

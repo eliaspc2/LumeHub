@@ -1,6 +1,8 @@
 export type WorkspaceAgentRunMode = 'plan' | 'apply';
 export type WorkspaceAgentRunStatus = 'completed' | 'failed';
 export type WorkspaceAgentFileChangeType = 'added' | 'modified' | 'deleted';
+export type WorkspaceAgentApprovalState = 'not_required' | 'confirmed' | 'missing_confirmation';
+export type WorkspaceAgentExecutionState = 'executed' | 'rejected';
 
 export interface WorkspaceFileEntry {
   readonly relativePath: string;
@@ -20,6 +22,8 @@ export interface WorkspaceAgentRunInput {
   readonly prompt: string;
   readonly mode: WorkspaceAgentRunMode;
   readonly filePaths?: readonly string[];
+  readonly confirmedApply?: boolean;
+  readonly requestedBy?: string | null;
 }
 
 export interface WorkspaceAgentExecutionInput {
@@ -60,10 +64,14 @@ export interface WorkspaceAgentRunRecord {
   readonly mode: WorkspaceAgentRunMode;
   readonly prompt: string;
   readonly filePaths: readonly string[];
+  readonly requestedBy: string;
+  readonly approvalState: WorkspaceAgentApprovalState;
+  readonly executionState: WorkspaceAgentExecutionState;
   readonly startedAt: string;
   readonly completedAt: string;
   readonly status: WorkspaceAgentRunStatus;
   readonly outputSummary: string;
+  readonly guardrailReason: string | null;
   readonly stdout: string;
   readonly stderr: string;
   readonly exitCode: number | null;
@@ -76,6 +84,19 @@ export interface WorkspaceAgentRunRecord {
 export interface WorkspaceAgentRunLog {
   readonly schemaVersion: 1;
   readonly runs: readonly WorkspaceAgentRunRecord[];
+}
+
+export interface WorkspaceAgentStatusSnapshot {
+  readonly busy: boolean;
+  readonly activeRunId: string | null;
+  readonly activeMode: WorkspaceAgentRunMode | null;
+  readonly activePromptSummary: string | null;
+  readonly activeStartedAt: string | null;
+  readonly lastCompletedAt: string | null;
+  readonly lastRejectedAt: string | null;
+  readonly lastRejectedReason: string | null;
+  readonly requiresApplyConfirmation: boolean;
+  readonly maxFocusedFiles: number;
 }
 
 export interface WorkspaceAgentExecutor {

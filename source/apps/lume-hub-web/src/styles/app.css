@@ -1247,6 +1247,29 @@ textarea {
   outline-offset: 2px;
 }
 
+.ui-button:disabled,
+.ui-button.is-disabled,
+.action-button:disabled,
+.action-button.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+  box-shadow: none;
+}
+
+.ui-button:disabled:hover,
+.ui-button:disabled:focus-visible,
+.ui-button.is-disabled:hover,
+.ui-button.is-disabled:focus-visible,
+.action-button:disabled:hover,
+.action-button:disabled:focus-visible,
+.action-button.is-disabled:hover,
+.action-button.is-disabled:focus-visible {
+  background: var(--accent);
+  border-color: rgba(105, 138, 87, 0.18);
+  outline: none;
+}
+
 .ui-button--secondary,
 .action-button--secondary {
   background: var(--surface);
@@ -1260,6 +1283,14 @@ textarea {
 .action-button--secondary:hover,
 .action-button--secondary:focus-visible {
   background: var(--surface-subtle);
+}
+
+.ui-button--secondary:disabled,
+.ui-button--secondary.is-disabled,
+.action-button--secondary:disabled,
+.action-button--secondary.is-disabled {
+  background: var(--surface);
+  border-color: var(--line-strong);
 }
 
 .ui-card__chips .ui-button,

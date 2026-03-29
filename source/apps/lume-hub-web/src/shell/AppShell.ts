@@ -173,6 +173,7 @@ interface UxTelemetryEntry {
 }
 
 interface PendingConfirmation {
+  readonly domain: 'whatsapp' | 'workspace';
   readonly key: string;
   readonly action: string;
   readonly dataset: ActionDataset;
@@ -1533,6 +1534,7 @@ export class AppShell {
 
   private renderWorkspacePage(page: UiPage<WorkspaceAgentPageData>): string {
     const draft = this.state.workspaceAgentDraft;
+    const status = page.data.status;
     const visibleFiles =
       draft.query.trim().length > 0 || draft.searchResults.length > 0 ? draft.searchResults : page.data.files;
     const selectedFiles = draft.selectedFilePaths;
@@ -1540,6 +1542,21 @@ export class AppShell {
     const latestRun = recentRuns[0] ?? null;
     const reviewTargetPath = draft.previewContent?.relativePath ?? selectedFiles[0] ?? null;
     const contextSummary = buildWorkspaceDraftContextSummary(draft);
+    const applyBusy = status.busy && draft.mode === 'apply';
+    const runButtonDisabled = draft.running || applyBusy;
+    const latestRunLabel = latestRun ? readableWorkspaceRunResult(latestRun) : 'Sem runs';
+    const latestRunTone = latestRun ? toneForWorkspaceRun(latestRun) : 'neutral';
+    const latestRunSummary = latestRun
+      ? latestRun.executionState === 'rejected'
+        ? latestRun.guardrailReason ?? latestRun.outputSummary
+        : `${latestRun.structuredSummary.summary} ${
+            latestRun.changedFiles.length > 0
+              ? `Mudou ${latestRun.changedFiles.length} ficheiro(s).`
+              : latestRun.structuredSummary.readFiles.length > 0
+                ? `Leu ${latestRun.structuredSummary.readFiles.length} ficheiro(s).`
+                : 'Sem alteracoes guardadas.'
+          }`
+      : 'Ainda nao ha runs deste agente neste ambiente.';
 
     return `
       <section class="surface hero surface--strong">
@@ -1549,7 +1566,13 @@ export class AppShell {
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
-              label: draft.mode === 'plan' ? 'Gerar plano' : 'Executar alteracoes',
+              label:
+                draft.mode === 'plan'
+                  ? 'Gerar plano'
+                  : applyBusy
+                    ? 'Apply bloqueado'
+                    : 'Executar alteracoes',
+              disabled: runButtonDisabled,
               dataAttributes: { 'workspace-action': 'run-agent' },
             })}
             ${renderUiActionButton({
@@ -1574,12 +1597,24 @@ export class AppShell {
         <div class="hero-panel">
           ${renderUiPanelCard({
             title: 'Modo atual',
-            badgeLabel: draft.mode === 'plan' ? 'Planear' : 'Aplicar',
+            badgeLabel: draft.mode === 'plan' ? 'Planear' : 'Aplicar com aprovacao',
             badgeTone: draft.mode === 'plan' ? 'neutral' : 'warning',
             contentHtml: `<p>${escapeHtml(
               draft.mode === 'plan'
                 ? 'A LLM analisa o repo e responde com plano, sem editar ficheiros.'
-                : 'A LLM pode abrir e alterar qualquer ficheiro dentro do repo do LumeHub.',
+                : `A LLM pode editar ficheiros do repo, mas so depois da tua confirmacao. O backend aceita no maximo ${status.maxFocusedFiles} ficheiro(s) em foco por run.`,
+            )}</p>`,
+          })}
+          ${renderUiPanelCard({
+            title: 'Fila e guardrails',
+            badgeLabel: status.busy ? 'Apply em curso' : 'Livre',
+            badgeTone: status.busy ? 'warning' : 'positive',
+            contentHtml: `<p>${escapeHtml(
+              status.busy
+                ? `Ja existe uma run a alterar ficheiros. O backend bloqueia novos apply ate esta terminar.`
+                : status.lastRejectedReason
+                  ? `Ultima rejeicao: ${status.lastRejectedReason}`
+                  : 'Nao ha outra run destrutiva em curso neste momento.',
             )}</p>`,
           })}
           ${renderUiPanelCard({
@@ -1603,19 +1638,9 @@ export class AppShell {
           })}
           ${renderUiPanelCard({
             title: 'Ultima run',
-            badgeLabel: latestRun ? readableWorkspaceRunStatus(latestRun.status) : 'Sem runs',
-            badgeTone: latestRun ? toneForWorkspaceRunStatus(latestRun.status) : 'neutral',
-            contentHtml: `<p>${escapeHtml(
-              latestRun
-                ? `${latestRun.structuredSummary.summary} ${
-                    latestRun.changedFiles.length > 0
-                      ? `Mudou ${latestRun.changedFiles.length} ficheiro(s).`
-                      : latestRun.structuredSummary.readFiles.length > 0
-                        ? `Leu ${latestRun.structuredSummary.readFiles.length} ficheiro(s).`
-                        : 'Sem alteracoes guardadas.'
-                  }`
-                : 'Ainda nao ha runs deste agente neste ambiente.',
-            )}</p>`,
+            badgeLabel: latestRunLabel,
+            badgeTone: latestRunTone,
+            contentHtml: `<p>${escapeHtml(latestRunSummary)}</p>`,
           })}
         </div>
       </section>
@@ -1628,8 +1653,8 @@ export class AppShell {
               <p>Escreve em linguagem natural. Podes orientar com ficheiros concretos ou pedir so revisao sem edicao.</p>
             </div>
             ${renderUiBadge({
-              label: draft.running ? 'A correr' : draft.mode === 'plan' ? 'Sem edicao' : 'Com edicao',
-              tone: draft.running ? 'warning' : draft.mode === 'plan' ? 'neutral' : 'positive',
+              label: draft.running ? 'A correr' : applyBusy ? 'Bloqueado por outra run' : draft.mode === 'plan' ? 'Sem edicao' : 'Com edicao',
+              tone: draft.running || applyBusy ? 'warning' : draft.mode === 'plan' ? 'neutral' : 'positive',
             })}
           </div>
           <div class="ui-form-grid">
@@ -1660,8 +1685,8 @@ export class AppShell {
               contentHtml: `<p>${escapeHtml(
                 draft.mode === 'apply'
                   ? selectedFiles.length > 0
-                    ? `A LLM vai trabalhar com ${selectedFiles.length} ficheiro(s) em foco e ainda pode abrir outros se precisar.`
-                    : 'Nao ha ficheiros em foco. A LLM pode procurar sozinha o contexto antes de alterar.'
+                    ? `A LLM vai trabalhar com ${selectedFiles.length} ficheiro(s) em foco e ainda pode abrir outros se precisar. Antes de editar, a interface pede confirmacao explicita.`
+                    : 'Nao ha ficheiros em foco. O backend vai travar o apply ate escolheres pelo menos um ficheiro.'
                   : reviewTargetPath
                     ? `Este modo e seguro para rever ${reviewTargetPath} sem editar nada.`
                     : 'Este modo serve para perceber a abordagem antes de permitires alteracoes reais.'
@@ -1678,6 +1703,16 @@ export class AppShell {
               )}</p>`,
             })}
           </div>
+          ${
+            status.lastRejectedReason
+              ? `
+                <div class="guide-preview">
+                  <p><strong>Ultimo guardrail ativado</strong>: ${escapeHtml(status.lastRejectedReason)}</p>
+                  <p>Se aparecer outra vez, ajusta o pedido, reduz o foco ou confirma o apply quando estiveres pronto.</p>
+                </div>
+              `
+              : ''
+          }
           ${
             selectedFiles.length > 0
               ? `
@@ -1863,8 +1898,18 @@ export class AppShell {
                           <p>${escapeHtml(run.prompt)}</p>
                           <div class="workspace-run-summary-grid">
                             <div class="guide-preview">
-                              <p><strong>Estado</strong>: ${escapeHtml(readableWorkspaceRunStatus(run.status))}</p>
+                              <p><strong>Resultado</strong>: ${escapeHtml(readableWorkspaceRunResult(run))}</p>
                               <p><strong>Modo</strong>: ${escapeHtml(run.mode === 'plan' ? 'So leitura' : 'Com alteracoes')}</p>
+                              <p><strong>Aprovacao</strong>: ${escapeHtml(readableWorkspaceApprovalState(run.approvalState))}</p>
+                            </div>
+                            <div class="guide-preview">
+                              <p><strong>Pedido feito por</strong>: ${escapeHtml(run.requestedBy)}</p>
+                              <p><strong>Execucao</strong>: ${escapeHtml(run.executionState === 'rejected' ? 'Travada antes de correr' : 'Agente executado')}</p>
+                              ${
+                                run.guardrailReason
+                                  ? `<p><strong>Guardrail</strong>: ${escapeHtml(run.guardrailReason)}</p>`
+                                  : ''
+                              }
                             </div>
                             <div class="guide-preview">
                               <p><strong>Ficheiros sugeridos</strong>: ${escapeHtml(String(run.structuredSummary.suggestedFiles.length))}</p>
@@ -3811,7 +3856,38 @@ export class AppShell {
     }
   }
 
-  private async handleWorkspaceAction(action: string, dataset: ActionDataset): Promise<void> {
+  private buildWorkspaceConfirmation(
+    action: string,
+    draft: WorkspaceAgentDraft,
+  ): PendingConfirmation | null {
+    if (action !== 'run-agent' || draft.mode !== 'apply') {
+      return null;
+    }
+
+    const selectedFilesLabel =
+      draft.selectedFilePaths.length > 0
+        ? `${draft.selectedFilePaths.length} ficheiro(s) em foco`
+        : 'sem ficheiros em foco';
+
+    return {
+      domain: 'workspace',
+      key: `workspace-run:${draft.mode}:${draft.selectedFilePaths.join('|')}:${draft.prompt.trim()}`,
+      action,
+      dataset: {},
+      title: 'Aplicar alteracoes no projeto?',
+      description: `A LLM vai poder editar ficheiros do LumeHub a partir deste pedido, com ${selectedFilesLabel}. Confirma so quando a instrução estiver pronta para mexer no repo.`,
+      confirmLabel: 'Aplicar agora',
+      tone: 'warning',
+    };
+  }
+
+  private async handleWorkspaceAction(
+    action: string,
+    dataset: ActionDataset,
+    options: {
+      readonly confirmed?: boolean;
+    } = {},
+  ): Promise<void> {
     const page = this.readWorkspacePageData();
 
     if (!page) {
@@ -3966,6 +4042,24 @@ export class AppShell {
         return;
       }
 
+      const pendingConfirmation = !options.confirmed
+        ? this.buildWorkspaceConfirmation(action, this.state.workspaceAgentDraft)
+        : null;
+
+      if (pendingConfirmation) {
+        this.state = {
+          ...this.state,
+          pendingConfirmation,
+          flowFeedback: {
+            tone: 'warning',
+            message: pendingConfirmation.description,
+          },
+        };
+        this.recordUxEvent('warning', `Confirmacao pedida: ${pendingConfirmation.title}`);
+        this.render();
+        return;
+      }
+
       this.state = {
         ...this.state,
         workspaceAgentDraft: {
@@ -3987,6 +4081,8 @@ export class AppShell {
           prompt,
           mode: this.state.workspaceAgentDraft.mode,
           filePaths: this.state.workspaceAgentDraft.selectedFilePaths,
+          confirmedApply: this.state.workspaceAgentDraft.mode === 'apply' ? options.confirmed === true : undefined,
+          requestedBy: 'workspace-ui',
         });
         await this.refreshCurrentRouteData();
 
@@ -4003,9 +4099,16 @@ export class AppShell {
             running: false,
           },
           flowFeedback: {
-            tone: run.status === 'completed' ? 'positive' : 'warning',
+            tone:
+              run.executionState === 'rejected'
+                ? 'warning'
+                : run.status === 'completed'
+                  ? 'positive'
+                  : 'warning',
             message:
-              run.status === 'completed'
+              run.executionState === 'rejected'
+                ? `Run bloqueada por guardrail. ${run.guardrailReason ?? run.outputSummary}`
+                : run.status === 'completed'
                 ? run.changedFiles.length > 0
                   ? `Run concluida. ${run.structuredSummary.summary} Diff disponivel para ${run.changedFiles.length} ficheiro(s).`
                   : `Run concluida sem alterar ficheiros. ${run.structuredSummary.summary}`
@@ -4013,8 +4116,10 @@ export class AppShell {
           },
         };
         this.recordUxEvent(
-          run.status === 'completed' ? 'positive' : 'warning',
-          `Run ${run.runId} concluida no workspace agent.`,
+          run.executionState === 'rejected' ? 'warning' : run.status === 'completed' ? 'positive' : 'warning',
+          run.executionState === 'rejected'
+            ? `Run ${run.runId} rejeitada por guardrail no workspace agent.`
+            : `Run ${run.runId} concluida no workspace agent.`,
         );
         this.render();
       } catch (error) {
@@ -4999,6 +5104,7 @@ export class AppShell {
   ): PendingConfirmation | null {
     if (action === 'toggle-whatsapp-enabled' && snapshot.settings.whatsapp.enabled) {
       return {
+        domain: 'whatsapp',
         key: 'toggle-whatsapp-enabled',
         action,
         dataset,
@@ -5011,6 +5117,7 @@ export class AppShell {
 
     if (action === 'toggle-private-assistant-global' && snapshot.settings.commands.allowPrivateAssistant) {
       return {
+        domain: 'whatsapp',
         key: 'toggle-private-assistant-global',
         action,
         dataset,
@@ -5026,6 +5133,7 @@ export class AppShell {
 
       if (person?.globalRoles.includes('app_owner')) {
         return {
+          domain: 'whatsapp',
           key: `toggle-app-owner:${person.personId}`,
           action,
           dataset,
@@ -5042,6 +5150,7 @@ export class AppShell {
 
       if (person?.privateAssistantAuthorized) {
         return {
+          domain: 'whatsapp',
           key: `toggle-private-person:${person.personId}`,
           action,
           dataset,
@@ -5058,6 +5167,7 @@ export class AppShell {
 
       if (group?.assistantAuthorized) {
         return {
+          domain: 'whatsapp',
           key: `toggle-group-authorized:${group.groupJid}`,
           action,
           dataset,
@@ -5074,6 +5184,7 @@ export class AppShell {
 
       if (group) {
         return {
+          domain: 'whatsapp',
           key: `clear-group-owners:${group.groupJid}`,
           action,
           dataset,
@@ -5091,6 +5202,7 @@ export class AppShell {
 
       if (group && person && group.ownerPersonIds.includes(person.personId ?? '')) {
         return {
+          domain: 'whatsapp',
           key: `toggle-group-owner:${group.groupJid}:${person.personId}`,
           action,
           dataset,
@@ -5148,6 +5260,14 @@ export class AppShell {
       ...this.state,
       pendingConfirmation: null,
     };
+
+    if (pendingConfirmation.domain === 'workspace') {
+      await this.handleWorkspaceAction(pendingConfirmation.action, pendingConfirmation.dataset, {
+        confirmed: true,
+      });
+      return;
+    }
+
     await this.handleWhatsAppAction(pendingConfirmation.action, pendingConfirmation.dataset, {
       confirmed: true,
     });
@@ -5864,12 +5984,29 @@ function toneForSessionPhase(phase: WhatsAppWorkspaceSnapshot['runtime']['sessio
   }
 }
 
-function readableWorkspaceRunStatus(status: WorkspaceAgentRunSnapshot['status']): string {
-  switch (status) {
+function readableWorkspaceRunResult(run: WorkspaceAgentRunSnapshot): string {
+  if (run.executionState === 'rejected') {
+    return 'Rejeitada por guardrail';
+  }
+
+  switch (run.status) {
     case 'completed':
       return 'Concluida';
     case 'failed':
       return 'Com erro';
+  }
+}
+
+function readableWorkspaceApprovalState(
+  approvalState: WorkspaceAgentRunSnapshot['approvalState'],
+): string {
+  switch (approvalState) {
+    case 'confirmed':
+      return 'Confirmado';
+    case 'missing_confirmation':
+      return 'Sem confirmacao';
+    case 'not_required':
+      return 'Nao precisava';
   }
 }
 
@@ -5884,8 +6021,12 @@ function readableWorkspaceChangeType(changeType: WorkspaceAgentRunSnapshot['file
   }
 }
 
-function toneForWorkspaceRunStatus(status: WorkspaceAgentRunSnapshot['status']): UiTone {
-  switch (status) {
+function toneForWorkspaceRun(run: WorkspaceAgentRunSnapshot): UiTone {
+  if (run.executionState === 'rejected') {
+    return 'warning';
+  }
+
+  switch (run.status) {
     case 'completed':
       return 'positive';
     case 'failed':
@@ -5914,6 +6055,10 @@ function renderWorkspaceFileBadges(filePaths: readonly string[], tone: UiTone): 
 }
 
 function shouldAutoRefreshRoute(route: string, topic: string): boolean {
+  if (topic.startsWith('workspace.')) {
+    return route === '/workspace';
+  }
+
   if (topic.startsWith('media.')) {
     return route === '/media' || route === '/whatsapp';
   }

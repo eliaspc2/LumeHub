@@ -36,7 +36,7 @@ Decisao de storage:
 
 ## Estado
 
-A base do monorepo ja existe e as `Wave 0` a `Wave 40` foram executadas.
+A base do monorepo ja existe e as `Wave 0` a `Wave 41` foram executadas.
 Hoje esta pasta ja contem:
 
 - `apps/lume-hub-backend`, `apps/lume-hub-web` e `apps/lume-hub-host`
@@ -63,6 +63,10 @@ Tambem ja existe a primeira fundacao do agente de projeto:
 - diff por ficheiro depois de cada run
 - resumo estruturado de ficheiros lidos, ficheiros mudados e ficheiros sugeridos
 - fluxo guiado para rever um ficheiro especifico sem o alterar
+- confirmacao explicita antes de `apply`
+- bloqueio de concorrencia para runs destrutivas
+- auditoria de `requestedBy`, aprovacao, execucao e guardrail
+- endpoint `/api/workspace/status`
 
 Nota operacional:
 

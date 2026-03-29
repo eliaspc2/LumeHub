@@ -115,7 +115,7 @@ export interface HttpApiModules {
   readonly systemPower: Pick<SystemPowerModuleContract, 'getPowerStatus' | 'updatePowerPolicy'>;
   readonly watchdog: Pick<WatchdogModuleContract, 'listIssues' | 'resolveIssue'>;
   readonly weeklyPlanner?: Pick<WeeklyPlannerModuleContract, 'deleteSchedule' | 'getWeekSnapshot' | 'saveSchedule'>;
-  readonly workspaceAgent?: Pick<WorkspaceAgentModuleContract, 'listRuns' | 'readFile' | 'run' | 'searchFiles'>;
+  readonly workspaceAgent?: Pick<WorkspaceAgentModuleContract, 'getStatus' | 'listRuns' | 'readFile' | 'run' | 'searchFiles'>;
   readonly whatsappRuntime?: {
     getRuntimeSnapshot(): Promise<WhatsAppRuntimeSnapshot>;
     refreshWorkspace(): Promise<WhatsAppRuntimeSnapshot>;
@@ -606,6 +606,17 @@ export class RouteRegistrar {
       },
     });
     server.registerRoute({
+      method: 'GET',
+      path: '/api/workspace/status',
+      handler: async () => {
+        if (!this.modules.workspaceAgent) {
+          throw new ApiError(404, 'Workspace agent is not configured.');
+        }
+
+        return this.modules.workspaceAgent.getStatus();
+      },
+    });
+    server.registerRoute({
       method: 'POST',
       path: '/api/workspace/agent/runs',
       handler: async (context) => {
@@ -618,6 +629,9 @@ export class RouteRegistrar {
           runId: run.runId,
           mode: run.mode,
           status: run.status,
+          executionState: run.executionState,
+          approvalState: run.approvalState,
+          guardrailReason: run.guardrailReason,
           changedFiles: run.changedFiles,
         });
         return run;
@@ -1993,6 +2007,8 @@ function readWorkspaceAgentRunBody(body: unknown): {
   readonly prompt: string;
   readonly mode: 'plan' | 'apply';
   readonly filePaths?: readonly string[];
+  readonly confirmedApply?: boolean;
+  readonly requestedBy?: string;
 } {
   const payload = readBodyObject(body, 'Workspace agent payload must be an object.');
   const mode = readOptionalTrimmedStringValue(payload.mode, 'mode') ?? 'apply';
@@ -2005,6 +2021,8 @@ function readWorkspaceAgentRunBody(body: unknown): {
     prompt: readRequiredStringValue(payload.prompt, 'prompt'),
     mode,
     filePaths: readOptionalStringArrayValue(payload.filePaths, 'filePaths'),
+    confirmedApply: readOptionalBooleanValue(payload.confirmedApply, 'confirmedApply'),
+    requestedBy: readOptionalTrimmedStringValue(payload.requestedBy, 'requestedBy'),
   };
 }
 

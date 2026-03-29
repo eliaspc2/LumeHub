@@ -34,6 +34,7 @@ import type {
   WeeklyPlannerEventSummary,
   WeeklyPlannerSnapshot,
   WorkspaceAgentRunSnapshot,
+  WorkspaceAgentStatusSnapshot,
   WorkspaceFileContentSnapshot,
   WorkspaceFileSnapshot,
 } from '@lume-hub/frontend-api-client';
@@ -311,11 +312,19 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       return this.ok(this.state.workspaceRuns.slice(0, Number.isFinite(limit) ? Math.max(1, limit) : 12));
     }
 
+    if (request.method === 'GET' && pathname === '/api/workspace/status') {
+      return this.ok(this.state.workspaceStatus);
+    }
+
     if (request.method === 'POST' && pathname === '/api/workspace/agent/runs') {
       const result = createDemoWorkspaceRun(this.state, request.body as Record<string, unknown>);
       this.emit('workspace.agent.run.completed', {
         runId: result.runId,
+        mode: result.mode,
         status: result.status,
+        executionState: result.executionState,
+        approvalState: result.approvalState,
+        guardrailReason: result.guardrailReason,
         changedFiles: result.changedFiles,
       });
       return this.ok(result);
@@ -706,6 +715,7 @@ interface DemoState {
   mediaAssets: MediaAssetSnapshot[];
   workspaceFiles: WorkspaceFileContentSnapshot[];
   workspaceRuns: WorkspaceAgentRunSnapshot[];
+  workspaceStatus: WorkspaceAgentStatusSnapshot;
   people: Person[];
   routingRules: SenderAudienceRule[];
   distributions: DistributionSummary[];
@@ -1340,10 +1350,14 @@ function createDemoState(): DemoState {
       mode: 'apply',
       prompt: 'Ajusta a copy do hero da homepage e melhora o CTA principal.',
       filePaths: ['source/apps/lume-hub-web/src/shell/AppShell.ts'],
+      requestedBy: 'workspace-ui',
+      approvalState: 'confirmed',
+      executionState: 'executed',
       startedAt: iso(-40),
       completedAt: iso(-38),
       status: 'completed',
       outputSummary: 'Atualizei a hero da homepage e o CTA principal.',
+      guardrailReason: null,
       stdout: 'Atualizei o hero e o CTA na homepage.',
       stderr: '',
       exitCode: 0,
@@ -1377,10 +1391,14 @@ function createDemoState(): DemoState {
       mode: 'plan',
       prompt: 'Mapeia o que precisas de mexer para introduzir uma pagina nova no frontend.',
       filePaths: ['source/apps/lume-hub-web/src/app/AppRouter.ts', 'source/apps/lume-hub-web/src/shell/AppShell.ts'],
+      requestedBy: 'workspace-ui',
+      approvalState: 'not_required',
+      executionState: 'executed',
       startedAt: iso(-92),
       completedAt: iso(-90),
       status: 'completed',
       outputSummary: 'Plano curto gerado para frontend, API e validacao.',
+      guardrailReason: null,
       stdout: 'Plano: AppRouter, AppShell, frontend-api-client, validate-wave.',
       stderr: '',
       exitCode: 0,
@@ -1402,6 +1420,19 @@ function createDemoState(): DemoState {
       fileDiffs: [],
     },
   ];
+
+  const workspaceStatus: WorkspaceAgentStatusSnapshot = {
+    busy: false,
+    activeRunId: null,
+    activeMode: null,
+    activePromptSummary: null,
+    activeStartedAt: null,
+    lastCompletedAt: workspaceRuns[0]?.completedAt ?? null,
+    lastRejectedAt: null,
+    lastRejectedReason: null,
+    requiresApplyConfirmation: true,
+    maxFocusedFiles: 12,
+  };
 
   const mediaAssets: MediaAssetSnapshot[] = [
     {
@@ -1454,6 +1485,7 @@ function createDemoState(): DemoState {
     mediaAssets,
     workspaceFiles,
     workspaceRuns,
+    workspaceStatus,
     people: [
       {
         personId: 'person-ana',
@@ -1572,45 +1604,66 @@ function createDemoWorkspaceRun(
 ): WorkspaceAgentRunSnapshot {
   const prompt = readDemoRequiredString(body.prompt, 'prompt');
   const mode = body.mode === 'plan' ? 'plan' : 'apply';
+  const confirmedApply = body.confirmedApply === true;
   const filePaths = Array.isArray(body.filePaths)
     ? body.filePaths
         .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
         .map((value) => value.trim())
     : [];
+  const requestedBy =
+    typeof body.requestedBy === 'string' && body.requestedBy.trim().length > 0 ? body.requestedBy.trim() : 'workspace-ui';
   const createdAt = new Date().toISOString();
+  const rejectionReason =
+    mode === 'apply' && !confirmedApply
+      ? 'A aplicacao de alteracoes exige confirmacao explicita antes de editar ficheiros.'
+      : mode === 'apply' && filePaths.length === 0
+        ? 'Escolhe pelo menos um ficheiro em foco antes de aplicar alteracoes reais.'
+        : filePaths.length > state.workspaceStatus.maxFocusedFiles
+          ? `Escolhe no maximo ${state.workspaceStatus.maxFocusedFiles} ficheiro(s) em foco antes de correr o agente.`
+          : null;
   const run: WorkspaceAgentRunSnapshot = {
     runId: `workspace-demo-run-${Date.now()}`,
     mode,
     prompt,
     filePaths,
+    requestedBy,
+    approvalState: mode === 'apply' ? (confirmedApply ? 'confirmed' : 'missing_confirmation') : 'not_required',
+    executionState: rejectionReason ? 'rejected' : 'executed',
     startedAt: createdAt,
     completedAt: createdAt,
-    status: 'completed',
+    status: rejectionReason ? 'failed' : 'completed',
     outputSummary:
-      mode === 'plan'
+      rejectionReason ??
+      (mode === 'plan'
         ? 'Plano demo criado para os ficheiros selecionados.'
-        : 'Demo aplicou uma alteracao simulada dentro do LumeHub.',
+        : 'Demo aplicou uma alteracao simulada dentro do LumeHub.'),
+    guardrailReason: rejectionReason,
     stdout:
-      mode === 'plan'
-        ? `Plano demo para: ${filePaths.join(', ') || 'repo inteiro'}`
-        : `Alteracao demo aplicada em: ${filePaths.join(', ') || 'source/apps/lume-hub-web/src/shell/AppShell.ts'}`,
-    stderr: '',
-    exitCode: 0,
+      rejectionReason
+        ? ''
+        : mode === 'plan'
+          ? `Plano demo para: ${filePaths.join(', ') || 'repo inteiro'}`
+          : `Alteracao demo aplicada em: ${filePaths.join(', ') || 'source/apps/lume-hub-web/src/shell/AppShell.ts'}`,
+    stderr: rejectionReason ?? '',
+    exitCode: rejectionReason ? null : 0,
     timedOut: false,
     changedFiles:
-      mode === 'plan'
+      rejectionReason || mode === 'plan'
         ? []
         : filePaths.length > 0
           ? filePaths
           : ['source/apps/lume-hub-web/src/shell/AppShell.ts'],
     structuredSummary: {
       summary:
-        mode === 'plan'
+        rejectionReason ??
+        (mode === 'plan'
           ? 'Plano demo criado para os ficheiros selecionados.'
-          : 'Demo aplicou uma alteracao simulada dentro do LumeHub.',
+          : 'Demo aplicou uma alteracao simulada dentro do LumeHub.'),
       suggestedFiles: filePaths,
       readFiles:
-        mode === 'plan'
+        rejectionReason
+          ? []
+          : mode === 'plan'
           ? filePaths.length > 0
             ? filePaths
             : ['source/apps/lume-hub-web/src/shell/AppShell.ts']
@@ -1618,12 +1671,14 @@ function createDemoWorkspaceRun(
             ? [...new Set([...filePaths, 'README.md'])]
             : ['source/apps/lume-hub-web/src/shell/AppShell.ts', 'README.md'],
       notes:
-        mode === 'plan'
+        rejectionReason
+          ? ['Demo rejeitou a run antes de executar para mostrar os guardrails desta interface.']
+          : mode === 'plan'
           ? ['Demo sem alteracoes reais.']
           : ['Demo mostra o diff como se a alteracao tivesse sido aplicada.'],
     },
     fileDiffs:
-      mode === 'plan'
+      rejectionReason || mode === 'plan'
         ? []
         : [
             {
@@ -1645,6 +1700,17 @@ function createDemoWorkspaceRun(
   };
   state.workspaceRuns.unshift(run);
   state.workspaceRuns.splice(12);
+  state.workspaceStatus = {
+    ...state.workspaceStatus,
+    busy: false,
+    activeRunId: null,
+    activeMode: null,
+    activePromptSummary: null,
+    activeStartedAt: null,
+    lastCompletedAt: rejectionReason ? state.workspaceStatus.lastCompletedAt : createdAt,
+    lastRejectedAt: rejectionReason ? createdAt : state.workspaceStatus.lastRejectedAt,
+    lastRejectedReason: rejectionReason ?? state.workspaceStatus.lastRejectedReason,
+  };
   return run;
 }
 

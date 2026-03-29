@@ -42,6 +42,10 @@ export class WorkspaceAgentModule extends BaseModule implements WorkspaceAgentMo
     return this.service.listRuns(limit);
   }
 
+  getStatus() {
+    return this.service.getStatus();
+  }
+
   async run(input: Parameters<WorkspaceAgentService['run']>[0]) {
     return this.service.run(input);
   }

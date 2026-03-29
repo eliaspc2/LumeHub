@@ -66,10 +66,16 @@ function normalizeRun(run: WorkspaceAgentRunRecord): WorkspaceAgentRunRecord {
     mode: run.mode,
     prompt: run.prompt.trim(),
     filePaths: [...new Set(run.filePaths.map((filePath) => filePath.trim()).filter(Boolean))],
+    requestedBy:
+      typeof run.requestedBy === 'string' && run.requestedBy.trim().length > 0 ? run.requestedBy.trim() : 'workspace-ui',
+    approvalState: normalizeApprovalState(run),
+    executionState: run.executionState === 'rejected' ? 'rejected' : 'executed',
     startedAt: run.startedAt,
     completedAt: run.completedAt,
     status: run.status,
     outputSummary: run.outputSummary.trim(),
+    guardrailReason:
+      typeof run.guardrailReason === 'string' && run.guardrailReason.trim().length > 0 ? run.guardrailReason.trim() : null,
     stdout: truncateText(run.stdout),
     stderr: truncateText(run.stderr),
     exitCode: typeof run.exitCode === 'number' ? run.exitCode : null,
@@ -92,6 +98,18 @@ function normalizeStructuredSummary(run: WorkspaceAgentRunRecord): WorkspaceAgen
     readFiles: uniqueFileList(summary?.readFiles ?? [...run.filePaths, ...run.changedFiles]),
     notes: uniqueTextList(summary?.notes ?? []),
   };
+}
+
+function normalizeApprovalState(run: WorkspaceAgentRunRecord): WorkspaceAgentRunRecord['approvalState'] {
+  if (
+    run.approvalState === 'not_required' ||
+    run.approvalState === 'confirmed' ||
+    run.approvalState === 'missing_confirmation'
+  ) {
+    return run.approvalState;
+  }
+
+  return run.mode === 'apply' ? 'confirmed' : 'not_required';
 }
 
 function normalizeFileDiffs(fileDiffs: readonly WorkspaceAgentRunRecord['fileDiffs'][number][] | undefined): readonly WorkspaceAgentFileDiff[] {
