@@ -218,6 +218,20 @@ O fluxo canónico de release passa por:
 ## Estado atual
 
 As `Wave 0` a `Wave 39` ja foram executadas e validadas.
+
+Mas isso nao significa, por si so, que o `WA-notify` ja deva ser desligado.
+
+Em `2026-03-29`, a leitura canonica passa a ser esta:
+
+- o `LumeHub` ja esta forte em arquitetura, UI, ownership, media, knowledge por grupo e runtime live base
+- o `WA-notify` continua, no entanto, com mais paridade operacional em:
+  - schedules reais em producao
+  - fluxo live de alteracao efetiva de calendario
+  - `alerts` e `automations`
+- por isso, a recomendacao atual e:
+  - `shadow mode`
+  - ou migracao parcial por areas
+  - nao cutover total imediato
 O storage canonico de inteligencia por grupo ja ficou aberto com:
 
 - `data/groups/<jid>/llm/instructions.md`
@@ -294,9 +308,12 @@ Neste momento:
 - ronda de media distribuida fechada:
   - `Wave 30` a `Wave 34`
   - objetivo fechado: storage canonico, ingest live, distribuicao multi-grupo, UX guiada e limpeza final da ronda
-- ronda ativa agora:
+- rondas ativas agora:
   - `Wave 40` a `Wave 42`
   - objetivo: endurecer a pagina `Projeto` com diffs, aprovacao, guardrails e limpeza final da serie
+  - `Wave 43` a `Wave 49`
+  - objetivo: fechar paridade e cutover real face ao `WA-notify`
 - regra de processo:
   - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
-- o runtime `Live` atual fica tratado como estado canonico do produto neste scope
+- o runtime `Live` atual continua a ser o estado canonico do produto novo
+- mas a migracao total do `WA-notify` so deve ser decidida depois da ronda `Wave 43` a `Wave 49`

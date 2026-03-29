@@ -26,6 +26,11 @@ Conclusao curta:
 - a `Wave 33` ja fechou o fluxo guiado de UI para escolher video, grupos, `dry_run` e envio real com leitura por grupo
 - a `Wave 34` ja fechou a limpeza final da ronda, com docs e validadores alinhados ao fluxo final
 - a `Wave 39` ja abriu a pagina `/workspace` com backend live para pesquisar ficheiros, ler previews e correr um agente LLM com alteracoes reais dentro do repo do `LumeHub`
+- no entanto, em `2026-03-29`, ainda nao e recomendavel fazer cutover total do `WA-notify` para o `LumeHub`
+- a recomendacao atual continua a ser:
+  - `shadow mode`
+  - ou migracao parcial por areas
+  ate a ronda de paridade de migracao ficar fechada
 
 Em particular, ja nao faz sentido falar de:
 
@@ -34,6 +39,14 @@ Em particular, ja nao faz sentido falar de:
 - `ready_to_port/` como dependencia viva
 - backlog ativo preso a waves ja fechadas
 - `alerts` e `automations` como packages do workspace final
+
+Tambem ja nao faz sentido assumir, sem validar, que:
+
+- `Live` esta em paridade total com o `WA-notify`
+- a LLM live esta sempre ativa com provider real por defeito
+- o assistente ja aplica alteracoes de calendario reais por queue
+- os dados reais de schedules do `WA-notify` ja estao migrados
+- a suite automatica ja esta verde o suficiente para cutover
 
 ## O que ja esta solido
 
@@ -78,6 +91,113 @@ O storage canonico da serie de inteligencia por grupo continua fechado em:
 Nao restam gaps funcionais ativos nesta ronda.
 O storage, o runtime, a UX guiada e a limpeza final da serie ficaram fechados.
 
+## Gaps ativos da paridade e cutover WA-notify
+
+Esta e, neste momento, a ronda critica para substituicao real do sistema antigo.
+
+### 1. LLM live ainda nao esta no estado certo por defeito
+
+Evidencia confirmada em `2026-03-29`:
+
+- em [system-settings.json](/home/eliaspc/Documentos/lume-hub/runtime/lxd/host-mounts/data/runtime/system-settings.json), a configuracao live estava com:
+  - `"llm.enabled": false`
+  - provider configurado mas nao assumido como ativo por defeito
+- em [llm-run-log.json](/home/eliaspc/Documentos/lume-hub/runtime/lxd/host-mounts/data/runtime/llm-run-log.json), os runs live recentes estavam a usar:
+  - `providerId: "local-deterministic"`
+  - `modelId: "lume-context-v1"`
+
+Implicacao:
+
+- o `LumeHub` ainda nao esta a correr, por defeito, com o mesmo tipo de capacidade LLM real que o `WA-notify` usa em producao
+
+Fecho planeado:
+
+- `Wave 43`
+
+### 2. O assistente ainda nao fecha o ciclo de scheduling live com apply real
+
+Estado encontrado:
+
+- o `agent-runtime` continua orientado a parsing/preview de scheduling em vez de aplicar alteracoes reais via queue no calendario
+- a queue operacional existente continua mais forte em fan-out/distribution do que em `schedule_apply`
+
+Implicacao:
+
+- o caminho "pedir ao assistente para criar/editar uma aula e isso ficar mesmo aplicado" ainda nao esta com paridade operacional suficiente
+
+Fecho planeado:
+
+- `Wave 44`
+
+### 3. Os schedules reais do WA-notify ainda nao estao dentro do LumeHub
+
+Evidencia confirmada em `2026-03-29`:
+
+- `GET /api/schedules?weekId=2026-W14` no `LumeHub` devolveu `events: []`
+- o `WA-notify` continua a ter semanas reais em ficheiros como:
+  - [w14y2026.json](/home/eliaspc/Containers/wa-notify/data/schedules/w14y2026.json)
+
+Implicacao:
+
+- mesmo que o runtime do `LumeHub` esteja saudavel, ele ainda nao tem a carga operacional real que o `WA-notify` usa hoje
+
+Fecho planeado:
+
+- `Wave 45`
+
+### 4. Alerts e automations continuam por fechar
+
+Evidencia confirmada em `2026-03-29`:
+
+- o `WA-notify` ainda usa:
+  - [alerts.json](/home/eliaspc/Containers/wa-notify/data/alerts.json)
+  - [automations.json](/home/eliaspc/Containers/wa-notify/data/automations.json)
+- no `LumeHub`, esta area continua fora do scope implementado atual
+
+Implicacao:
+
+- ainda existe dependencia funcional do sistema antigo para comportamento que continua vivo em producao
+
+Fecho planeado:
+
+- `Wave 46`
+
+### 5. A validacao automatica ainda nao esta verde para cutover
+
+Evidencia confirmada em `2026-03-29`:
+
+- `pnpm run typecheck` passou
+- `pnpm run test` nao passou por completo
+- houve pelo menos dois bloqueios reais:
+  - falha de integracao por resolucao do package `@lume-hub/workspace-agent`
+  - falha no teste [wave11-hardening.test.mjs](/home/eliaspc/Documentos/lume-hub/source/tests/integration/wave11-hardening.test.mjs) no caso `restart keeps fan-out dedupe and retry only reprocesses failed targets`
+
+Implicacao:
+
+- ainda nao existe gate automatica suficientemente forte para declarar o produto pronto para substituicao total sem reservas
+
+Fecho planeado:
+
+- `Wave 47`
+
+### 6. Ainda falta ensaio com dados reais antes do cutover
+
+Estado encontrado:
+
+- ha sinais positivos no runtime live:
+  - backend `healthy`
+  - WhatsApp ligado
+  - grupos descobertos
+- mas isso ainda nao equivale a uma semana real operada em paralelo com o `WA-notify`
+
+Implicacao:
+
+- sem shadow mode e checklist de migracao real, o risco de regressao funcional continua demasiado alto
+
+Fecho planeado:
+
+- `Wave 48`
+
 ## Gaps ativos da ronda do agente de projeto
 
 A fundacao ja existe, mas esta ronda ainda ficou com trabalho aberto para as proximas waves:
@@ -109,10 +229,12 @@ Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
 - e a ronda de inteligencia por grupo tambem ficou fechada
 
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
-- para o runtime operacional base, sim
-- para a nova feature de memoria e instrucoes LLM por grupo, sim
-- para media recebida com storage canonico, ingest live e biblioteca operacional visivel, sim
-- para distribuicao multi-grupo de video no runtime, sim
-- para o fluxo guiado final dessa feature no frontend, sim
-- para o agente do projeto com leitura e alteracao real de ficheiros no repo, ja existe fundacao funcional
-- para o fluxo final endurecido desse agente, ainda ha uma ronda curta ativa
+- para o runtime operacional base, a base existe e esta bastante forte
+- para memoria e instrucoes LLM por grupo, sim
+- para media recebida, biblioteca e distribuicao multi-grupo, sim
+- para o agente do projeto, ja existe fundacao funcional
+- para migracao total do `WA-notify`, ainda nao
+- em `2026-03-29`, a recomendacao correta continua a ser:
+  - fechar `Wave 43` a `Wave 49`
+  - depois fazer shadow mode
+  - e so depois decidir cutover
