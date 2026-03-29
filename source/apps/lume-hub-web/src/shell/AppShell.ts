@@ -1528,6 +1528,7 @@ export class AppShell {
           ? 'warning'
           : 'danger';
     const authorizedGroupJids = resolveAuthorizedGroupJidsForCommands(groups, page.data.commandSettings);
+    const activeGroups = authorizedGroupJids.length;
 
     return `
       <section class="surface hero surface--strong">
@@ -1584,21 +1585,21 @@ export class AppShell {
 
       <section class="content-grid">
         <article class="surface content-card span-4">
-          <div class="card-header">
+          <div class="card-header card-header--with-switch">
             <h3>Grupos</h3>
-            ${renderUiBadge({ label: `${groups.length} grupos`, tone: 'neutral' })}
-          </div>
-          <div class="action-row">
-            ${renderUiSwitch({
-              label: 'Assistente nos grupos',
-              checked: page.data.commandSettings.assistantEnabled,
-              description: page.data.commandSettings.assistantEnabled
-                ? 'Ligado. Usa os switches individuais para bloquear so alguns grupos.'
-                : 'Desligado. Liga aqui para voltar a permitir uso nos grupos autorizados.',
-              dataAttributes: {
-                'group-action': 'toggle-assistant-master',
-              },
-            })}
+            <div class="card-header__actions card-header__actions--group-master">
+              ${renderUiBadge({ label: `${groups.length} grupos`, tone: 'neutral' })}
+              ${renderUiSwitch({
+                label: 'Assistente nos grupos',
+                checked: page.data.commandSettings.assistantEnabled,
+                description: page.data.commandSettings.assistantEnabled
+                  ? `${activeGroups} grupo(s) ligados agora.`
+                  : 'Desligado em todos os grupos.',
+                dataAttributes: {
+                  'group-action': 'toggle-assistant-master',
+                },
+              })}
+            </div>
           </div>
           <div class="timeline">
             ${groups
@@ -3667,30 +3668,7 @@ export class AppShell {
       return '';
     }
 
-    const page = this.readGroupManagementPageData();
-
-    if (!page) {
-      return '';
-    }
-
-    const activeGroups = resolveAuthorizedGroupJidsForCommands(page.data.groups, page.data.commandSettings).length;
-
-    return `
-      <section class="surface rail-card">
-        <h3>Master switch dos grupos</h3>
-        <p>Este controlo corta ou reabre o assistente nos grupos WhatsApp sem mexer nas instrucoes nem na knowledge base.</p>
-        ${renderUiSwitch({
-          label: 'Assistente ativo para grupos',
-          checked: page.data.commandSettings.assistantEnabled,
-          description: page.data.commandSettings.assistantEnabled
-            ? `${activeGroups} grupo(s) WA continuam autorizados neste momento.`
-            : 'Neste momento nenhum grupo pode usar o assistente ate voltares a ligar.',
-          dataAttributes: {
-            'group-action': 'toggle-assistant-master',
-          },
-        })}
-      </section>
-    `;
+    return '';
   }
 
   private renderAssistantRail(currentRoute: AppRouteDefinition): string {

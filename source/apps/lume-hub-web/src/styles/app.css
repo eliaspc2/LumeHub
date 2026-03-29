@@ -561,10 +561,44 @@ textarea {
   display: flex;
   align-items: start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 14px;
   margin-bottom: 18px;
   padding-bottom: 14px;
   border-bottom: 1px solid var(--line-soft);
+}
+
+.card-header__actions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.card-header__actions--group-master {
+  flex: 1 1 360px;
+}
+
+.card-header__actions--group-master .ui-switch {
+  width: min(100%, 360px);
+  margin-left: auto;
+  padding: 12px 14px;
+  border-radius: 16px;
+}
+
+.card-header__actions--group-master .ui-switch__copy {
+  gap: 2px;
+}
+
+.card-header__actions--group-master .ui-switch__label {
+  font-size: 0.95rem;
+}
+
+.card-header__actions--group-master .ui-switch__description {
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .card-header h3 {
