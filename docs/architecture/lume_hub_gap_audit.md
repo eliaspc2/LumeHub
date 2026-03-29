@@ -1,6 +1,6 @@
 # Lume Hub Gap Audit
 
-Data: `2026-03-28`
+Data: `2026-03-29`
 
 Objetivo:
 - descrever apenas gaps reais ainda ativos para o produto scoped atual
@@ -25,6 +25,7 @@ Conclusao curta:
 - a `Wave 32` ja fechou a distribuicao multi-grupo de media com queue, dedupe e retry por alvo
 - a `Wave 33` ja fechou o fluxo guiado de UI para escolher video, grupos, `dry_run` e envio real com leitura por grupo
 - a `Wave 34` ja fechou a limpeza final da ronda, com docs e validadores alinhados ao fluxo final
+- a `Wave 39` ja abriu a pagina `/workspace` com backend live para pesquisar ficheiros, ler previews e correr um agente LLM com alteracoes reais dentro do repo do `LumeHub`
 
 Em particular, ja nao faz sentido falar de:
 
@@ -77,6 +78,17 @@ O storage canonico da serie de inteligencia por grupo continua fechado em:
 Nao restam gaps funcionais ativos nesta ronda.
 O storage, o runtime, a UX guiada e a limpeza final da serie ficaram fechados.
 
+## Gaps ativos da ronda do agente de projeto
+
+A fundacao ja existe, mas esta ronda ainda ficou com trabalho aberto para as proximas waves:
+
+- diff por ficheiro depois de cada run
+- contexto mais guiado antes de correr `apply`
+- aprovacao explicita para runs com edicao
+- bloqueio de concorrencia para evitar duas runs destrutivas em simultaneo
+- auditoria mais forte do pedido, modo e resultado
+- limpeza final de docs, copy e validadores da serie
+
 ## Trabalho futuro fora do scope atual
 
 ### 1. `alerts` e `automations`
@@ -102,3 +114,5 @@ Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resp
 - para media recebida com storage canonico, ingest live e biblioteca operacional visivel, sim
 - para distribuicao multi-grupo de video no runtime, sim
 - para o fluxo guiado final dessa feature no frontend, sim
+- para o agente do projeto com leitura e alteracao real de ficheiros no repo, ja existe fundacao funcional
+- para o fluxo final endurecido desse agente, ainda ha uma ronda curta ativa

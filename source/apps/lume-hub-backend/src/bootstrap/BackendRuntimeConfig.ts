@@ -5,6 +5,7 @@ import type { Clock } from '@lume-hub/clock';
 import type { CodexAuthSourceConfig } from '@lume-hub/codex-auth-router';
 import type { ModuleEnvironment } from '@lume-hub/kernel';
 import type { BaileysSocketFactory, BaileysVersionResolver } from '@lume-hub/whatsapp-baileys';
+import type { WorkspaceAgentExecutor } from '@lume-hub/workspace-agent';
 
 export type BackendFrontendMode = 'demo' | 'live';
 
@@ -53,6 +54,9 @@ export interface BackendRuntimeConfig {
   readonly openAiCompatBaseUrl?: string;
   readonly openAiCompatApiKey?: string;
   readonly openAiCompatDefaultModel?: string;
+  readonly workspaceAgentRootPath?: string;
+  readonly workspaceAgentRunLogFilePath?: string;
+  readonly workspaceAgentExecutor?: WorkspaceAgentExecutor;
 }
 
 export interface BackendRuntimePaths {
@@ -87,6 +91,8 @@ export interface BackendRuntimePaths {
   readonly webDistRootPath: string;
   readonly frontendDefaultMode: BackendFrontendMode;
   readonly whatsappAuthRootPath: string;
+  readonly workspaceAgentRootPath: string;
+  readonly workspaceAgentRunLogFilePath: string;
 }
 
 export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): BackendRuntimePaths {
@@ -110,6 +116,9 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
     config.webDistRootPath ?? resolve(sourceRoot, 'apps', 'lume-hub-web', 'dist');
   const frontendDefaultMode = config.frontendDefaultMode ?? 'live';
   const whatsappAuthRootPath = config.whatsappAuthRootPath ?? resolve(runtimeRootPath, 'whatsapp-auth');
+  const workspaceAgentRootPath = config.workspaceAgentRootPath ?? projectRoot;
+  const workspaceAgentRunLogFilePath =
+    config.workspaceAgentRunLogFilePath ?? resolve(runtimeRootPath, 'workspace-agent-runs.json');
 
   return {
     projectRoot,
@@ -151,6 +160,8 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
     webDistRootPath,
     frontendDefaultMode,
     whatsappAuthRootPath,
+    workspaceAgentRootPath,
+    workspaceAgentRunLogFilePath,
   };
 }
 

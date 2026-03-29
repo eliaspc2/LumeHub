@@ -33,6 +33,9 @@ import type {
   WatchdogIssue,
   WeeklyPlannerEventSummary,
   WeeklyPlannerSnapshot,
+  WorkspaceAgentRunSnapshot,
+  WorkspaceFileContentSnapshot,
+  WorkspaceFileSnapshot,
 } from '@lume-hub/frontend-api-client';
 
 export type FrontendTransportMode = 'demo' | 'live';
@@ -278,6 +281,44 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
 
     if (request.method === 'GET' && pathname === '/api/media/assets') {
       return this.ok(this.state.mediaAssets);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/workspace/files') {
+      const query = new URL(request.path, 'http://lumehub.preview').searchParams.get('query') ?? '';
+      const limit = Number.parseInt(
+        new URL(request.path, 'http://lumehub.preview').searchParams.get('limit') ?? '80',
+        10,
+      );
+      return this.ok(searchDemoWorkspaceFiles(this.state, query, Number.isFinite(limit) ? limit : 80));
+    }
+
+    if (request.method === 'GET' && pathname === '/api/workspace/file') {
+      const relativePath = new URL(request.path, 'http://lumehub.preview').searchParams.get('path');
+
+      if (!relativePath) {
+        return this.error(400, 'Demo workspace file path is required.');
+      }
+
+      const file = this.state.workspaceFiles.find((candidate) => candidate.relativePath === relativePath);
+      return file ? this.ok(file) : this.error(404, `Demo workspace file ${relativePath} not found.`);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/workspace/runs') {
+      const limit = Number.parseInt(
+        new URL(request.path, 'http://lumehub.preview').searchParams.get('limit') ?? '12',
+        10,
+      );
+      return this.ok(this.state.workspaceRuns.slice(0, Number.isFinite(limit) ? Math.max(1, limit) : 12));
+    }
+
+    if (request.method === 'POST' && pathname === '/api/workspace/agent/runs') {
+      const result = createDemoWorkspaceRun(this.state, request.body as Record<string, unknown>);
+      this.emit('workspace.agent.run.completed', {
+        runId: result.runId,
+        status: result.status,
+        changedFiles: result.changedFiles,
+      });
+      return this.ok(result);
     }
 
     const mediaAssetMatch = matchParameterizedPath(pathname, '/api/media/assets/:assetId');
@@ -663,6 +704,8 @@ interface DemoState {
   groups: Group[];
   groupIntelligenceByGroupJid: Record<string, DemoGroupIntelligenceEntry>;
   mediaAssets: MediaAssetSnapshot[];
+  workspaceFiles: WorkspaceFileContentSnapshot[];
+  workspaceRuns: WorkspaceAgentRunSnapshot[];
   people: Person[];
   routingRules: SenderAudienceRule[];
   distributions: DistributionSummary[];
@@ -1252,6 +1295,78 @@ function createDemoState(): DemoState {
     },
   ];
 
+  const workspaceFiles: WorkspaceFileContentSnapshot[] = [
+    createDemoWorkspaceFile('README.md', '# LumeHub\n\nProjeto live para operar WhatsApp, agendamentos e assistente.\n'),
+    createDemoWorkspaceFile(
+      'source/apps/lume-hub-web/src/shell/AppShell.ts',
+      [
+        'export class AppShell {',
+        '  // Demo do editor agentic do projeto.',
+        '  mount(root: HTMLElement): void {',
+        '    root.dataset.demo = "workspace";',
+        '  }',
+        '}',
+        '',
+      ].join('\n'),
+    ),
+    createDemoWorkspaceFile(
+      'source/packages/modules/workspace-agent/src/application/services/WorkspaceAgentService.ts',
+      [
+        'export class WorkspaceAgentService {',
+        '  async run() {',
+        "    return 'demo';",
+        '  }',
+        '}',
+        '',
+      ].join('\n'),
+    ),
+    createDemoWorkspaceFile(
+      'docs/architecture/lume_hub_implementation_waves.md',
+      [
+        '# Lume Hub Implementation Waves',
+        '',
+        '### Wave 39 - Interface agentic do projeto',
+        '- pagina nova',
+        '- API real',
+        '- historico de runs',
+        '',
+      ].join('\n'),
+    ),
+  ];
+
+  const workspaceRuns: WorkspaceAgentRunSnapshot[] = [
+    {
+      runId: 'workspace-demo-run-002',
+      mode: 'apply',
+      prompt: 'Ajusta a copy do hero da homepage e melhora o CTA principal.',
+      filePaths: ['source/apps/lume-hub-web/src/shell/AppShell.ts'],
+      startedAt: iso(-40),
+      completedAt: iso(-38),
+      status: 'completed',
+      outputSummary: 'Atualizei a hero da homepage e o CTA principal.',
+      stdout: 'Atualizei o hero e o CTA na homepage.',
+      stderr: '',
+      exitCode: 0,
+      timedOut: false,
+      changedFiles: ['source/apps/lume-hub-web/src/shell/AppShell.ts'],
+    },
+    {
+      runId: 'workspace-demo-run-001',
+      mode: 'plan',
+      prompt: 'Mapeia o que precisas de mexer para introduzir uma pagina nova no frontend.',
+      filePaths: ['source/apps/lume-hub-web/src/app/AppRouter.ts', 'source/apps/lume-hub-web/src/shell/AppShell.ts'],
+      startedAt: iso(-92),
+      completedAt: iso(-90),
+      status: 'completed',
+      outputSummary: 'Plano curto gerado para frontend, API e validacao.',
+      stdout: 'Plano: AppRouter, AppShell, frontend-api-client, validate-wave.',
+      stderr: '',
+      exitCode: 0,
+      timedOut: false,
+      changedFiles: [],
+    },
+  ];
+
   const mediaAssets: MediaAssetSnapshot[] = [
     {
       assetId: '9f8b36b6c4b55f3d3d0830f6e4c85e90fa41cf0c33de5f6d6f1c73a9d0ec1001',
@@ -1301,6 +1416,8 @@ function createDemoState(): DemoState {
     groups,
     groupIntelligenceByGroupJid,
     mediaAssets,
+    workspaceFiles,
+    workspaceRuns,
     people: [
       {
         personId: 'person-ana',
@@ -1385,6 +1502,75 @@ function createDemoGroupIntelligence(groups: readonly Group[]): Record<string, D
   }
 
   return byGroupJid;
+}
+
+function createDemoWorkspaceFile(relativePath: string, content: string): WorkspaceFileContentSnapshot {
+  return {
+    relativePath,
+    absolutePath: `/home/eliaspc/Documentos/lume-hub/${relativePath}`,
+    content,
+    sizeBytes: new TextEncoder().encode(content).byteLength,
+    truncated: false,
+  };
+}
+
+function searchDemoWorkspaceFiles(
+  state: DemoState,
+  query: string,
+  limit: number,
+): readonly WorkspaceFileSnapshot[] {
+  const normalizedQuery = query.trim().toLowerCase();
+  return state.workspaceFiles
+    .filter((file) => normalizedQuery.length === 0 || file.relativePath.toLowerCase().includes(normalizedQuery))
+    .slice(0, Math.max(1, Math.min(80, limit)))
+    .map((file) => ({
+      relativePath: file.relativePath,
+      absolutePath: file.absolutePath,
+      extension: file.relativePath.includes('.') ? `.${file.relativePath.split('.').at(-1)}` : '',
+    }));
+}
+
+function createDemoWorkspaceRun(
+  state: DemoState,
+  body: Record<string, unknown>,
+): WorkspaceAgentRunSnapshot {
+  const prompt = readDemoRequiredString(body.prompt, 'prompt');
+  const mode = body.mode === 'plan' ? 'plan' : 'apply';
+  const filePaths = Array.isArray(body.filePaths)
+    ? body.filePaths
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        .map((value) => value.trim())
+    : [];
+  const createdAt = new Date().toISOString();
+  const run: WorkspaceAgentRunSnapshot = {
+    runId: `workspace-demo-run-${Date.now()}`,
+    mode,
+    prompt,
+    filePaths,
+    startedAt: createdAt,
+    completedAt: createdAt,
+    status: 'completed',
+    outputSummary:
+      mode === 'plan'
+        ? 'Plano demo criado para os ficheiros selecionados.'
+        : 'Demo aplicou uma alteracao simulada dentro do LumeHub.',
+    stdout:
+      mode === 'plan'
+        ? `Plano demo para: ${filePaths.join(', ') || 'repo inteiro'}`
+        : `Alteracao demo aplicada em: ${filePaths.join(', ') || 'source/apps/lume-hub-web/src/shell/AppShell.ts'}`,
+    stderr: '',
+    exitCode: 0,
+    timedOut: false,
+    changedFiles:
+      mode === 'plan'
+        ? []
+        : filePaths.length > 0
+          ? filePaths
+          : ['source/apps/lume-hub-web/src/shell/AppShell.ts'],
+  };
+  state.workspaceRuns.unshift(run);
+  state.workspaceRuns.splice(12);
+  return run;
 }
 
 function buildDemoInstructionsText(group: Group): string {

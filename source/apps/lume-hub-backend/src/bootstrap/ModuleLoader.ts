@@ -31,6 +31,7 @@ import { ScheduleWeeksModule } from '@lume-hub/schedule-weeks';
 import { SystemPowerModule } from '@lume-hub/system-power';
 import { WatchdogModule } from '@lume-hub/watchdog';
 import { WeeklyPlannerModule } from '@lume-hub/weekly-planner';
+import { WorkspaceAgentModule } from '@lume-hub/workspace-agent';
 import { BaileysWhatsAppGateway } from '@lume-hub/whatsapp-baileys';
 import { WebSocketGateway } from '@lume-hub/ws-fastify';
 import { ConversationAuditRepository } from '@lume-hub/conversation';
@@ -112,6 +113,11 @@ export class ModuleLoader {
     });
     const mediaLibraryModule = new MediaLibraryModule({
       dataRootPath: paths.dataRootPath,
+    });
+    const workspaceAgentModule = new WorkspaceAgentModule({
+      workspaceRootPath: paths.workspaceAgentRootPath,
+      runLogFilePath: paths.workspaceAgentRunLogFilePath,
+      executor: this.config.workspaceAgentExecutor,
     });
     const whatsAppWorkspaceRuntime = new WhatsAppWorkspaceRuntime({
       gateway: whatsAppGateway,
@@ -279,6 +285,7 @@ export class ModuleLoader {
       notificationRulesModule,
       notificationJobsModule,
       weeklyPlannerModule,
+      workspaceAgentModule,
       instructionQueueModule,
       systemPowerModule,
       codexAuthRouterModule,
@@ -305,6 +312,7 @@ export class ModuleLoader {
         notificationRulesModule,
         notificationJobsModule,
         weeklyPlannerModule,
+        workspaceAgentModule,
         instructionQueueModule,
         systemPowerModule,
         codexAuthRouterModule,
@@ -333,6 +341,7 @@ export class ModuleLoader {
       notificationRulesModule,
       notificationJobsModule,
       weeklyPlannerModule,
+      workspaceAgentModule,
       instructionQueueModule,
       systemPowerModule,
       codexAuthRouterModule,
@@ -379,6 +388,7 @@ export class ModuleLoader {
           },
         },
         mediaLibrary: mediaLibraryModule,
+        workspaceAgent: workspaceAgentModule,
         peopleMemory: peopleMemoryModule,
         systemPower: systemPowerModule,
         watchdog: watchdogModule,

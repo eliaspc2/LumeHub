@@ -13,6 +13,9 @@ import type {
   SettingsSnapshot,
   WhatsAppWorkspaceSnapshot,
   WatchdogIssue,
+  WorkspaceAgentRunSnapshot,
+  WorkspaceFileContentSnapshot,
+  WorkspaceFileSnapshot,
 } from '@lume-hub/frontend-api-client';
 import type { RoutingConsoleSnapshot } from '@lume-hub/queue-console';
 import {
@@ -39,6 +42,7 @@ import type {
   GroupManagementPageData,
   MediaLibraryPageData,
   WhatsAppManagementPageData,
+  WorkspaceAgentPageData,
 } from '../app/AppRouter.js';
 import type { WebAppBootstrap } from '../app/WebAppBootstrap.js';
 
@@ -91,6 +95,19 @@ interface GroupManagementDraft {
   readonly knowledgeDocument: GroupKnowledgeDraft;
 }
 
+interface WorkspaceAgentDraft {
+  readonly mode: 'plan' | 'apply';
+  readonly prompt: string;
+  readonly query: string;
+  readonly searchResults: readonly WorkspaceFileSnapshot[];
+  readonly selectedFilePaths: readonly string[];
+  readonly previewPath: string | null;
+  readonly previewContent: WorkspaceFileContentSnapshot | null;
+  readonly searching: boolean;
+  readonly loadingPreview: boolean;
+  readonly running: boolean;
+}
+
 interface AssistantRailMessage {
   readonly messageId: string;
   readonly role: 'user' | 'assistant' | 'system' | 'error';
@@ -124,6 +141,7 @@ interface AppShellState {
   readonly distributionDraft: GuidedDistributionDraft;
   readonly mediaDistributionDraft: GuidedMediaDistributionDraft;
   readonly groupManagementDraft: GroupManagementDraft;
+  readonly workspaceAgentDraft: WorkspaceAgentDraft;
   readonly assistantRailChat: AssistantRailChatState;
   readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
   readonly whatsappQrPreviewVisible: boolean;
@@ -220,6 +238,7 @@ export class AppShell {
       },
       mediaDistributionDraft: createEmptyMediaDistributionDraft(),
       groupManagementDraft: createEmptyGroupManagementDraft(),
+      workspaceAgentDraft: createEmptyWorkspaceAgentDraft(),
       assistantRailChat: createInitialAssistantRailChatState(),
       whatsappRepairFocus: 'auth',
       whatsappQrPreviewVisible: false,
@@ -839,6 +858,8 @@ export class AppShell {
         return this.renderWeekPage(this.state.page as UiPage<WeekPlannerSnapshot>);
       case '/media':
         return this.renderMediaPage(this.state.page as UiPage<MediaLibraryPageData>);
+      case '/workspace':
+        return this.renderWorkspacePage(this.state.page as UiPage<WorkspaceAgentPageData>);
       case '/groups':
         return this.renderGroupsPage(this.state.page as UiPage<GroupManagementPageData>);
       case '/whatsapp':
@@ -1502,6 +1523,288 @@ export class AppShell {
                 <div class="timeline-item">
                   <strong>Sem distribuicoes de media ainda</strong>
                   <time>Assim que criares um dry run ou um envio confirmado, esta vista passa a mostrar o estado por grupo.</time>
+                </div>
+              `
+          }
+        </article>
+      </section>
+    `;
+  }
+
+  private renderWorkspacePage(page: UiPage<WorkspaceAgentPageData>): string {
+    const draft = this.state.workspaceAgentDraft;
+    const visibleFiles =
+      draft.query.trim().length > 0 || draft.searchResults.length > 0 ? draft.searchResults : page.data.files;
+    const selectedFiles = draft.selectedFilePaths;
+    const recentRuns = page.data.recentRuns;
+    const latestRun = recentRuns[0] ?? null;
+
+    return `
+      <section class="surface hero surface--strong">
+        <div>
+          <p class="eyebrow">Agente do projeto</p>
+          <h2>Pedir a uma LLM para ler o repo, escolher ficheiros e alterar codigo do LumeHub.</h2>
+          <p>${escapeHtml(page.description)}</p>
+          <div class="action-row">
+            ${renderUiActionButton({
+              label: draft.mode === 'plan' ? 'Gerar plano' : 'Executar alteracoes',
+              dataAttributes: { 'workspace-action': 'run-agent' },
+            })}
+            ${renderUiActionButton({
+              label: 'Limpar selecao',
+              variant: 'secondary',
+              dataAttributes: { 'workspace-action': 'clear-selection' },
+            })}
+          </div>
+        </div>
+        <div class="hero-panel">
+          ${renderUiPanelCard({
+            title: 'Modo atual',
+            badgeLabel: draft.mode === 'plan' ? 'Planear' : 'Aplicar',
+            badgeTone: draft.mode === 'plan' ? 'neutral' : 'warning',
+            contentHtml: `<p>${escapeHtml(
+              draft.mode === 'plan'
+                ? 'A LLM analisa o repo e responde com plano, sem editar ficheiros.'
+                : 'A LLM pode abrir e alterar qualquer ficheiro dentro do repo do LumeHub.',
+            )}</p>`,
+          })}
+          ${renderUiPanelCard({
+            title: 'Ultima run',
+            badgeLabel: latestRun ? readableWorkspaceRunStatus(latestRun.status) : 'Sem runs',
+            badgeTone: latestRun ? toneForWorkspaceRunStatus(latestRun.status) : 'neutral',
+            contentHtml: `<p>${escapeHtml(
+              latestRun
+                ? `${latestRun.outputSummary} ${latestRun.changedFiles.length > 0 ? `Mudou ${latestRun.changedFiles.length} ficheiro(s).` : 'Sem alteracoes guardadas.'}`
+                : 'Ainda nao ha runs deste agente neste ambiente.',
+            )}</p>`,
+          })}
+        </div>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-5">
+          <div class="card-header">
+            <div>
+              <h3>Pedir trabalho ao agente</h3>
+              <p>Escreve em linguagem natural. O agente pode abrir outros ficheiros alem dos que marcares abaixo.</p>
+            </div>
+            ${renderUiBadge({
+              label: draft.running ? 'A correr' : draft.mode === 'plan' ? 'Sem edicao' : 'Com edicao',
+              tone: draft.running ? 'warning' : draft.mode === 'plan' ? 'neutral' : 'positive',
+            })}
+          </div>
+          <div class="ui-form-grid">
+            ${renderUiSelectField({
+              label: 'Modo do agente',
+              value: draft.mode,
+              dataKey: 'workspace.mode',
+              options: [
+                { value: 'plan', label: 'So planear' },
+                { value: 'apply', label: 'Aplicar alteracoes' },
+              ],
+              hint: 'Usa planear quando quiseres primeiro ver a abordagem. Usa aplicar quando quiseres mesmo mudar ficheiros.',
+            })}
+            ${renderUiTextAreaField({
+              label: 'Pedido para a LLM',
+              value: draft.prompt,
+              dataKey: 'workspace.prompt',
+              rows: 12,
+              placeholder: 'Ex.: Refatora a pagina WhatsApp para ficar mais curta e clara. Atualiza a copy, os componentes e o CSS relevante.',
+              hint: 'O agente trabalha apenas dentro do repo do LumeHub e nao faz commit nem push.',
+            })}
+          </div>
+          ${
+            selectedFiles.length > 0
+              ? `
+                <div class="guide-preview">
+                  <p><strong>Ficheiros sugeridos</strong>: ${escapeHtml(String(selectedFiles.length))}</p>
+                  <div class="ui-card__chips">
+                    ${selectedFiles
+                      .map((filePath) =>
+                        renderUiBadge({
+                          label: filePath,
+                          tone: 'positive',
+                          style: 'chip',
+                        }),
+                      )
+                      .join('')}
+                  </div>
+                </div>
+              `
+              : `
+                <div class="timeline-item">
+                  <strong>Sem ficheiros pre-selecionados</strong>
+                  <time>O agente pode decidir sozinho o que abrir. A selecao aqui serve apenas para orientar mais depressa.</time>
+                </div>
+              `
+          }
+        </article>
+
+        <article class="surface content-card span-7">
+          <div class="card-header">
+            <div>
+              <h3>Explorar ficheiros do repo</h3>
+              <p>Pesquisa e abre preview antes de pedires a alteracao.</p>
+            </div>
+            ${renderUiBadge({
+              label: `${visibleFiles.length} resultado${visibleFiles.length === 1 ? '' : 's'}`,
+              tone: visibleFiles.length > 0 ? 'positive' : 'warning',
+            })}
+          </div>
+          <div class="ui-form-grid ui-form-grid--double">
+            ${renderUiInputField({
+              label: 'Pesquisar ficheiros',
+              value: draft.query,
+              dataKey: 'workspace.query',
+              placeholder: 'Ex.: AppShell, workspace-agent, README',
+              hint: 'Procura por nome ou caminho relativo dentro do LumeHub.',
+            })}
+            <div class="workspace-search-actions">
+              ${renderUiActionButton({
+                label: draft.searching ? 'A procurar...' : 'Atualizar lista',
+                variant: 'secondary',
+                dataAttributes: { 'workspace-action': 'search-files' },
+              })}
+            </div>
+          </div>
+          ${
+            visibleFiles.length > 0
+              ? `
+                <div class="timeline workspace-file-list">
+                  ${visibleFiles
+                    .map(
+                      (file) => `
+                        <article class="timeline-item workspace-file-item ${draft.previewPath === file.relativePath ? 'workspace-file-item--active' : ''}">
+                          <strong>${escapeHtml(file.relativePath)}</strong>
+                          <time>${escapeHtml(file.extension || 'sem extensao')}</time>
+                          <div class="action-row">
+                            ${renderUiActionButton({
+                              label: draft.previewPath === file.relativePath ? 'Preview aberto' : 'Abrir preview',
+                              variant: draft.previewPath === file.relativePath ? 'primary' : 'secondary',
+                              dataAttributes: {
+                                'workspace-action': 'preview-file',
+                                'workspace-file-path': file.relativePath,
+                              },
+                            })}
+                            ${renderUiActionButton({
+                              label: selectedFiles.includes(file.relativePath) ? 'Retirar' : 'Usar no pedido',
+                              variant: selectedFiles.includes(file.relativePath) ? 'secondary' : 'primary',
+                              dataAttributes: {
+                                'workspace-action': 'toggle-file-selection',
+                                'workspace-file-path': file.relativePath,
+                              },
+                            })}
+                          </div>
+                        </article>
+                      `,
+                    )
+                    .join('')}
+                </div>
+              `
+              : `
+                <div class="timeline-item">
+                  <strong>Sem resultados para esta pesquisa</strong>
+                  <time>Experimenta outra palavra ou limpa a pesquisa para voltar aos ficheiros iniciais.</time>
+                </div>
+              `
+          }
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-7">
+          <div class="card-header">
+            <div>
+              <h3>Preview do ficheiro</h3>
+              <p>Leitura local do ficheiro selecionado antes de pedires uma run ou depois dela.</p>
+            </div>
+            ${renderUiBadge({
+              label: draft.previewContent ? draft.previewContent.relativePath : 'Sem preview',
+              tone: draft.previewContent ? 'positive' : 'neutral',
+            })}
+          </div>
+          ${
+            draft.loadingPreview
+              ? `
+                <div class="timeline-item">
+                  <strong>A carregar preview...</strong>
+                  <time>Estamos a ler o ficheiro escolhido dentro do repo.</time>
+                </div>
+              `
+              : draft.previewContent
+                ? `
+                  <div class="guide-preview">
+                    <p><strong>Ficheiro</strong>: ${escapeHtml(draft.previewContent.relativePath)}</p>
+                    <p><strong>Tamanho</strong>: ${escapeHtml(formatFileSize(draft.previewContent.sizeBytes))}${draft.previewContent.truncated ? ' • preview truncado' : ''}</p>
+                  </div>
+                  <pre class="workspace-code-preview">${escapeHtml(draft.previewContent.content)}</pre>
+                `
+                : `
+                  <div class="timeline-item">
+                    <strong>Nenhum ficheiro aberto</strong>
+                    <time>Usa "Abrir preview" na lista ao lado para ver o conteudo antes de pedir alteracoes.</time>
+                  </div>
+                `
+          }
+        </article>
+
+        <article class="surface content-card span-5">
+          <div class="card-header">
+            <div>
+              <h3>Runs recentes</h3>
+              <p>Historico curto do que a LLM fez neste workspace.</p>
+            </div>
+            ${renderUiBadge({
+              label: `${recentRuns.length} run${recentRuns.length === 1 ? '' : 's'}`,
+              tone: recentRuns.length > 0 ? 'positive' : 'neutral',
+            })}
+          </div>
+          ${
+            recentRuns.length > 0
+              ? `
+                <div class="timeline">
+                  ${recentRuns
+                    .map(
+                      (run) => `
+                        <article class="timeline-item">
+                          <strong>${escapeHtml(run.outputSummary)}</strong>
+                          <time>${escapeHtml(`${run.mode === 'plan' ? 'Plano' : 'Alteracao'} • ${formatShortDateTime(run.completedAt)}`)}</time>
+                          <p>${escapeHtml(run.prompt)}</p>
+                          <div class="ui-card__chips">
+                            ${renderUiBadge({
+                              label: readableWorkspaceRunStatus(run.status),
+                              tone: toneForWorkspaceRunStatus(run.status),
+                              style: 'chip',
+                            })}
+                            ${renderUiBadge({
+                              label: `${run.changedFiles.length} ficheiro(s)`,
+                              tone: run.changedFiles.length > 0 ? 'positive' : 'neutral',
+                              style: 'chip',
+                            })}
+                          </div>
+                          ${
+                            run.changedFiles.length > 0
+                              ? `<ul>${run.changedFiles.map((filePath) => `<li>${escapeHtml(filePath)}</li>`).join('')}</ul>`
+                              : ''
+                          }
+                          <details class="ui-details">
+                            <summary>Ver saida desta run</summary>
+                            <div class="ui-details__content">
+                              <p><strong>Exit code</strong>: ${escapeHtml(String(run.exitCode ?? 'n/a'))}${run.timedOut ? ' • timeout' : ''}</p>
+                              ${run.filePaths.length > 0 ? `<p><strong>Ficheiros sugeridos</strong>: ${escapeHtml(run.filePaths.join(', '))}</p>` : ''}
+                              <pre class="workspace-run-output">${escapeHtml(run.stdout || run.stderr || 'Sem output textual guardado.')}</pre>
+                            </div>
+                          </details>
+                        </article>
+                      `,
+                    )
+                    .join('')}
+                </div>
+              `
+              : `
+                <div class="timeline-item">
+                  <strong>Sem runs ainda</strong>
+                  <time>Assim que pedires uma analise ou alteracao, ela aparece aqui com os ficheiros mudados.</time>
                 </div>
               `
           }
@@ -2761,6 +3064,23 @@ export class AppShell {
         };
         this.render();
         return;
+      case 'workspace.prompt':
+      case 'workspace.query':
+      case 'workspace.mode':
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          workspaceAgentDraft: {
+            ...this.state.workspaceAgentDraft,
+            [fieldKey === 'workspace.prompt'
+              ? 'prompt'
+              : fieldKey === 'workspace.query'
+                ? 'query'
+                : 'mode']: fieldKey === 'workspace.mode' ? (value === 'plan' ? 'plan' : 'apply') : value,
+          } as WorkspaceAgentDraft,
+        };
+        this.render();
+        return;
       case 'railChat.input':
         this.state = {
           ...this.state,
@@ -3290,6 +3610,16 @@ export class AppShell {
     return page;
   }
 
+  private readWorkspacePageData(): UiPage<WorkspaceAgentPageData> | null {
+    const page = this.state.page as UiPage<WorkspaceAgentPageData> | null;
+
+    if (!page || page.route !== '/workspace') {
+      return null;
+    }
+
+    return page;
+  }
+
   private readGroupManagementPageData(): UiPage<GroupManagementPageData> | null {
     const page = this.state.page as UiPage<GroupManagementPageData> | null;
 
@@ -3308,6 +3638,235 @@ export class AppShell {
     }
 
     return page.data;
+  }
+
+  private async loadWorkspacePreview(relativePath: string): Promise<void> {
+    this.state = {
+      ...this.state,
+      workspaceAgentDraft: {
+        ...this.state.workspaceAgentDraft,
+        previewPath: relativePath,
+        loadingPreview: true,
+      },
+      flowFeedback: null,
+    };
+    this.render();
+
+    try {
+      const preview = await this.currentClient().getWorkspaceFile(relativePath);
+      this.state = {
+        ...this.state,
+        workspaceAgentDraft: {
+          ...this.state.workspaceAgentDraft,
+          previewPath: relativePath,
+          previewContent: preview,
+          loadingPreview: false,
+        },
+      };
+      this.render();
+    } catch (error) {
+      const message = `Nao foi possivel ler este ficheiro do LumeHub. ${readErrorMessage(error)}`;
+      this.state = {
+        ...this.state,
+        workspaceAgentDraft: {
+          ...this.state.workspaceAgentDraft,
+          loadingPreview: false,
+        },
+        flowFeedback: {
+          tone: 'danger',
+          message,
+        },
+      };
+      this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+      this.render();
+    }
+  }
+
+  private async handleWorkspaceAction(action: string, dataset: ActionDataset): Promise<void> {
+    const page = this.readWorkspacePageData();
+
+    if (!page) {
+      return;
+    }
+
+    if (action === 'search-files') {
+      this.state = {
+        ...this.state,
+        workspaceAgentDraft: {
+          ...this.state.workspaceAgentDraft,
+          searching: true,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A procurar ficheiros no repo do LumeHub.',
+        },
+      };
+      this.render();
+
+      try {
+        const results = await this.currentClient().searchWorkspaceFiles(this.state.workspaceAgentDraft.query, 80);
+        this.state = {
+          ...this.state,
+          workspaceAgentDraft: {
+            ...this.state.workspaceAgentDraft,
+            searching: false,
+            searchResults: results,
+          },
+          flowFeedback: {
+            tone: results.length > 0 ? 'positive' : 'warning',
+            message:
+              results.length > 0
+                ? `${results.length} ficheiro(s) encontrado(s) para esta pesquisa.`
+                : 'Esta pesquisa nao devolveu ficheiros. Experimenta outra palavra.',
+          },
+        };
+        this.render();
+      } catch (error) {
+        const message = `Nao foi possivel listar os ficheiros do projeto. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          workspaceAgentDraft: {
+            ...this.state.workspaceAgentDraft,
+            searching: false,
+          },
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
+    if (action === 'toggle-file-selection') {
+      const relativePath = dataset.workspaceFilePath;
+
+      if (!relativePath) {
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        workspaceAgentDraft: {
+          ...this.state.workspaceAgentDraft,
+          selectedFilePaths: this.state.workspaceAgentDraft.selectedFilePaths.includes(relativePath)
+            ? this.state.workspaceAgentDraft.selectedFilePaths.filter((filePath) => filePath !== relativePath)
+            : dedupeStringList([...this.state.workspaceAgentDraft.selectedFilePaths, relativePath]),
+        },
+        flowFeedback: null,
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'preview-file') {
+      const relativePath = dataset.workspaceFilePath;
+
+      if (!relativePath) {
+        return;
+      }
+
+      await this.loadWorkspacePreview(relativePath);
+      return;
+    }
+
+    if (action === 'clear-selection') {
+      this.state = {
+        ...this.state,
+        workspaceAgentDraft: createEmptyWorkspaceAgentDraft(),
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'Fluxo do agente de projeto limpo para um novo pedido.',
+        },
+      };
+      this.recordUxEvent('neutral', 'Fluxo do agente de projeto limpo.');
+      this.render();
+      return;
+    }
+
+    if (action === 'run-agent') {
+      const prompt = this.state.workspaceAgentDraft.prompt.trim();
+
+      if (!prompt) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message: 'Escreve primeiro o pedido que queres fazer ao agente do projeto.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        workspaceAgentDraft: {
+          ...this.state.workspaceAgentDraft,
+          running: true,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message:
+            this.state.workspaceAgentDraft.mode === 'plan'
+              ? 'A pedir ao agente um plano sobre o repo do LumeHub.'
+              : 'A correr o agente com permissao para alterar ficheiros do LumeHub.',
+        },
+      };
+      this.render();
+
+      try {
+        const run = await this.currentClient().runWorkspaceAgent({
+          prompt,
+          mode: this.state.workspaceAgentDraft.mode,
+          filePaths: this.state.workspaceAgentDraft.selectedFilePaths,
+        });
+        await this.refreshCurrentRouteData();
+
+        if (run.changedFiles[0]) {
+          await this.loadWorkspacePreview(run.changedFiles[0]);
+        }
+
+        this.state = {
+          ...this.state,
+          workspaceAgentDraft: {
+            ...this.state.workspaceAgentDraft,
+            running: false,
+          },
+          flowFeedback: {
+            tone: run.status === 'completed' ? 'positive' : 'warning',
+            message:
+              run.status === 'completed'
+                ? run.changedFiles.length > 0
+                  ? `Run concluida. A LLM mudou ${run.changedFiles.length} ficheiro(s) dentro do LumeHub.`
+                  : 'Run concluida sem alterar ficheiros.'
+                : `Run terminou com erro. ${run.outputSummary}`,
+          },
+        };
+        this.recordUxEvent(
+          run.status === 'completed' ? 'positive' : 'warning',
+          `Run ${run.runId} concluida no workspace agent.`,
+        );
+        this.render();
+      } catch (error) {
+        const message = `Nao foi possivel correr o agente do projeto. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          workspaceAgentDraft: {
+            ...this.state.workspaceAgentDraft,
+            running: false,
+          },
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+    }
   }
 
   private async handleGroupAction(action: string, dataset: ActionDataset): Promise<void> {
@@ -4565,6 +5124,19 @@ export class AppShell {
       });
     }
 
+    for (const element of this.root.querySelectorAll<HTMLElement>('[data-workspace-action]')) {
+      element.addEventListener('click', (event) => {
+        event.preventDefault();
+        const action = element.dataset.workspaceAction;
+
+        if (!action) {
+          return;
+        }
+
+        void this.handleWorkspaceAction(action, element.dataset);
+      });
+    }
+
     for (const element of this.root.querySelectorAll<HTMLElement>('[data-whatsapp-action]')) {
       element.addEventListener('click', (event) => {
         event.preventDefault();
@@ -4849,6 +5421,21 @@ function createEmptyMediaDistributionDraft(): GuidedMediaDistributionDraft {
   };
 }
 
+function createEmptyWorkspaceAgentDraft(): WorkspaceAgentDraft {
+  return {
+    mode: 'plan',
+    prompt: '',
+    query: '',
+    searchResults: [],
+    selectedFilePaths: [],
+    previewPath: null,
+    previewContent: null,
+    searching: false,
+    loadingPreview: false,
+    running: false,
+  };
+}
+
 function mapScheduleEventToDraft(
   event: Pick<WeekPlannerSnapshot['events'][number], 'eventId' | 'groupJid' | 'title' | 'dayLabel' | 'startTime' | 'durationMinutes' | 'notes'>,
 ): GuidedScheduleDraft {
@@ -5059,6 +5646,24 @@ function toneForSessionPhase(phase: WhatsAppWorkspaceSnapshot['runtime']['sessio
       return 'danger';
     default:
       return 'neutral';
+  }
+}
+
+function readableWorkspaceRunStatus(status: WorkspaceAgentRunSnapshot['status']): string {
+  switch (status) {
+    case 'completed':
+      return 'Concluida';
+    case 'failed':
+      return 'Com erro';
+  }
+}
+
+function toneForWorkspaceRunStatus(status: WorkspaceAgentRunSnapshot['status']): UiTone {
+  switch (status) {
+    case 'completed':
+      return 'positive';
+    case 'failed':
+      return 'danger';
   }
 }
 

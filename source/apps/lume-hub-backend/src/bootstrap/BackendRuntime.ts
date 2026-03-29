@@ -25,6 +25,7 @@ import type { ScheduleWeeksModule } from '@lume-hub/schedule-weeks';
 import type { SystemPowerModule } from '@lume-hub/system-power';
 import type { WatchdogModule } from '@lume-hub/watchdog';
 import type { WeeklyPlannerModule } from '@lume-hub/weekly-planner';
+import type { WorkspaceAgentModule } from '@lume-hub/workspace-agent';
 import type { WebSocketGateway } from '@lume-hub/ws-fastify';
 
 import type { BackendRuntimePaths } from './BackendRuntimeConfig.js';
@@ -48,6 +49,7 @@ export interface BackendRuntimeModules {
   readonly notificationRulesModule: NotificationRulesModule;
   readonly notificationJobsModule: NotificationJobsModule;
   readonly weeklyPlannerModule: WeeklyPlannerModule;
+  readonly workspaceAgentModule: WorkspaceAgentModule;
   readonly instructionQueueModule: InstructionQueueModule;
   readonly systemPowerModule: SystemPowerModule;
   readonly codexAuthRouterModule: CodexAuthRouterModule;

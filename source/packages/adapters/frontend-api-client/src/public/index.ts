@@ -288,6 +288,36 @@ export interface GroupContextPreviewSnapshot {
 
 export type MediaAssetSnapshot = MediaAsset;
 
+export interface WorkspaceFileSnapshot {
+  readonly relativePath: string;
+  readonly absolutePath: string;
+  readonly extension: string;
+}
+
+export interface WorkspaceFileContentSnapshot {
+  readonly relativePath: string;
+  readonly absolutePath: string;
+  readonly content: string;
+  readonly sizeBytes: number;
+  readonly truncated: boolean;
+}
+
+export interface WorkspaceAgentRunSnapshot {
+  readonly runId: string;
+  readonly mode: 'plan' | 'apply';
+  readonly prompt: string;
+  readonly filePaths: readonly string[];
+  readonly startedAt: string;
+  readonly completedAt: string;
+  readonly status: 'completed' | 'failed';
+  readonly outputSummary: string;
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly exitCode: number | null;
+  readonly timedOut: boolean;
+  readonly changedFiles: readonly string[];
+}
+
 export interface DistributionExecutionResult {
   readonly plan: DistributionPlan;
   readonly instruction: DistributionSummary;
@@ -381,6 +411,54 @@ export class FrontendApiClient {
       await this.transport.request<MediaAssetSnapshot>({
         method: 'GET',
         path: `/api/media/assets/${encodeURIComponent(assetId)}`,
+      }),
+    );
+  }
+
+  async searchWorkspaceFiles(query?: string, limit = 80): Promise<readonly WorkspaceFileSnapshot[]> {
+    const params = new URLSearchParams();
+
+    if (query && query.trim().length > 0) {
+      params.set('query', query.trim());
+    }
+
+    params.set('limit', String(limit));
+    return this.expectOk(
+      await this.transport.request<readonly WorkspaceFileSnapshot[]>({
+        method: 'GET',
+        path: `/api/workspace/files?${params.toString()}`,
+      }),
+    );
+  }
+
+  async getWorkspaceFile(relativePath: string): Promise<WorkspaceFileContentSnapshot> {
+    return this.expectOk(
+      await this.transport.request<WorkspaceFileContentSnapshot>({
+        method: 'GET',
+        path: `/api/workspace/file?path=${encodeURIComponent(relativePath)}`,
+      }),
+    );
+  }
+
+  async listWorkspaceAgentRuns(limit = 12): Promise<readonly WorkspaceAgentRunSnapshot[]> {
+    return this.expectOk(
+      await this.transport.request<readonly WorkspaceAgentRunSnapshot[]>({
+        method: 'GET',
+        path: `/api/workspace/runs?limit=${limit}`,
+      }),
+    );
+  }
+
+  async runWorkspaceAgent(input: {
+    readonly prompt: string;
+    readonly mode?: 'plan' | 'apply';
+    readonly filePaths?: readonly string[];
+  }): Promise<WorkspaceAgentRunSnapshot> {
+    return this.expectOk(
+      await this.transport.request<WorkspaceAgentRunSnapshot>({
+        method: 'POST',
+        path: '/api/workspace/agent/runs',
+        body: input,
       }),
     );
   }

@@ -8,6 +8,8 @@ import type {
   Instruction,
   MediaAssetSnapshot,
   SettingsSnapshot,
+  WorkspaceAgentRunSnapshot,
+  WorkspaceFileSnapshot,
 } from '@lume-hub/frontend-api-client';
 import { GroupDirectoryConsoleUiModule } from '@lume-hub/group-directory-console';
 import type { Person } from '@lume-hub/people-memory';
@@ -47,6 +49,11 @@ export interface MediaLibraryPageData {
   readonly assets: readonly MediaAssetSnapshot[];
   readonly groups: readonly import('@lume-hub/frontend-api-client').Group[];
   readonly instructions: readonly Instruction[];
+}
+
+export interface WorkspaceAgentPageData {
+  readonly files: readonly WorkspaceFileSnapshot[];
+  readonly recentRuns: readonly WorkspaceAgentRunSnapshot[];
 }
 
 export class AppRouter {
@@ -158,6 +165,39 @@ export class AppRouter {
               memorySummary: describeConversationMemory(entry),
             })),
           });
+        },
+      },
+      {
+        route: '/workspace',
+        label: 'Projeto',
+        description: 'Pedir a uma LLM para ler, rever e alterar ficheiros do LumeHub sem sair da interface.',
+        legacyRoutes: ['/workspace-agent'],
+        render: async () => {
+          const [files, recentRuns] = await Promise.all([
+            this.readQuery('workspace-files', () => this.client.searchWorkspaceFiles('', 40)),
+            this.readQuery('workspace-runs', () => this.client.listWorkspaceAgentRuns(10)),
+          ]);
+
+          return {
+            route: '/workspace',
+            title: 'Projeto',
+            description: 'Pedir a uma LLM para ler, rever e alterar ficheiros do LumeHub sem sair da interface.',
+            sections: [
+              {
+                title: 'Resumo',
+                lines: [
+                  `${files.length} ficheiro(s) listados nesta vista inicial.`,
+                  recentRuns.length > 0
+                    ? `${recentRuns.length} run(s) recente(s) do agente de projeto.`
+                    : 'Ainda nao ha runs do agente de projeto.',
+                ],
+              },
+            ],
+            data: {
+              files,
+              recentRuns,
+            } satisfies WorkspaceAgentPageData,
+          };
         },
       },
       {

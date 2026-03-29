@@ -32,6 +32,7 @@ import type {
   WeeklyPlannerModuleContract,
   WeeklyPlannerUpsertInput,
 } from '@lume-hub/weekly-planner';
+import type { WorkspaceAgentModuleContract } from '@lume-hub/workspace-agent';
 import type { WhatsAppRuntimeSnapshot } from '@lume-hub/whatsapp-baileys';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -114,6 +115,7 @@ export interface HttpApiModules {
   readonly systemPower: Pick<SystemPowerModuleContract, 'getPowerStatus' | 'updatePowerPolicy'>;
   readonly watchdog: Pick<WatchdogModuleContract, 'listIssues' | 'resolveIssue'>;
   readonly weeklyPlanner?: Pick<WeeklyPlannerModuleContract, 'deleteSchedule' | 'getWeekSnapshot' | 'saveSchedule'>;
+  readonly workspaceAgent?: Pick<WorkspaceAgentModuleContract, 'listRuns' | 'readFile' | 'run' | 'searchFiles'>;
   readonly whatsappRuntime?: {
     getRuntimeSnapshot(): Promise<WhatsAppRuntimeSnapshot>;
     refreshWorkspace(): Promise<WhatsAppRuntimeSnapshot>;
@@ -564,6 +566,61 @@ export class RouteRegistrar {
         }
 
         return asset;
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/workspace/files',
+      handler: async (context) => {
+        if (!this.modules.workspaceAgent) {
+          throw new ApiError(404, 'Workspace agent is not configured.');
+        }
+
+        return this.modules.workspaceAgent.searchFiles(
+          readOptionalQueryString(context.query, 'query'),
+          readOptionalPositiveIntegerQuery(context.query, 'limit') ?? 80,
+        );
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/workspace/file',
+      handler: async (context) => {
+        if (!this.modules.workspaceAgent) {
+          throw new ApiError(404, 'Workspace agent is not configured.');
+        }
+
+        const relativePath = readRequiredQueryString(context.query, 'path');
+        return this.modules.workspaceAgent.readFile(relativePath);
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/workspace/runs',
+      handler: async (context) => {
+        if (!this.modules.workspaceAgent) {
+          throw new ApiError(404, 'Workspace agent is not configured.');
+        }
+
+        return this.modules.workspaceAgent.listRuns(readOptionalPositiveIntegerQuery(context.query, 'limit') ?? 12);
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/workspace/agent/runs',
+      handler: async (context) => {
+        if (!this.modules.workspaceAgent) {
+          throw new ApiError(404, 'Workspace agent is not configured.');
+        }
+
+        const run = await this.modules.workspaceAgent.run(readWorkspaceAgentRunBody(context.body));
+        this.publish('workspace.agent.run.completed', {
+          runId: run.runId,
+          mode: run.mode,
+          status: run.status,
+          changedFiles: run.changedFiles,
+        });
+        return run;
       },
     });
     server.registerRoute({
@@ -1932,6 +1989,25 @@ function readDistributionExecutionBody(body: unknown): {
   };
 }
 
+function readWorkspaceAgentRunBody(body: unknown): {
+  readonly prompt: string;
+  readonly mode: 'plan' | 'apply';
+  readonly filePaths?: readonly string[];
+} {
+  const payload = readBodyObject(body, 'Workspace agent payload must be an object.');
+  const mode = readOptionalTrimmedStringValue(payload.mode, 'mode') ?? 'apply';
+
+  if (mode !== 'plan' && mode !== 'apply') {
+    throw new ApiError(400, "mode must be 'plan' or 'apply'.");
+  }
+
+  return {
+    prompt: readRequiredStringValue(payload.prompt, 'prompt'),
+    mode,
+    filePaths: readOptionalStringArrayValue(payload.filePaths, 'filePaths'),
+  };
+}
+
 function readLlmChatBody(body: unknown): LlmChatInput {
   const payload = readBodyObject(body, 'LLM chat payload must be an object.');
 
@@ -2065,6 +2141,19 @@ function readOptionalBooleanValue(value: unknown, fieldName: string): boolean | 
   }
 
   return value;
+}
+
+function readRequiredQueryString(
+  query: Record<string, string | readonly string[]>,
+  fieldName: string,
+): string {
+  const value = readOptionalQueryString(query, fieldName);
+
+  if (!value || value.trim().length === 0) {
+    throw new ApiError(400, `${fieldName} query parameter is required.`);
+  }
+
+  return value.trim();
 }
 
 function readOptionalTrimmedStringValue(value: unknown, fieldName: string): string | undefined {

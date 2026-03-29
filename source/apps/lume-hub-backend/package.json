@@ -39,6 +39,7 @@
     "@lume-hub/system-power": "workspace:*",
     "@lume-hub/watchdog": "workspace:*",
     "@lume-hub/weekly-planner": "workspace:*",
+    "@lume-hub/workspace-agent": "workspace:*",
     "@lume-hub/whatsapp-baileys": "workspace:*",
     "@lume-hub/ws-fastify": "workspace:*"
   }

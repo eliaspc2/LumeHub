@@ -217,7 +217,7 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 34` ja foram executadas e validadas.
+As `Wave 0` a `Wave 39` ja foram executadas e validadas.
 O storage canonico de inteligencia por grupo ja ficou aberto com:
 
 - `data/groups/<jid>/llm/instructions.md`
@@ -250,6 +250,15 @@ O inbound live de media recebida tambem ja esta fechado com:
   - criar `dry_run`
   - disparar envio confirmado
   - rever estado por grupo
+
+Tambem ja existe uma pagina `Projeto` para trabalho agentico sobre o proprio repo:
+
+- rota `/workspace`
+- pesquisa de ficheiros do `LumeHub`
+- preview local de ficheiros
+- runs em modo `plan` ou `apply`
+- execucao real via `codex exec` confinada ao repo
+- historico recente com ficheiros alterados
 
 Neste momento:
 
@@ -285,6 +294,9 @@ Neste momento:
 - ronda de media distribuida fechada:
   - `Wave 30` a `Wave 34`
   - objetivo fechado: storage canonico, ingest live, distribuicao multi-grupo, UX guiada e limpeza final da ronda
+- ronda ativa agora:
+  - `Wave 40` a `Wave 42`
+  - objetivo: endurecer a pagina `Projeto` com diffs, aprovacao, guardrails e limpeza final da serie
 - regra de processo:
   - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
 - o runtime `Live` atual fica tratado como estado canonico do produto neste scope

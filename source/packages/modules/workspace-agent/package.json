@@ -1,0 +1,23 @@
+{
+  "name": "@lume-hub/workspace-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/modules/workspace-agent/src/public/index.js",
+  "types": "./dist/modules/workspace-agent/src/public/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/modules/workspace-agent/src/public/index.d.ts",
+      "default": "./dist/modules/workspace-agent/src/public/index.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "test": "node -e \"console.log('No tests yet for @lume-hub/workspace-agent.')\""
+  },
+  "dependencies": {
+    "@lume-hub/kernel": "workspace:*",
+    "@lume-hub/persistence-group-files": "workspace:*"
+  }
+}

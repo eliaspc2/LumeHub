@@ -10,7 +10,7 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 34` ja foram executadas e validadas.
+As `Wave 0` a `Wave 39` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
 O storage canonico da ronda de media ja ficou aberto com:
@@ -36,11 +36,106 @@ O fluxo guiado desta ronda tambem ja ficou aberto com:
 - `dry_run` e envio `confirmed` a partir da mesma pagina
 - visao recente de entrega por grupo sem sair do fluxo
 
+A ronda nova do agente de projeto ja ficou aberta com:
+
+- pagina `/workspace` no frontend
+- modulo `workspace-agent` no backend
+- API live para pesquisar ficheiros, ler preview e correr runs do agente
+- execucao real via `codex exec` limitada ao repo do `LumeHub`
+- historico recente de runs e ficheiros alterados
+
 ## Estado do plano
 
-Nao ha waves ativas neste momento.
-As `Wave 35` a `Wave 38` ja foram executadas e validadas.
+As `Wave 35` a `Wave 39` ja foram executadas e validadas.
 A ronda de simplificacao do GUI ficou fechada com shell minima, paginas principais mais curtas, configuracao avancada sob demanda e limpeza final dos validadores e do copy de transicao.
+
+Ronda ativa:
+
+### Wave 40 - Diffs e contexto guiado do agente de projeto
+
+Objetivo:
+- tornar a pagina `Projeto` mais segura e mais clara antes de cada aplicacao de alteracoes
+
+Entregaveis:
+- diff por ficheiro depois de cada run
+- resumo estruturado de ficheiros lidos, ficheiros mudados e ficheiros sugeridos
+- possibilidade de pedir ao agente para rever um ficheiro especifico sem o alterar
+- visao mais clara de contexto antes de correr `apply`
+
+Criterios de aceitacao:
+- o operador percebe logo o que foi lido e o que foi alterado
+- uma run com alteracoes passa a mostrar diff legivel por ficheiro
+- o fluxo continua simples para quem nao quer detalhes tecnicos excessivos
+
+Rebuild e validacao minima:
+- `corepack pnpm run typecheck`
+- `corepack pnpm run build`
+- `corepack pnpm run validate:wave40`
+
+Melhor momento para testar:
+- assim que a wave fechar, porque aqui ainda e barato corrigir a linguagem e a forma como o diff aparece
+
+O que testar:
+- pedir um plano sem alteracoes
+- pedir uma alteracao pequena
+- confirmar se percebes logo que ficheiros entraram e o que mudou
+
+### Wave 41 - Aprovação, fila e guardrails operacionais
+
+Objetivo:
+- endurecer o uso do agente antes de o tratar como fluxo normal de produto
+
+Entregaveis:
+- aprovacao explicita antes de runs `apply`
+- bloqueio de concorrencia para nao correr duas runs destrutivas ao mesmo tempo
+- auditoria visivel do pedido, modo e resultado
+- guardrails adicionais no backend para limitar operacoes fora do esperado
+
+Criterios de aceitacao:
+- nao e possivel disparar alteracoes destrutivas sem confirmacao
+- duas runs `apply` nao concorrem ao mesmo tempo
+- a auditoria recente permite perceber quem pediu o que e qual foi o resultado
+
+Rebuild e validacao minima:
+- `corepack pnpm run typecheck`
+- `corepack pnpm run build`
+- `corepack pnpm run validate:wave41`
+
+Melhor momento para testar:
+- quando a UI da `Wave 40` ja estiver minimamente clara, porque aqui interessa validar risco operacional e confianca
+
+O que testar:
+- run `apply` com confirmacao
+- tentativa de disparar duas runs seguidas
+- leitura do historico e do estado de bloqueio
+
+### Wave 42 - Limpeza final da ronda do agente de projeto
+
+Objetivo:
+- fechar a ronda com docs, validadores e naming coerentes ao estado final
+
+Entregaveis:
+- consolidacao dos validadores desta ronda
+- remocao de copy provisoria e naming de transicao
+- docs alinhadas ao fluxo final da pagina `Projeto`
+
+Criterios de aceitacao:
+- nao ficam scripts obsoletos, copy provisoria nem referencias a estados intermédios
+- o plano volta a ficar curto e legivel
+
+Rebuild e validacao minima:
+- `corepack pnpm run typecheck`
+- `corepack pnpm run build`
+- `corepack pnpm run validate:wave42`
+
+Melhor momento para testar:
+- no fim da ronda, como regressao curta
+
+O que testar:
+- abertura da pagina `Projeto`
+- run em `plan`
+- run em `apply`
+- leitura do historico depois da limpeza final
 
 ## Como reabrir uma ronda
 
