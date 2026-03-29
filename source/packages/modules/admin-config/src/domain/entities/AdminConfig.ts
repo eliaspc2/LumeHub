@@ -25,6 +25,34 @@ export interface LlmRuntimeSettings {
   readonly streamingEnabled: boolean;
 }
 
+export type LlmRuntimeMode = 'live' | 'fallback' | 'disabled';
+
+export interface LlmProviderReadinessSnapshot {
+  readonly providerId: string;
+  readonly label: string;
+  readonly ready: boolean;
+  readonly reason: string | null;
+}
+
+export interface LlmRuntimeStatusSnapshot {
+  readonly configuredEnabled: boolean;
+  readonly configuredProviderId: string;
+  readonly configuredModelId: string;
+  readonly effectiveProviderId: string;
+  readonly effectiveModelId: string;
+  readonly mode: LlmRuntimeMode;
+  readonly fallbackActive: boolean;
+  readonly fallbackReason: string | null;
+  readonly providerReadiness: readonly LlmProviderReadinessSnapshot[];
+}
+
+export interface LlmRuntimeStatusInput {
+  readonly codexAuthReady?: boolean;
+  readonly openAiCompatReady?: boolean;
+  readonly fallbackProviderId?: string;
+  readonly fallbackModelId?: string;
+}
+
 export interface UiSettings {
   readonly defaultNotificationRules: readonly NotificationRuleDefinitionInput[];
 }
@@ -57,7 +85,7 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
     conversationDiscoveryEnabled: true,
   },
   llm: {
-    enabled: false,
+    enabled: true,
     provider: 'codex-oauth',
     model: 'gpt-5.4',
     streamingEnabled: true,

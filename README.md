@@ -315,10 +315,12 @@ Neste momento:
 - ronda do agente de projeto fechada:
   - `Wave 39` a `Wave 42`
   - objetivo fechado: pagina `Projeto`, agente live sobre o repo, diff por ficheiro, aprovacao, guardrails e limpeza final da serie
+- `Wave 43` fechada:
+  - objetivo fechado: LLM live por defeito com `provider` real, fallback visivel e estado claro de readiness/auth
 - rondas ativas agora:
-  - `Wave 43` a `Wave 49`
+  - `Wave 44` a `Wave 49`
   - objetivo: fechar paridade e cutover real face ao `WA-notify`
 - regra de processo:
   - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
 - o runtime `Live` atual continua a ser o estado canonico do produto novo
-- mas a migracao total do `WA-notify` so deve ser decidida depois da ronda `Wave 43` a `Wave 49`
+- mas a migracao total do `WA-notify` so deve ser decidida depois da ronda `Wave 44` a `Wave 49`

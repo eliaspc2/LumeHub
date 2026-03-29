@@ -37,6 +37,10 @@ export class AdminConfigModule extends BaseModule implements AdminConfigModuleCo
     return this.service.updateLlmSettings(update);
   }
 
+  async getLlmRuntimeStatus(input?: Parameters<AdminConfigService['getLlmRuntimeStatus']>[0]) {
+    return this.service.getLlmRuntimeStatus(input);
+  }
+
   async updateWhatsAppSettings(update: Parameters<AdminConfigService['updateWhatsAppSettings']>[0]) {
     return this.service.updateWhatsAppSettings(update);
   }

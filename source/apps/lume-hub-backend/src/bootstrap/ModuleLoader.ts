@@ -208,6 +208,14 @@ export class ModuleLoader {
     });
     const intentClassifierModule = new IntentClassifierModule();
     const deterministicProvider = new DeterministicLlmProvider();
+    const openAiCompatReady = resolveOpenAiCompatReady(this.config);
+    const getLlmRuntimeStatus = async () =>
+      adminConfigModule.getLlmRuntimeStatus({
+        codexAuthReady: await resolveCodexAuthReady(codexAuthRouterModule),
+        openAiCompatReady,
+        fallbackProviderId: deterministicProvider.providerId,
+        fallbackModelId: deterministicProvider.defaultModelId,
+      });
     const llmProviderRegistry = new LlmProviderRegistry([
       deterministicProvider,
       new CodexOauthLlmProvider({
@@ -228,10 +236,7 @@ export class ModuleLoader {
     const llmOrchestratorModule = new LlmOrchestratorModule({
       dataRootPath: paths.dataRootPath,
       providerRegistry: llmProviderRegistry,
-      providerResolver: async () => {
-        const settings = await adminConfigModule.getSettings();
-        return settings.llm.enabled ? settings.llm.provider : deterministicProvider.providerId;
-      },
+      providerResolver: async () => (await getLlmRuntimeStatus()).effectiveProviderId,
     });
     const ownerControlModule = new OwnerControlModule({
       commandPolicy: commandPolicyModule,
@@ -387,6 +392,9 @@ export class ModuleLoader {
             return log.entries.slice(Math.max(0, log.entries.length - (limit ?? 20))).reverse();
           },
         },
+        llmRuntime: {
+          getStatus: getLlmRuntimeStatus,
+        },
         mediaLibrary: mediaLibraryModule,
         workspaceAgent: workspaceAgentModule,
         peopleMemory: peopleMemoryModule,
@@ -423,4 +431,24 @@ export class ModuleLoader {
   loadModuleNames(): readonly string[] {
     return this.load().modules.modules.map((module) => module.name);
   }
+}
+
+async function resolveCodexAuthReady(
+  codexAuthRouterModule: {
+    getStatus(): Promise<{
+      readonly canonicalExists: boolean;
+      readonly accountCount: number;
+    }>;
+  },
+): Promise<boolean> {
+  const status = await codexAuthRouterModule.getStatus();
+  return Boolean(status.canonicalExists || status.accountCount > 0);
+}
+
+function resolveOpenAiCompatReady(config: BackendRuntimeConfig): boolean {
+  return Boolean(
+    config.openAiCompatApiKey?.trim() ||
+      process.env.LUME_HUB_OPENAI_API_KEY?.trim() ||
+      process.env.OPENAI_API_KEY?.trim(),
+  );
 }

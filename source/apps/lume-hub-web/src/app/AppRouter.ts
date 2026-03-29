@@ -141,6 +141,11 @@ export class AppRouter {
           return this.assistant.render({
             provider: settings.adminSettings.llm.provider,
             model: settings.adminSettings.llm.model,
+            runtimeMode: settings.llmRuntime.mode,
+            effectiveProvider: settings.llmRuntime.effectiveProviderId,
+            effectiveModel: settings.llmRuntime.effectiveModelId,
+            fallbackReason: settings.llmRuntime.fallbackReason,
+            authReadinessSummary: describeLlmAuthReadiness(settings),
             assistantEnabled: settings.adminSettings.commands.assistantEnabled,
             directRepliesEnabled: settings.adminSettings.commands.directRepliesEnabled,
             availableModels: models.map((model) => ({
@@ -398,6 +403,23 @@ export class AppRouter {
       ['/delivery-monitor', '/deliveries'],
     ]);
   }
+}
+
+function describeLlmAuthReadiness(settings: SettingsSnapshot): string {
+  const codexAuth = settings.llmRuntime.providerReadiness.find((provider) => provider.providerId === 'codex-oauth');
+
+  if (settings.adminSettings.llm.provider === 'codex-oauth') {
+    if (codexAuth?.ready) {
+      const accountCount = settings.authRouterStatus?.accountCount ?? 0;
+      return accountCount > 0 ? `pronta (${accountCount} conta(s) visiveis)` : 'pronta';
+    }
+
+    return codexAuth?.reason ?? 'Auth live ainda nao esta pronta.';
+  }
+
+  return settings.llmRuntime.providerReadiness
+    .map((provider) => `${provider.label}: ${provider.ready ? 'pronto' : provider.reason ?? 'indisponivel'}`)
+    .join(' | ');
 }
 
 function readErrorMessage(error: unknown): string {

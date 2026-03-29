@@ -10,7 +10,7 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 42` ja foram executadas e validadas.
+As `Wave 0` a `Wave 43` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
 O storage canonico da ronda de media ja ficou aberto com:
@@ -54,39 +54,11 @@ A ronda de simplificacao do GUI ficou fechada com shell minima, paginas principa
 A `Wave 40` tambem ja fechou diffs por ficheiro, resumo estruturado de contexto e revisao guiada de ficheiro na pagina `Projeto`.
 A `Wave 41` ja fechou aprovacao explicita para `apply`, bloqueio de concorrencia, auditoria visivel do pedido/modo/resultado e guardrails operacionais no backend e na UI.
 A `Wave 42` fechou a limpeza final da ronda do agente de projeto, consolidando validadores, removendo copy provisoria e alinhando docs ao estado final da pagina `Projeto`.
+A `Wave 43` fechou a LLM live por defeito, com provider real ativo quando a auth existe e fallback deterministico visivel e auditavel quando a auth falha.
 
 ## Ronda de paridade e cutover WA-notify
 
 Esta ronda existe para fechar os bloqueadores que ainda impedem migracao total do `WA-notify` para o `LumeHub`.
-
-### Wave 43 - LLM live por defeito e configuracao real de provider
-
-Objetivo:
-- deixar de depender do provider deterministico local no runtime live por defeito
-
-Entregaveis:
-- `system-settings.json` live com LLM real ativa por defeito no ambiente operativo
-- bootstrap e UX que expliquem claramente quando o runtime caiu para fallback deterministico
-- pagina de configuracao com estado claro de provider, modelo e readiness de auth
-- smoke test de live chat a usar provider real quando a auth existe
-
-Criterios de aceitacao:
-- o runtime live nao usa `local-deterministic` por defeito quando a auth real existe
-- a queda para fallback passa a ser visivel, intencional e auditavel
-- os logs live mostram provider/modelo reais numa conversa de teste
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave43`
-
-Melhor momento para testar:
-- logo depois desta wave, porque e o primeiro bloqueador real de cutover
-
-O que testar:
-- abrir `Assistente` em `Live`
-- confirmar provider e modelo ativos
-- enviar uma pergunta real e verificar logs
 
 ### Wave 44 - Scheduling live com apply real e auditoria de alteracoes
 

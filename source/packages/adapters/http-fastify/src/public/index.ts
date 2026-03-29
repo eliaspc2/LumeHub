@@ -8,6 +8,7 @@ import {
   type AdminConfigModuleContract,
   type AdminSettings,
   type CommandsPolicySettings,
+  type LlmRuntimeStatusSnapshot,
   type WhatsAppSettings,
 } from '@lume-hub/admin-config';
 import type { AssistantContextModuleContract } from '@lume-hub/assistant-context';
@@ -78,7 +79,7 @@ export interface UiEventPublisherLike {
 }
 
 export interface HttpApiModules {
-  readonly adminConfig: Pick<AdminConfigModuleContract, 'getSettings' | 'updateUiSettings'> &
+  readonly adminConfig: Pick<AdminConfigModuleContract, 'getSettings' | 'getLlmRuntimeStatus' | 'updateUiSettings'> &
     Partial<Pick<AdminConfigModuleContract, 'updateCommandsSettings' | 'updateLlmSettings' | 'updateWhatsAppSettings'>>;
   readonly assistantContext?: Pick<AssistantContextModuleContract, 'buildChatContext'>;
   readonly audienceRouting: Pick<
@@ -105,6 +106,9 @@ export interface HttpApiModules {
   >;
   readonly llmLogs?: {
     readRecent(limit?: number): Promise<readonly LlmRunLogEntry[]>;
+  };
+  readonly llmRuntime?: {
+    getStatus(): Promise<LlmRuntimeStatusSnapshot>;
   };
   readonly llmOrchestrator?: Pick<LlmOrchestratorModuleContract, 'chat' | 'listModels' | 'refreshModels'>;
   readonly mediaLibrary?: Pick<MediaLibraryModuleContract, 'getLibrary' | 'listAssets' | 'getAsset'>;
@@ -1217,9 +1221,16 @@ export class RouteRegistrar {
       this.modules.hostLifecycle.getHostCompanionStatus(),
       this.modules.codexAuthRouter?.getStatus() ?? Promise.resolve(null),
     ]);
+    const llmRuntime =
+      (await this.modules.llmRuntime?.getStatus()) ??
+      (await this.modules.adminConfig.getLlmRuntimeStatus({
+        codexAuthReady: readCodexAuthReady(authRouterStatus),
+        openAiCompatReady: readOpenAiCompatReadyFromEnv(),
+      }));
 
     return {
       adminSettings: normaliseAdminSettings(adminSettings),
+      llmRuntime,
       powerStatus,
       hostStatus,
       authRouterStatus,
@@ -1909,6 +1920,26 @@ function readLlmSettingsBody(body: unknown): Partial<AdminSettings['llm']> {
     model: readOptionalTrimmedStringValue(payload.model, 'model'),
     streamingEnabled: readOptionalBooleanValue(payload.streamingEnabled, 'streamingEnabled'),
   };
+}
+
+function readCodexAuthReady(
+  authRouterStatus: {
+    readonly canonicalExists?: boolean;
+    readonly accountCount?: number;
+  } | null,
+): boolean {
+  if (!authRouterStatus) {
+    return false;
+  }
+
+  return Boolean(authRouterStatus.canonicalExists || (authRouterStatus.accountCount ?? 0) > 0);
+}
+
+function readOpenAiCompatReadyFromEnv(): boolean {
+  return Boolean(
+    process.env.LUME_HUB_OPENAI_API_KEY?.trim() ||
+      process.env.OPENAI_API_KEY?.trim(),
+  );
 }
 
 function readWhatsAppSettingsBody(body: unknown): Partial<WhatsAppSettings> {

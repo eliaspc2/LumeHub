@@ -3004,6 +3004,18 @@ export class AppShell {
             .slice(0, 2)
             .join(', ')
         : 'Sem regras default';
+    const llmTone =
+      snapshot.llmRuntime.mode === 'live'
+        ? 'positive'
+        : snapshot.llmRuntime.mode === 'fallback'
+          ? 'warning'
+          : 'neutral';
+    const llmStatusLabel =
+      snapshot.llmRuntime.mode === 'live'
+        ? 'Provider real ativo'
+        : snapshot.llmRuntime.mode === 'fallback'
+          ? 'Fallback deterministico'
+          : 'LLM live desligada';
 
     return `
       <section class="surface hero surface--strong">
@@ -3027,6 +3039,12 @@ export class AppShell {
           value: String(snapshot.adminSettings.ui.defaultNotificationRules.length),
           tone: snapshot.adminSettings.ui.defaultNotificationRules.length > 0 ? 'positive' : 'neutral',
           description: defaultRuleSummary,
+        })}
+        ${renderUiMetricCard({
+          title: 'LLM live',
+          value: llmStatusLabel,
+          tone: llmTone,
+          description: `${snapshot.llmRuntime.effectiveProviderId} / ${snapshot.llmRuntime.effectiveModelId}`,
         })}
         ${renderUiMetricCard({
           title: 'Energia',
@@ -3060,6 +3078,29 @@ export class AppShell {
                       `<li>${escapeHtml(rule.label ?? rule.kind)} - ${escapeHtml(rule.localTime ?? `${rule.daysBeforeEvent ?? 0}d / ${rule.offsetMinutesBeforeEvent ?? 0}m`)}</li>`,
                   )
                   .join('')}
+              </ul>
+            </div>
+          </details>
+          <details class="ui-details" open>
+            <summary>LLM live e provider</summary>
+            <div class="ui-details__content">
+              <ul>
+                <li>Configurado: ${escapeHtml(snapshot.adminSettings.llm.provider)} / ${escapeHtml(snapshot.adminSettings.llm.model)}</li>
+                <li>Em uso agora: ${escapeHtml(snapshot.llmRuntime.effectiveProviderId)} / ${escapeHtml(snapshot.llmRuntime.effectiveModelId)}</li>
+                <li>Estado: ${escapeHtml(llmStatusLabel)}</li>
+                ${
+                  snapshot.llmRuntime.fallbackReason
+                    ? `<li>Motivo atual: ${escapeHtml(snapshot.llmRuntime.fallbackReason)}</li>`
+                    : ''
+                }
+                <li>
+                  Auth do Codex: ${escapeHtml(
+                    snapshot.llmRuntime.providerReadiness.find((provider) => provider.providerId === 'codex-oauth')?.ready
+                      ? `pronta (${snapshot.authRouterStatus?.accountCount ?? 0} conta(s) visiveis)`
+                      : snapshot.llmRuntime.providerReadiness.find((provider) => provider.providerId === 'codex-oauth')?.reason ??
+                          'indisponivel',
+                  )}
+                </li>
               </ul>
             </div>
           </details>

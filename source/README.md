@@ -36,13 +36,14 @@ Decisao de storage:
 
 ## Estado
 
-A base do monorepo ja existe e as `Wave 0` a `Wave 42` foram executadas.
+A base do monorepo ja existe e as `Wave 0` a `Wave 43` foram executadas.
 Hoje esta pasta ja contem:
 
 - `apps/lume-hub-backend`, `apps/lume-hub-web` e `apps/lume-hub-host`
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
+  - `validate:wave43`
   - `validate:wave42`
   - `validate:wave38`
   - `validate:wave34`
@@ -67,6 +68,13 @@ Tambem ja existe o fluxo operacional do agente de projeto:
 - auditoria de `requestedBy`, aprovacao, execucao e guardrail
 - endpoint `/api/workspace/status`
 - validacao consolidada em `validate:wave42`
+
+A `Wave 43` tambem ja ficou fechada:
+
+- o runtime live usa `codex-oauth` por defeito quando a auth existe
+- a pagina `Configuracao` mostra provider efetivo, modelo e readiness de auth
+- o fallback para `local-deterministic` ficou visivel e auditavel
+- a validacao dedicada passou em `validate:wave43`
 
 Nota operacional:
 

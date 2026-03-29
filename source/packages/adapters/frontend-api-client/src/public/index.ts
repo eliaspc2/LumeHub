@@ -1,4 +1,10 @@
-import type { AdminSettings, CommandsPolicySettings, UiSettings, WhatsAppSettings } from '@lume-hub/admin-config';
+import type {
+  AdminSettings,
+  CommandsPolicySettings,
+  LlmRuntimeStatusSnapshot,
+  UiSettings,
+  WhatsAppSettings,
+} from '@lume-hub/admin-config';
 import type {
   DistributionPlan,
   SenderAudienceRule,
@@ -137,6 +143,7 @@ export interface StatusSnapshot {
 
 export interface SettingsSnapshot {
   readonly adminSettings: AdminSettings;
+  readonly llmRuntime: LlmRuntimeStatusSnapshot;
   readonly powerStatus: PowerStatus;
   readonly hostStatus: HostCompanionStatus;
   readonly authRouterStatus: CodexAuthRouterStatus | null;

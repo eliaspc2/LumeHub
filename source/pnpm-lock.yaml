@@ -116,6 +116,9 @@ importers:
       '@lume-hub/whatsapp-baileys':
         specifier: workspace:*
         version: link:../../packages/adapters/whatsapp-baileys
+      '@lume-hub/workspace-agent':
+        specifier: workspace:*
+        version: link:../../packages/modules/workspace-agent
       '@lume-hub/ws-fastify':
         specifier: workspace:*
         version: link:../../packages/adapters/ws-fastify
@@ -264,6 +267,9 @@ importers:
       '@lume-hub/whatsapp-baileys':
         specifier: workspace:*
         version: link:../whatsapp-baileys
+      '@lume-hub/workspace-agent':
+        specifier: workspace:*
+        version: link:../../modules/workspace-agent
 
   packages/adapters/llm-codex-oauth:
     dependencies:
@@ -746,6 +752,15 @@ importers:
       '@lume-hub/schedule-weeks':
         specifier: workspace:*
         version: link:../schedule-weeks
+
+  packages/modules/workspace-agent:
+    dependencies:
+      '@lume-hub/kernel':
+        specifier: workspace:*
+        version: link:../../foundation/kernel
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../adapters/persistence-group-files
 
   packages/ui-modules/assistant-console: {}
 

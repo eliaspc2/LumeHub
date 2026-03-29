@@ -3,6 +3,11 @@ import type { UiPage } from '@lume-hub/shared-ui';
 export interface AssistantConsoleSnapshot {
   readonly provider: string;
   readonly model: string;
+  readonly runtimeMode: 'live' | 'fallback' | 'disabled';
+  readonly effectiveProvider: string;
+  readonly effectiveModel: string;
+  readonly fallbackReason: string | null;
+  readonly authReadinessSummary: string;
   readonly assistantEnabled: boolean;
   readonly directRepliesEnabled: boolean;
   readonly availableModels: readonly {
@@ -52,10 +57,13 @@ export class AssistantConsoleUiModule {
         {
           title: 'Runtime',
           lines: [
-            `Provider: ${snapshot.provider}`,
-            `Model: ${snapshot.model}`,
+            `Configurado: ${snapshot.provider} / ${snapshot.model}`,
+            `Em uso agora: ${snapshot.effectiveProvider} / ${snapshot.effectiveModel}`,
+            `Estado live: ${snapshot.runtimeMode}`,
+            `Auth do provider: ${snapshot.authReadinessSummary}`,
             `Assistente ligado: ${snapshot.assistantEnabled}`,
             `Respostas diretas: ${snapshot.directRepliesEnabled}`,
+            ...(snapshot.fallbackReason ? [`Motivo do fallback: ${snapshot.fallbackReason}`] : []),
           ],
         },
         {

@@ -8,6 +8,9 @@ export interface AdminConfigModuleContract {
   updateLlmSettings(
     update: Partial<import('../../domain/entities/AdminConfig.js').LlmRuntimeSettings>,
   ): Promise<import('../../domain/entities/AdminConfig.js').AdminSettings>;
+  getLlmRuntimeStatus(
+    input?: import('../../domain/entities/AdminConfig.js').LlmRuntimeStatusInput,
+  ): Promise<import('../../domain/entities/AdminConfig.js').LlmRuntimeStatusSnapshot>;
   updateWhatsAppSettings(
     update: Partial<import('../../domain/entities/AdminConfig.js').WhatsAppSettings>,
   ): Promise<import('../../domain/entities/AdminConfig.js').AdminSettings>;

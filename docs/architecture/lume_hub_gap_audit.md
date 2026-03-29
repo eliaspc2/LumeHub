@@ -33,6 +33,10 @@ Conclusao curta:
   - bloqueio de concorrencia
   - auditoria visivel
   - limpeza final de docs e validadores
+- a `Wave 43` ja fechou a LLM live por defeito:
+  - `system-settings.json` live com `llm.enabled = true`
+  - `codex-oauth` ativo por defeito quando a auth existe
+  - fallback deterministico visivel e auditavel quando a auth nao esta pronta
 - no entanto, em `2026-03-29`, ainda nao e recomendavel fazer cutover total do `WA-notify` para o `LumeHub`
 - a recomendacao atual continua a ser:
   - `shadow mode`
@@ -50,7 +54,6 @@ Em particular, ja nao faz sentido falar de:
 Tambem ja nao faz sentido assumir, sem validar, que:
 
 - `Live` esta em paridade total com o `WA-notify`
-- a LLM live esta sempre ativa com provider real por defeito
 - o assistente ja aplica alteracoes de calendario reais por queue
 - os dados reais de schedules do `WA-notify` ja estao migrados
 - a suite automatica ja esta verde o suficiente para cutover
@@ -102,26 +105,7 @@ O storage, o runtime, a UX guiada e a limpeza final da serie ficaram fechados.
 
 Esta e, neste momento, a ronda critica para substituicao real do sistema antigo.
 
-### 1. LLM live ainda nao esta no estado certo por defeito
-
-Evidencia confirmada em `2026-03-29`:
-
-- em [system-settings.json](/home/eliaspc/Documentos/lume-hub/runtime/lxd/host-mounts/data/runtime/system-settings.json), a configuracao live estava com:
-  - `"llm.enabled": false`
-  - provider configurado mas nao assumido como ativo por defeito
-- em [llm-run-log.json](/home/eliaspc/Documentos/lume-hub/runtime/lxd/host-mounts/data/runtime/llm-run-log.json), os runs live recentes estavam a usar:
-  - `providerId: "local-deterministic"`
-  - `modelId: "lume-context-v1"`
-
-Implicacao:
-
-- o `LumeHub` ainda nao esta a correr, por defeito, com o mesmo tipo de capacidade LLM real que o `WA-notify` usa em producao
-
-Fecho planeado:
-
-- `Wave 43`
-
-### 2. O assistente ainda nao fecha o ciclo de scheduling live com apply real
+### 1. O assistente ainda nao fecha o ciclo de scheduling live com apply real
 
 Estado encontrado:
 
@@ -136,7 +120,7 @@ Fecho planeado:
 
 - `Wave 44`
 
-### 3. Os schedules reais do WA-notify ainda nao estao dentro do LumeHub
+### 2. Os schedules reais do WA-notify ainda nao estao dentro do LumeHub
 
 Evidencia confirmada em `2026-03-29`:
 
@@ -152,7 +136,7 @@ Fecho planeado:
 
 - `Wave 45`
 
-### 4. Alerts e automations continuam por fechar
+### 3. Alerts e automations continuam por fechar
 
 Evidencia confirmada em `2026-03-29`:
 
@@ -169,7 +153,7 @@ Fecho planeado:
 
 - `Wave 46`
 
-### 5. A validacao automatica ainda nao esta verde para cutover
+### 4. A validacao automatica ainda nao esta verde para cutover
 
 Evidencia confirmada em `2026-03-29`:
 
@@ -187,7 +171,7 @@ Fecho planeado:
 
 - `Wave 47`
 
-### 6. Ainda falta ensaio com dados reais antes do cutover
+### 5. Ainda falta ensaio com dados reais antes do cutover
 
 Estado encontrado:
 
@@ -236,6 +220,6 @@ Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resp
 - para o agente do projeto, ja existe fundacao funcional
 - para migracao total do `WA-notify`, ainda nao
 - em `2026-03-29`, a recomendacao correta continua a ser:
-  - fechar `Wave 43` a `Wave 49`
+  - fechar `Wave 44` a `Wave 49`
   - depois fazer shadow mode
   - e so depois decidir cutover

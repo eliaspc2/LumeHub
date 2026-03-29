@@ -72,7 +72,7 @@ const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
     conversationDiscoveryEnabled: true,
   },
   llm: {
-    enabled: false,
+    enabled: true,
     provider: 'codex-oauth',
     model: 'gpt-5.4',
     streamingEnabled: true,
@@ -521,6 +521,26 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       return this.ok(next);
     }
 
+    if (request.method === 'PATCH' && pathname === '/api/settings/llm') {
+      const nextAdminSettings: AdminSettings = {
+        ...this.state.settings.adminSettings,
+        llm: {
+          ...this.state.settings.adminSettings.llm,
+          ...(request.body as Partial<AdminSettings['llm']>),
+        },
+        updatedAt: new Date().toISOString(),
+      };
+
+      this.state.settings = {
+        ...this.state.settings,
+        adminSettings: nextAdminSettings,
+        llmRuntime: createDemoLlmRuntimeStatus(nextAdminSettings, this.state.settings.authRouterStatus),
+      };
+
+      this.emit('settings.llm.updated', nextAdminSettings.llm);
+      return this.ok(nextAdminSettings);
+    }
+
     const personRolesMatch = matchParameterizedPath(pathname, '/api/people/:personId/roles');
 
     if (request.method === 'PUT' && personRolesMatch) {
@@ -935,17 +955,87 @@ function createDemoState(): DemoState {
     },
   ];
 
-  const settings: SettingsSnapshot = {
-    adminSettings: {
-      ...DEFAULT_ADMIN_SETTINGS,
-      llm: {
-        enabled: true,
-        provider: 'codex-oauth',
-        model: 'gpt-5.4',
-        streamingEnabled: true,
-      },
-      updatedAt: iso(-110),
+  const demoAdminSettings: SettingsSnapshot['adminSettings'] = {
+    ...DEFAULT_ADMIN_SETTINGS,
+    llm: {
+      enabled: true,
+      provider: 'codex-oauth',
+      model: 'gpt-5.4',
+      streamingEnabled: true,
     },
+    updatedAt: iso(-110),
+  };
+  const demoAuthRouterStatus: SettingsSnapshot['authRouterStatus'] = {
+    schemaVersion: 1,
+    canonicalAuthFilePath: '/home/eliaspc/.codex/auth.json',
+    canonicalExists: true,
+    stateFilePath: '/home/eliaspc/.local/state/lume-hub/codex-auth-router.json',
+    backupDirectoryPath: '/home/eliaspc/.local/state/lume-hub/codex-auth-backups',
+    currentSelection: {
+      accountId: 'acct-main',
+      label: 'Conta principal',
+      sourceFilePath: '/home/eliaspc/.codex/auth.json',
+      canonicalAuthFilePath: '/home/eliaspc/.codex/auth.json',
+      selectedAt: iso(-510),
+      switchPerformed: false,
+      backupFilePath: null,
+      reason: 'preview_bootstrap',
+      contentHash: 'demo-hash-main',
+    },
+    accounts: [
+      {
+        accountId: 'acct-main',
+        label: 'Conta principal',
+        sourceFilePath: '/home/eliaspc/.codex/auth.json',
+        priority: 100,
+        kind: 'canonical_live',
+        exists: true,
+        contentHash: 'demo-hash-main',
+        bytes: 1_824,
+        lastModifiedAt: iso(-180),
+        usage: {
+          successCount: 38,
+          failureCount: 2,
+          consecutiveFailures: 0,
+          lastSuccessAt: iso(-16),
+          lastFailureAt: iso(-980),
+          lastFailureKind: 'quota',
+          lastFailureReason: 'Limite temporario do provider.',
+          cooldownUntil: null,
+        },
+      },
+      {
+        accountId: 'acct-backup',
+        label: 'Conta secundaria',
+        sourceFilePath: '/home/eliaspc/.codex/auth-secondary.json',
+        priority: 80,
+        kind: 'secondary',
+        exists: true,
+        contentHash: 'demo-hash-secondary',
+        bytes: 1_790,
+        lastModifiedAt: iso(-320),
+        usage: {
+          successCount: 11,
+          failureCount: 1,
+          consecutiveFailures: 0,
+          lastSuccessAt: iso(-430),
+          lastFailureAt: iso(-1_800),
+          lastFailureKind: 'network',
+          lastFailureReason: 'Timeout breve durante troca de conta.',
+          cooldownUntil: null,
+        },
+      },
+    ],
+    switchHistory: [],
+    lastPreparedAt: iso(-12),
+    lastSwitchAt: iso(-510),
+    lastError: null,
+    accountCount: 2,
+  };
+
+  const settings: SettingsSnapshot = {
+    adminSettings: demoAdminSettings,
+    llmRuntime: createDemoLlmRuntimeStatus(demoAdminSettings, demoAuthRouterStatus),
     powerStatus: {
       policy: {
         schemaVersion: 1,
@@ -1006,73 +1096,7 @@ function createDemoState(): DemoState {
         lastSwitchAt: iso(-510),
       },
     },
-    authRouterStatus: {
-      schemaVersion: 1,
-      canonicalAuthFilePath: '/home/eliaspc/.codex/auth.json',
-      canonicalExists: true,
-      stateFilePath: '/home/eliaspc/.local/state/lume-hub/codex-auth-router.json',
-      backupDirectoryPath: '/home/eliaspc/.local/state/lume-hub/codex-auth-backups',
-      currentSelection: {
-        accountId: 'acct-main',
-        label: 'Conta principal',
-        sourceFilePath: '/home/eliaspc/.codex/auth.json',
-        canonicalAuthFilePath: '/home/eliaspc/.codex/auth.json',
-        selectedAt: iso(-510),
-        switchPerformed: false,
-        backupFilePath: null,
-        reason: 'preview_bootstrap',
-        contentHash: 'demo-hash-main',
-      },
-      accounts: [
-        {
-          accountId: 'acct-main',
-          label: 'Conta principal',
-          sourceFilePath: '/home/eliaspc/.codex/auth.json',
-          priority: 100,
-          kind: 'canonical_live',
-          exists: true,
-          contentHash: 'demo-hash-main',
-          bytes: 1_824,
-          lastModifiedAt: iso(-180),
-          usage: {
-            successCount: 38,
-            failureCount: 2,
-            consecutiveFailures: 0,
-            lastSuccessAt: iso(-16),
-            lastFailureAt: iso(-980),
-            lastFailureKind: 'quota',
-            lastFailureReason: 'Limite temporario do provider.',
-            cooldownUntil: null,
-          },
-        },
-        {
-          accountId: 'acct-backup',
-          label: 'Conta secundaria',
-          sourceFilePath: '/home/eliaspc/.codex/auth-secondary.json',
-          priority: 80,
-          kind: 'secondary',
-          exists: true,
-          contentHash: 'demo-hash-secondary',
-          bytes: 1_790,
-          lastModifiedAt: iso(-320),
-          usage: {
-            successCount: 11,
-            failureCount: 1,
-            consecutiveFailures: 0,
-            lastSuccessAt: iso(-430),
-            lastFailureAt: iso(-1_800),
-            lastFailureKind: 'network',
-            lastFailureReason: 'Timeout breve durante troca de conta.',
-            cooldownUntil: null,
-          },
-        },
-      ],
-      switchHistory: [],
-      lastPreparedAt: iso(-12),
-      lastSwitchAt: iso(-510),
-      lastError: null,
-      accountCount: 2,
-    },
+    authRouterStatus: demoAuthRouterStatus,
   };
 
   const scheduleEvents: WeeklyPlannerEventSummary[] = [
@@ -2465,8 +2489,8 @@ function createDemoDistribution(state: DemoState, payload: Record<string, unknow
 function createDemoLlmChatResult(state: DemoState, payload: LlmChatInput): LlmChatResult {
   const result: LlmChatResult = {
     runId: `run-demo-${Date.now()}`,
-    providerId: state.settings.adminSettings.llm.provider,
-    modelId: state.settings.adminSettings.llm.model,
+    providerId: state.settings.llmRuntime.effectiveProviderId,
+    modelId: state.settings.llmRuntime.effectiveModelId,
     text: `Resposta demo: ${payload.text.slice(0, 80)}`,
   };
 
@@ -2481,6 +2505,102 @@ function createDemoLlmChatResult(state: DemoState, payload: LlmChatInput): LlmCh
   });
 
   return result;
+}
+
+function createDemoLlmRuntimeStatus(
+  adminSettings: AdminSettings,
+  authRouterStatus: SettingsSnapshot['authRouterStatus'],
+): SettingsSnapshot['llmRuntime'] {
+  const authReady = Boolean(authRouterStatus?.canonicalExists || (authRouterStatus?.accountCount ?? 0) > 0);
+
+  if (!adminSettings.llm.enabled) {
+    return {
+      configuredEnabled: adminSettings.llm.enabled,
+      mode: 'disabled',
+      configuredProviderId: adminSettings.llm.provider,
+      configuredModelId: adminSettings.llm.model,
+      effectiveProviderId: 'local-deterministic',
+      effectiveModelId: 'lume-context-v1',
+      fallbackActive: true,
+      fallbackReason: 'LLM live desativada na configuracao atual.',
+      providerReadiness: [
+        {
+          providerId: 'codex-oauth',
+          label: 'Codex OAuth',
+          ready: authReady,
+          reason: authReady ? null : 'Auth do Codex em falta neste preview.',
+        },
+        {
+          providerId: 'openai-compat',
+          label: 'OpenAI compat',
+          ready: true,
+          reason: null,
+        },
+      ],
+    };
+  }
+
+  const configuredProviderReady =
+    adminSettings.llm.provider === 'codex-oauth'
+      ? authReady
+      : adminSettings.llm.provider === 'openai-compat'
+        ? true
+        : false;
+
+  if (configuredProviderReady) {
+    return {
+      configuredEnabled: adminSettings.llm.enabled,
+      mode: 'live',
+      configuredProviderId: adminSettings.llm.provider,
+      configuredModelId: adminSettings.llm.model,
+      effectiveProviderId: adminSettings.llm.provider,
+      effectiveModelId: adminSettings.llm.model,
+      fallbackActive: false,
+      fallbackReason: null,
+      providerReadiness: [
+        {
+          providerId: 'codex-oauth',
+          label: 'Codex OAuth',
+          ready: authReady,
+          reason: authReady ? null : 'Auth do Codex em falta neste preview.',
+        },
+        {
+          providerId: 'openai-compat',
+          label: 'OpenAI compat',
+          ready: true,
+          reason: null,
+        },
+      ],
+    };
+  }
+
+  return {
+    configuredEnabled: adminSettings.llm.enabled,
+    mode: 'fallback',
+    configuredProviderId: adminSettings.llm.provider,
+    configuredModelId: adminSettings.llm.model,
+    effectiveProviderId: 'local-deterministic',
+    effectiveModelId: 'lume-context-v1',
+    fallbackActive: true,
+    fallbackReason:
+      adminSettings.llm.provider === 'codex-oauth'
+        ? 'Auth do Codex em falta no preview, por isso o sistema caiu para fallback deterministico.'
+        : 'O provider configurado nao esta pronto neste preview, por isso o sistema caiu para fallback deterministico.',
+    providerReadiness: [
+      {
+        providerId: 'codex-oauth',
+        label: 'Codex OAuth',
+        ready: authReady,
+        reason: authReady ? null : 'Auth do Codex em falta neste preview.',
+      },
+      {
+        providerId: 'openai-compat',
+        label: 'OpenAI compat',
+        ready: true,
+        reason: null,
+      },
+    ],
+  };
 }
 
 function readDemoTargetGroupJids(payload: Record<string, unknown>): string[] {
