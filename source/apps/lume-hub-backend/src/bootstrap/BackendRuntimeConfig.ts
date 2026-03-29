@@ -57,6 +57,7 @@ export interface BackendRuntimeConfig {
   readonly workspaceAgentRootPath?: string;
   readonly workspaceAgentRunLogFilePath?: string;
   readonly workspaceAgentExecutor?: WorkspaceAgentExecutor;
+  readonly waNotifySchedulesRootPath?: string;
 }
 
 export interface BackendRuntimePaths {
@@ -93,6 +94,7 @@ export interface BackendRuntimePaths {
   readonly whatsappAuthRootPath: string;
   readonly workspaceAgentRootPath: string;
   readonly workspaceAgentRunLogFilePath: string;
+  readonly waNotifySchedulesRootPath: string;
 }
 
 export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): BackendRuntimePaths {
@@ -119,6 +121,8 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
   const workspaceAgentRootPath = config.workspaceAgentRootPath ?? projectRoot;
   const workspaceAgentRunLogFilePath =
     config.workspaceAgentRunLogFilePath ?? resolve(runtimeRootPath, 'workspace-agent-runs.json');
+  const waNotifySchedulesRootPath =
+    config.waNotifySchedulesRootPath ?? '/home/eliaspc/Containers/wa-notify/data/schedules';
 
   return {
     projectRoot,
@@ -162,6 +166,7 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
     whatsappAuthRootPath,
     workspaceAgentRootPath,
     workspaceAgentRunLogFilePath,
+    waNotifySchedulesRootPath,
   };
 }
 

@@ -19,6 +19,8 @@ import type {
   GroupKnowledgeDocumentSnapshot,
   GroupOwnerAssignmentInput,
   Instruction,
+  LegacyScheduleImportFileSnapshot,
+  LegacyScheduleImportReportSnapshot,
   LlmChatInput,
   LlmChatResult,
   LlmModelDescriptor,
@@ -276,6 +278,27 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
         weekId: schedule.weekId,
       });
       return this.ok(schedule);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/migrations/wa-notify/schedules/files') {
+      return this.ok(this.state.legacyScheduleFiles);
+    }
+
+    if (request.method === 'POST' && pathname === '/api/migrations/wa-notify/schedules/preview') {
+      return this.ok(buildDemoLegacyScheduleImportReport(this.state, request.body as Record<string, unknown>, false));
+    }
+
+    if (request.method === 'POST' && pathname === '/api/migrations/wa-notify/schedules/apply') {
+      const report = buildDemoLegacyScheduleImportReport(this.state, request.body as Record<string, unknown>, true);
+      applyDemoLegacyScheduleImport(this.state, report);
+      this.emit('schedules.import.completed', {
+        fileName: report.sourceFile.fileName,
+        created: report.totals.created,
+        updated: report.totals.updated,
+        unchanged: report.totals.unchanged,
+        ambiguous: report.totals.ambiguous,
+      });
+      return this.ok(report);
     }
 
     if (request.method === 'GET' && pathname === '/api/groups') {
@@ -777,6 +800,7 @@ interface DemoState {
   distributions: DistributionSummary[];
   instructionQueue: Instruction[];
   scheduleEvents: WeeklyPlannerEventSummary[];
+  legacyScheduleFiles: LegacyScheduleImportFileSnapshot[];
   watchdogIssues: WatchdogIssue[];
   llmModels: readonly LlmModelDescriptor[];
   llmRuns: LlmRunLogEntry[];
@@ -1175,6 +1199,20 @@ function createDemoState(): DemoState {
         sent: 1,
         total: 2,
       },
+    },
+  ];
+
+  const legacyScheduleFiles: LegacyScheduleImportFileSnapshot[] = [
+    {
+      fileName: 'w14y2026.json',
+      absolutePath: '/home/eliaspc/Containers/wa-notify/data/schedules/w14y2026.json',
+      legacyWeekId: 'w14y2026',
+      isoWeekId: '2026-W14',
+      weekStart: '2026-03-30',
+      weekEnd: '2026-04-05',
+      itemCount: 10,
+      baseEventCount: 5,
+      groupJids: [groups[0].groupJid, groups[2].groupJid],
     },
   ];
 
@@ -1600,6 +1638,7 @@ function createDemoState(): DemoState {
     distributions,
     instructionQueue,
     scheduleEvents,
+    legacyScheduleFiles,
     watchdogIssues,
     llmModels,
     llmRuns,
@@ -2391,6 +2430,105 @@ function upsertDemoSchedule(state: DemoState, payload: Record<string, unknown>):
   return nextEvent;
 }
 
+function buildDemoLegacyScheduleImportReport(
+  state: DemoState,
+  payload: Record<string, unknown>,
+  apply: boolean,
+): LegacyScheduleImportReportSnapshot {
+  const fileName =
+    typeof payload.fileName === 'string' && payload.fileName.length > 0
+      ? payload.fileName
+      : state.legacyScheduleFiles[0]?.fileName ?? 'w14y2026.json';
+  const sourceFile =
+    state.legacyScheduleFiles.find((file) => file.fileName === fileName) ?? state.legacyScheduleFiles[0];
+  const firstGroup = state.groups[0];
+  const secondGroup = state.groups[2];
+  const firstEventStatus: LegacyScheduleImportReportSnapshot['events'][number]['status'] =
+    state.scheduleEvents.some((event) => event.eventId === 'legacy-ballet-001') ? 'updated' : 'created';
+  const secondEventStatus: LegacyScheduleImportReportSnapshot['events'][number]['status'] =
+    state.scheduleEvents.some((event) => event.eventId === 'legacy-pilates-001') ? 'updated' : 'created';
+  const events: LegacyScheduleImportReportSnapshot['events'] = [
+    {
+      legacyEventId: 'legacy-ballet-001',
+      groupJid: firstGroup.groupJid,
+      groupLabel: firstGroup.preferredSubject,
+      title: 'VC1 — Aula de Ballet',
+      weekId: '2026-W14',
+      localDate: '2026-03-31',
+      startTime: '20:00',
+      status: firstEventStatus,
+      reason: null,
+      notificationRuleLabels: ['No proprio dia as 16:00', 'Lembrete 30 min antes'],
+    },
+    {
+      legacyEventId: 'legacy-pilates-001',
+      groupJid: secondGroup.groupJid,
+      groupLabel: secondGroup.preferredSubject,
+      title: 'VC2 — Pilates reforco',
+      weekId: '2026-W14',
+      localDate: '2026-04-01',
+      startTime: '20:00',
+      status: secondEventStatus,
+      reason: null,
+      notificationRuleLabels: ['No proprio dia as 16:00', 'Lembrete 30 min antes'],
+    },
+  ];
+
+  return {
+    mode: apply ? 'apply' : 'preview',
+    generatedAt: new Date().toISOString(),
+    sourceFile: sourceFile ?? {
+      fileName,
+      absolutePath: `/demo/${fileName}`,
+      legacyWeekId: basenameWithoutJson(fileName),
+      isoWeekId: '2026-W14',
+      weekStart: '2026-03-30',
+      weekEnd: '2026-04-05',
+      itemCount: 4,
+      baseEventCount: 2,
+      groupJids: [firstGroup.groupJid, secondGroup.groupJid],
+    },
+    totals: {
+      legacyItems: 4,
+      baseEvents: events.length,
+      created: events.filter((event) => event.status === 'created').length,
+      updated: events.filter((event) => event.status === 'updated').length,
+      unchanged: events.filter((event) => event.status === 'unchanged').length,
+      ignored: 0,
+      ambiguous: 0,
+      matchedGroups: 2,
+      missingGroups: 0,
+    },
+    events,
+    ignoredItems: [],
+    missingGroups: [],
+    notes: apply
+      ? ['Demo: import aplicado no estado fake da preview.']
+      : ['Demo: preview do import sem tocar no backend real.'],
+  };
+}
+
+function applyDemoLegacyScheduleImport(
+  state: DemoState,
+  report: LegacyScheduleImportReportSnapshot,
+): void {
+  for (const event of report.events) {
+    const existing = state.scheduleEvents.find((candidate) => candidate.eventId === event.legacyEventId);
+    const nextSchedule = upsertDemoSchedule(state, {
+      eventId: event.legacyEventId,
+      groupJid: event.groupJid,
+      title: event.title,
+      localDate: event.localDate,
+      dayLabel: existing?.dayLabel ?? 'terça-feira',
+      startTime: event.startTime,
+      durationMinutes: existing?.durationMinutes ?? 60,
+      notes: 'Importado do WA-notify em preview demo.',
+      notificationRules: event.notificationRuleLabels.map((label) => ({ label })),
+    });
+    nextSchedule.weekId;
+  }
+}
+
 function buildDemoAssistantSchedulePreview(
   state: DemoState,
   payload: Record<string, unknown>,
@@ -2992,6 +3130,10 @@ function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
   });
+}
+
+function basenameWithoutJson(fileName: string): string {
+  return fileName.replace(/\.json$/iu, '');
 }
 
 function readFrontendBootConfig(): FrontendBootConfig {

@@ -5,12 +5,14 @@ import type { NotificationRulesModuleContract } from '@lume-hub/notification-rul
 import type { ScheduleEventsModuleContract } from '@lume-hub/schedule-events';
 import type { ScheduleWeeksModuleContract, WeekCalculator } from '@lume-hub/schedule-weeks';
 
+import type { WaNotifyScheduleImportService } from '../application/services/WaNotifyScheduleImportService.js';
 import type { WeeklyPlannerService } from '../application/services/WeeklyPlannerService.js';
 
 export interface WeeklyPlannerModuleConfig {
   readonly enabled?: boolean;
   readonly dataRootPath?: string;
   readonly defaultTimeZone?: string;
+  readonly legacyScheduleRootPath?: string;
   readonly adminConfig?: Pick<AdminConfigModuleContract, 'getSettings'>;
   readonly groupDirectory?: Pick<GroupDirectoryModuleContract, 'listGroups'>;
   readonly notificationJobs?: Pick<NotificationJobsModuleContract, 'materializeForEvent'>;
@@ -22,4 +24,5 @@ export interface WeeklyPlannerModuleConfig {
   readonly scheduleWeeks?: Pick<ScheduleWeeksModuleContract, 'getCurrentWeek'>;
   readonly weekCalculator?: WeekCalculator;
   readonly service?: WeeklyPlannerService;
+  readonly importService?: WaNotifyScheduleImportService;
 }

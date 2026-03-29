@@ -36,13 +36,14 @@ Decisao de storage:
 
 ## Estado
 
-A base do monorepo ja existe e as `Wave 0` a `Wave 44` foram executadas.
+A base do monorepo ja existe e as `Wave 0` a `Wave 45` foram executadas.
 Hoje esta pasta ja contem:
 
 - `apps/lume-hub-backend`, `apps/lume-hub-web` e `apps/lume-hub-host`
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
+  - `validate:wave45`
   - `validate:wave44`
   - `validate:wave43`
   - `validate:wave42`
@@ -83,6 +84,13 @@ A `Wave 44` tambem ja ficou fechada:
 - o caminho `assistente -> queue -> persistencia` ficou operacional para criar, editar e apagar schedules reais
 - a pagina `Assistente` mostra diff funcional antes do `apply` e auditoria recente das alteracoes aplicadas
 - a validacao dedicada passou em `validate:wave44`
+
+A `Wave 45` tambem ja ficou fechada:
+
+- o `weekly-planner` ganhou importador idempotente do formato semanal legacy do `WA-notify`
+- a pagina `Configuracao` ja permite listar ficheiros legacy, gerar preview e aplicar a migracao real
+- os events importados passam para o storage mensal canonico por grupo
+- a validacao dedicada passou em `validate:wave45`
 
 Nota operacional:
 

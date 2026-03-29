@@ -7,6 +7,8 @@ import type {
   GroupContextPreviewSnapshot,
   GroupIntelligenceSnapshot,
   Instruction,
+  LegacyScheduleImportFileSnapshot,
+  LegacyScheduleImportReportSnapshot,
   MediaAssetSnapshot,
   SettingsSnapshot,
   WorkspaceAgentStatusSnapshot,
@@ -81,6 +83,12 @@ export interface AssistantPageData {
   readonly recentSchedulingAudit: readonly AssistantSchedulingAuditEntry[];
   readonly schedulingPreview: AssistantSchedulePreviewSnapshot | null;
   readonly lastAppliedSchedule: AssistantScheduleApplySnapshot | null;
+}
+
+export interface SettingsPageData {
+  readonly settings: SettingsSnapshot;
+  readonly legacyScheduleImportFiles: readonly LegacyScheduleImportFileSnapshot[];
+  readonly legacyScheduleImportReport: LegacyScheduleImportReportSnapshot | null;
 }
 
 export class AppRouter {
@@ -373,7 +381,24 @@ export class AppRouter {
         route: this.settings.config.route,
         label: this.settings.config.label,
         description: 'Area secundaria para defaults, energia, host companion e auth.',
-        render: async () => this.settings.render(await this.readQuery('settings', () => this.client.getSettings())),
+        render: async () => {
+          const [settings, legacyScheduleImportFiles] = await Promise.all([
+            this.readQuery('settings', () => this.client.getSettings()),
+            this.readQuery('legacy-schedule-import-files', () => this.client.listLegacyScheduleImportFiles()),
+          ]);
+
+          return {
+            route: '/settings',
+            title: 'Configuracao',
+            description: 'Area secundaria para defaults, energia, host companion e auth.',
+            sections: [],
+            data: {
+              settings,
+              legacyScheduleImportFiles,
+              legacyScheduleImportReport: null,
+            } satisfies SettingsPageData,
+          };
+        },
       },
     ];
   }

@@ -67,6 +67,16 @@ export interface WeeklyPlannerUpsertInput {
   readonly notificationRules?: readonly NotificationRuleDefinitionInput[];
 }
 
+export type {
+  LegacyScheduleImportEventReport,
+  LegacyScheduleImportEventStatus,
+  LegacyScheduleImportFileSummary,
+  LegacyScheduleImportIgnoredItem,
+  LegacyScheduleImportInput,
+  LegacyScheduleImportMissingGroup,
+  LegacyScheduleImportReport,
+} from '../../domain/entities/LegacyScheduleImport.js';
+
 export interface WeeklyPlannerModuleContract {
   readonly moduleName: 'weekly-planner';
   getWeekSnapshot(query?: WeeklyPlannerQuery): Promise<WeeklyPlannerSnapshot>;
@@ -77,4 +87,13 @@ export interface WeeklyPlannerModuleContract {
       readonly groupJid?: string;
     },
   ): Promise<boolean>;
+  listLegacyScheduleFiles(): Promise<
+    readonly import('../../domain/entities/LegacyScheduleImport.js').LegacyScheduleImportFileSummary[]
+  >;
+  previewLegacyScheduleImport(
+    input: import('../../domain/entities/LegacyScheduleImport.js').LegacyScheduleImportInput,
+  ): Promise<import('../../domain/entities/LegacyScheduleImport.js').LegacyScheduleImportReport>;
+  applyLegacyScheduleImport(
+    input: import('../../domain/entities/LegacyScheduleImport.js').LegacyScheduleImportInput,
+  ): Promise<import('../../domain/entities/LegacyScheduleImport.js').LegacyScheduleImportReport>;
 }

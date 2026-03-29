@@ -16,6 +16,7 @@
     "validate:wave42": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave42.mjs",
     "validate:wave43": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave43.mjs",
     "validate:wave44": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave44.mjs",
+    "validate:wave45": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave45.mjs",
     "validate:wave38": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave38.mjs",
     "validate:wave34": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave34.mjs",
     "validate:wave29": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave29.mjs",

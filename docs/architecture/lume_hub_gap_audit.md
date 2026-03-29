@@ -37,6 +37,11 @@ Conclusao curta:
   - `system-settings.json` live com `llm.enabled = true`
   - `codex-oauth` ativo por defeito quando a auth existe
   - fallback deterministico visivel e auditavel quando a auth nao esta pronta
+- a `Wave 45` ja fechou o importador de schedules do `WA-notify`:
+  - leitura live de `wNNyYYYY.json`
+  - preview operacional na pagina `Configuracao`
+  - apply idempotente para o storage mensal canonico por grupo
+  - relatorio claro de criados, atualizados, ambiguos e grupos em falta
 - no entanto, em `2026-03-29`, ainda nao e recomendavel fazer cutover total do `WA-notify` para o `LumeHub`
 - a recomendacao atual continua a ser:
   - `shadow mode`
@@ -55,7 +60,6 @@ Tambem ja nao faz sentido assumir, sem validar, que:
 
 - `Live` esta em paridade total com o `WA-notify`
 - o assistente ja aplica alteracoes de calendario reais por queue
-- os dados reais de schedules do `WA-notify` ja estao migrados
 - a suite automatica ja esta verde o suficiente para cutover
 
 ## O que ja esta solido
@@ -105,24 +109,9 @@ O storage, o runtime, a UX guiada e a limpeza final da serie ficaram fechados.
 
 Esta e, neste momento, a ronda critica para substituicao real do sistema antigo.
 A `Wave 44` ja fechou o primeiro bloqueador critico: o assistente agora consegue fazer `preview -> apply -> queue -> auditoria` sobre schedules reais no calendario do grupo.
+A `Wave 45` fechou o segundo: os schedules reais do `WA-notify` ja podem ser migrados para o storage mensal canonico por grupo com re-run idempotente.
 
-### 1. Os schedules reais do WA-notify ainda nao estao dentro do LumeHub
-
-Evidencia confirmada em `2026-03-29`:
-
-- `GET /api/schedules?weekId=2026-W14` no `LumeHub` devolveu `events: []`
-- o `WA-notify` continua a ter semanas reais em ficheiros como:
-  - [w14y2026.json](/home/eliaspc/Containers/wa-notify/data/schedules/w14y2026.json)
-
-Implicacao:
-
-- mesmo que o runtime do `LumeHub` esteja saudavel, ele ainda nao tem a carga operacional real que o `WA-notify` usa hoje
-
-Fecho planeado:
-
-- `Wave 45`
-
-### 2. Alerts e automations continuam por fechar
+### 1. Alerts e automations continuam por fechar
 
 Evidencia confirmada em `2026-03-29`:
 
@@ -139,7 +128,7 @@ Fecho planeado:
 
 - `Wave 46`
 
-### 3. A validacao automatica ainda nao esta verde para cutover
+### 2. A validacao automatica ainda nao esta verde para cutover
 
 Evidencia confirmada em `2026-03-29`:
 
@@ -157,7 +146,7 @@ Fecho planeado:
 
 - `Wave 47`
 
-### 4. Ainda falta ensaio com dados reais antes do cutover
+### 3. Ainda falta ensaio com dados reais antes do cutover
 
 Estado encontrado:
 
@@ -204,8 +193,9 @@ Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resp
 - para memoria e instrucoes LLM por grupo, sim
 - para media recebida, biblioteca e distribuicao multi-grupo, sim
 - para o agente do projeto, ja existe fundacao funcional
+- para migracao de schedules reais do `WA-notify`, sim
 - para migracao total do `WA-notify`, ainda nao
 - em `2026-03-29`, a recomendacao correta continua a ser:
-  - fechar `Wave 45` a `Wave 49`
+  - fechar `Wave 46` a `Wave 49`
   - depois fazer shadow mode
   - e so depois decidir cutover

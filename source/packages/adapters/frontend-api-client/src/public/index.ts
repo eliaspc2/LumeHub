@@ -32,6 +32,9 @@ import type { Person, PersonRole, PersonUpsertInput } from '@lume-hub/people-mem
 import type { PowerPolicyUpdate, PowerStatus } from '@lume-hub/system-power';
 import type { WatchdogIssue } from '@lume-hub/watchdog';
 import type {
+  LegacyScheduleImportFileSummary,
+  LegacyScheduleImportInput,
+  LegacyScheduleImportReport,
   WeeklyPlannerEventSummary,
   WeeklyPlannerQuery,
   WeeklyPlannerSnapshot,
@@ -152,6 +155,9 @@ export interface SettingsSnapshot {
   readonly hostStatus: HostCompanionStatus;
   readonly authRouterStatus: CodexAuthRouterStatus | null;
 }
+
+export type LegacyScheduleImportFileSnapshot = LegacyScheduleImportFileSummary;
+export type LegacyScheduleImportReportSnapshot = LegacyScheduleImportReport;
 
 export interface WhatsAppConversationSummary {
   readonly personId: string | null;
@@ -432,6 +438,39 @@ export class FrontendApiClient {
       await this.transport.request<{ readonly deleted: boolean }>({
         method: 'DELETE',
         path: `/api/schedules/${encodeURIComponent(eventId)}${suffix}`,
+      }),
+    );
+  }
+
+  async listLegacyScheduleImportFiles(): Promise<readonly LegacyScheduleImportFileSnapshot[]> {
+    return this.expectOk(
+      await this.transport.request<readonly LegacyScheduleImportFileSnapshot[]>({
+        method: 'GET',
+        path: '/api/migrations/wa-notify/schedules/files',
+      }),
+    );
+  }
+
+  async previewLegacyScheduleImport(
+    input: LegacyScheduleImportInput,
+  ): Promise<LegacyScheduleImportReportSnapshot> {
+    return this.expectOk(
+      await this.transport.request<LegacyScheduleImportReportSnapshot>({
+        method: 'POST',
+        path: '/api/migrations/wa-notify/schedules/preview',
+        body: input,
+      }),
+    );
+  }
+
+  async applyLegacyScheduleImport(
+    input: LegacyScheduleImportInput,
+  ): Promise<LegacyScheduleImportReportSnapshot> {
+    return this.expectOk(
+      await this.transport.request<LegacyScheduleImportReportSnapshot>({
+        method: 'POST',
+        path: '/api/migrations/wa-notify/schedules/apply',
+        body: input,
       }),
     );
   }

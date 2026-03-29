@@ -9,6 +9,8 @@ import type {
   GroupContextPreviewSnapshot,
   GroupIntelligenceSnapshot,
   Instruction,
+  LegacyScheduleImportFileSnapshot,
+  LegacyScheduleImportReportSnapshot,
   LlmChatInput,
   MediaAssetSnapshot,
   PersonRole,
@@ -44,6 +46,7 @@ import type {
   AppRouter,
   GroupManagementPageData,
   MediaLibraryPageData,
+  SettingsPageData,
   WhatsAppManagementPageData,
   WorkspaceAgentPageData,
 } from '../app/AppRouter.js';
@@ -120,6 +123,13 @@ interface AssistantSchedulingDraft {
   readonly lastApplied: AssistantScheduleApplySnapshot | null;
 }
 
+interface LegacyScheduleMigrationDraft {
+  readonly fileName: string;
+  readonly previewLoading: boolean;
+  readonly applying: boolean;
+  readonly report: LegacyScheduleImportReportSnapshot | null;
+}
+
 interface AssistantRailMessage {
   readonly messageId: string;
   readonly role: 'user' | 'assistant' | 'system' | 'error';
@@ -155,6 +165,7 @@ interface AppShellState {
   readonly groupManagementDraft: GroupManagementDraft;
   readonly workspaceAgentDraft: WorkspaceAgentDraft;
   readonly assistantSchedulingDraft: AssistantSchedulingDraft;
+  readonly legacyScheduleMigrationDraft: LegacyScheduleMigrationDraft;
   readonly assistantRailChat: AssistantRailChatState;
   readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
   readonly whatsappQrPreviewVisible: boolean;
@@ -186,7 +197,7 @@ interface UxTelemetryEntry {
 }
 
 interface PendingConfirmation {
-  readonly domain: 'assistant' | 'whatsapp' | 'workspace';
+  readonly domain: 'assistant' | 'settings' | 'whatsapp' | 'workspace';
   readonly key: string;
   readonly action: string;
   readonly dataset: ActionDataset;
@@ -254,6 +265,7 @@ export class AppShell {
       groupManagementDraft: createEmptyGroupManagementDraft(),
       workspaceAgentDraft: createEmptyWorkspaceAgentDraft(),
       assistantSchedulingDraft: createEmptyAssistantSchedulingDraft(),
+      legacyScheduleMigrationDraft: createEmptyLegacyScheduleMigrationDraft(),
       assistantRailChat: createInitialAssistantRailChatState(),
       whatsappRepairFocus: 'auth',
       whatsappQrPreviewVisible: false,
@@ -656,6 +668,10 @@ export class AppShell {
     if (page.route === '/assistant') {
       this.syncAssistantSchedulingDraft(page as UiPage<AssistantPageData>);
     }
+
+    if (page.route === '/settings') {
+      this.syncLegacyScheduleMigrationDraft(page as UiPage<SettingsPageData>);
+    }
   }
 
   private syncMediaDistributionDraft(page: UiPage<MediaLibraryPageData>): void {
@@ -704,6 +720,17 @@ export class AppShell {
         ...this.state.assistantSchedulingDraft,
         groupJid: selectedGroupJid,
       },
+    };
+  }
+
+  private syncLegacyScheduleMigrationDraft(page: UiPage<SettingsPageData>): void {
+    this.state = {
+      ...this.state,
+      legacyScheduleMigrationDraft: resolveLegacyScheduleMigrationDraft(
+        this.state.legacyScheduleMigrationDraft,
+        page.data.legacyScheduleImportFiles,
+        page.data.legacyScheduleImportReport,
+      ),
     };
   }
 
@@ -901,7 +928,7 @@ export class AppShell {
       case '/whatsapp':
         return this.renderWhatsAppPage(this.state.page as UiPage<WhatsAppManagementPageData>);
       case '/settings':
-        return this.renderSettingsPage(this.state.page as UiPage<SettingsSnapshot>);
+        return this.renderSettingsPage(this.state.page as UiPage<SettingsPageData>);
       case '/distributions':
         return this.renderRoutingPage(this.state.page as UiPage<RoutingConsoleSnapshot>);
       case '/watchdog':
@@ -3305,8 +3332,15 @@ export class AppShell {
     `;
   }
 
-  private renderSettingsPage(page: UiPage<SettingsSnapshot>): string {
-    const snapshot = page.data;
+  private renderSettingsPage(page: UiPage<SettingsPageData>): string {
+    const snapshot = page.data.settings;
+    const legacyFiles = page.data.legacyScheduleImportFiles;
+    const draft = resolveLegacyScheduleMigrationDraft(
+      this.state.legacyScheduleMigrationDraft,
+      legacyFiles,
+      page.data.legacyScheduleImportReport,
+    );
+    const selectedLegacyFile = legacyFiles.find((file) => file.fileName === draft.fileName) ?? legacyFiles[0] ?? null;
     const defaultRuleSummary =
       snapshot.adminSettings.ui.defaultNotificationRules.length > 0
         ? snapshot.adminSettings.ui.defaultNotificationRules
@@ -3440,6 +3474,112 @@ export class AppShell {
                         <div class="ui-details__content">
                           <p>Auth file: ${escapeHtml(snapshot.hostStatus.auth.filePath)}</p>
                           <p>Service: ${escapeHtml(snapshot.hostStatus.autostart.serviceName)}</p>
+                        </div>
+                      </details>
+                    `
+                  : ''
+              }
+            </div>
+          </details>
+          <details class="ui-details" open>
+            <summary>Migracao de schedules do WA-notify</summary>
+            <div class="ui-details__content">
+              ${
+                legacyFiles.length > 0
+                  ? `
+                      <div class="ui-form-grid">
+                        ${renderUiSelectField({
+                          label: 'Ficheiro legacy',
+                          value: draft.fileName,
+                          dataKey: 'migration.fileName',
+                          options: legacyFiles.map((file) => ({
+                            value: file.fileName,
+                            label: `${file.fileName} · ${file.baseEventCount} eventos`,
+                          })),
+                          hint: 'Escolhe a semana legacy a analisar antes de importar.',
+                        })}
+                      </div>
+                      <div class="action-row">
+                        ${renderUiActionButton({
+                          label: draft.previewLoading ? 'A gerar preview...' : 'Gerar preview do import',
+                          disabled: draft.previewLoading || draft.applying || !selectedLegacyFile,
+                          dataAttributes: { 'settings-action': 'preview-legacy-import' },
+                        })}
+                        ${renderUiActionButton({
+                          label: draft.applying ? 'A importar...' : 'Importar para o calendario real',
+                          variant: 'secondary',
+                          disabled: draft.previewLoading || draft.applying || !selectedLegacyFile,
+                          dataAttributes: { 'settings-action': 'apply-legacy-import' },
+                        })}
+                        ${
+                          draft.report
+                            ? renderUiActionButton({
+                                label: 'Limpar relatorio',
+                                variant: 'secondary',
+                                dataAttributes: { 'settings-action': 'clear-legacy-import-report' },
+                              })
+                            : ''
+                        }
+                      </div>
+                      ${
+                        selectedLegacyFile
+                          ? `
+                              <ul>
+                                <li>Semana legacy: ${escapeHtml(selectedLegacyFile.legacyWeekId)}</li>
+                                <li>Semana ISO alvo: ${escapeHtml(selectedLegacyFile.isoWeekId ?? 'indefinida')}</li>
+                                <li>Janela temporal: ${escapeHtml(
+                                  selectedLegacyFile.weekStart && selectedLegacyFile.weekEnd
+                                    ? `${selectedLegacyFile.weekStart} ate ${selectedLegacyFile.weekEnd}`
+                                    : 'sem range declarada',
+                                )}</li>
+                                <li>Itens no ficheiro: ${selectedLegacyFile.itemCount}; eventos base: ${selectedLegacyFile.baseEventCount}</li>
+                              </ul>
+                            `
+                          : ''
+                      }
+                    `
+                  : '<p>Nao foi encontrado nenhum ficheiro legacy do WA-notify nesta instalacao.</p>'
+              }
+              ${
+                draft.report
+                  ? `
+                      <div class="guide-preview">
+                        <p><strong>Modo</strong>: ${escapeHtml(draft.report.mode === 'apply' ? 'Import aplicado' : 'Preview') }</p>
+                        <p><strong>Ficheiro</strong>: ${escapeHtml(draft.report.sourceFile.fileName)}</p>
+                        <p><strong>Criados</strong>: ${draft.report.totals.created} · <strong>Atualizados</strong>: ${draft.report.totals.updated} · <strong>Iguais</strong>: ${draft.report.totals.unchanged}</p>
+                        <p><strong>Ambiguos</strong>: ${draft.report.totals.ambiguous} · <strong>Grupos em falta</strong>: ${draft.report.totals.missingGroups}</p>
+                      </div>
+                      ${
+                        draft.report.missingGroups.length > 0
+                          ? `
+                              <details class="ui-details">
+                                <summary>Grupos em falta</summary>
+                                <div class="ui-details__content">
+                                  <ul>
+                                    ${draft.report.missingGroups
+                                      .map(
+                                        (entry) =>
+                                          `<li>${escapeHtml(entry.groupJid)} · ${entry.itemCount} item(ns) legacy sem mapeamento</li>`,
+                                      )
+                                      .join('')}
+                                  </ul>
+                                </div>
+                              </details>
+                            `
+                          : ''
+                      }
+                      <details class="ui-details">
+                        <summary>Eventos avaliados</summary>
+                        <div class="ui-details__content">
+                          <ul>
+                            ${draft.report.events
+                              .slice(0, 8)
+                              .map(
+                                (event) =>
+                                  `<li>${escapeHtml(event.title)} · ${escapeHtml(event.groupLabel ?? event.groupJid)} · ${escapeHtml(event.localDate)} ${escapeHtml(event.startTime)} · ${escapeHtml(event.status)}${event.reason ? ` · ${escapeHtml(event.reason)}` : ''}</li>`,
+                              )
+                              .join('')}
+                          </ul>
                         </div>
                       </details>
                     `
@@ -3616,6 +3756,17 @@ export class AppShell {
             [fieldKey === 'assistant.groupJid' ? 'groupJid' : 'text']: value,
             ...(fieldKey === 'assistant.text' ? { preview: null, lastApplied: null } : {}),
           } as AssistantSchedulingDraft,
+        };
+        this.render();
+        return;
+      case 'migration.fileName':
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          legacyScheduleMigrationDraft: {
+            ...this.state.legacyScheduleMigrationDraft,
+            fileName: value,
+          },
         };
         this.render();
         return;
@@ -4178,6 +4329,16 @@ export class AppShell {
     return page;
   }
 
+  private readSettingsPageData(): UiPage<SettingsPageData> | null {
+    const page = this.state.page as UiPage<SettingsPageData> | null;
+
+    if (!page || page.route !== '/settings') {
+      return null;
+    }
+
+    return page;
+  }
+
   private readWhatsAppPageData(): WhatsAppManagementPageData | null {
     const page = this.state.page as UiPage<WhatsAppManagementPageData> | null;
 
@@ -4717,6 +4878,193 @@ export class AppShell {
         assistantSchedulingDraft: {
           ...this.state.assistantSchedulingDraft,
           applying: false,
+        },
+        flowFeedback: {
+          tone: 'danger',
+          message,
+        },
+      };
+      this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+      this.render();
+    }
+  }
+
+  private async handleSettingsAction(
+    action: string,
+    _dataset: ActionDataset,
+    options: {
+      readonly confirmed?: boolean;
+    } = {},
+  ): Promise<void> {
+    const page = this.readSettingsPageData();
+
+    if (!page) {
+      return;
+    }
+
+    if (action === 'clear-legacy-import-report') {
+      this.state = {
+        ...this.state,
+        legacyScheduleMigrationDraft: {
+          ...this.state.legacyScheduleMigrationDraft,
+          report: null,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'Relatorio da migracao legacy limpo desta sessao.',
+        },
+      };
+      this.render();
+      return;
+    }
+
+    const draft = resolveLegacyScheduleMigrationDraft(
+      this.state.legacyScheduleMigrationDraft,
+      page.data.legacyScheduleImportFiles,
+      page.data.legacyScheduleImportReport,
+    );
+
+    if (!draft.fileName) {
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'warning',
+          message: 'Escolhe primeiro o ficheiro weekly legacy que queres importar.',
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'preview-legacy-import') {
+      this.state = {
+        ...this.state,
+        legacyScheduleMigrationDraft: {
+          ...this.state.legacyScheduleMigrationDraft,
+          previewLoading: true,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A gerar preview do import legacy do WA-notify.',
+        },
+      };
+      this.render();
+
+      try {
+        const report = await this.currentClient().previewLegacyScheduleImport({
+          fileName: draft.fileName,
+          requestedBy: 'settings-ui',
+        });
+        this.state = {
+          ...this.state,
+          legacyScheduleMigrationDraft: {
+            ...this.state.legacyScheduleMigrationDraft,
+            previewLoading: false,
+            applying: false,
+            report,
+          },
+          flowFeedback: {
+            tone: report.totals.ambiguous > 0 || report.totals.missingGroups > 0 ? 'warning' : 'positive',
+            message:
+              report.totals.ambiguous > 0 || report.totals.missingGroups > 0
+                ? 'Preview pronto, mas ha itens ambiguos ou grupos em falta para rever antes do apply.'
+                : 'Preview pronto. Podes importar com seguranca quando quiseres.',
+          },
+        };
+        this.recordUxEvent('positive', `Preview de migracao legacy gerado para ${report.sourceFile.fileName}.`);
+        this.render();
+      } catch (error) {
+        const message = `Nao foi possivel gerar o preview do import legacy. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          legacyScheduleMigrationDraft: {
+            ...this.state.legacyScheduleMigrationDraft,
+            previewLoading: false,
+          },
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
+    if (action !== 'apply-legacy-import') {
+      return;
+    }
+
+    if (!options.confirmed) {
+      this.state = {
+        ...this.state,
+        pendingConfirmation: {
+          domain: 'settings',
+          key: `legacy-import:${draft.fileName}`,
+          action,
+          dataset: {
+            legacyScheduleFileName: draft.fileName,
+          },
+          title: 'Importar schedules legacy para o calendario real?',
+          description: `Isto vai criar ou atualizar eventos reais a partir de ${draft.fileName}.`,
+          confirmLabel: 'Importar agora',
+          tone: 'warning',
+        },
+        flowFeedback: {
+          tone: 'warning',
+          message: `Confirma primeiro a importacao real de ${draft.fileName}.`,
+        },
+      };
+      this.render();
+      return;
+    }
+
+    this.state = {
+      ...this.state,
+      legacyScheduleMigrationDraft: {
+        ...this.state.legacyScheduleMigrationDraft,
+        previewLoading: false,
+        applying: true,
+      },
+      flowFeedback: {
+        tone: 'neutral',
+        message: `A importar ${draft.fileName} para o calendario real do LumeHub.`,
+      },
+    };
+    this.render();
+
+    try {
+      const report = await this.currentClient().applyLegacyScheduleImport({
+        fileName: draft.fileName,
+        requestedBy: 'settings-ui',
+      });
+      this.state = {
+        ...this.state,
+        legacyScheduleMigrationDraft: {
+          ...this.state.legacyScheduleMigrationDraft,
+          previewLoading: false,
+          applying: false,
+          report,
+        },
+        flowFeedback: {
+          tone: report.totals.ambiguous > 0 || report.totals.missingGroups > 0 ? 'warning' : 'positive',
+          message:
+            report.totals.ambiguous > 0 || report.totals.missingGroups > 0
+              ? `Import aplicado com pontos para rever. ${report.totals.created} criados, ${report.totals.updated} atualizados.`
+              : `Import aplicado com sucesso. ${report.totals.created} criados e ${report.totals.updated} atualizados.`,
+        },
+      };
+      this.recordUxEvent('positive', `Import legacy aplicado para ${report.sourceFile.fileName}.`);
+      this.render();
+    } catch (error) {
+      const message = `Nao foi possivel aplicar o import legacy. ${readErrorMessage(error)}`;
+      this.state = {
+        ...this.state,
+        legacyScheduleMigrationDraft: {
+          ...this.state.legacyScheduleMigrationDraft,
+          applying: false,
+          previewLoading: false,
         },
         flowFeedback: {
           tone: 'danger',
@@ -5855,6 +6203,13 @@ export class AppShell {
       return;
     }
 
+    if (pendingConfirmation.domain === 'settings') {
+      await this.handleSettingsAction(pendingConfirmation.action, pendingConfirmation.dataset, {
+        confirmed: true,
+      });
+      return;
+    }
+
     if (pendingConfirmation.domain === 'workspace') {
       await this.handleWorkspaceAction(pendingConfirmation.action, pendingConfirmation.dataset, {
         confirmed: true,
@@ -6015,6 +6370,19 @@ export class AppShell {
         }
 
         void this.handleAssistantAction(action, element.dataset);
+      });
+    }
+
+    for (const element of this.root.querySelectorAll<HTMLElement>('[data-settings-action]')) {
+      element.addEventListener('click', (event) => {
+        event.preventDefault();
+        const action = element.dataset.settingsAction;
+
+        if (!action) {
+          return;
+        }
+
+        void this.handleSettingsAction(action, element.dataset);
       });
     }
 
@@ -6341,6 +6709,15 @@ function createEmptyAssistantSchedulingDraft(): AssistantSchedulingDraft {
   };
 }
 
+function createEmptyLegacyScheduleMigrationDraft(): LegacyScheduleMigrationDraft {
+  return {
+    fileName: '',
+    previewLoading: false,
+    applying: false,
+    report: null,
+  };
+}
+
 function resolveAssistantSchedulingGroupJid(
   selectedGroupJid: string,
   groups: readonly Group[],
@@ -6359,6 +6736,24 @@ function resolveAssistantSchedulingDraft(
   return {
     ...draft,
     groupJid: resolveAssistantSchedulingGroupJid(draft.groupJid, groups),
+  };
+}
+
+function resolveLegacyScheduleMigrationDraft(
+  draft: LegacyScheduleMigrationDraft,
+  files: readonly LegacyScheduleImportFileSnapshot[],
+  report: LegacyScheduleImportReportSnapshot | null,
+): LegacyScheduleMigrationDraft {
+  const selectedFileName =
+    (draft.fileName && files.some((file) => file.fileName === draft.fileName) ? draft.fileName : null) ??
+    report?.sourceFile.fileName ??
+    files[0]?.fileName ??
+    '';
+
+  return {
+    ...draft,
+    fileName: selectedFileName,
+    report: report ?? draft.report,
   };
 }
 

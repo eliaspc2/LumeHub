@@ -129,6 +129,7 @@ export class ModuleLoader {
     });
     const weeklyPlannerModule = new WeeklyPlannerModule({
       dataRootPath: paths.dataRootPath,
+      legacyScheduleRootPath: paths.waNotifySchedulesRootPath,
       adminConfig: adminConfigModule,
       groupDirectory: groupDirectoryModule,
       notificationJobs: notificationJobsModule,

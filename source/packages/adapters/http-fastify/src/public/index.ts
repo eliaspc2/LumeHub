@@ -32,6 +32,7 @@ import type { PeopleMemoryModuleContract, Person, PersonRole, PersonUpsertInput 
 import type { SystemPowerModuleContract } from '@lume-hub/system-power';
 import type { WatchdogModuleContract } from '@lume-hub/watchdog';
 import type {
+  LegacyScheduleImportInput,
   WeeklyPlannerModuleContract,
   WeeklyPlannerUpsertInput,
 } from '@lume-hub/weekly-planner';
@@ -121,7 +122,15 @@ export interface HttpApiModules {
   };
   readonly systemPower: Pick<SystemPowerModuleContract, 'getPowerStatus' | 'updatePowerPolicy'>;
   readonly watchdog: Pick<WatchdogModuleContract, 'listIssues' | 'resolveIssue'>;
-  readonly weeklyPlanner?: Pick<WeeklyPlannerModuleContract, 'deleteSchedule' | 'getWeekSnapshot' | 'saveSchedule'>;
+  readonly weeklyPlanner?: Pick<
+    WeeklyPlannerModuleContract,
+    | 'applyLegacyScheduleImport'
+    | 'deleteSchedule'
+    | 'getWeekSnapshot'
+    | 'listLegacyScheduleFiles'
+    | 'previewLegacyScheduleImport'
+    | 'saveSchedule'
+  >;
   readonly workspaceAgent?: Pick<WorkspaceAgentModuleContract, 'getStatus' | 'listRuns' | 'readFile' | 'run' | 'searchFiles'>;
   readonly whatsappRuntime?: {
     getRuntimeSnapshot(): Promise<WhatsAppRuntimeSnapshot>;
@@ -535,6 +544,47 @@ export class RouteRegistrar {
         return {
           deleted,
         };
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/migrations/wa-notify/schedules/files',
+      handler: async () => {
+        if (!this.modules.weeklyPlanner) {
+          throw new ApiError(404, 'Weekly planner is not configured.');
+        }
+
+        return this.modules.weeklyPlanner.listLegacyScheduleFiles();
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/migrations/wa-notify/schedules/preview',
+      handler: async (context) => {
+        if (!this.modules.weeklyPlanner) {
+          throw new ApiError(404, 'Weekly planner is not configured.');
+        }
+
+        return this.modules.weeklyPlanner.previewLegacyScheduleImport(readLegacyScheduleImportBody(context.body));
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/migrations/wa-notify/schedules/apply',
+      handler: async (context) => {
+        if (!this.modules.weeklyPlanner) {
+          throw new ApiError(404, 'Weekly planner is not configured.');
+        }
+
+        const report = await this.modules.weeklyPlanner.applyLegacyScheduleImport(readLegacyScheduleImportBody(context.body));
+        this.publish('schedules.import.completed', {
+          fileName: report.sourceFile.fileName,
+          created: report.totals.created,
+          updated: report.totals.updated,
+          unchanged: report.totals.unchanged,
+          ambiguous: report.totals.ambiguous,
+        });
+        return report;
       },
     });
     server.registerRoute({
@@ -2087,6 +2137,23 @@ function readWeeklyPlannerUpsertBody(body: unknown): WeeklyPlannerUpsertInput {
   };
 }
 
+function readLegacyScheduleImportBody(body: unknown): LegacyScheduleImportInput {
+  const payload = readBodyObject(body, 'Legacy schedule import payload must be an object.');
+  const fileName = readOptionalTrimmedStringValue(payload.fileName, 'fileName');
+  const filePath = readOptionalTrimmedStringValue(payload.filePath, 'filePath');
+
+  if (!fileName && !filePath) {
+    throw new ApiError(400, 'fileName or filePath is required.');
+  }
+
+  return {
+    fileName,
+    filePath,
+    defaultDurationMinutes: readOptionalPositiveIntegerValue(payload.defaultDurationMinutes, 'defaultDurationMinutes'),
+    requestedBy: readOptionalTrimmedStringValue(payload.requestedBy, 'requestedBy') ?? null,
+  };
+}
+
 function readDistributionPreviewBody(body: unknown): {
   readonly sourceMessageId: string;
   readonly personId?: string;
@@ -2388,6 +2455,14 @@ function readRequiredPositiveIntegerValue(value: unknown, fieldName: string): nu
   }
 
   return value;
+}
+
+function readOptionalPositiveIntegerValue(value: unknown, fieldName: string): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return readRequiredPositiveIntegerValue(value, fieldName);
 }
 
 function readOptionalIdentifiers(

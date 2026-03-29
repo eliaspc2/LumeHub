@@ -10,7 +10,7 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 43` ja foram executadas e validadas.
+As `Wave 0` a `Wave 45` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
 O storage canonico da ronda de media ja ficou aberto com:
@@ -56,39 +56,11 @@ A `Wave 41` ja fechou aprovacao explicita para `apply`, bloqueio de concorrencia
 A `Wave 42` fechou a limpeza final da ronda do agente de projeto, consolidando validadores, removendo copy provisoria e alinhando docs ao estado final da pagina `Projeto`.
 A `Wave 43` fechou a LLM live por defeito, com provider real ativo quando a auth existe e fallback deterministico visivel e auditavel quando a auth falha.
 A `Wave 44` fechou o scheduling live com `preview -> apply -> queue -> auditoria`, incluindo alteracao real do calendario por assistente e diff funcional visivel antes e depois do `apply`.
+A `Wave 45` fechou o importador idempotente de schedules do `WA-notify`, com pagina operacional em `Configuracao`, relatorio de itens importados/ambiguos e migracao real para o storage mensal canonico por grupo.
 
 ## Ronda de paridade e cutover WA-notify
 
 Esta ronda existe para fechar os bloqueadores que ainda impedem migracao total do `WA-notify` para o `LumeHub`.
-
-### Wave 45 - Importador e migracao de schedules do WA-notify
-
-Objetivo:
-- migrar os dados reais `wNNyYYYY.json` do `WA-notify` para o storage canonico mensal por grupo do `LumeHub`
-
-Entregaveis:
-- importador idempotente do formato semanal legacy
-- mapeamento de grupos legacy para `group-directory`
-- comando e/ou pagina operacional de import
-- relatorio de itens importados, ignorados e ambiguos
-
-Criterios de aceitacao:
-- uma semana real do `WA-notify` entra no `LumeHub` sem perda dos eventos validos
-- o import pode ser corrido mais de uma vez sem duplicar eventos
-- fica claro o que precisou de intervencao manual
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave45`
-
-Melhor momento para testar:
-- assim que a wave fechar, com dados reais de uma ou duas semanas
-
-O que testar:
-- importar `w14y2026.json`
-- abrir `Semana` em live
-- confirmar eventos esperados e ausencia de duplicados
 
 ### Wave 46 - Alerts e automations: paridade, substituicao ou decisao fechada
 
