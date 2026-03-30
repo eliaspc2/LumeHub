@@ -217,7 +217,7 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 46` ja foram executadas e validadas.
+As `Wave 0` a `Wave 47` ja foram executadas e validadas.
 
 Mas isso nao significa, por si so, que o `WA-notify` ja deva ser desligado.
 
@@ -229,8 +229,8 @@ Em `2026-03-29`, a leitura canonica passa a ser esta:
   - `alerts`
   - `automations`
 - os bloqueadores ativos para cutover total ficam agora reduzidos a:
-  - suite verde e hardening de restart/cutover
   - shadow mode com dados reais
+  - limpeza final da ronda de paridade de migracao
 - por isso, a recomendacao atual e:
   - `shadow mode`
   - ou migracao parcial por areas
@@ -326,10 +326,12 @@ Neste momento:
   - objetivo fechado: importador idempotente de `wNNyYYYY.json`, preview/apply operacional em `Configuracao` e migracao real para o storage mensal por grupo
 - `Wave 46` fechada:
   - objetivo fechado: `alerts` e `automations` portados para a arquitetura nova, com import minimo de `alerts.json` / `automations.json`, execucao live e auditoria visivel
+- `Wave 47` fechada:
+  - objetivo fechado: `pnpm run test` verde, restart/dedupe corrigidos e e2e live de cutover alinhado ao interface atual
 - rondas ativas agora:
-  - `Wave 47` a `Wave 49`
+  - `Wave 48` a `Wave 49`
   - objetivo: fechar paridade e cutover real face ao `WA-notify`
 - regra de processo:
   - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
 - o runtime `Live` atual continua a ser o estado canonico do produto novo
-- mas a migracao total do `WA-notify` so deve ser decidida depois da ronda `Wave 47` a `Wave 49`
+- mas a migracao total do `WA-notify` so deve ser decidida depois da ronda `Wave 48` a `Wave 49`

@@ -23,6 +23,7 @@ export class InstructionQueueService {
     const current = await this.repository.read();
     const isoNow = now.toISOString();
     const duplicateMap = buildDuplicateMap(current.instructions);
+    const duplicateInstruction = findDuplicateInstruction(current.instructions, input);
     const instruction: Instruction = {
       instructionId: `instruction-${randomUUID()}`,
       sourceType: input.sourceType.trim(),
@@ -31,6 +32,24 @@ export class InstructionQueueService {
       status: 'queued',
       metadata: input.metadata ?? {},
       actions: input.actions.map((action) => {
+        if (duplicateInstruction) {
+          return {
+            actionId: `instruction-action-${randomUUID()}`,
+            type: action.type.trim(),
+            dedupeKey: action.dedupeKey?.trim() || null,
+            targetGroupJid: action.targetGroupJid?.trim() || null,
+            payload: action.payload ?? {},
+            status: 'skipped' as const,
+            attemptCount: 0,
+            lastError: null,
+            result: {
+              note: `duplicate_instruction_of:${duplicateInstruction.instructionId}`,
+            },
+            lastAttemptAt: null,
+            completedAt: isoNow,
+          };
+        }
+
         const duplicateOf = action.dedupeKey ? duplicateMap.get(action.dedupeKey) : undefined;
         return duplicateOf
           ? {
@@ -234,15 +253,15 @@ function buildDuplicateMap(
 ): Map<string, { readonly instructionId: string; readonly actionId: string }> {
   const duplicates = new Map<string, { readonly instructionId: string; readonly actionId: string }>();
 
-    for (const instruction of instructions) {
-      if (instruction.mode === 'dry_run') {
+  for (const instruction of instructions) {
+    if (instruction.mode === 'dry_run') {
+      continue;
+    }
+
+    for (const action of instruction.actions) {
+      if (!action.dedupeKey || action.status === 'failed') {
         continue;
       }
-
-      for (const action of instruction.actions) {
-        if (!action.dedupeKey || action.status === 'failed') {
-          continue;
-        }
 
       duplicates.set(action.dedupeKey, {
         instructionId: instruction.instructionId,
@@ -252,6 +271,30 @@ function buildDuplicateMap(
   }
 
   return duplicates;
+}
+
+function findDuplicateInstruction(
+  instructions: readonly Instruction[],
+  input: InstructionEnqueueInput,
+): Instruction | undefined {
+  const sourceMessageId = input.sourceMessageId?.trim();
+  const sourceType = input.sourceType.trim();
+  const mode = input.mode ?? 'confirmed';
+
+  if (!sourceMessageId || mode === 'dry_run' || !isInstructionLevelDuplicateSourceType(sourceType)) {
+    return undefined;
+  }
+
+  return instructions.find(
+    (instruction) =>
+      instruction.mode !== 'dry_run' &&
+      instruction.sourceType === sourceType &&
+      instruction.sourceMessageId === sourceMessageId,
+  );
+}
+
+function isInstructionLevelDuplicateSourceType(sourceType: string): boolean {
+  return sourceType === 'fanout_request' || sourceType === 'fanout_distribution';
 }
 
 function deriveInstructionStatus(actions: readonly InstructionAction[]): Instruction['status'] {

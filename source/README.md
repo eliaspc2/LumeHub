@@ -99,6 +99,13 @@ A `Wave 46` tambem ja ficou fechada:
 - o runtime live ja executa `alerts` por inbound e `automations` por tick, com auditoria em API/UI
 - a validacao dedicada passou em `validate:wave46`
 
+A `Wave 47` tambem ja ficou fechada:
+
+- `pnpm run test` passou por completo no workspace
+- o caso de restart/dedupe da `instruction-queue` ficou corrigido e coberto pelo teste de integracao
+- o e2e live de cutover ficou alinhado ao copy atual da UI
+- a validacao dedicada passou em `validate:wave47`
+
 Nota operacional:
 
 - neste host, a validacao foi feita com `Node 20` local em `/opt/node-v20-current`

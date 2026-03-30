@@ -109,7 +109,7 @@ test('live cutover pages mount cleanly with real backend data', async () => {
     for (const scenario of [
       {
         route: '/today?mode=live',
-        expectedTexts: ['Hoje', 'WhatsApp pronto', 'Host companion'],
+        expectedTexts: ['Hoje', 'WhatsApp pronto', 'Pronto para operar'],
       },
       {
         route: '/week?mode=live',

@@ -1,6 +1,6 @@
 # Lume Hub Gap Audit
 
-Data: `2026-03-29`
+Data: `2026-03-30`
 
 Objetivo:
 - descrever apenas gaps reais ainda ativos para o produto scoped atual
@@ -42,7 +42,11 @@ Conclusao curta:
   - preview operacional na pagina `Configuracao`
   - apply idempotente para o storage mensal canonico por grupo
   - relatorio claro de criados, atualizados, ambiguos e grupos em falta
-- no entanto, em `2026-03-29`, ainda nao e recomendavel fazer cutover total do `WA-notify` para o `LumeHub`
+- a `Wave 47` ja fechou a suite verde e o hardening de restart/cutover:
+  - `pnpm run test` passou por completo
+  - o caso `restart keeps fan-out dedupe and retry only reprocesses failed targets` ficou verde
+  - o e2e live de cutover ficou alinhado com o copy canónico atual
+- no entanto, em `2026-03-30`, ainda nao e recomendavel fazer cutover total do `WA-notify` para o `LumeHub`
 - a recomendacao atual continua a ser:
   - `shadow mode`
   - ou migracao parcial por areas
@@ -59,8 +63,7 @@ Em particular, ja nao faz sentido falar de:
 Tambem ja nao faz sentido assumir, sem validar, que:
 
 - `Live` esta em paridade total com o `WA-notify`
-- o assistente ja aplica alteracoes de calendario reais por queue
-- a suite automatica ja esta verde o suficiente para cutover
+- o shadow mode ja foi provado com dados reais durante uma semana inteira
 
 ## O que ja esta solido
 
@@ -111,26 +114,9 @@ Esta e, neste momento, a ronda critica para substituicao real do sistema antigo.
 A `Wave 44` ja fechou o primeiro bloqueador critico: o assistente agora consegue fazer `preview -> apply -> queue -> auditoria` sobre schedules reais no calendario do grupo.
 A `Wave 45` fechou o segundo: os schedules reais do `WA-notify` ja podem ser migrados para o storage mensal canonico por grupo com re-run idempotente.
 A `Wave 46` fechou o terceiro: `alerts` e `automations` agora vivem em packages reais do workspace, com import minimo dos ficheiros legacy, runtime live e auditoria.
+A `Wave 47` fechou o quarto: a suite automatica voltou a ficar verde, incluindo restart/dedupe e o e2e live de cutover.
 
-### 1. A validacao automatica ainda nao esta verde para cutover
-
-Evidencia confirmada em `2026-03-29`:
-
-- `pnpm run typecheck` passou
-- `pnpm run test` nao passou por completo
-- houve pelo menos dois bloqueios reais:
-  - falha de integracao por resolucao do package `@lume-hub/workspace-agent`
-  - falha no teste [wave11-hardening.test.mjs](/home/eliaspc/Documentos/lume-hub/source/tests/integration/wave11-hardening.test.mjs) no caso `restart keeps fan-out dedupe and retry only reprocesses failed targets`
-
-Implicacao:
-
-- ainda nao existe gate automatica suficientemente forte para declarar o produto pronto para substituicao total sem reservas
-
-Fecho planeado:
-
-- `Wave 47`
-
-### 2. Ainda falta ensaio com dados reais antes do cutover
+### 1. Ainda falta ensaio com dados reais antes do cutover
 
 Estado encontrado:
 
@@ -183,8 +169,9 @@ Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resp
 - para o agente do projeto, ja existe fundacao funcional
 - para migracao de schedules reais do `WA-notify`, sim
 - para `alerts` e `automations`, sim
+- para suite automatica e hardening de restart/cutover, sim
 - para migracao total do `WA-notify`, ainda nao
-- em `2026-03-29`, a recomendacao correta continua a ser:
-  - fechar `Wave 47` a `Wave 49`
+- em `2026-03-30`, a recomendacao correta continua a ser:
+  - fechar `Wave 48` a `Wave 49`
   - depois fazer shadow mode
   - e so depois decidir cutover

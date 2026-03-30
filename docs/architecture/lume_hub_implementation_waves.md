@@ -10,7 +10,7 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 46` ja foram executadas e validadas.
+As `Wave 0` a `Wave 47` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
 O storage canonico da ronda de media ja ficou aberto com:
@@ -58,40 +58,11 @@ A `Wave 43` fechou a LLM live por defeito, com provider real ativo quando a auth
 A `Wave 44` fechou o scheduling live com `preview -> apply -> queue -> auditoria`, incluindo alteracao real do calendario por assistente e diff funcional visivel antes e depois do `apply`.
 A `Wave 45` fechou o importador idempotente de schedules do `WA-notify`, com pagina operacional em `Configuracao`, relatorio de itens importados/ambiguos e migracao real para o storage mensal canonico por grupo.
 A `Wave 46` fechou `alerts` e `automations` dentro da arquitetura nova, com import minimo de `alerts.json` e `automations.json`, execucao live, auditoria e pagina operacional em `Configuracao`.
+A `Wave 47` fechou a suite verde e o hardening de restart/cutover, com `pnpm run test` a passar por completo e cobertura atualizada para o copy live mais recente.
 
 ## Ronda de paridade e cutover WA-notify
 
 Esta ronda existe para fechar os bloqueadores que ainda impedem migracao total do `WA-notify` para o `LumeHub`.
-
-### Wave 47 - Suite verde e hardening de restart/cutover
-
-Objetivo:
-- deixar a validacao automatica em estado realmente confiavel para migracao
-
-Entregaveis:
-- `pnpm run test` verde
-- resolucao da falha `restart keeps fan-out dedupe and retry only reprocesses failed targets`
-- resolucao do problema de integracao com `@lume-hub/workspace-agent` no runner
-- cobertura minima extra onde os bugs apareceram
-
-Criterios de aceitacao:
-- `pnpm run test` passa por completo
-- restart, retry e dedupe ficam provados em teste
-- os testes de integracao deixam de falhar por wiring/pacotes do workspace
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run test`
-- `corepack pnpm run validate:wave47`
-
-Melhor momento para testar:
-- no fecho desta wave, como gate de qualidade antes do shadow mode serio
-
-O que testar:
-- rerun da suite completa
-- restart do backend
-- retry de fan-out depois de restart
 
 ### Wave 48 - Shadow mode com dados reais e checklist de migracao
 
@@ -189,6 +160,5 @@ Se tocar backend, HTTP, WS ou runtime:
 
 ## Fora de scope por defeito
 
-- reintroduzir `alerts` e `automations` no workspace
-
-Essas areas so devem voltar se houver necessidade real de produto, desenho novo e validacao propria.
+- abrir rondas novas sem bloqueador real validado
+- reintroduzir stubs ou backlog falso para areas ja fechadas
