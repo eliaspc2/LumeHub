@@ -152,7 +152,7 @@ async function waitFor(assertion, timeoutMs = 1_000) {
   assertion();
 }
 
-test('conversation pipeline ignores stale and untagged group messages and tracks delivery for fresh tagged replies', async () => {
+test('conversation pipeline matches WA-notify group gating: tag or reply to bot, but never stale backlog', async () => {
   const inboundSource = new FakeInboundSource();
   const outboundSignalSource = new FakeOutboundSignalSource();
   const replyDeliveryRepository = new InMemoryReplyDeliveryRepository();
@@ -300,15 +300,32 @@ test('conversation pipeline ignores stale and untagged group messages and tracks
       mentionedJids: ['351910000099@s.whatsapp.net'],
     });
 
+    await inboundSource.emit({
+      messageId: 'wamid.group.reply-to-bot',
+      chatJid: '120363400000000001@g.us',
+      participantJid: '351910000001@s.whatsapp.net',
+      groupJid: '120363400000000001@g.us',
+      fromMe: false,
+      text: 'Sem tag, mas a responder a uma mensagem tua.',
+      timestamp: new Date().toISOString(),
+      semanticFingerprint: 'fresh-reply-to-bot',
+      pushName: 'Ana',
+      mentionedJids: [],
+      quotedParticipantJid: '351910000099@s.whatsapp.net',
+    });
+
     await waitFor(() => {
-      assert.equal(conversationCalls.length, 1);
-      assert.equal(sentMessages.length, 1);
-      assert.equal(recordedMessages.length, 2);
+      assert.equal(conversationCalls.length, 2);
+      assert.equal(sentMessages.length, 2);
+      assert.equal(recordedMessages.length, 4);
     });
 
     assert.equal(sentMessages[0].chatJid, '120363400000000001@g.us');
-    assert.equal(recordedMessages[0].role, 'user');
-    assert.equal(recordedMessages[1].role, 'assistant');
+    assert.equal(sentMessages[1].chatJid, '120363400000000001@g.us');
+    assert.deepEqual(
+      recordedMessages.map((entry) => entry.role).sort(),
+      ['assistant', 'assistant', 'user', 'user'],
+    );
 
     await outboundSignalSource.emitObservation({
       messageId: sentMessages[0].messageId,
@@ -323,14 +340,32 @@ test('conversation pipeline ignores stale and untagged group messages and tracks
       source: 'test.confirmation',
       ack: 2,
     });
+    await outboundSignalSource.emitObservation({
+      messageId: sentMessages[1].messageId,
+      chatJid: sentMessages[1].chatJid,
+      observedAt: new Date().toISOString(),
+      source: 'test.observation',
+    });
+    await outboundSignalSource.emitConfirmation({
+      messageId: sentMessages[1].messageId,
+      chatJid: sentMessages[1].chatJid,
+      confirmedAt: new Date().toISOString(),
+      source: 'test.confirmation',
+      ack: 2,
+    });
 
     const deliveryLog = await replyDeliveryRepository.read();
-    assert.equal(deliveryLog.entries.length, 1);
+    assert.equal(deliveryLog.entries.length, 2);
     assert.equal(deliveryLog.entries[0].sourceMessageId, 'wamid.group.tagged');
     assert.equal(deliveryLog.entries[0].state, 'confirmed');
     assert.equal(deliveryLog.entries[0].outboundMessageId, sentMessages[0].messageId);
     assert.equal(deliveryLog.entries[0].targetChatType, 'group');
     assert.equal(deliveryLog.entries[0].ack, 2);
+    assert.equal(deliveryLog.entries[1].sourceMessageId, 'wamid.group.reply-to-bot');
+    assert.equal(deliveryLog.entries[1].state, 'confirmed');
+    assert.equal(deliveryLog.entries[1].outboundMessageId, sentMessages[1].messageId);
+    assert.equal(deliveryLog.entries[1].targetChatType, 'group');
+    assert.equal(deliveryLog.entries[1].ack, 2);
   } finally {
     await runtime.stop();
   }

@@ -351,10 +351,10 @@ function evaluateInboundProcessing(
     };
   }
 
-  if (message.groupJid && !wasTagged) {
+  if (message.groupJid && !(wasTagged || isReplyToBot)) {
     return {
       accepted: false,
-      reason: isReplyToBot ? 'group_reply_requires_tag_even_in_thread' : 'group_reply_requires_tag',
+      reason: 'group_reply_requires_tag_or_reply',
       ageMs,
       wasTagged,
       isReplyToBot,
