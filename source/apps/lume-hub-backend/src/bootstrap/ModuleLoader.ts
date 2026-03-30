@@ -42,6 +42,7 @@ import type { BackendRuntimeModules } from './BackendRuntime.js';
 import { BackendRuntimeStateRepository } from './BackendRuntimeStateRepository.js';
 import { resolveBackendRuntimePaths, type BackendRuntimeConfig, type BackendRuntimePaths } from './BackendRuntimeConfig.js';
 import { ConversationPipelineRuntime } from './ConversationPipelineRuntime.js';
+import { ConversationReplyDeliveryRepository } from './ConversationReplyDeliveryRepository.js';
 import { InstructionQueueExecutionRuntime } from './InstructionQueueExecutionRuntime.js';
 import { MessageAlertsRuntime } from './MessageAlertsRuntime.js';
 import { MigrationReadinessService } from './MigrationReadinessService.js';
@@ -400,6 +401,9 @@ export class ModuleLoader {
     const conversationAuditRepository = new ConversationAuditRepository({
       dataRootPath: paths.dataRootPath,
     });
+    const conversationReplyDeliveryRepository = new ConversationReplyDeliveryRepository({
+      dataRootPath: paths.dataRootPath,
+    });
     const llmRunLogRepository = new LlmRunLogRepository({
       dataRootPath: paths.dataRootPath,
     });
@@ -430,6 +434,9 @@ export class ModuleLoader {
             const audit = await conversationAuditRepository.read();
             return audit.entries.slice(Math.max(0, audit.entries.length - (limit ?? 20))).reverse();
           },
+        },
+        conversationReplyDeliveries: {
+          readRecent: async (limit) => conversationReplyDeliveryRepository.listRecent(limit),
         },
         codexAuthRouter: codexAuthRouterModule,
         groupDirectory: groupDirectoryModule,
@@ -469,8 +476,11 @@ export class ModuleLoader {
     const conversationPipelineRuntime = new ConversationPipelineRuntime({
       inboundSource: whatsAppWorkspaceRuntime.gateway,
       whatsAppRuntime: whatsAppWorkspaceRuntime,
+      assistantContext: assistantContextModule,
       peopleMemory: peopleMemoryModule,
       conversation: conversationModule,
+      outboundSignalSource: whatsAppWorkspaceRuntime.gateway,
+      replyDeliveryRepository: conversationReplyDeliveryRepository,
       uiEventPublisher: webSocketGateway.publisher,
     });
 

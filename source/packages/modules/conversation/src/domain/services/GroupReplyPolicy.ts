@@ -47,15 +47,6 @@ export class GroupReplyPolicy {
       };
     }
 
-    if (input.privateReplyJid) {
-      return {
-        shouldReply: true,
-        targetChatType: 'private',
-        targetChatJid: input.privateReplyJid,
-        reason: 'rerouted_to_private',
-      };
-    }
-
     return {
       shouldReply: false,
       targetChatType: null,

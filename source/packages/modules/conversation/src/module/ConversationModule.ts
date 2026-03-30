@@ -23,7 +23,7 @@ export class ConversationModule extends BaseModule implements ConversationModule
     });
 
     const agentRuntime = config.agentRuntime ?? new AgentRuntimeModule();
-    const assistantContext = config.assistantContext ?? new AssistantContextModule({
+    config.assistantContext ?? new AssistantContextModule({
       dataRootPath: config.dataRootPath,
     });
     const commandPolicy = config.commandPolicy ?? new CommandPolicyModule();
@@ -41,7 +41,6 @@ export class ConversationModule extends BaseModule implements ConversationModule
       config.service ??
       new ConversationService(
         agentRuntime,
-        assistantContext,
         groupReplyPolicy,
         replyDeliveryPolicy,
         auditService,

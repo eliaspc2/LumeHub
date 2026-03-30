@@ -102,6 +102,9 @@ export interface HttpApiModules {
   readonly conversationLogs?: {
     readRecent(limit?: number): Promise<readonly ConversationAuditRecord[]>;
   };
+  readonly conversationReplyDeliveries?: {
+    readRecent(limit?: number): Promise<readonly unknown[]>;
+  };
   readonly codexAuthRouter?: Pick<CodexAuthRouterModuleContract, 'prepareAuthForRequest' | 'forceSwitch' | 'getStatus'>;
   readonly groupDirectory: Pick<
     GroupDirectoryModuleContract,
@@ -1242,6 +1245,19 @@ export class RouteRegistrar {
         }
 
         return this.modules.conversationLogs.readRecent(readOptionalPositiveIntegerQuery(context.query, 'limit') ?? 20);
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/logs/conversation-deliveries',
+      handler: async (context) => {
+        if (!this.modules.conversationReplyDeliveries) {
+          throw new ApiError(404, 'Conversation delivery logs are not configured.');
+        }
+
+        return this.modules.conversationReplyDeliveries.readRecent(
+          readOptionalPositiveIntegerQuery(context.query, 'limit') ?? 20,
+        );
       },
     });
     server.registerRoute({

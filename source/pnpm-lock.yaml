@@ -104,6 +104,9 @@ importers:
       '@lume-hub/people-memory':
         specifier: workspace:*
         version: link:../../packages/modules/people-memory
+      '@lume-hub/persistence-group-files':
+        specifier: workspace:*
+        version: link:../../packages/adapters/persistence-group-files
       '@lume-hub/schedule-events':
         specifier: workspace:*
         version: link:../../packages/modules/schedule-events

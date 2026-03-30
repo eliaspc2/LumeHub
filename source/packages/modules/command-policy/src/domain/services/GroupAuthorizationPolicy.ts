@@ -22,6 +22,6 @@ export class GroupAuthorizationPolicy {
       return false;
     }
 
-    return Boolean(context.wasTagged || context.isReplyToBot || settings.directRepliesEnabled);
+    return Boolean(context.wasTagged || settings.directRepliesEnabled);
   }
 }

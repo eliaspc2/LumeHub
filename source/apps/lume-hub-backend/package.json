@@ -36,6 +36,7 @@
     "@lume-hub/notification-rules": "workspace:*",
     "@lume-hub/owner-control": "workspace:*",
     "@lume-hub/people-memory": "workspace:*",
+    "@lume-hub/persistence-group-files": "workspace:*",
     "@lume-hub/schedule-events": "workspace:*",
     "@lume-hub/schedule-weeks": "workspace:*",
     "@lume-hub/system-power": "workspace:*",
