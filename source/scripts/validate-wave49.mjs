@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { copyFile, mkdir, readFile, rm } from 'node:fs/promises';
+import { access, copyFile, mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -26,9 +26,17 @@ const WEB_DIST_ROOT = fileURLToPath(new URL('../apps/lume-hub-web/dist/', import
 const LEGACY_SCHEDULES_SOURCE_FILE = '/home/eliaspc/Containers/wa-notify/data/schedules/w14y2026.json';
 const LEGACY_ALERTS_SOURCE_FILE = '/home/eliaspc/Containers/wa-notify/data/alerts.json';
 const LEGACY_AUTOMATIONS_SOURCE_FILE = '/home/eliaspc/Containers/wa-notify/data/automations.json';
+const OBSOLETE_VALIDATORS = [
+  '/home/eliaspc/Documentos/lume-hub/source/scripts/validate-wave43.mjs',
+  '/home/eliaspc/Documentos/lume-hub/source/scripts/validate-wave44.mjs',
+  '/home/eliaspc/Documentos/lume-hub/source/scripts/validate-wave45.mjs',
+  '/home/eliaspc/Documentos/lume-hub/source/scripts/validate-wave46.mjs',
+  '/home/eliaspc/Documentos/lume-hub/source/scripts/validate-wave47.mjs',
+  '/home/eliaspc/Documentos/lume-hub/source/scripts/validate-wave48.mjs',
+];
 
 async function withLiveRuntime(run) {
-  const sandboxPath = await createLiveSandboxPath('lume-hub-wave48-');
+  const sandboxPath = await createLiveSandboxPath('lume-hub-wave49-');
   const httpPort = await reservePort();
   const baseUrl = `http://127.0.0.1:${httpPort}`;
   const fetchMock = createLiveFetchMock();
@@ -55,7 +63,7 @@ async function withLiveRuntime(run) {
   await copyFile(LEGACY_ALERTS_SOURCE_FILE, legacyAlertsFilePath);
   await copyFile(LEGACY_AUTOMATIONS_SOURCE_FILE, legacyAutomationsFilePath);
 
-  await writeJson(runtimeConfig.groupSeedFilePath, {
+    await writeJson(runtimeConfig.groupSeedFilePath, {
     schemaVersion: 1,
     groups: [
       {
@@ -67,7 +75,7 @@ async function withLiveRuntime(run) {
           {
             personId: 'person-app-owner',
             assignedAt: '2026-03-30T09:00:00.000Z',
-            assignedBy: 'wave48-validator',
+            assignedBy: 'wave49-validator',
           },
         ],
         calendarAccessPolicy: {
@@ -86,7 +94,7 @@ async function withLiveRuntime(run) {
           {
             personId: 'person-app-owner',
             assignedAt: '2026-03-30T09:00:00.000Z',
-            assignedBy: 'wave48-validator',
+            assignedBy: 'wave49-validator',
           },
         ],
         calendarAccessPolicy: {
@@ -112,7 +120,7 @@ async function withLiveRuntime(run) {
     await bootstrap.start();
     await waitUntilReady(`${baseUrl}/api/settings`);
     await waitUntil(() => socketCoordinator.latestSocket !== null);
-    socketCoordinator.latestSocket.publishQr('wave48-shadow-qr');
+    socketCoordinator.latestSocket.publishQr('wave49-shadow-qr');
     socketCoordinator.latestSocket.openSession();
     await waitUntil(async () => {
       const workspace = await readJson(`${baseUrl}/api/whatsapp/workspace`);
@@ -136,6 +144,15 @@ async function assertHeadlessRoute(url, expectedTexts) {
   assert.doesNotMatch(stdout, /Algo falhou ao carregar esta pagina/u);
 }
 
+async function pathExists(path) {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 await withLiveRuntime(async ({ baseUrl }) => {
   const files = await readJson(`${baseUrl}/api/migrations/wa-notify/schedules/files`);
   assert.ok(files.some((entry) => entry.fileName === 'w14y2026.json'));
@@ -149,7 +166,7 @@ await withLiveRuntime(async ({ baseUrl }) => {
     method: 'POST',
     body: {
       fileName: 'w14y2026.json',
-      requestedBy: 'wave48-validator',
+      requestedBy: 'wave49-validator',
     },
   });
   assert.equal(scheduleImport.mode, 'apply');
@@ -172,7 +189,7 @@ await withLiveRuntime(async ({ baseUrl }) => {
     body: {
       text: 'Resume o readiness atual para migracao.',
       intent: 'migration_readiness_summary',
-      contextSummary: ['Wave 48 em validacao.'],
+      contextSummary: ['Wave 49 em validacao.'],
       domainFacts: ['Os imports legacy ja foram aplicados neste sandbox.'],
     },
   });
@@ -211,11 +228,50 @@ await withLiveRuntime(async ({ baseUrl }) => {
     '/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md',
     'utf8',
   );
+  const implementationWavesDoc = await readFile(
+    '/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_implementation_waves.md',
+    'utf8',
+  );
+  const gapAuditDoc = await readFile(
+    '/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_gap_audit.md',
+    'utf8',
+  );
+  const rootReadme = await readFile('/home/eliaspc/Documentos/lume-hub/README.md', 'utf8');
+  const sourceReadme = await readFile('/home/eliaspc/Documentos/lume-hub/source/README.md', 'utf8');
+  const packageJson = JSON.parse(
+    await readFile('/home/eliaspc/Documentos/lume-hub/source/package.json', 'utf8'),
+  );
 
-  assert.match(cutoverDoc, /Wave 48/u);
+  assert.match(cutoverDoc, /validate:wave49/u);
   assert.match(cutoverDoc, /shadow mode/u);
+  assert.doesNotMatch(cutoverDoc, /validate:wave4[3-8]/u);
   assert.match(shadowModeDoc, /WA-notify/u);
   assert.match(shadowModeDoc, /LumeHub/u);
+  assert.match(shadowModeDoc, /validate:wave49/u);
+  assert.match(implementationWavesDoc, /Neste momento nao ha waves ativas/u);
+  assert.doesNotMatch(implementationWavesDoc, /### Wave 49/u);
+  assert.match(gapAuditDoc, /Nao restam gaps tecnicos ativos na ronda de paridade e cutover WA-notify/u);
+  assert.match(rootReadme, /Wave 0` a `Wave 49/u);
+  assert.match(rootReadme, /ronda de paridade e migracao ficou fechada/u);
+  assert.match(sourceReadme, /validate:wave49/u);
+  assert.doesNotMatch(sourceReadme, /validate:wave4[3-8]/u);
+
+  assert.equal(typeof packageJson.scripts['validate:wave49'], 'string');
+
+  for (const legacyScriptName of [
+    'validate:wave43',
+    'validate:wave44',
+    'validate:wave45',
+    'validate:wave46',
+    'validate:wave47',
+    'validate:wave48',
+  ]) {
+    assert.equal(packageJson.scripts[legacyScriptName], undefined);
+  }
+
+  for (const obsoleteValidatorPath of OBSOLETE_VALIDATORS) {
+    assert.equal(await pathExists(obsoleteValidatorPath), false);
+  }
 
   await assertHeadlessRoute(`${baseUrl}/settings?mode=live`, [
     'Shadow mode e readiness de migracao',
@@ -225,4 +281,4 @@ await withLiveRuntime(async ({ baseUrl }) => {
   ]);
 });
 
-console.log('validate-wave48: ok');
+console.log('validate-wave49: ok');

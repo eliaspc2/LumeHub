@@ -7,9 +7,9 @@ Objetivo:
 
 ## Antes de pensar em cutover
 
-- usar a `Wave 48` como base canónica de readiness antes de qualquer decisao final
+- usar o estado final da ronda de paridade como base canónica de readiness antes de qualquer decisao final
 - correr primeiro:
-  - `corepack pnpm run validate:wave48`
+  - `corepack pnpm run validate:wave49`
 - seguir a semana paralela em:
   - [lume_hub_shadow_mode_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md)
 - confirmar na pagina `Configuracao`:
@@ -23,8 +23,7 @@ Objetivo:
 - correr em `source/`:
   - `corepack pnpm run typecheck`
   - `corepack pnpm run build`
-  - `corepack pnpm run validate:wave47`
-  - `corepack pnpm run validate:wave48`
+  - `corepack pnpm run validate:wave49`
 - abrir o launcher `LumeHub`
 - validar `KubuntuLTS/scripts/lumehub-launch.sh status`
   - `runtime running`

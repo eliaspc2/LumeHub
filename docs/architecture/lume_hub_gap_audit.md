@@ -46,11 +46,8 @@ Conclusao curta:
   - `pnpm run test` passou por completo
   - o caso `restart keeps fan-out dedupe and retry only reprocesses failed targets` ficou verde
   - o e2e live de cutover ficou alinhado com o copy canónico atual
-- no entanto, em `2026-03-30`, ainda nao e recomendavel fazer cutover total do `WA-notify` para o `LumeHub`
-- a recomendacao atual continua a ser:
-  - `shadow mode`
-  - ou migracao parcial por areas
-  ate a ronda de paridade de migracao ficar fechada
+- no entanto, em `2026-03-30`, a decisao de cutover total do `WA-notify` para o `LumeHub` continua dependente de shadow mode real com dados de producao
+- a ronda de paridade de migracao ficou fechada do ponto de vista de implementacao
 
 Em particular, ja nao faz sentido falar de:
 
@@ -110,32 +107,12 @@ O storage, o runtime, a UX guiada e a limpeza final da serie ficaram fechados.
 
 ## Gaps ativos da paridade e cutover WA-notify
 
-Esta e, neste momento, a ronda critica para substituicao real do sistema antigo.
-A `Wave 44` ja fechou o primeiro bloqueador critico: o assistente agora consegue fazer `preview -> apply -> queue -> auditoria` sobre schedules reais no calendario do grupo.
-A `Wave 45` fechou o segundo: os schedules reais do `WA-notify` ja podem ser migrados para o storage mensal canonico por grupo com re-run idempotente.
-A `Wave 46` fechou o terceiro: `alerts` e `automations` agora vivem em packages reais do workspace, com import minimo dos ficheiros legacy, runtime live e auditoria.
-A `Wave 47` fechou o quarto: a suite automatica voltou a ficar verde, incluindo restart/dedupe e o e2e live de cutover.
-A `Wave 48` fechou o quinto: o `LumeHub` passou a mostrar readiness de migracao, comparacao curta `WA-notify` vs `LumeHub` e checklist objetiva para `shadow mode`.
-
-### 1. Ainda falta executar a semana paralela real antes do cutover
-
-Estado encontrado:
-
-- a infraestrutura para `shadow mode` ficou pronta:
-  - pagina `Configuracao` com readiness live
-  - `GET /api/migrations/readiness`
-  - checklist de `shadow mode` e de cutover
-- mas isso ainda nao substitui a execucao humana da semana paralela com dados reais
-
-Implicacao:
-
-- o risco tecnico caiu bastante
-- a decisao de cutover continua dependente da comparacao real ao longo de uma semana
-
-Fecho planeado:
+Nao restam gaps tecnicos ativos na ronda de paridade e cutover WA-notify.
+O que sobra agora e um passo operacional fora do backlog de implementacao:
 
 - executar a semana paralela real
-- depois fechar `Wave 49`
+- comparar `WA-notify` e `LumeHub` com dados de producao
+- decidir depois o cutover total
 
 ## Gaps ativos da ronda do agente de projeto
 
@@ -173,9 +150,8 @@ Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resp
 - para migracao de schedules reais do `WA-notify`, sim
 - para `alerts` e `automations`, sim
 - para suite automatica e hardening de restart/cutover, sim
-- para migracao total do `WA-notify`, ainda nao
+- para migracao total do `WA-notify`, do ponto de vista de implementacao a base ficou pronta
 - em `2026-03-30`, a recomendacao correta continua a ser:
-  - usar a `Wave 48` ja fechada como base de readiness
+  - usar o readiness live e os checklists operacionais ja fechados
   - fazer shadow mode real
-  - fechar `Wave 49`
   - e so depois decidir cutover

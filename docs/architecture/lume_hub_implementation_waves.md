@@ -10,7 +10,7 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 48` ja foram executadas e validadas.
+As `Wave 0` a `Wave 49` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
 O storage canonico da ronda de media ja ficou aberto com:
@@ -63,38 +63,18 @@ A `Wave 48` fechou o shadow mode com dados reais:
 - snapshot live de readiness em `Configuracao`
 - checklist de shadow mode e de cutover
 - comparacao curta `WA-notify` vs `LumeHub`
-- validacao dedicada em `validate:wave48`
+- validacao consolidada agora em `validate:wave49`
 
-## Ronda de paridade e cutover WA-notify
+A `Wave 49` fechou a limpeza final da ronda:
+- consolidacao da serie em `validate:wave49`
+- remocao dos validadores intermédios `43..48`
+- docs e backlog alinhados ao estado final da ronda
 
-Esta ronda existe para fechar os bloqueadores que ainda impedem migracao total do `WA-notify` para o `LumeHub`.
+## Estado do plano
 
-### Wave 49 - Limpeza final da ronda de paridade de migracao
-
-Objetivo:
-- fechar a ronda sem backlog falso, scripts obsoletos nem docs desfasadas
-
-Entregaveis:
-- consolidacao de validadores desta ronda
-- limpeza de docs e copy de transicao
-- plano ativo reduzido de novo ao que sobrar
-
-Criterios de aceitacao:
-- nao ficam referencias a estados intermedios
-- docs e backlog refletem o estado real de migracao
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave49`
-
-Melhor momento para testar:
-- no fim da ronda, como regressao curta e documental
-
-O que testar:
-- estado geral da app
-- docs de migracao
-- ausencia de lixo tecnico da ronda
+Neste momento nao ha waves ativas.
+A ronda de paridade e migracao face ao `WA-notify` ficou fechada do ponto de vista de implementacao.
+O proximo passo, se existir, ja nao e uma wave desta serie: e executar a semana paralela real seguindo os checklists operacionais.
 
 ## Como reabrir uma ronda
 

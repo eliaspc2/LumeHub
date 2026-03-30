@@ -36,17 +36,14 @@ Decisao de storage:
 
 ## Estado
 
-A base do monorepo ja existe e as `Wave 0` a `Wave 48` foram executadas.
+A base do monorepo ja existe e as `Wave 0` a `Wave 49` foram executadas.
 Hoje esta pasta ja contem:
 
 - `apps/lume-hub-backend`, `apps/lume-hub-web` e `apps/lume-hub-host`
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
-  - `validate:wave45`
-  - `validate:wave48`
-  - `validate:wave44`
-  - `validate:wave43`
+  - `validate:wave49`
   - `validate:wave42`
   - `validate:wave38`
   - `validate:wave34`
@@ -72,48 +69,17 @@ Tambem ja existe o fluxo operacional do agente de projeto:
 - endpoint `/api/workspace/status`
 - validacao consolidada em `validate:wave42`
 
-A `Wave 43` tambem ja ficou fechada:
+A ronda de paridade e migracao do `WA-notify` tambem ficou fechada:
 
-- o runtime live usa `codex-oauth` por defeito quando a auth existe
-- a pagina `Configuracao` mostra provider efetivo, modelo e readiness de auth
-- o fallback para `local-deterministic` ficou visivel e auditavel
-- a validacao dedicada passou em `validate:wave43`
-
-A `Wave 44` tambem ja ficou fechada:
-
-- o assistente consegue gerar `preview` de scheduling e aplicar alteracoes reais no calendario do grupo
-- o caminho `assistente -> queue -> persistencia` ficou operacional para criar, editar e apagar schedules reais
-- a pagina `Assistente` mostra diff funcional antes do `apply` e auditoria recente das alteracoes aplicadas
-- a validacao dedicada passou em `validate:wave44`
-
-A `Wave 45` tambem ja ficou fechada:
-
-- o `weekly-planner` ganhou importador idempotente do formato semanal legacy do `WA-notify`
-- a pagina `Configuracao` ja permite listar ficheiros legacy, gerar preview e aplicar a migracao real
-- os events importados passam para o storage mensal canonico por grupo
-- a validacao dedicada passou em `validate:wave45`
-
-A `Wave 46` tambem ja ficou fechada:
-
-- os modulos `message-alerts` e `automations` passaram a existir de forma canonica no workspace
-- a pagina `Configuracao` ja permite preview/apply de `alerts.json` e `automations.json`
-- o runtime live ja executa `alerts` por inbound e `automations` por tick, com auditoria em API/UI
-- a validacao dedicada passou em `validate:wave46`
-
-A `Wave 47` tambem ja ficou fechada:
-
-- `pnpm run test` passou por completo no workspace
-- o caso de restart/dedupe da `instruction-queue` ficou corrigido e coberto pelo teste de integracao
-- o e2e live de cutover ficou alinhado ao copy atual da UI
-- a validacao dedicada passou em `validate:wave47`
-
-A `Wave 48` tambem ja ficou fechada:
-
-- a pagina `Configuracao` mostra readiness live de migracao com dados reais
+- a LLM live ficou ativa por defeito quando a auth existe
+- o assistente passou a fazer `preview` e `apply` reais sobre schedules
+- o importador de `wNNyYYYY.json` ficou idempotente e operacional em `Configuracao`
+- `alerts` e `automations` ficaram portados para a arquitetura nova
+- `pnpm run test` ficou verde com hardening de restart/cutover
+- a pagina `Configuracao` passou a mostrar readiness live de migracao com dados reais
 - a API expoe `GET /api/migrations/readiness`
-- existe checklist explicita para semana paralela em `docs/deployment/lume_hub_shadow_mode_checklist.md`
-- o cutover passou a depender da execucao real do shadow mode, e nao de backlog tecnico em aberto
-- a validacao dedicada passou em `validate:wave48`
+- a semana paralela ficou descrita em `docs/deployment/lume_hub_shadow_mode_checklist.md`
+- a validacao consolidada desta ronda passou a ser `validate:wave49`
 
 Nota operacional:
 

@@ -217,7 +217,7 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 48` ja foram executadas e validadas.
+As `Wave 0` a `Wave 49` ja foram executadas e validadas.
 O `LumeHub` ja tem:
 
 - runtime `Live` operacional com WhatsApp, LLM, scheduling, alerts e automations
@@ -238,9 +238,10 @@ Em `2026-03-29`, a leitura canonica passa a ser esta:
   - fluxo live de alteracao efetiva de calendario
   - `alerts`
   - `automations`
-- os bloqueadores ativos para cutover total ficam agora reduzidos a:
+- a ronda de paridade e migracao ficou fechada do ponto de vista de implementacao
+- o que sobra para decidir cutover total e:
   - shadow mode com dados reais
-  - limpeza final da ronda de paridade de migracao
+  - decisao operacional final
 - por isso, a recomendacao atual e:
   - `shadow mode`
   - ou migracao parcial por areas
@@ -328,20 +329,10 @@ Neste momento:
 - ronda do agente de projeto fechada:
   - `Wave 39` a `Wave 42`
   - objetivo fechado: pagina `Projeto`, agente live sobre o repo, diff por ficheiro, aprovacao, guardrails e limpeza final da serie
-- `Wave 43` fechada:
-  - objetivo fechado: LLM live por defeito com `provider` real, fallback visivel e estado claro de readiness/auth
-- `Wave 44` fechada:
-  - objetivo fechado: scheduling live com `apply` real, `preview` antes da alteracao, fila operacional e auditoria visivel do diff aplicado
-- `Wave 45` fechada:
-  - objetivo fechado: importador idempotente de `wNNyYYYY.json`, preview/apply operacional em `Configuracao` e migracao real para o storage mensal por grupo
-- `Wave 46` fechada:
-  - objetivo fechado: `alerts` e `automations` portados para a arquitetura nova, com import minimo de `alerts.json` / `automations.json`, execucao live e auditoria visivel
-- `Wave 47` fechada:
-  - objetivo fechado: `pnpm run test` verde, restart/dedupe corrigidos e e2e live de cutover alinhado ao interface atual
-- rondas ativas agora:
-  - `Wave 48` a `Wave 49`
-  - objetivo: fechar paridade e cutover real face ao `WA-notify`
+- ronda de paridade e migracao fechada:
+  - `Wave 43` a `Wave 49`
+  - objetivo fechado: paridade tecnica com o `WA-notify`, readiness live de migracao, suite verde e limpeza final da ronda
 - regra de processo:
   - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
 - o runtime `Live` atual continua a ser o estado canonico do produto novo
-- mas a migracao total do `WA-notify` so deve ser decidida depois da ronda `Wave 48` a `Wave 49`
+- mas a migracao total do `WA-notify` so deve ser decidida depois da semana paralela real

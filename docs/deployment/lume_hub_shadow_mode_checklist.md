@@ -8,8 +8,8 @@ Objetivo:
 
 ## Pre-condicoes minimas
 
-- `Wave 48` validada com:
-  - `corepack pnpm run validate:wave48`
+- ronda de paridade validada com:
+  - `corepack pnpm run validate:wave49`
 - `WA-notify` continua a ser a referencia produtiva
 - `LumeHub` abre em `Live` sem erro
 - a pagina `Configuracao` mostra:
