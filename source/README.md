@@ -36,7 +36,7 @@ Decisao de storage:
 
 ## Estado
 
-A base do monorepo ja existe e as `Wave 0` a `Wave 49` foram executadas.
+A base do monorepo ja existe e as `Wave 0` a `Wave 50` foram executadas.
 Hoje esta pasta ja contem:
 
 - `apps/lume-hub-backend`, `apps/lume-hub-web` e `apps/lume-hub-host`
@@ -77,9 +77,16 @@ A ronda de paridade e migracao do `WA-notify` tambem ficou fechada:
 - `alerts` e `automations` ficaram portados para a arquitetura nova
 - `pnpm run test` ficou verde com hardening de restart/cutover
 - a pagina `Configuracao` passou a mostrar readiness live de migracao com dados reais
+- a pagina `Migracao` passou a concentrar readiness live, checklist de shadow mode e GUI do `codex auto router`
 - a API expoe `GET /api/migrations/readiness`
 - a semana paralela ficou descrita em `docs/deployment/lume_hub_shadow_mode_checklist.md`
 - a validacao consolidada desta ronda passou a ser `validate:wave49`
+
+Na ronda curta atual de operacao de migracao:
+
+- a `Wave 50` ja deixou a rota `/migration` na navegacao principal
+- o `codex auto router` ja tem GUI live para `prepare` e `switch`
+- resta apenas a `Wave 51` de limpeza final desta serie curta
 
 Nota operacional:
 

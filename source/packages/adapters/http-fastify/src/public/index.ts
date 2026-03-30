@@ -102,7 +102,7 @@ export interface HttpApiModules {
   readonly conversationLogs?: {
     readRecent(limit?: number): Promise<readonly ConversationAuditRecord[]>;
   };
-  readonly codexAuthRouter?: Pick<CodexAuthRouterModuleContract, 'forceSwitch' | 'getStatus'>;
+  readonly codexAuthRouter?: Pick<CodexAuthRouterModuleContract, 'prepareAuthForRequest' | 'forceSwitch' | 'getStatus'>;
   readonly groupDirectory: Pick<
     GroupDirectoryModuleContract,
     'listGroups' | 'replaceGroupOwners' | 'updateCalendarAccessPolicy' | 'getGroupLlmInstructions' | 'updateGroupLlmInstructions'
@@ -1350,6 +1350,25 @@ export class RouteRegistrar {
         }
 
         return this.modules.codexAuthRouter.getStatus();
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/settings/codex-auth-router/prepare',
+      handler: async () => {
+        if (!this.modules.codexAuthRouter) {
+          throw new ApiError(404, 'Codex auth router is not configured.');
+        }
+
+        const selection = await this.modules.codexAuthRouter.prepareAuthForRequest({
+          reason: 'backend_manual_prepare',
+        });
+        const status = await this.modules.codexAuthRouter.getStatus();
+        this.publish('settings.codex_auth_router.updated', {
+          selection,
+          status,
+        });
+        return status;
       },
     });
     server.registerRoute({

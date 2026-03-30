@@ -48,6 +48,11 @@ Conclusao curta:
   - o e2e live de cutover ficou alinhado com o copy canónico atual
 - no entanto, em `2026-03-30`, a decisao de cutover total do `WA-notify` para o `LumeHub` continua dependente de shadow mode real com dados de producao
 - a ronda de paridade de migracao ficou fechada do ponto de vista de implementacao
+- a `Wave 50` ja deixou pronta uma pagina `Migracao` para:
+  - readiness live
+  - checklist de shadow mode
+  - comparacao curta `WA-notify` vs `LumeHub`
+  - GUI do `codex auto router`
 
 Em particular, ja nao faz sentido falar de:
 
@@ -114,6 +119,16 @@ O que sobra agora e um passo operacional fora do backlog de implementacao:
 - comparar `WA-notify` e `LumeHub` com dados de producao
 - decidir depois o cutover total
 
+## Gaps ativos da ronda curta de operacao de migracao
+
+Nao restam gaps funcionais ativos nesta ronda curta.
+A `Wave 50` ja deixou a pagina `Migracao` e o GUI live do `codex auto router` operacionais.
+O que resta nesta serie e apenas a `Wave 51` de limpeza final:
+
+- consolidar o validador da ronda
+- alinhar docs e README ao estado final
+- remover lixo tecnico/documental criado pela `Wave 50`
+
 ## Gaps ativos da ronda do agente de projeto
 
 Nao restam gaps funcionais ativos nesta ronda.
@@ -151,6 +166,7 @@ Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resp
 - para `alerts` e `automations`, sim
 - para suite automatica e hardening de restart/cutover, sim
 - para migracao total do `WA-notify`, do ponto de vista de implementacao a base ficou pronta
+- para a operacao de shadow mode e do `codex auto router` no GUI, a base tambem ja ficou pronta
 - em `2026-03-30`, a recomendacao correta continua a ser:
   - usar o readiness live e os checklists operacionais ja fechados
   - fazer shadow mode real

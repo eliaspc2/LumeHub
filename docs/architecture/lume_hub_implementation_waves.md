@@ -72,9 +72,29 @@ A `Wave 49` fechou a limpeza final da ronda:
 
 ## Estado do plano
 
-Neste momento nao ha waves ativas.
 A ronda de paridade e migracao face ao `WA-notify` ficou fechada do ponto de vista de implementacao.
-O proximo passo, se existir, ja nao e uma wave desta serie: e executar a semana paralela real seguindo os checklists operacionais.
+Foi aberta uma ronda curta para tornar a operacao de migracao mais usavel no GUI.
+A `Wave 50` ja ficou concluida e, neste momento, a unica wave ativa e a `Wave 51`.
+
+## Nova ronda ativa
+
+Foi aberta uma ronda curta para tornar a operacao de migracao mais usavel no GUI, sem voltar a esconder isto em `Configuracao avancada`.
+
+### Wave 51 - Limpeza final da ronda de operacao de migracao
+
+Objetivo:
+- remover copy e validadores obsoletos da ronda
+- deixar docs e scripts alinhados ao estado final
+
+Entregaveis esperados:
+- `validate:wave51`
+- docs, README e backlog alinhados
+- limpeza de lixo tecnico/documental criado pela `Wave 50`
+
+Contexto atual:
+- a `Wave 50` ja deixou pronta a pagina `Migracao`
+- o shadow mode deixou de depender de `Configuracao avancada`
+- o `codex auto router` ja tem GUI live para preparar a melhor conta e fazer switch manual
 
 ## Como reabrir uma ronda
 

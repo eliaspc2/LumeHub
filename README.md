@@ -217,17 +217,18 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 49` ja foram executadas e validadas.
+As `Wave 0` a `Wave 50` ja foram executadas e validadas.
 O `LumeHub` ja tem:
 
 - runtime `Live` operacional com WhatsApp, LLM, scheduling, alerts e automations
-- readiness de migracao exposta na pagina `Configuracao`
+- readiness de migracao exposta na pagina `Migracao`
+- GUI live do `codex auto router` para preparar a melhor conta e fazer switch manual
 - endpoint `GET /api/migrations/readiness`
 - checklist de `shadow mode` em [lume_hub_shadow_mode_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md)
 - checklist de cutover em [lume_hub_live_cutover_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_live_cutover_checklist.md)
 
 A partir de `2026-03-30`, o bloqueador principal para substituir de vez o `WA-notify` ja nao e tecnico: passa a ser a execucao real da semana paralela e a decisao final de cutover.
-O `LumeHub` ja mostra readiness de migracao e checklist de `shadow mode` na pagina `Configuracao`, mas o cutover total do `WA-notify` continua dependente de uma semana paralela real antes da decisao final.
+O `LumeHub` ja mostra readiness de migracao, checklist de `shadow mode` e consola do `codex auto router` na pagina `Migracao`, mas o cutover total do `WA-notify` continua dependente de uma semana paralela real antes da decisao final.
 
 Mas isso nao significa, por si so, que o `WA-notify` ja deva ser desligado.
 
@@ -246,6 +247,7 @@ Em `2026-03-29`, a leitura canonica passa a ser esta:
   - `shadow mode`
   - ou migracao parcial por areas
   - nao cutover total imediato
+- do ponto de vista de backlog, resta apenas a `Wave 51` de limpeza final desta ronda curta de operacao de migracao
 O storage canonico de inteligencia por grupo ja ficou aberto com:
 
 - `data/groups/<jid>/llm/instructions.md`

@@ -388,37 +388,52 @@ export class AppRouter {
         },
       },
       {
+        route: '/migration',
+        label: 'Migracao',
+        description: 'Semana paralela real, readiness de cutover e consola do Codex auto router.',
+        render: async () => ({
+          route: '/migration',
+          title: 'Migracao',
+          description: 'Semana paralela real, readiness de cutover e consola do Codex auto router.',
+          sections: [],
+          data: await this.readSettingsPageData(),
+        }),
+      },
+      {
         route: this.settings.config.route,
         label: this.settings.config.label,
         description: 'Area secundaria para defaults, energia, host companion e auth.',
-        render: async () => {
-          const [settings, migrationReadiness, legacyScheduleImportFiles, recentAlertMatches, recentAutomationRuns] = await Promise.all([
-            this.readQuery('settings', () => this.client.getSettings()),
-            this.readQuery('migration-readiness', () => this.client.getMigrationReadiness()),
-            this.readQuery('legacy-schedule-import-files', () => this.client.listLegacyScheduleImportFiles()),
-            this.readQuery('alert-matches', () => this.client.listRecentAlertMatches(8)),
-            this.readQuery('automation-runs', () => this.client.listRecentAutomationRuns(8)),
-          ]);
-
-          return {
-            route: '/settings',
-            title: 'Configuracao',
-            description: 'Area secundaria para defaults, energia, host companion e auth.',
-            sections: [],
-            data: {
-              settings,
-              migrationReadiness,
-              legacyScheduleImportFiles,
-              legacyScheduleImportReport: null,
-              legacyAlertImportReport: null,
-              legacyAutomationImportReport: null,
-              recentAlertMatches,
-              recentAutomationRuns,
-            } satisfies SettingsPageData,
-          };
-        },
+        render: async () => ({
+          route: '/settings',
+          title: 'Configuracao',
+          description: 'Area secundaria para defaults, energia, host companion e auth.',
+          sections: [],
+          data: await this.readSettingsPageData(),
+        }),
       },
     ];
+  }
+
+  private async readSettingsPageData(): Promise<SettingsPageData> {
+    const [settings, migrationReadiness, legacyScheduleImportFiles, recentAlertMatches, recentAutomationRuns] =
+      await Promise.all([
+        this.readQuery('settings', () => this.client.getSettings()),
+        this.readQuery('migration-readiness', () => this.client.getMigrationReadiness()),
+        this.readQuery('legacy-schedule-import-files', () => this.client.listLegacyScheduleImportFiles()),
+        this.readQuery('alert-matches', () => this.client.listRecentAlertMatches(8)),
+        this.readQuery('automation-runs', () => this.client.listRecentAutomationRuns(8)),
+      ]);
+
+    return {
+      settings,
+      migrationReadiness,
+      legacyScheduleImportFiles,
+      legacyScheduleImportReport: null,
+      legacyAlertImportReport: null,
+      legacyAutomationImportReport: null,
+      recentAlertMatches,
+      recentAutomationRuns,
+    } satisfies SettingsPageData;
   }
 
   async renderRoute(rawPath: string): Promise<UiPage> {

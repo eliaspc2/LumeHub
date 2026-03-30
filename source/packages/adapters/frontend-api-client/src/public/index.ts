@@ -1117,6 +1117,15 @@ export class FrontendApiClient {
     );
   }
 
+  async prepareCodexAuthRouter(): Promise<CodexAuthRouterStatus> {
+    return this.expectOk(
+      await this.transport.request<CodexAuthRouterStatus>({
+        method: 'POST',
+        path: '/api/settings/codex-auth-router/prepare',
+      }),
+    );
+  }
+
   async forceCodexAuthSwitch(accountId: string): Promise<CodexAuthRouterStatus> {
     return this.expectOk(
       await this.transport.request<CodexAuthRouterStatus>({

@@ -509,6 +509,40 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       return this.ok(buildDemoMigrationReadinessSnapshot(this.state));
     }
 
+    if (request.method === 'GET' && pathname === '/api/settings/codex-auth-router') {
+      return this.ok(this.state.settings.authRouterStatus);
+    }
+
+    if (request.method === 'POST' && pathname === '/api/settings/codex-auth-router/prepare') {
+      const status = prepareDemoCodexAuthRouter(this.state);
+      this.emit('settings.codex_auth_router.updated', {
+        mode: 'demo',
+        accountId: status.currentSelection?.accountId ?? null,
+      });
+      return this.ok(status);
+    }
+
+    if (request.method === 'POST' && pathname === '/api/settings/codex-auth-router/switch') {
+      const body = request.body as { readonly accountId?: string };
+      const accountId = typeof body?.accountId === 'string' ? body.accountId : '';
+
+      if (!accountId) {
+        return this.error(400, 'Demo codex auth router switch requires accountId.');
+      }
+
+      const status = forceDemoCodexAuthRouterSwitch(this.state, accountId);
+
+      if (!status) {
+        return this.error(404, `Demo codex auth account ${accountId} not found.`);
+      }
+
+      this.emit('settings.codex_auth_router.updated', {
+        mode: 'demo',
+        accountId: status.currentSelection?.accountId ?? null,
+      });
+      return this.ok(status);
+    }
+
     if (request.method === 'GET' && pathname === '/api/alerts/rules') {
       return this.ok(this.state.settings.adminSettings.alerts.rules);
     }
@@ -3448,6 +3482,126 @@ function createDemoLlmRuntimeStatus(
       },
     ],
   };
+}
+
+function prepareDemoCodexAuthRouter(state: DemoState): NonNullable<SettingsSnapshot['authRouterStatus']> {
+  return updateDemoCodexAuthRouterState(state, {
+    reason: 'demo_manual_prepare',
+  });
+}
+
+function forceDemoCodexAuthRouterSwitch(
+  state: DemoState,
+  accountId: string,
+): NonNullable<SettingsSnapshot['authRouterStatus']> | null {
+  const target = state.settings.authRouterStatus?.accounts.find((account) => account.accountId === accountId);
+
+  if (!target) {
+    return null;
+  }
+
+  return updateDemoCodexAuthRouterState(state, {
+    preferredAccountId: accountId,
+    reason: 'demo_manual_force_switch',
+    event: 'force_switch',
+  });
+}
+
+function updateDemoCodexAuthRouterState(
+  state: DemoState,
+  options: {
+    readonly preferredAccountId?: string;
+    readonly reason: string;
+    readonly event?: 'prepared' | 'force_switch';
+  },
+): NonNullable<SettingsSnapshot['authRouterStatus']> {
+  const currentStatus = state.settings.authRouterStatus ?? failMissingDemoAuthRouter();
+  const existingAccounts = currentStatus.accounts.filter((account) => account.exists);
+  const selectedAccount =
+    (options.preferredAccountId
+      ? existingAccounts.find((account) => account.accountId === options.preferredAccountId)
+      : pickBestDemoCodexAccount(existingAccounts)) ?? existingAccounts[0] ?? failMissingDemoAuthRouter();
+  const nowIso = new Date().toISOString();
+  const previousSelection = currentStatus.currentSelection;
+  const switchPerformed = previousSelection?.accountId !== selectedAccount.accountId;
+  const backupFilePath = switchPerformed
+    ? `${currentStatus.backupDirectoryPath}/${sanitizeTimestampForFile(nowIso)}.json`
+    : null;
+  const nextStatus: NonNullable<SettingsSnapshot['authRouterStatus']> = {
+    ...currentStatus,
+    currentSelection: {
+      accountId: selectedAccount.accountId,
+      label: selectedAccount.label,
+      sourceFilePath: selectedAccount.sourceFilePath,
+      canonicalAuthFilePath: currentStatus.canonicalAuthFilePath,
+      selectedAt: nowIso,
+      switchPerformed,
+      backupFilePath,
+      reason: options.reason,
+      contentHash: selectedAccount.contentHash,
+    },
+    lastPreparedAt: nowIso,
+    lastSwitchAt: switchPerformed ? nowIso : currentStatus.lastSwitchAt,
+    lastError: null,
+    switchHistory: [
+      ...currentStatus.switchHistory,
+      {
+        auditId: `demo-codex-auth-${sanitizeTimestampForFile(nowIso)}`,
+        event: options.event ?? 'prepared',
+        accountId: selectedAccount.accountId,
+        label: selectedAccount.label,
+        sourceFilePath: selectedAccount.sourceFilePath,
+        canonicalAuthFilePath: currentStatus.canonicalAuthFilePath,
+        createdAt: nowIso,
+        switchPerformed,
+        backupFilePath,
+        reason: options.reason,
+        failureKind: null,
+      },
+    ].slice(-12),
+  };
+
+  state.settings = {
+    ...state.settings,
+    authRouterStatus: nextStatus,
+    llmRuntime: createDemoLlmRuntimeStatus(state.settings.adminSettings, nextStatus),
+    hostStatus: {
+      ...state.settings.hostStatus,
+      authRouter: {
+        ...state.settings.hostStatus.authRouter,
+        canonicalAuthFilePath: nextStatus.canonicalAuthFilePath,
+        currentAccountId: selectedAccount.accountId,
+        currentSourceFilePath: selectedAccount.sourceFilePath,
+        accountCount: nextStatus.accountCount,
+        lastSwitchAt: nextStatus.lastSwitchAt,
+      },
+    },
+  };
+
+  return nextStatus;
+}
+
+function pickBestDemoCodexAccount(
+  accounts: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'],
+): NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number] | null {
+  if (accounts.length === 0) {
+    return null;
+  }
+
+  return (
+    accounts
+      .slice()
+      .sort((left, right) => right.priority - left.priority)
+      .find((account) => account.usage.cooldownUntil == null) ?? accounts[0]
+  );
+}
+
+function sanitizeTimestampForFile(value: string): string {
+  return value.replaceAll(':', '-').replaceAll('.', '-');
+}
+
+function failMissingDemoAuthRouter(): never {
+  throw new Error('Demo codex auth router is not available.');
 }
 
 function readDemoTargetGroupJids(payload: Record<string, unknown>): string[] {

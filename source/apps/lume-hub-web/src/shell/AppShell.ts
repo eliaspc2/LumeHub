@@ -689,7 +689,7 @@ export class AppShell {
       this.syncAssistantSchedulingDraft(page as UiPage<AssistantPageData>);
     }
 
-    if (page.route === '/settings') {
+    if (page.route === '/settings' || page.route === '/migration') {
       this.syncSettingsDrafts(page as UiPage<SettingsPageData>);
     }
   }
@@ -955,6 +955,8 @@ export class AppShell {
         return this.renderGroupsPage(this.state.page as UiPage<GroupManagementPageData>);
       case '/whatsapp':
         return this.renderWhatsAppPage(this.state.page as UiPage<WhatsAppManagementPageData>);
+      case '/migration':
+        return this.renderMigrationPage(this.state.page as UiPage<SettingsPageData>);
       case '/settings':
         return this.renderSettingsPage(this.state.page as UiPage<SettingsPageData>);
       case '/distributions':
@@ -3360,6 +3362,350 @@ export class AppShell {
     `;
   }
 
+  private renderMigrationPage(page: UiPage<SettingsPageData>): string {
+    const snapshot = page.data.settings;
+    const migrationReadiness = page.data.migrationReadiness;
+    const authRouterStatus = snapshot.authRouterStatus;
+    const migrationRecommendationTone =
+      migrationReadiness.recommendedPhase === 'blocked'
+        ? 'danger'
+        : migrationReadiness.cutoverDecisionReady
+          ? 'positive'
+          : 'warning';
+    const migrationRecommendationLabel =
+      migrationReadiness.recommendedPhase === 'blocked'
+        ? 'Ainda nao entrar em shadow mode'
+        : migrationReadiness.cutoverDecisionReady
+          ? 'Semana paralela pronta a arrancar'
+          : 'Entrar em shadow mode';
+    const activeAccount = authRouterStatus?.currentSelection?.accountId ?? null;
+
+    return `
+      <section class="surface hero surface--strong">
+        <div>
+          <p class="eyebrow">Shadow mode</p>
+          <h2>Semana paralela real e controlo do Codex auto router num unico sitio.</h2>
+          <p>${escapeHtml(page.description)}</p>
+          <div class="action-row">
+            ${renderUiActionButton({ label: 'Ver WhatsApp', href: '/whatsapp', dataAttributes: { route: '/whatsapp' } })}
+            ${renderUiActionButton({ label: 'Abrir assistente', href: '/assistant', variant: 'secondary', dataAttributes: { route: '/assistant' } })}
+            ${renderUiActionButton({ label: 'Configuracao avancada', href: '/settings', variant: 'secondary', dataAttributes: { route: '/settings' } })}
+          </div>
+        </div>
+        <div class="hero-panel">
+          ${renderUiPanelCard({
+            title: 'Fase recomendada',
+            badgeLabel: migrationRecommendationLabel,
+            badgeTone: migrationRecommendationTone,
+            contentHtml: `<p>${escapeHtml(migrationReadiness.summary)}</p>`,
+          })}
+          ${renderUiPanelCard({
+            title: 'Codex auto router',
+            badgeLabel: authRouterStatus?.currentSelection ? authRouterStatus.currentSelection.label : 'Sem selecao',
+            badgeTone: authRouterStatus?.currentSelection ? 'positive' : 'warning',
+            contentHtml: `<p>${
+              authRouterStatus
+                ? escapeHtml(`Conta ativa: ${authRouterStatus.currentSelection?.label ?? 'nenhuma'} · ${authRouterStatus.accountCount} conta(s) visivel/visiveis.`)
+                : 'Router indisponivel neste runtime.'
+            }</p>`,
+          })}
+        </div>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-8">
+          <div class="card-header">
+            <div>
+              <h3>Readiness de migracao</h3>
+              <p>O objetivo aqui e perceber se ja vale a pena operar uma semana real em paralelo com o WA-notify.</p>
+            </div>
+            ${renderUiBadge({ label: migrationRecommendationLabel, tone: migrationRecommendationTone })}
+          </div>
+          <div class="guide-preview">
+            <p><strong>Fase recomendada</strong>: ${escapeHtml(migrationRecommendationLabel)}</p>
+            <p>${escapeHtml(migrationReadiness.summary)}</p>
+            <p><strong>Gerado em</strong>: ${escapeHtml(formatShortDateTime(migrationReadiness.generatedAt))}</p>
+          </div>
+          <div class="card-grid">
+            ${renderUiMetricCard({
+              title: 'Runtime',
+              value: migrationReadiness.runtime.ready ? 'Pronto' : 'Parado',
+              tone: migrationReadiness.runtime.ready ? 'positive' : 'danger',
+              description:
+                migrationReadiness.runtime.phase === 'running'
+                  ? 'Backend a responder com tick operacional recente.'
+                  : `Fase atual ${migrationReadiness.runtime.phase}.`,
+            })}
+            ${renderUiMetricCard({
+              title: 'WhatsApp',
+              value: migrationReadiness.whatsapp.connected ? 'Ligado' : 'Rever',
+              tone: migrationReadiness.whatsapp.connected ? 'positive' : 'warning',
+              description: `${migrationReadiness.whatsapp.discoveredGroups} grupos e ${migrationReadiness.whatsapp.discoveredConversations} conversas visiveis.`,
+            })}
+            ${renderUiMetricCard({
+              title: 'LLM live',
+              value: migrationReadiness.llm.mode === 'live' ? 'Provider real' : 'Fallback',
+              tone: migrationReadiness.llm.mode === 'live' ? 'positive' : 'warning',
+              description: `${migrationReadiness.llm.effectiveProvider} / ${migrationReadiness.llm.effectiveModel}`,
+            })}
+            ${renderUiMetricCard({
+              title: 'Cutover',
+              value: migrationReadiness.cutoverDecisionReady ? 'Pronto para decidir' : 'Ainda em comparacao',
+              tone: migrationReadiness.cutoverDecisionReady ? 'positive' : 'warning',
+              description: `${migrationReadiness.lumeHubState.importedScheduleEvents} eventos, ${migrationReadiness.lumeHubState.alertRules} alerts e ${migrationReadiness.lumeHubState.automationDefinitions} automations no runtime novo.`,
+            })}
+          </div>
+          <details class="ui-details" open>
+            <summary>Checklist objetiva</summary>
+            <div class="ui-details__content">
+              <div class="migration-readiness-list">
+                ${migrationReadiness.checklist
+                  .map(
+                    (item) => `
+                      <article class="migration-readiness-item migration-readiness-item--${item.status}">
+                        <div class="migration-readiness-item__header">
+                          <strong>${escapeHtml(item.label)}</strong>
+                          ${renderUiBadge({
+                            label:
+                              item.status === 'ready'
+                                ? 'Pronto'
+                                : item.status === 'review'
+                                  ? 'Rever'
+                                  : 'Bloqueado',
+                            tone:
+                              item.status === 'ready'
+                                ? 'positive'
+                                : item.status === 'review'
+                                  ? 'warning'
+                                  : 'danger',
+                          })}
+                        </div>
+                        <p>${escapeHtml(item.summary)}</p>
+                      </article>
+                    `,
+                  )
+                  .join('')}
+              </div>
+            </div>
+          </details>
+        </article>
+        <article class="surface content-card span-4">
+          <div class="card-header">
+            <div>
+              <h3>Operacao da semana paralela</h3>
+              <p>O que comparar e o que fechar antes de decidir o corte final.</p>
+            </div>
+            ${renderUiBadge({
+              label: migrationReadiness.recommendedPhase === 'blocked' ? 'Bloqueada' : 'Em preparacao',
+              tone: migrationReadiness.recommendedPhase === 'blocked' ? 'danger' : 'warning',
+            })}
+          </div>
+          <details class="ui-details" open>
+            <summary>Comparacao curta WA-notify vs LumeHub</summary>
+            <div class="ui-details__content">
+              <div class="migration-comparison-list">
+                ${migrationReadiness.comparison
+                  .map(
+                    (entry) => `
+                      <article class="migration-comparison-item">
+                        <div class="migration-readiness-item__header">
+                          <strong>${escapeHtml(entry.label)}</strong>
+                          ${renderUiBadge({
+                            label: entry.tone === 'positive' ? 'Alinhado' : entry.tone === 'warning' ? 'Rever' : 'Info',
+                            tone: entry.tone,
+                          })}
+                        </div>
+                        <p><strong>WA-notify</strong>: ${escapeHtml(entry.waNotify)}</p>
+                        <p><strong>LumeHub</strong>: ${escapeHtml(entry.lumeHub)}</p>
+                      </article>
+                    `,
+                  )
+                  .join('')}
+              </div>
+            </div>
+          </details>
+          <details class="ui-details" open>
+            <summary>O que fazer durante a semana paralela</summary>
+            <div class="ui-details__content">
+              <ul>
+                ${migrationReadiness.shadowModeChecks.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+              </ul>
+            </div>
+          </details>
+          <details class="ui-details">
+            <summary>Antes do cutover</summary>
+            <div class="ui-details__content">
+              <ul>
+                ${migrationReadiness.cutoverChecks.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+              </ul>
+            </div>
+          </details>
+          ${
+            migrationReadiness.blockers.length > 0
+              ? `
+                  <details class="ui-details" open>
+                    <summary>Bloqueadores atuais</summary>
+                    <div class="ui-details__content">
+                      <ul>
+                        ${migrationReadiness.blockers.map((blocker) => `<li>${escapeHtml(blocker)}</li>`).join('')}
+                      </ul>
+                    </div>
+                  </details>
+                `
+              : ''
+          }
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-4">
+          <div class="card-header">
+            <div>
+              <h3>Codex auto router</h3>
+              <p>Escolhe ou prepara a auth ativa do Codex sem mexer em ficheiros manualmente.</p>
+            </div>
+            ${renderUiBadge({
+              label: authRouterStatus?.currentSelection ? 'Operacional' : 'Indisponivel',
+              tone: authRouterStatus?.currentSelection ? 'positive' : 'warning',
+            })}
+          </div>
+          ${
+            authRouterStatus
+              ? `
+                  <div class="guide-preview">
+                    <p><strong>Conta ativa</strong>: ${escapeHtml(authRouterStatus.currentSelection?.label ?? 'Nenhuma')}</p>
+                    <p><strong>Canonical auth</strong>: ${escapeHtml(authRouterStatus.canonicalAuthFilePath)}</p>
+                    <p><strong>Ultimo prepare</strong>: ${escapeHtml(formatShortDateTime(authRouterStatus.lastPreparedAt))}</p>
+                    <p><strong>Ultima troca</strong>: ${escapeHtml(formatShortDateTime(authRouterStatus.lastSwitchAt))}</p>
+                  </div>
+                  <div class="action-row">
+                    ${renderUiActionButton({
+                      label: 'Atualizar estado',
+                      variant: 'secondary',
+                      dataAttributes: { 'settings-action': 'refresh-migration' },
+                    })}
+                    ${renderUiActionButton({
+                      label: 'Preparar melhor conta agora',
+                      dataAttributes: { 'settings-action': 'prepare-codex-router' },
+                    })}
+                  </div>
+                  <div class="card-grid">
+                    ${renderUiMetricCard({
+                      title: 'Conta em uso',
+                      value: authRouterStatus.currentSelection?.label ?? 'Nenhuma',
+                      tone: authRouterStatus.currentSelection ? 'positive' : 'warning',
+                      description: authRouterStatus.currentSelection?.sourceFilePath ?? 'Ainda nao ha selecao ativa.',
+                    })}
+                    ${renderUiMetricCard({
+                      title: 'Contas visiveis',
+                      value: String(authRouterStatus.accountCount),
+                      tone: authRouterStatus.accountCount > 0 ? 'positive' : 'warning',
+                      description: authRouterStatus.accounts.length > 0 ? 'Fontes de auth conhecidas pelo router.' : 'Sem contas conhecidas.',
+                    })}
+                    ${renderUiMetricCard({
+                      title: 'Canonical auth',
+                      value: authRouterStatus.canonicalExists ? 'Presente' : 'Em falta',
+                      tone: authRouterStatus.canonicalExists ? 'positive' : 'warning',
+                      description: authRouterStatus.canonicalAuthFilePath,
+                    })}
+                    ${renderUiMetricCard({
+                      title: 'Ultimo erro',
+                      value: authRouterStatus.lastError ? 'Rever' : 'Sem erro',
+                      tone: authRouterStatus.lastError ? 'warning' : 'positive',
+                      description: authRouterStatus.lastError ?? 'Sem erro recente registado pelo router.',
+                    })}
+                  </div>
+                  <details class="ui-details">
+                    <summary>Historico recente</summary>
+                    <div class="ui-details__content">
+                      <ul>
+                        ${
+                          authRouterStatus.switchHistory.length > 0
+                            ? authRouterStatus.switchHistory
+                                .slice()
+                                .reverse()
+                                .slice(0, 8)
+                                .map(
+                                  (entry) =>
+                                    `<li>${escapeHtml(formatShortDateTime(entry.createdAt))} · ${escapeHtml(entry.event)} · ${escapeHtml(entry.label ?? entry.accountId ?? 'sem conta')}${entry.reason ? ` · ${escapeHtml(entry.reason)}` : ''}</li>`,
+                                )
+                                .join('')
+                            : '<li>Sem historico recente de prepare ou troca.</li>'
+                        }
+                      </ul>
+                    </div>
+                  </details>
+                `
+              : '<p>O router do Codex nao esta configurado neste runtime.</p>'
+          }
+        </article>
+        <article class="surface content-card span-8">
+          <div class="card-header">
+            <div>
+              <h3>Contas conhecidas pelo router</h3>
+              <p>Usa esta lista para perceber o estado de cada auth e escolher uma conta concreta quando precisares.</p>
+            </div>
+            ${renderUiBadge({
+              label: `${authRouterStatus?.accounts.length ?? 0} conta(s)`,
+              tone: authRouterStatus?.accounts.length ? 'neutral' : 'warning',
+            })}
+          </div>
+          ${
+            authRouterStatus && authRouterStatus.accounts.length > 0
+              ? `
+                  <div class="codex-router-account-list">
+                    ${authRouterStatus.accounts
+                      .map(
+                        (account) => `
+                          <article class="codex-router-account-card">
+                            <div class="card-header">
+                              <div>
+                                <h4>${escapeHtml(account.label)}</h4>
+                                <p>${escapeHtml(account.sourceFilePath)}</p>
+                              </div>
+                              <div class="codex-router-account-badges">
+                                ${renderUiBadge({
+                                  label: account.accountId === activeAccount ? 'Em uso agora' : account.exists ? 'Disponivel' : 'Em falta',
+                                  tone: account.accountId === activeAccount ? 'positive' : account.exists ? 'neutral' : 'warning',
+                                })}
+                                ${renderUiBadge({
+                                  label: account.kind === 'canonical_live' ? 'Canonical' : 'Secundaria',
+                                  tone: account.kind === 'canonical_live' ? 'neutral' : 'warning',
+                                  style: 'chip',
+                                })}
+                              </div>
+                            </div>
+                            <ul>
+                              <li><strong>Prioridade</strong>: ${account.priority}</li>
+                              <li><strong>Sucessos</strong>: ${account.usage.successCount} · <strong>Falhas</strong>: ${account.usage.failureCount}</li>
+                              <li><strong>Ultimo sucesso</strong>: ${escapeHtml(formatShortDateTime(account.usage.lastSuccessAt))}</li>
+                              <li><strong>Ultima falha</strong>: ${escapeHtml(formatShortDateTime(account.usage.lastFailureAt))}${account.usage.lastFailureReason ? ` · ${escapeHtml(account.usage.lastFailureReason)}` : ''}</li>
+                              <li><strong>Cooldown</strong>: ${escapeHtml(formatShortDateTime(account.usage.cooldownUntil))}</li>
+                            </ul>
+                            <div class="action-row">
+                              ${renderUiActionButton({
+                                label: account.accountId === activeAccount ? 'Conta ativa' : 'Trocar para esta conta',
+                                variant: account.accountId === activeAccount ? 'secondary' : 'primary',
+                                disabled: !account.exists || account.accountId === activeAccount,
+                                dataAttributes: {
+                                  'settings-action': 'switch-codex-account',
+                                  'codex-account-id': account.accountId,
+                                },
+                              })}
+                            </div>
+                          </article>
+                        `,
+                      )
+                      .join('')}
+                  </div>
+                `
+              : '<p>Sem contas conhecidas para o router neste momento.</p>'
+          }
+        </article>
+      </section>
+    `;
+  }
+
   private renderSettingsPage(page: UiPage<SettingsPageData>): string {
     const snapshot = page.data.settings;
     const migrationReadiness = page.data.migrationReadiness;
@@ -4694,7 +5040,7 @@ export class AppShell {
   private readSettingsPageData(): UiPage<SettingsPageData> | null {
     const page = this.state.page as UiPage<SettingsPageData> | null;
 
-    if (!page || page.route !== '/settings') {
+    if (!page || (page.route !== '/settings' && page.route !== '/migration')) {
       return null;
     }
 
@@ -5253,7 +5599,7 @@ export class AppShell {
 
   private async handleSettingsAction(
     action: string,
-    _dataset: ActionDataset,
+    dataset: ActionDataset,
     options: {
       readonly confirmed?: boolean;
     } = {},
@@ -5261,6 +5607,121 @@ export class AppShell {
     const page = this.readSettingsPageData();
 
     if (!page) {
+      return;
+    }
+
+    if (action === 'refresh-migration') {
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A atualizar o snapshot de shadow mode e o estado do Codex auto router.',
+        },
+      };
+      this.render();
+      await this.refreshCurrentRouteData();
+      return;
+    }
+
+    if (action === 'prepare-codex-router') {
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A preparar a melhor conta disponivel no Codex auto router.',
+        },
+      };
+      this.render();
+
+      try {
+        const status = await this.currentClient().prepareCodexAuthRouter();
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'positive',
+            message: `Router preparado com ${status.currentSelection?.label ?? 'uma conta disponivel'}.`,
+          },
+        };
+        this.recordUxEvent('positive', `Codex auto router preparado com ${status.currentSelection?.accountId ?? 'sem conta'}.`);
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel preparar o Codex auto router. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
+    if (action === 'switch-codex-account') {
+      const accountId = dataset.codexAccountId;
+
+      if (!accountId) {
+        return;
+      }
+
+      if (!options.confirmed) {
+        this.state = {
+          ...this.state,
+          pendingConfirmation: {
+            domain: 'settings',
+            key: `codex-router-switch:${accountId}`,
+            action,
+            dataset: {
+              codexAccountId: accountId,
+            },
+            title: 'Trocar a conta ativa do Codex?',
+            description: 'Isto vai reescrever a auth canónica atual do Codex para a conta escolhida.',
+            confirmLabel: 'Trocar conta',
+            tone: 'warning',
+          },
+          flowFeedback: {
+            tone: 'warning',
+            message: 'Confirma primeiro a troca manual da conta ativa do Codex.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A trocar a conta ativa do Codex neste runtime.',
+        },
+      };
+      this.render();
+
+      try {
+        const status = await this.currentClient().forceCodexAuthSwitch(accountId);
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'positive',
+            message: `Conta ativa trocada para ${status.currentSelection?.label ?? accountId}.`,
+          },
+        };
+        this.recordUxEvent('positive', `Codex auto router trocado para ${accountId}.`);
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel trocar a conta do Codex. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
       return;
     }
 
@@ -7875,7 +8336,11 @@ function shouldAutoRefreshRoute(route: string, topic: string): boolean {
   }
 
   if (topic.startsWith('settings.whatsapp')) {
-    return route === '/whatsapp' || route === '/settings' || route === '/today';
+    return route === '/whatsapp' || route === '/settings' || route === '/migration' || route === '/today';
+  }
+
+  if (topic.startsWith('settings.codex_auth_router')) {
+    return route === '/migration' || route === '/settings';
   }
 
   return false;
