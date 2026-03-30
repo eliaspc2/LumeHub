@@ -10,7 +10,7 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 47` ja foram executadas e validadas.
+As `Wave 0` a `Wave 48` ja foram executadas e validadas.
 O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
 
 O storage canonico da ronda de media ja ficou aberto com:
@@ -59,39 +59,15 @@ A `Wave 44` fechou o scheduling live com `preview -> apply -> queue -> auditoria
 A `Wave 45` fechou o importador idempotente de schedules do `WA-notify`, com pagina operacional em `Configuracao`, relatorio de itens importados/ambiguos e migracao real para o storage mensal canonico por grupo.
 A `Wave 46` fechou `alerts` e `automations` dentro da arquitetura nova, com import minimo de `alerts.json` e `automations.json`, execucao live, auditoria e pagina operacional em `Configuracao`.
 A `Wave 47` fechou a suite verde e o hardening de restart/cutover, com `pnpm run test` a passar por completo e cobertura atualizada para o copy live mais recente.
+A `Wave 48` fechou o shadow mode com dados reais:
+- snapshot live de readiness em `Configuracao`
+- checklist de shadow mode e de cutover
+- comparacao curta `WA-notify` vs `LumeHub`
+- validacao dedicada em `validate:wave48`
 
 ## Ronda de paridade e cutover WA-notify
 
 Esta ronda existe para fechar os bloqueadores que ainda impedem migracao total do `WA-notify` para o `LumeHub`.
-
-### Wave 48 - Shadow mode com dados reais e checklist de migracao
-
-Objetivo:
-- fazer ensaio controlado de operacao real antes de cutover
-
-Entregaveis:
-- modo de operacao paralela documentado
-- checklist de shadow mode e de cutover
-- comparacao curta `WA-notify` vs `LumeHub` para uma semana real
-- pagina/estado para ver readiness de migracao
-
-Criterios de aceitacao:
-- uma semana real pode ser acompanhada em shadow mode sem regressao evidente
-- os bloqueadores finais ficam visiveis e curtos
-- o operador tem checklist objetiva para decidir cutover
-
-Rebuild e validacao minima:
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- `corepack pnpm run validate:wave48`
-
-Melhor momento para testar:
-- quando as waves anteriores estiverem fechadas e a suite ja estiver verde
-
-O que testar:
-- uma semana real em paralelo
-- comparacao de eventos, envios e respostas
-- readiness final de migracao
 
 ### Wave 49 - Limpeza final da ronda de paridade de migracao
 

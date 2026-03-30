@@ -849,6 +849,56 @@ textarea {
   color: var(--ink-strong);
 }
 
+.migration-readiness-list,
+.migration-comparison-list {
+  display: grid;
+  gap: 12px;
+}
+
+.migration-readiness-item,
+.migration-comparison-item {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+  background: var(--surface-subtle);
+}
+
+.migration-readiness-item--ready {
+  border-color: rgba(105, 138, 87, 0.22);
+  background: linear-gradient(180deg, #ffffff 0%, #f6fbf3 100%);
+}
+
+.migration-readiness-item--review {
+  border-color: rgba(185, 130, 46, 0.2);
+  background: linear-gradient(180deg, #ffffff 0%, #fffaf0 100%);
+}
+
+.migration-readiness-item--blocked {
+  border-color: rgba(194, 82, 67, 0.18);
+  background: linear-gradient(180deg, #ffffff 0%, #fff5f2 100%);
+}
+
+.migration-readiness-item__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.migration-readiness-item p,
+.migration-comparison-item p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+.migration-comparison-item strong {
+  color: var(--ink-strong);
+}
+
 .workspace-search-actions {
   display: flex;
   align-items: end;

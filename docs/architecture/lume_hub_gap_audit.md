@@ -115,24 +115,27 @@ A `Wave 44` ja fechou o primeiro bloqueador critico: o assistente agora consegue
 A `Wave 45` fechou o segundo: os schedules reais do `WA-notify` ja podem ser migrados para o storage mensal canonico por grupo com re-run idempotente.
 A `Wave 46` fechou o terceiro: `alerts` e `automations` agora vivem em packages reais do workspace, com import minimo dos ficheiros legacy, runtime live e auditoria.
 A `Wave 47` fechou o quarto: a suite automatica voltou a ficar verde, incluindo restart/dedupe e o e2e live de cutover.
+A `Wave 48` fechou o quinto: o `LumeHub` passou a mostrar readiness de migracao, comparacao curta `WA-notify` vs `LumeHub` e checklist objetiva para `shadow mode`.
 
-### 1. Ainda falta ensaio com dados reais antes do cutover
+### 1. Ainda falta executar a semana paralela real antes do cutover
 
 Estado encontrado:
 
-- ha sinais positivos no runtime live:
-  - backend `healthy`
-  - WhatsApp ligado
-  - grupos descobertos
-- mas isso ainda nao equivale a uma semana real operada em paralelo com o `WA-notify`
+- a infraestrutura para `shadow mode` ficou pronta:
+  - pagina `Configuracao` com readiness live
+  - `GET /api/migrations/readiness`
+  - checklist de `shadow mode` e de cutover
+- mas isso ainda nao substitui a execucao humana da semana paralela com dados reais
 
 Implicacao:
 
-- sem shadow mode e checklist de migracao real, o risco de regressao funcional continua demasiado alto
+- o risco tecnico caiu bastante
+- a decisao de cutover continua dependente da comparacao real ao longo de uma semana
 
 Fecho planeado:
 
-- `Wave 48`
+- executar a semana paralela real
+- depois fechar `Wave 49`
 
 ## Gaps ativos da ronda do agente de projeto
 
@@ -172,6 +175,7 @@ Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resp
 - para suite automatica e hardening de restart/cutover, sim
 - para migracao total do `WA-notify`, ainda nao
 - em `2026-03-30`, a recomendacao correta continua a ser:
-  - fechar `Wave 48` a `Wave 49`
-  - depois fazer shadow mode
+  - usar a `Wave 48` ja fechada como base de readiness
+  - fazer shadow mode real
+  - fechar `Wave 49`
   - e so depois decidir cutover

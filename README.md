@@ -217,7 +217,17 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 47` ja foram executadas e validadas.
+As `Wave 0` a `Wave 48` ja foram executadas e validadas.
+O `LumeHub` ja tem:
+
+- runtime `Live` operacional com WhatsApp, LLM, scheduling, alerts e automations
+- readiness de migracao exposta na pagina `Configuracao`
+- endpoint `GET /api/migrations/readiness`
+- checklist de `shadow mode` em [lume_hub_shadow_mode_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md)
+- checklist de cutover em [lume_hub_live_cutover_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_live_cutover_checklist.md)
+
+A partir de `2026-03-30`, o bloqueador principal para substituir de vez o `WA-notify` ja nao e tecnico: passa a ser a execucao real da semana paralela e a decisao final de cutover.
+O `LumeHub` ja mostra readiness de migracao e checklist de `shadow mode` na pagina `Configuracao`, mas o cutover total do `WA-notify` continua dependente de uma semana paralela real antes da decisao final.
 
 Mas isso nao significa, por si so, que o `WA-notify` ja deva ser desligado.
 

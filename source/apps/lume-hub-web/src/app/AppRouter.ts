@@ -13,6 +13,7 @@ import type {
   LegacyScheduleImportReportSnapshot,
   MessageAlertMatchSnapshot,
   MediaAssetSnapshot,
+  MigrationReadinessSnapshot,
   SettingsSnapshot,
   AutomationRunSnapshot,
   WorkspaceAgentStatusSnapshot,
@@ -91,6 +92,7 @@ export interface AssistantPageData {
 
 export interface SettingsPageData {
   readonly settings: SettingsSnapshot;
+  readonly migrationReadiness: MigrationReadinessSnapshot;
   readonly legacyScheduleImportFiles: readonly LegacyScheduleImportFileSnapshot[];
   readonly legacyScheduleImportReport: LegacyScheduleImportReportSnapshot | null;
   readonly legacyAlertImportReport: LegacyAlertImportReportSnapshot | null;
@@ -390,8 +392,9 @@ export class AppRouter {
         label: this.settings.config.label,
         description: 'Area secundaria para defaults, energia, host companion e auth.',
         render: async () => {
-          const [settings, legacyScheduleImportFiles, recentAlertMatches, recentAutomationRuns] = await Promise.all([
+          const [settings, migrationReadiness, legacyScheduleImportFiles, recentAlertMatches, recentAutomationRuns] = await Promise.all([
             this.readQuery('settings', () => this.client.getSettings()),
+            this.readQuery('migration-readiness', () => this.client.getMigrationReadiness()),
             this.readQuery('legacy-schedule-import-files', () => this.client.listLegacyScheduleImportFiles()),
             this.readQuery('alert-matches', () => this.client.listRecentAlertMatches(8)),
             this.readQuery('automation-runs', () => this.client.listRecentAutomationRuns(8)),
@@ -404,6 +407,7 @@ export class AppRouter {
             sections: [],
             data: {
               settings,
+              migrationReadiness,
               legacyScheduleImportFiles,
               legacyScheduleImportReport: null,
               legacyAlertImportReport: null,

@@ -1,9 +1,20 @@
 # LumeHub Live Cutover Checklist
 
-Data de referencia: `2026-03-28`
+Data de referencia: `2026-03-30`
 
 Objetivo:
 - fazer o cutover para `Live` com verificacao minima, rollback claro e sinais operacionais suficientes
+
+## Antes de pensar em cutover
+
+- usar a `Wave 48` como base canónica de readiness antes de qualquer decisao final
+- correr primeiro:
+  - `corepack pnpm run validate:wave48`
+- seguir a semana paralela em:
+  - [lume_hub_shadow_mode_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md)
+- confirmar na pagina `Configuracao`:
+  - `Shadow mode e readiness de migracao`
+  - ausencia de bloqueadores tecnicos no snapshot live
 
 ## Antes do cutover
 
@@ -12,7 +23,8 @@ Objetivo:
 - correr em `source/`:
   - `corepack pnpm run typecheck`
   - `corepack pnpm run build`
-  - `corepack pnpm run validate:wave24`
+  - `corepack pnpm run validate:wave47`
+  - `corepack pnpm run validate:wave48`
 - abrir o launcher `LumeHub`
 - validar `KubuntuLTS/scripts/lumehub-launch.sh status`
   - `runtime running`
@@ -25,7 +37,7 @@ Objetivo:
 - confirmar:
   - `Hoje` carrega sem erro
   - `WhatsApp pronto` ou estado equivalente coerente
-  - `Host companion` com heartbeat recente
+  - `Pronto para operar` ou estado equivalente coerente
 - abrir `Semana` e criar um agendamento real de teste
 - abrir `Distribuicoes` e validar preview de fan-out
 - abrir `WhatsApp` e confirmar:
@@ -33,6 +45,9 @@ Objetivo:
   - grupos descobertos
   - conversas descobertas
   - owners e ACL visiveis
+- abrir `Configuracao` e confirmar:
+  - checklist de shadow mode sem bloqueadores
+  - comparacao curta `WA-notify` vs `LumeHub`
 
 ## Verificacoes operacionais
 
@@ -45,6 +60,7 @@ Objetivo:
 - consultar:
   - `/api/status`
   - `/api/runtime/diagnostics`
+  - `/api/migrations/readiness`
 
 ## Testes de resiliencia
 

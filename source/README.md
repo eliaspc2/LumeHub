@@ -36,7 +36,7 @@ Decisao de storage:
 
 ## Estado
 
-A base do monorepo ja existe e as `Wave 0` a `Wave 45` foram executadas.
+A base do monorepo ja existe e as `Wave 0` a `Wave 48` foram executadas.
 Hoje esta pasta ja contem:
 
 - `apps/lume-hub-backend`, `apps/lume-hub-web` e `apps/lume-hub-host`
@@ -44,6 +44,7 @@ Hoje esta pasta ja contem:
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
   - `validate:wave45`
+  - `validate:wave48`
   - `validate:wave44`
   - `validate:wave43`
   - `validate:wave42`
@@ -105,6 +106,14 @@ A `Wave 47` tambem ja ficou fechada:
 - o caso de restart/dedupe da `instruction-queue` ficou corrigido e coberto pelo teste de integracao
 - o e2e live de cutover ficou alinhado ao copy atual da UI
 - a validacao dedicada passou em `validate:wave47`
+
+A `Wave 48` tambem ja ficou fechada:
+
+- a pagina `Configuracao` mostra readiness live de migracao com dados reais
+- a API expoe `GET /api/migrations/readiness`
+- existe checklist explicita para semana paralela em `docs/deployment/lume_hub_shadow_mode_checklist.md`
+- o cutover passou a depender da execucao real do shadow mode, e nao de backlog tecnico em aberto
+- a validacao dedicada passou em `validate:wave48`
 
 Nota operacional:
 

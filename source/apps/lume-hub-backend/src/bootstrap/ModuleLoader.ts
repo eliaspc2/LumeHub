@@ -44,6 +44,7 @@ import { resolveBackendRuntimePaths, type BackendRuntimeConfig, type BackendRunt
 import { ConversationPipelineRuntime } from './ConversationPipelineRuntime.js';
 import { InstructionQueueExecutionRuntime } from './InstructionQueueExecutionRuntime.js';
 import { MessageAlertsRuntime } from './MessageAlertsRuntime.js';
+import { MigrationReadinessService } from './MigrationReadinessService.js';
 import { WhatsAppWorkspaceRuntime } from './WhatsAppWorkspaceRuntime.js';
 
 export interface LoadedBackendComposition {
@@ -402,6 +403,23 @@ export class ModuleLoader {
     const llmRunLogRepository = new LlmRunLogRepository({
       dataRootPath: paths.dataRootPath,
     });
+    const migrationReadinessService = new MigrationReadinessService({
+      paths,
+      readDiagnostics: async () => diagnosticsRepository.readState(),
+      readSettings: async () => adminConfigModule.getSettings(),
+      readLlmRuntimeStatus: getLlmRuntimeStatus,
+      listGroups: async () => groupDirectoryModule.listGroups(),
+      listLegacyScheduleFiles: async () => weeklyPlannerModule.listLegacyScheduleFiles(),
+      readWhatsAppRuntime: async () => whatsAppWorkspaceRuntime.getRuntimeSnapshot(),
+      readLlmLogs: async (limit) => {
+        const log = await llmRunLogRepository.read();
+        return log.entries.slice(Math.max(0, log.entries.length - (limit ?? 20))).reverse();
+      },
+      readConversationAudit: async (limit) => {
+        const audit = await conversationAuditRepository.read();
+        return audit.entries.slice(Math.max(0, audit.entries.length - (limit ?? 20))).reverse();
+      },
+    });
     const httpServer = new FastifyHttpServer({
       modules: {
         adminConfig: adminConfigModule,
@@ -441,6 +459,9 @@ export class ModuleLoader {
         llmOrchestrator: llmOrchestratorModule,
         runtimeDiagnostics: {
           getSnapshot: async () => diagnosticsRepository.readState(),
+        },
+        migrationReadiness: {
+          getSnapshot: async () => migrationReadinessService.getSnapshot(),
         },
       },
       uiEventPublisher: webSocketGateway.publisher,

@@ -125,6 +125,9 @@ export interface HttpApiModules {
   };
   readonly llmOrchestrator?: Pick<LlmOrchestratorModuleContract, 'chat' | 'listModels' | 'refreshModels'>;
   readonly mediaLibrary?: Pick<MediaLibraryModuleContract, 'getLibrary' | 'listAssets' | 'getAsset'>;
+  readonly migrationReadiness?: {
+    getSnapshot(): Promise<unknown>;
+  };
   readonly messageAlerts?: Pick<
     MessageAlertsModuleContract,
     'applyLegacyImport' | 'listRecentMatches' | 'listRules' | 'previewLegacyImport'
@@ -489,6 +492,17 @@ export class RouteRegistrar {
         }
 
         return this.modules.runtimeDiagnostics.getSnapshot();
+      },
+    });
+    server.registerRoute({
+      method: 'GET',
+      path: '/api/migrations/readiness',
+      handler: async () => {
+        if (!this.modules.migrationReadiness) {
+          throw new ApiError(404, 'Migration readiness is not configured.');
+        }
+
+        return this.modules.migrationReadiness.getSnapshot();
       },
     });
     server.registerRoute({

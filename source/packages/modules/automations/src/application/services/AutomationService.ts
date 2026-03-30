@@ -176,7 +176,16 @@ export class AutomationService {
   private async importLegacy(mode: 'preview' | 'apply'): Promise<LegacyAutomationImportReport> {
     const legacy = JSON.parse(await readFile(this.config.legacyAutomationsFilePath, 'utf8')) as LegacyAutomationsFile;
     const groups = await this.config.groupDirectory.listGroups();
-    const groupsByLabel = new Map(groups.map((group) => [group.preferredSubject, group]));
+    const groupsByLabel = new Map<string, (typeof groups)[number]>();
+
+    for (const group of groups) {
+      groupsByLabel.set(normaliseKey(group.preferredSubject), group);
+
+      for (const alias of group.aliases) {
+        groupsByLabel.set(normaliseKey(alias), group);
+      }
+    }
+
     const definitions: AutomationDefinition[] = [];
     const missingGroups = new Map<string, string[]>();
 
@@ -187,7 +196,7 @@ export class AutomationService {
         continue;
       }
 
-      const targetGroup = groupsByLabel.get(groupName);
+      const targetGroup = groupsByLabel.get(normaliseKey(groupName));
 
       if (!targetGroup) {
         missingGroups.set(
@@ -302,6 +311,10 @@ export class AutomationService {
       error: null,
     };
   }
+}
+
+function normaliseKey(value: string): string {
+  return value.trim().toLocaleLowerCase('pt-PT');
 }
 
 function resolveNextOccurrence(now: Date, schedule: AutomationSchedule): Date | null {

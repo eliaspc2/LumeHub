@@ -31,6 +31,7 @@ import type {
   LlmRunLogEntry,
   MediaAssetSnapshot,
   MessageAlertMatchSnapshot,
+  MigrationReadinessSnapshot,
   Person,
   PersonRole,
   SettingsSnapshot,
@@ -502,6 +503,10 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
 
     if (request.method === 'GET' && pathname === '/api/settings') {
       return this.ok(this.state.settings);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/migrations/readiness') {
+      return this.ok(buildDemoMigrationReadinessSnapshot(this.state));
     }
 
     if (request.method === 'GET' && pathname === '/api/alerts/rules') {
@@ -2430,6 +2435,163 @@ function buildStatusSnapshot(state: DemoState): StatusSnapshot {
     hostCompanion: dashboard.hostCompanion,
     whatsapp: dashboard.whatsapp,
     generatedAt: new Date().toISOString(),
+  };
+}
+
+function buildDemoMigrationReadinessSnapshot(state: DemoState): MigrationReadinessSnapshot {
+  const effectiveProvider = state.settings.llmRuntime.effectiveProviderId;
+  const codexAuthReady = Boolean(
+    state.settings.llmRuntime.providerReadiness.find((provider) => provider.providerId === 'codex-oauth')?.ready,
+  );
+  const checklist: MigrationReadinessSnapshot['checklist'] = [
+    {
+      itemId: 'runtime',
+      label: 'Runtime live estavel',
+      status: 'ready',
+      summary: 'Backend e host estao saudaveis e o launcher ja consegue manter o processo vivo.',
+    },
+    {
+      itemId: 'llm',
+      label: 'LLM real ativa por defeito',
+      status: state.settings.llmRuntime.mode === 'live' ? 'ready' : 'review',
+      summary:
+        state.settings.llmRuntime.mode === 'live'
+          ? `Provider efetivo ${effectiveProvider}.`
+          : state.settings.llmRuntime.fallbackReason ?? 'Ainda ha fallback para rever.',
+    },
+    {
+      itemId: 'whatsapp',
+      label: 'WhatsApp pronto para semana paralela',
+      status: state.settings.adminSettings.whatsapp.enabled ? 'ready' : 'blocked',
+      summary: state.settings.adminSettings.whatsapp.enabled
+        ? `${state.groups.length} grupo(s) e ${state.externalPrivateConversations.length + state.people.length} conversa(s) visiveis.`
+        : 'O canal WhatsApp ainda esta desligado neste preview.',
+    },
+    {
+      itemId: 'legacy',
+      label: 'Fontes WA-notify visiveis',
+      status: 'ready',
+      summary: `${state.legacyScheduleFiles.length} ficheiro(s) legacy conhecidos, com alerts e automations preparados para migracao.`,
+    },
+    {
+      itemId: 'parity',
+      label: 'Paridade basica carregada',
+      status:
+        state.scheduleEvents.length > 0 &&
+        state.settings.adminSettings.alerts.rules.length > 0 &&
+        state.settings.adminSettings.automations.definitions.length > 0
+          ? 'ready'
+          : 'review',
+      summary:
+        state.scheduleEvents.length > 0
+          ? `${state.scheduleEvents.length} evento(s), ${state.settings.adminSettings.alerts.rules.length} alert(s) e ${state.settings.adminSettings.automations.definitions.length} automation(s) no runtime novo.`
+          : 'Ainda faltam dados importados para aproximar o shadow mode da operacao real.',
+    },
+  ];
+  const blockers = checklist.filter((item) => item.status === 'blocked').map((item) => item.label);
+  const cutoverDecisionReady =
+    blockers.length === 0 &&
+    state.scheduleEvents.length > 0 &&
+    state.settings.adminSettings.alerts.rules.length > 0 &&
+    state.settings.adminSettings.automations.definitions.length > 0 &&
+    state.llmRuns.length > 0 &&
+    state.conversationAudit.length > 0;
+
+  return {
+    generatedAt: new Date().toISOString(),
+    recommendedPhase: blockers.length > 0 ? 'blocked' : 'shadow_mode',
+    cutoverDecisionReady,
+    summary:
+      blockers.length > 0
+        ? 'Ainda ha bloqueadores tecnicos antes de entrares em shadow mode.'
+        : cutoverDecisionReady
+          ? 'A base automatica esta pronta. Faz a semana paralela e decide o cutover no fim.'
+          : 'O runtime ja pode entrar em shadow mode, mas ainda convem recolher mais sinais reais antes de decidir o cutover.',
+    runtime: {
+      phase: 'running',
+      ready: true,
+      lastTickAt: state.settings.hostStatus.runtime.lastHeartbeatAt,
+      lastError: null,
+    },
+    llm: {
+      configuredProvider: state.settings.adminSettings.llm.provider,
+      effectiveProvider,
+      effectiveModel: state.settings.llmRuntime.effectiveModelId,
+      mode: state.settings.llmRuntime.mode,
+      codexAuthReady,
+      fallbackReason: state.settings.llmRuntime.fallbackReason,
+    },
+    whatsapp: {
+      phase: state.settings.adminSettings.whatsapp.enabled ? 'open' : 'disabled',
+      connected: state.settings.adminSettings.whatsapp.enabled,
+      loginRequired: !state.settings.adminSettings.whatsapp.enabled,
+      discoveredGroups: state.groups.length,
+      discoveredConversations: state.externalPrivateConversations.length + state.people.length,
+    },
+    legacySources: {
+      schedulesRootPath: '/home/eliaspc/Containers/wa-notify/data/schedules',
+      scheduleFileCount: state.legacyScheduleFiles.length,
+      alertsFilePath: '/home/eliaspc/Containers/wa-notify/data/alerts.json',
+      alertsFilePresent: true,
+      automationsFilePath: '/home/eliaspc/Containers/wa-notify/data/automations.json',
+      automationsFilePresent: true,
+    },
+    lumeHubState: {
+      knownGroups: state.groups.length,
+      importedScheduleEvents: state.scheduleEvents.length,
+      alertRules: state.settings.adminSettings.alerts.rules.length,
+      automationDefinitions: state.settings.adminSettings.automations.definitions.length,
+      llmRunCount: state.llmRuns.length,
+      conversationAuditCount: state.conversationAudit.length,
+    },
+    checklist,
+    blockers,
+    comparison: [
+      {
+        label: 'Schedules da semana',
+        tone: state.scheduleEvents.length > 0 ? 'positive' : 'warning',
+        waNotify: `${state.legacyScheduleFiles.length} ficheiro(s) legacy prontos para comparacao.`,
+        lumeHub:
+          state.scheduleEvents.length > 0
+            ? `${state.scheduleEvents.length} evento(s) ja vivem no calendario mensal canonico.`
+            : 'Ainda sem eventos importados no calendario mensal.',
+      },
+      {
+        label: 'LLM e respostas',
+        tone: state.settings.llmRuntime.mode === 'live' ? 'positive' : 'warning',
+        waNotify: 'Provider real assumido como referencia produtiva.',
+        lumeHub:
+          state.settings.llmRuntime.mode === 'live'
+            ? `Provider real ${effectiveProvider} ativo.`
+            : state.settings.llmRuntime.fallbackReason ?? 'Fallback ainda presente.',
+      },
+      {
+        label: 'WhatsApp e descoberta',
+        tone: state.settings.adminSettings.whatsapp.enabled ? 'positive' : 'warning',
+        waNotify: 'Canal produtivo com grupos e conversas conhecidos.',
+        lumeHub: `${state.groups.length} grupo(s) e ${state.externalPrivateConversations.length + state.people.length} conversa(s) visiveis no snapshot atual.`,
+      },
+      {
+        label: 'Alerts e automations',
+        tone:
+          state.settings.adminSettings.alerts.rules.length > 0 &&
+          state.settings.adminSettings.automations.definitions.length > 0
+            ? 'positive'
+            : 'warning',
+        waNotify: 'Ficheiros legacy continuam a servir de referencia durante a semana paralela.',
+        lumeHub: `${state.settings.adminSettings.alerts.rules.length} alert(s) e ${state.settings.adminSettings.automations.definitions.length} automation(s) carregados no runtime novo.`,
+      },
+    ],
+    shadowModeChecks: [
+      'Operar uma semana real com WA-notify e LumeHub em paralelo, sem cortar o sistema antigo.',
+      'Comparar eventos da semana, envios relevantes e respostas do assistente todos os dias.',
+      'Registar divergencias antes de mexer no fluxo produtivo principal.',
+    ],
+    cutoverChecks: [
+      'No fim da semana paralela, confirmar que nao houve regressao funcional evidente.',
+      'Validar que o operador consegue criar schedules, distribuir mensagens e ler auditoria sem recorrer ao WA-notify.',
+      'Guardar logs do launcher e snapshot de /api/runtime/diagnostics antes do corte final.',
+    ],
   };
 }
 

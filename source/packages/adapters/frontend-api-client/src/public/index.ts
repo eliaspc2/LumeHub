@@ -162,6 +162,67 @@ export interface SettingsSnapshot {
   readonly authRouterStatus: CodexAuthRouterStatus | null;
 }
 
+export interface MigrationReadinessChecklistItemSnapshot {
+  readonly itemId: string;
+  readonly label: string;
+  readonly status: 'ready' | 'review' | 'blocked';
+  readonly summary: string;
+}
+
+export interface MigrationReadinessSnapshot {
+  readonly generatedAt: string;
+  readonly recommendedPhase: 'blocked' | 'shadow_mode';
+  readonly cutoverDecisionReady: boolean;
+  readonly summary: string;
+  readonly runtime: {
+    readonly phase: 'starting' | 'running' | 'degraded' | 'stopped';
+    readonly ready: boolean;
+    readonly lastTickAt: string | null;
+    readonly lastError: string | null;
+  };
+  readonly llm: {
+    readonly configuredProvider: string;
+    readonly effectiveProvider: string;
+    readonly effectiveModel: string;
+    readonly mode: LlmRuntimeStatusSnapshot['mode'];
+    readonly codexAuthReady: boolean;
+    readonly fallbackReason: string | null;
+  };
+  readonly whatsapp: {
+    readonly phase: 'disabled' | 'idle' | 'connecting' | 'qr_pending' | 'open' | 'closed' | 'error';
+    readonly connected: boolean;
+    readonly loginRequired: boolean;
+    readonly discoveredGroups: number;
+    readonly discoveredConversations: number;
+  };
+  readonly legacySources: {
+    readonly schedulesRootPath: string;
+    readonly scheduleFileCount: number;
+    readonly alertsFilePath: string;
+    readonly alertsFilePresent: boolean;
+    readonly automationsFilePath: string;
+    readonly automationsFilePresent: boolean;
+  };
+  readonly lumeHubState: {
+    readonly knownGroups: number;
+    readonly importedScheduleEvents: number;
+    readonly alertRules: number;
+    readonly automationDefinitions: number;
+    readonly llmRunCount: number;
+    readonly conversationAuditCount: number;
+  };
+  readonly checklist: readonly MigrationReadinessChecklistItemSnapshot[];
+  readonly blockers: readonly string[];
+  readonly comparison: readonly {
+    readonly label: string;
+    readonly tone: 'positive' | 'warning' | 'neutral';
+    readonly waNotify: string;
+    readonly lumeHub: string;
+  }[];
+  readonly shadowModeChecks: readonly string[];
+  readonly cutoverChecks: readonly string[];
+}
+
 export type LegacyScheduleImportFileSnapshot = LegacyScheduleImportFileSummary;
 export type LegacyScheduleImportReportSnapshot = LegacyScheduleImportReport;
 export type LegacyAlertImportReportSnapshot = LegacyAlertImportReport;
@@ -868,6 +929,15 @@ export class FrontendApiClient {
       await this.transport.request<SettingsSnapshot>({
         method: 'GET',
         path: '/api/settings',
+      }),
+    );
+  }
+
+  async getMigrationReadiness(): Promise<MigrationReadinessSnapshot> {
+    return this.expectOk(
+      await this.transport.request<MigrationReadinessSnapshot>({
+        method: 'GET',
+        path: '/api/migrations/readiness',
       }),
     );
   }
