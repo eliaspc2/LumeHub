@@ -73,12 +73,19 @@ A `Wave 49` fechou a limpeza final da ronda:
 ## Estado do plano
 
 A ronda de paridade e migracao face ao `WA-notify` ficou fechada do ponto de vista de implementacao.
-Foi aberta uma ronda curta para tornar a operacao de migracao mais usavel no GUI.
-A `Wave 50` ja ficou concluida e, neste momento, a unica wave ativa e a `Wave 51`.
+A `Wave 51` continua ativa como limpeza final curta dessa ronda.
 
-## Nova ronda ativa
+Foi agora aberta uma nova ronda maior para reposicionar o produto em torno de:
 
-Foi aberta uma ronda curta para tornar a operacao de migracao mais usavel no GUI, sem voltar a esconder isto em `Configuracao avancada`.
+- experiencia `group-first`
+- calendario semanal de notificacoes como vista principal
+- pagina propria por grupo com switcher explicito
+- modos de grupo `com_agendamento` e `distribuicao_apenas`
+- ownership real por grupo
+- politica explicita sobre quem pode ou nao tagar o bot
+- separacao clara entre configuracao `WhatsApp`, configuracao `LumeHub` e chat direto com a LLM
+
+## Waves ativas
 
 ### Wave 51 - Limpeza final da ronda de operacao de migracao
 
@@ -95,6 +102,214 @@ Contexto atual:
 - a `Wave 50` ja deixou pronta a pagina `Migracao`
 - o shadow mode deixou de depender de `Configuracao avancada`
 - o `codex auto router` ja tem GUI live para preparar a melhor conta e fazer switch manual
+
+## Nova ronda ativa
+
+Foi aberta uma nova ronda para reorientar o frontend e a operacao diaria do produto.
+O objetivo desta serie ja nao e apenas "mostrar modulos"; passa a ser tornar o `LumeHub` numa experiencia operacional centrada em grupos e em notificacoes semanais.
+
+Regra desta ronda:
+
+- manter storage canonico mensal por grupo e `week_id` ISO no backend
+- a UI operacional principal passa a ser semanal
+- switches globais deixam de dominar a shell e passam a viver em paginas de configuracao dedicadas
+- cada grupo passa a ser uma unidade operacional explicita, com modo, owner e politicas locais
+
+Primeiros pontos em que vale a pena o utilizador testar:
+
+- no fim da `Wave 53`, para validar shell, navegacao e a direcao `group-first`
+- no fim da `Wave 55`, para validar se o calendario semanal representa a operacao certa
+- no fim da `Wave 57`, para validar se ownership e politicas de grupo batem certo com o workflow real
+
+### Wave 52 - Fundacao do modelo `group-first`
+
+Objetivo:
+- fechar contratos, naming e copy canonicos para o novo modelo operacional antes de mexer pesado na UI
+
+Entregaveis esperados:
+- modelo canonico de `group mode`:
+  - `com_agendamento`
+  - `distribuicao_apenas`
+- metadata por grupo para:
+  - owner do grupo
+  - estado de scheduling
+  - politica de tag ao bot
+  - permissao de usar LLM para scheduling
+- contratos backend/frontend alinhados para:
+  - paginas por grupo
+  - switcher de grupo
+  - calendario semanal de notificacoes
+  - paginas separadas `WhatsApp`, `LumeHub` e `LLM`
+- docs e seeds minimos atualizados sem quebrar o runtime atual
+
+Validacao esperada:
+- `validate:wave52`
+- smoke de arranque sem regressao de runtime
+
+Vale a pena o utilizador testar aqui?
+- nao; esta wave prepara o terreno e fecha o modelo antes da UX visivel
+
+### Wave 53 - Shell `group-first` e navegacao nova
+
+Objetivo:
+- trocar a shell atual por uma navegacao mais curta e centrada em grupos
+
+Entregaveis esperados:
+- nova navegacao principal com entradas curtas e estaveis:
+  - `Calendario`
+  - `Grupos`
+  - `WhatsApp`
+  - `LumeHub`
+  - `LLM`
+  - `Migracao` continua acessivel, mas deixa de contaminar o fluxo principal
+- switcher de grupo global visivel
+- rota base de grupo tipo `/groups/:groupJid`
+- shell limpa sem excesso de copy tecnico nem mistura de settings globais no workspace operacional
+
+Validacao esperada:
+- `validate:wave53`
+- browser headless nas rotas novas sem ecra branco
+
+Vale a pena o utilizador testar aqui?
+- sim; aqui vale a pena validar a direcao visual e a navegacao antes de aprofundar features
+
+### Wave 54 - Pagina de grupo e configuracao operacional por grupo
+
+Objetivo:
+- dar a cada grupo uma pagina propria e uma configuracao clara
+
+Entregaveis esperados:
+- pagina de grupo com resumo operacional, owner, modo do grupo e politicas locais
+- dropdown na propria pagina para trocar rapidamente de grupo
+- area de configuracao do grupo com:
+  - owner do grupo
+  - grupo com ou sem agendamento
+  - permitir ou bloquear tag ao bot por membros
+  - switches locais relevantes
+- esconder detalhes tecnicos secundarios atras de modo avancado
+
+Validacao esperada:
+- `validate:wave54`
+- smoke da pagina de grupo com troca de grupo e persistencia de settings
+
+Vale a pena o utilizador testar aqui?
+- sim; aqui valida-se se o workspace por grupo faz sentido na operacao real
+
+### Wave 55 - Calendario semanal de notificacoes
+
+Objetivo:
+- fazer do calendario semanal de notificacoes a vista principal de operacao
+
+Entregaveis esperados:
+- vista semanal canonica para notificacoes por grupo
+- leitura clara de:
+  - `pending`
+  - `waiting_confirmation`
+  - `sent`
+- criacao, edicao e desativacao de notificacoes no proprio calendario semanal
+- traducao da storage mensal canonica para projection semanal sem mudar a fronteira de persistencia
+
+Validacao esperada:
+- `validate:wave55`
+- browser headless da pagina semanal
+- smoke de criar, editar e desativar notificacao
+
+Vale a pena o utilizador testar aqui?
+- sim; este e o checkpoint principal para validar se a UX semanal esta certa
+
+### Wave 56 - Modos do grupo e roteamento `agendamento` vs `distribuicao`
+
+Objetivo:
+- tornar explicito o comportamento do produto conforme o modo de cada grupo
+
+Entregaveis esperados:
+- quando o grupo esta `com_agendamento`:
+  - pedidos relevantes passam pela LLM e podem originar `preview/apply` de scheduling
+- quando o grupo esta `distribuicao_apenas`:
+  - nao ha scheduling local para esse grupo
+  - mensagens pessoais elegiveis entram apenas em fan-out/distribuicao
+- regras de UI e backend coerentes com o modo atual do grupo
+- copy clara para o utilizador perceber o que o bot faz em cada modo
+
+Validacao esperada:
+- `validate:wave56`
+- testes de integracao para ambos os modos
+
+Vale a pena o utilizador testar aqui?
+- sim; aqui da para corrigir cedo a semantica do produto antes das permissoes finas
+
+### Wave 57 - Ownership por grupo e politica de interacao com o bot
+
+Objetivo:
+- dar poderes reais ao owner do grupo e fechar as ACL de interacao
+
+Entregaveis esperados:
+- owner do grupo pode usar a LLM para scheduling no(s) grupo(s) que possui
+- politica explicita sobre quem pode tagar o bot em grupos
+- alinhamento entre `app owner`, `group owner` e membros normais
+- UI e auditoria que mostrem permissao efetiva sem linguagem tecnica excessiva
+
+Validacao esperada:
+- `validate:wave57`
+- testes de integracao de permissao
+- smoke de comportamento em grupo para owner vs nao owner
+
+Vale a pena o utilizador testar aqui?
+- sim; este e o checkpoint certo para validar se ownership e politicas batem com o workflow humano real
+
+### Wave 58 - Separacao de `WhatsApp` e `LumeHub` Settings
+
+Objetivo:
+- separar claramente configuracao de canal de configuracao do produto
+
+Entregaveis esperados:
+- pagina `WhatsApp` focada em sessao, auth, grupos, conversas e diagnostico do canal
+- pagina `LumeHub` focada em settings globais, defaults, host companion e comportamento do produto
+- mover switches globais para estas paginas e tirar esse peso do workspace diario
+- manter a pagina `Migracao` como area propria, sem contaminar as settings base
+
+Validacao esperada:
+- `validate:wave58`
+- browser headless nas paginas `WhatsApp`, `LumeHub` e `Migracao`
+
+Vale a pena o utilizador testar aqui?
+- opcional; aqui o foco e consolidacao da IA de produto nas settings
+
+### Wave 59 - Pagina de chat direto com a LLM
+
+Objetivo:
+- abrir uma pagina propria para interagir diretamente com a LLM sem depender do fluxo de grupo
+
+Entregaveis esperados:
+- pagina `LLM` com chat direto e contexto claro
+- possibilidade de escolher escopo:
+  - global
+  - grupo atual
+- visibilidade de quando a conversa e so chat e quando pode preparar acoes
+- integracao segura com `preview/apply` quando fizer sentido
+
+Validacao esperada:
+- `validate:wave59`
+- smoke de chat direto com LLM e selecao de contexto
+
+Vale a pena o utilizador testar aqui?
+- sim; aqui valida-se se a pagina direta com a LLM e util sem confundir o utilizador
+
+### Wave 60 - Limpeza final da ronda `group-first`
+
+Objetivo:
+- fechar a ronda sem lixo tecnico nem copy herdado da shell anterior
+
+Entregaveis esperados:
+- `validate:wave60`
+- docs, README e backlog alinhados ao novo fluxo
+- remocao de copy obsoleto, rotas provisórias, seeds/demo desatualizados e validadores intermédios
+
+Contexto esperado no fecho:
+- calendario semanal como vista operacional principal
+- paginas por grupo como unidade de configuracao e trabalho
+- modos `com_agendamento` e `distribuicao_apenas` fechados
+- `WhatsApp`, `LumeHub` e `LLM` como areas separadas e claras
 
 ## Como reabrir uma ronda
 
