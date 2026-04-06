@@ -166,8 +166,11 @@ Os gaps principais ja nao sao de paridade tecnica com o `WA-notify`; passam a se
   - grupos `owner_only` bloqueiam membros normais mesmo quando tagam o bot
   - a auditoria conversacional passou a guardar permissao efetiva com resumo humano
   - as paginas `Grupos`, `WhatsApp` e `LLM` passaram a mostrar esse poder efetivo sem linguagem demasiado tecnica
-- `WhatsApp`, `LumeHub` e `LLM` ainda nao estao separados em paginas dedicadas como experiencia final
-- a separacao limpa entre settings do canal e settings do produto segue como proximo foco da ronda
+- a `Wave 58` ja fechou a separacao entre configuracao de canal, configuracao do produto e ferramentas de migracao:
+  - `WhatsApp` ficou centrado em sessao, auth, discovery, grupos e conversas conhecidas
+  - `LumeHub` ficou centrado em switches globais, defaults, LLM, host companion e governanca da app
+  - `Migracao` passou a concentrar imports legacy e readiness de shadow mode sem contaminar a configuracao base
+- a proxima frente ativa desta ronda passa a ser a `Wave 59`, com uma pagina dedicada de chat direto com a LLM
 
 ## Trabalho futuro fora do scope atual
 

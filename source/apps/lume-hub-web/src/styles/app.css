@@ -714,6 +714,74 @@ textarea {
   height: 100%;
 }
 
+.settings-switch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.settings-switch-grid .ui-switch {
+  height: 100%;
+}
+
+.settings-summary-list {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-mode-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.settings-inline-note {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  background: var(--surface-subtle);
+}
+
+.settings-inline-note strong {
+  color: var(--ink-strong);
+}
+
+.settings-inline-note p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.58;
+}
+
+.settings-governance-list {
+  display: grid;
+  gap: 14px;
+}
+
+.settings-governance-item {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  background: var(--surface-subtle);
+}
+
+.settings-governance-item__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.settings-governance-item__header p {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  line-height: 1.58;
+}
+
 .group-role-permission-list {
   display: grid;
   gap: 10px;

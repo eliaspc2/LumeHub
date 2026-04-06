@@ -104,17 +104,18 @@ export interface AssistantPageData {
 
 export interface SettingsPageData {
   readonly settings: SettingsSnapshot;
+  readonly people: readonly Person[];
+}
+
+export interface MigrationPageData {
+  readonly settings: SettingsSnapshot;
+  readonly migrationReadiness: MigrationReadinessSnapshot;
   readonly legacyScheduleImportFiles: readonly LegacyScheduleImportFileSnapshot[];
   readonly legacyScheduleImportReport: LegacyScheduleImportReportSnapshot | null;
   readonly legacyAlertImportReport: LegacyAlertImportReportSnapshot | null;
   readonly legacyAutomationImportReport: LegacyAutomationImportReportSnapshot | null;
   readonly recentAlertMatches: readonly MessageAlertMatchSnapshot[];
   readonly recentAutomationRuns: readonly AutomationRunSnapshot[];
-}
-
-export interface MigrationPageData {
-  readonly settings: SettingsSnapshot;
-  readonly migrationReadiness: MigrationReadinessSnapshot;
 }
 
 export class AppRouter {
@@ -270,7 +271,7 @@ export class AppRouter {
       {
         route: this.whatsapp.config.route,
         label: this.whatsapp.config.label,
-        description: 'Estado do canal, grupos conhecidos, owners e permissoes efetivas do WhatsApp.',
+        description: 'Sessao, auth, discovery e grupos/conversas conhecidos do canal WhatsApp.',
         navigationPlacement: 'primary',
         render: async () => {
           const workspace = await this.readQuery('whatsapp-workspace', () => this.client.getWhatsAppWorkspace());
@@ -289,12 +290,12 @@ export class AppRouter {
       {
         route: this.settings.config.route,
         label: this.settings.config.label,
-        description: 'Configuracao da app, imports legacy, energia e integracoes do LumeHub.',
+        description: 'Comportamento global do produto, runtime LLM, energia e host companion do LumeHub.',
         navigationPlacement: 'primary',
         render: async () => ({
           route: '/settings',
           title: 'LumeHub',
-          description: 'Configuracao da app, imports legacy, energia e integracoes do LumeHub.',
+          description: 'Comportamento global do produto, runtime LLM, energia e host companion do LumeHub.',
           sections: [],
           data: await this.readSettingsPageData(),
         }),
@@ -467,12 +468,12 @@ export class AppRouter {
       {
         route: '/migration',
         label: 'Migracao',
-        description: 'Semana paralela real, readiness de cutover e consola do Codex auto router.',
+        description: 'Semana paralela real, readiness de cutover, imports legacy e consola do Codex auto router.',
         navigationPlacement: 'secondary',
         render: async () => ({
           route: '/migration',
           title: 'Migracao',
-          description: 'Semana paralela real, readiness de cutover e consola do Codex auto router.',
+          description: 'Semana paralela real, readiness de cutover, imports legacy e consola do Codex auto router.',
           sections: [],
           data: await this.readMigrationPageData(),
         }),
@@ -481,8 +482,21 @@ export class AppRouter {
   }
 
   private async readSettingsPageData(): Promise<SettingsPageData> {
-    const [settings, legacyScheduleImportFiles, recentAlertMatches, recentAutomationRuns] = await Promise.all([
+    const [settings, people] = await Promise.all([
       this.readQuery('settings', () => this.client.getSettings()),
+      this.readOptionalPeople(),
+    ]);
+
+    return {
+      settings,
+      people,
+    } satisfies SettingsPageData;
+  }
+
+  private async readMigrationPageData(): Promise<MigrationPageData> {
+    const [settings, migrationReadiness, legacyScheduleImportFiles, recentAlertMatches, recentAutomationRuns] = await Promise.all([
+      this.readQuery('settings', () => this.client.getSettings()),
+      this.readQuery('migration-readiness', () => this.client.getMigrationReadiness()),
       this.readQuery('legacy-schedule-import-files', () => this.client.listLegacyScheduleImportFiles()),
       this.readQuery('alert-matches', () => this.client.listRecentAlertMatches(8)),
       this.readQuery('automation-runs', () => this.client.listRecentAutomationRuns(8)),
@@ -490,24 +504,13 @@ export class AppRouter {
 
     return {
       settings,
+      migrationReadiness,
       legacyScheduleImportFiles,
       legacyScheduleImportReport: null,
       legacyAlertImportReport: null,
       legacyAutomationImportReport: null,
       recentAlertMatches,
       recentAutomationRuns,
-    } satisfies SettingsPageData;
-  }
-
-  private async readMigrationPageData(): Promise<MigrationPageData> {
-    const [settings, migrationReadiness] = await Promise.all([
-      this.readQuery('settings', () => this.client.getSettings()),
-      this.readQuery('migration-readiness', () => this.client.getMigrationReadiness()),
-    ]);
-
-    return {
-      settings,
-      migrationReadiness,
     } satisfies MigrationPageData;
   }
 

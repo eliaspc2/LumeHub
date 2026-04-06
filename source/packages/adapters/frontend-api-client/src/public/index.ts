@@ -1117,6 +1117,16 @@ export class FrontendApiClient {
     );
   }
 
+  async updateLlmSettings(update: Partial<AdminSettings['llm']>): Promise<AdminSettings> {
+    return this.expectOk(
+      await this.transport.request<AdminSettings>({
+        method: 'PATCH',
+        path: '/api/settings/llm',
+        body: update,
+      }),
+    );
+  }
+
   async listLlmModels(options: {
     readonly refresh?: boolean;
     readonly providerId?: string;

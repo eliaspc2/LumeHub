@@ -103,10 +103,11 @@ A `Wave 54` ja fechou a pagina operacional por grupo, com resumo claro, dropdown
 A `Wave 55` ja fechou o calendario semanal de notificacoes como vista operacional principal, com grelha por dia, leitura clara de `pending`, `waiting_confirmation` e `sent`, e acoes de criar, editar e desativar sem mexer na fronteira mensal do storage.
 A `Wave 56` ja fechou o roteamento por modo de grupo entre calendario semanal, assistente e distribuicao, deixando o comportamento `com_agendamento` vs `distribuicao_apenas` coerente na UI, nos endpoints e no runtime live.
 A `Wave 57` ja fechou ownership por grupo e politica de interacao com o bot, com enforcement real de `app owner` vs `group owner` vs membro, auditoria com permissao efetiva e leitura humana dessa policy nas paginas `Grupos`, `WhatsApp` e `LLM`.
+A `Wave 58` ja fechou a separacao entre `WhatsApp`, `LumeHub` e `Migracao`, deixando o canal focado em sessao/auth/discovery, a pagina `LumeHub` focada em configuracao global do produto, e os imports legacy presos a `Migracao`.
 
 Primeiros pontos em que vale a pena o utilizador testar:
 
-- no fim da `Wave 58`, para validar se a separacao entre configuracao de canal e configuracao do produto fica clara sem perder poder operacional
+- no fim da `Wave 59`, para validar se o chat direto com a LLM fecha bem a shell `group-first` sem reintroduzir confusao de fluxo
 
 ### Wave 58 - Separacao de `WhatsApp` e `LumeHub` Settings
 

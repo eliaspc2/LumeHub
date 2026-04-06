@@ -122,6 +122,29 @@ type GroupPermissionSource = Pick<Group, 'calendarAccessPolicy' | 'operationalSe
   readonly assistantAuthorized: boolean;
 };
 
+type ProductCommandSettingKey =
+  | 'assistantEnabled'
+  | 'schedulingEnabled'
+  | 'autoReplyEnabled'
+  | 'directRepliesEnabled'
+  | 'allowPrivateAssistant'
+  | 'ownerTerminalEnabled';
+
+type ProductLlmSettingKey = 'enabled' | 'streamingEnabled';
+type ProductPowerMode = 'allow_sleep' | 'on_demand' | 'always_inhibit';
+
+const PRODUCT_COMMAND_SETTING_KEYS: readonly ProductCommandSettingKey[] = [
+  'assistantEnabled',
+  'schedulingEnabled',
+  'autoReplyEnabled',
+  'directRepliesEnabled',
+  'allowPrivateAssistant',
+  'ownerTerminalEnabled',
+];
+
+const PRODUCT_LLM_SETTING_KEYS: readonly ProductLlmSettingKey[] = ['enabled', 'streamingEnabled'];
+const PRODUCT_POWER_MODES: readonly ProductPowerMode[] = ['allow_sleep', 'on_demand', 'always_inhibit'];
+
 interface WorkspaceAgentDraft {
   readonly mode: 'plan' | 'apply';
   readonly prompt: string;
@@ -741,8 +764,8 @@ export class AppShell {
       this.syncAssistantSchedulingDraft(page as UiPage<AssistantPageData>);
     }
 
-    if (page.route === '/settings') {
-      this.syncSettingsDrafts(page as UiPage<SettingsPageData>);
+    if (page.route === '/migration') {
+      this.syncSettingsDrafts(page as UiPage<MigrationPageData>);
     }
   }
 
@@ -795,7 +818,7 @@ export class AppShell {
     };
   }
 
-  private syncSettingsDrafts(page: UiPage<SettingsPageData>): void {
+  private syncSettingsDrafts(page: UiPage<MigrationPageData>): void {
     this.state = {
       ...this.state,
       legacyScheduleMigrationDraft: resolveLegacyScheduleMigrationDraft(
@@ -3306,7 +3329,7 @@ export class AppShell {
       <section class="surface hero surface--strong">
         <div>
           <p class="eyebrow">Canal WhatsApp</p>
-          <h2>Ver o estado da sessao, quem controla a app e em que grupos o assistente pode atuar.</h2>
+          <h2>Ver o estado da sessao, a auth ativa e o que o canal conhece neste momento.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
@@ -3319,6 +3342,7 @@ export class AppShell {
               dataAttributes: { 'whatsapp-action': 'refresh-workspace' },
             })}
             ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', variant: 'secondary', dataAttributes: { route: '/groups' } })}
+            ${renderUiActionButton({ label: 'Abrir LumeHub', href: '/settings', variant: 'secondary', dataAttributes: { route: '/settings' } })}
           </div>
         </div>
         <div class="hero-panel">
@@ -3346,7 +3370,7 @@ export class AppShell {
       <section class="card-grid">
         ${renderUiMetricCard({ title: 'Sessao', value: readableSessionPhase(snapshot.runtime.session.phase), tone: toneForSessionPhase(snapshot.runtime.session.phase), description: 'Estado live da ligacao WhatsApp.' })}
         ${renderUiMetricCard({ title: 'Grupos ligados', value: `${snapshot.permissionSummary.authorizedGroups}/${snapshot.permissionSummary.knownGroups}`, tone: snapshot.permissionSummary.authorizedGroups > 0 ? 'positive' : 'warning', description: 'Grupos onde o assistente pode atuar agora.' })}
-        ${renderUiMetricCard({ title: 'App owners', value: String(snapshot.permissionSummary.appOwners), tone: 'positive', description: 'Pessoas com controlo global da aplicacao.' })}
+        ${renderUiMetricCard({ title: 'Conversas conhecidas', value: String(snapshot.conversations.length), tone: snapshot.conversations.length > 0 ? 'positive' : 'neutral', description: 'Privados reconhecidos pelo canal neste momento.' })}
       </section>
 
       <section class="content-grid">
@@ -3375,18 +3399,13 @@ export class AppShell {
               </div>
             `}
             <details class="ui-details">
-              <summary>Mais controlos do canal</summary>
+              <summary>Controlos do canal</summary>
               <div class="ui-details__content">
                 <div class="action-row">
                   ${renderUiActionButton({
                     label: snapshot.settings.whatsapp.enabled ? 'Desligar canal' : 'Ligar canal',
                     variant: snapshot.settings.whatsapp.enabled ? 'secondary' : 'primary',
                     dataAttributes: { 'whatsapp-action': 'toggle-whatsapp-enabled' },
-                  })}
-                  ${renderUiActionButton({
-                    label: snapshot.settings.commands.allowPrivateAssistant ? 'Bloquear privados' : 'Permitir privados',
-                    variant: 'secondary',
-                    dataAttributes: { 'whatsapp-action': 'toggle-private-assistant-global' },
                   })}
                 </div>
                 <div class="ui-card__chips">
@@ -3413,6 +3432,7 @@ export class AppShell {
                     dataAttributes: { 'whatsapp-action': 'toggle-conversation-discovery' },
                   })}
                 </div>
+                <p>Os switches globais do produto e os privados do assistente vivem agora na pagina <strong>LumeHub</strong>.</p>
               </div>
             </details>
           </div>
@@ -3421,8 +3441,8 @@ export class AppShell {
         <article class="surface content-card span-7">
           <div class="card-header">
             <div>
-              <h3>Pessoas com controlo</h3>
-              <p>Daqui decides quem pode gerir a app e quem pode falar com o assistente em privado.</p>
+              <h3>Identidades vistas no canal</h3>
+              <p>Esta area ficou diagnostica: mostra quem o canal conhece, sem misturar governanca global com sessao e discovery.</p>
             </div>
             ${renderUiBadge({ label: `${people.filter((person) => person.personId).length} pessoas`, tone: 'neutral' })}
           </div>
@@ -3433,50 +3453,30 @@ export class AppShell {
                     (person) => `
                       <article class="timeline-item">
                         <strong>${escapeHtml(person.displayName)}</strong>
-                        <time>${escapeHtml(person.globalRoles.includes('app_owner') ? 'App owner' : 'Membro')}</time>
+                        <time>${escapeHtml(person.globalRoles.includes('app_owner') ? 'App owner conhecido' : 'Membro conhecido')}</time>
                         <p>${escapeHtml(
                           person.whatsappJids.length > 0
                             ? `${person.whatsappJids.length} contacto(s) WhatsApp conhecido(s) • ${person.privateAssistantAuthorized ? 'privado permitido' : 'privado bloqueado'}`
                             : 'Sem contacto WhatsApp conhecido',
                         )}</p>
-                        ${
-                          person.personId
-                            ? `
-                                <details class="ui-details">
-                                  <summary>Gerir esta pessoa</summary>
-                                  <div class="ui-details__content">
-                                    <div class="action-row">
-                                      ${renderUiActionButton({
-                                        label: person.globalRoles.includes('app_owner') ? 'Remover app owner' : 'Tornar app owner',
-                                        variant: person.globalRoles.includes('app_owner') ? 'secondary' : 'primary',
-                                        dataAttributes: {
-                                          'whatsapp-action': 'toggle-app-owner',
-                                          'person-id': person.personId,
-                                        },
-                                      })}
-                                      ${
-                                        person.whatsappJids.length > 0
-                                          ? renderUiActionButton({
-                                              label: person.privateAssistantAuthorized ? 'Bloquear privado' : 'Permitir privado',
-                                              variant: 'secondary',
-                                              dataAttributes: {
-                                                'whatsapp-action': 'toggle-private-person',
-                                                'person-id': person.personId,
-                                              },
-                                            })
-                                          : ''
-                                      }
-                                    </div>
-                                    <p>${escapeHtml(
-                                      person.ownedGroupJids.length > 0
-                                        ? `${person.ownedGroupJids.length} grupo(s) associado(s).`
-                                        : 'Sem grupos associados neste momento.',
-                                    )}</p>
-                                  </div>
-                                </details>
-                              `
-                            : ''
-                        }
+                        <div class="action-row">
+                          ${renderUiActionButton({
+                            label: 'Abrir LumeHub',
+                            href: '/settings',
+                            variant: 'secondary',
+                            dataAttributes: { route: '/settings' },
+                          })}
+                          ${
+                            person.ownedGroupJids.length > 0
+                              ? renderUiActionButton({
+                                  label: 'Ver grupos',
+                                  href: '/groups',
+                                  variant: 'secondary',
+                                  dataAttributes: { route: '/groups' },
+                                })
+                              : ''
+                          }
+                        </div>
                       </article>
                     `,
                   )
@@ -3525,7 +3525,7 @@ export class AppShell {
           <div class="card-header">
             <div>
               <h3>Grupos do WhatsApp</h3>
-              <p>O foco aqui e simples: ligar ou bloquear o assistente, rever responsaveis e ajustar acessos quando fizer falta.</p>
+              <p>O canal mostra o que conhece e em que estado esta. A configuracao operacional de cada grupo vive na pagina Grupos.</p>
             </div>
             ${renderUiBadge({ label: `${snapshot.groups.length} grupos`, tone: 'neutral' })}
           </div>
@@ -3549,59 +3549,19 @@ export class AppShell {
                       ${renderGroupEffectivePermissionList(group)}
                       <div class="action-row">
                         ${renderUiActionButton({
-                          label: group.assistantAuthorized ? 'Bloquear grupo' : 'Autorizar grupo',
-                          variant: group.assistantAuthorized ? 'secondary' : 'primary',
+                          label: 'Abrir grupo',
+                          href: this.currentRouter().buildGroupRoute(group.groupJid),
                           dataAttributes: {
-                            'whatsapp-action': 'toggle-group-authorized',
-                            'group-jid': group.groupJid,
+                            route: this.currentRouter().buildGroupRoute(group.groupJid),
                           },
                         })}
+                        ${renderUiActionButton({
+                          label: 'Abrir LumeHub',
+                          href: '/settings',
+                          variant: 'secondary',
+                          dataAttributes: { route: '/settings' },
+                        })}
                       </div>
-                      <details class="ui-details">
-                        <summary>Editar responsaveis e acessos</summary>
-                        <div class="ui-details__content">
-                          <div class="ui-card__chips">
-                            ${people
-                              .filter((person) => person.personId)
-                              .map((person) =>
-                                renderUiActionButton({
-                                  label: person.displayName,
-                                  variant:
-                                    person.personId && group.ownerPersonIds.includes(person.personId)
-                                      ? 'primary'
-                                      : 'secondary',
-                                  dataAttributes: {
-                                    'whatsapp-action': 'toggle-group-owner',
-                                    'group-jid': group.groupJid,
-                                    'person-id': person.personId ?? '',
-                                  },
-                                }),
-                              )
-                              .join('')}
-                          </div>
-                          ${
-                            group.ownerPersonIds.length > 0
-                              ? `
-                                <div class="action-row">
-                                  ${renderUiActionButton({
-                                    label: 'Limpar responsaveis',
-                                    variant: 'secondary',
-                                    dataAttributes: {
-                                      'whatsapp-action': 'clear-group-owners',
-                                      'group-jid': group.groupJid,
-                                    },
-                                  })}
-                                </div>
-                              `
-                              : ''
-                          }
-                          <div class="acl-access-list">
-                            ${renderWhatsAppAclField(group.groupJid, 'group', group.calendarAccessPolicy.group)}
-                            ${renderWhatsAppAclField(group.groupJid, 'groupOwner', group.calendarAccessPolicy.groupOwner)}
-                            ${renderWhatsAppAclField(group.groupJid, 'appOwner', group.calendarAccessPolicy.appOwner)}
-                          </div>
-                        </div>
-                      </details>
                     `,
                     detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes avancados' : undefined,
                     detailsHtml: this.state.advancedDetailsEnabled
@@ -4261,171 +4221,41 @@ export class AppShell {
           }
         </article>
       </section>
+
+      ${this.renderLegacyMigrationTools(page.data)}
     `;
   }
 
-  private renderSettingsPage(page: UiPage<SettingsPageData>): string {
-    const snapshot = page.data.settings;
-    const legacyFiles = page.data.legacyScheduleImportFiles;
+  private renderLegacyMigrationTools(pageData: MigrationPageData): string {
+    const snapshot = pageData.settings;
+    const legacyFiles = pageData.legacyScheduleImportFiles;
     const draft = resolveLegacyScheduleMigrationDraft(
       this.state.legacyScheduleMigrationDraft,
       legacyFiles,
-      page.data.legacyScheduleImportReport,
+      pageData.legacyScheduleImportReport,
     );
     const alertDraft = resolveLegacyAlertMigrationDraft(
       this.state.legacyAlertMigrationDraft,
-      page.data.legacyAlertImportReport,
+      pageData.legacyAlertImportReport,
     );
     const automationDraft = resolveLegacyAutomationMigrationDraft(
       this.state.legacyAutomationMigrationDraft,
-      page.data.legacyAutomationImportReport,
+      pageData.legacyAutomationImportReport,
     );
     const selectedLegacyFile = legacyFiles.find((file) => file.fileName === draft.fileName) ?? legacyFiles[0] ?? null;
-    const defaultRuleSummary =
-      snapshot.adminSettings.ui.defaultNotificationRules.length > 0
-        ? snapshot.adminSettings.ui.defaultNotificationRules
-            .map((rule) => rule.label ?? rule.kind)
-            .slice(0, 2)
-            .join(', ')
-        : 'Sem regras default';
-    const llmTone =
-      snapshot.llmRuntime.mode === 'live'
-        ? 'positive'
-        : snapshot.llmRuntime.mode === 'fallback'
-          ? 'warning'
-          : 'neutral';
-    const llmStatusLabel =
-      snapshot.llmRuntime.mode === 'live'
-        ? 'Provider real ativo'
-        : snapshot.llmRuntime.mode === 'fallback'
-          ? 'Fallback deterministico'
-          : 'LLM live desligada';
     const alertRulesCount = snapshot.adminSettings.alerts.rules.length;
     const automationDefinitionsCount = snapshot.adminSettings.automations.definitions.length;
 
     return `
-      <section class="surface hero surface--strong">
-        <div>
-          <p class="eyebrow">Configuracao avancada</p>
-          <h2>Zona secundaria para o que raramente precisas de mexer no dia a dia.</h2>
-          <p>${escapeHtml(page.description)}</p>
-          <div class="action-row">
-            ${renderUiActionButton({ label: 'Abrir migracao', href: '/migration', variant: 'secondary', dataAttributes: { route: '/migration' } })}
-          </div>
-        </div>
-        <div class="hero-panel">
-          ${renderUiPanelCard({
-            title: 'Resumo rapido',
-            badgeLabel: 'Sob demanda',
-            badgeTone: 'neutral',
-            contentHtml: '<p>Usa esta pagina so quando precisares de defaults, energia, host ou auth. O fluxo principal continua fora daqui.</p>',
-          })}
-        </div>
-      </section>
-      <section class="card-grid">
-        ${renderUiMetricCard({
-          title: 'Avisos default',
-          value: String(snapshot.adminSettings.ui.defaultNotificationRules.length),
-          tone: snapshot.adminSettings.ui.defaultNotificationRules.length > 0 ? 'positive' : 'neutral',
-          description: defaultRuleSummary,
-        })}
-        ${renderUiMetricCard({
-          title: 'LLM live',
-          value: llmStatusLabel,
-          tone: llmTone,
-          description: `${snapshot.llmRuntime.effectiveProviderId} / ${snapshot.llmRuntime.effectiveModelId}`,
-        })}
-        ${renderUiMetricCard({
-          title: 'Energia',
-          value: snapshot.powerStatus.inhibitorActive ? 'Ativa' : 'Normal',
-          tone: snapshot.powerStatus.inhibitorActive ? 'warning' : 'neutral',
-          description: snapshot.powerStatus.policy.enabled ? 'A politica de energia esta ligada.' : 'A politica de energia esta desligada.',
-        })}
-        ${renderUiMetricCard({
-          title: 'Host e auth',
-          value: snapshot.hostStatus.auth.sameAsCodexCanonical ? 'Partilhado' : 'Isolado',
-          tone: snapshot.hostStatus.auth.sameAsCodexCanonical ? 'positive' : 'warning',
-          description: snapshot.hostStatus.autostart.enabled ? 'Autostart ligado no host companion.' : 'Autostart desligado no host companion.',
-        })}
-      </section>
       <section class="content-grid">
         <article class="surface content-card span-12">
           <div class="card-header">
             <div>
-              <h3>Ajustes avancados</h3>
-              <p>Abre so a secao de que precisas. O resto pode continuar fora do teu caminho.</p>
+              <h3>Ferramentas de migracao legacy</h3>
+              <p>Imports do WA-notify, previews e aplicacao real vivem agora aqui, junto da readiness de shadow mode.</p>
             </div>
-            ${renderUiBadge({ label: 'Secundario', tone: 'neutral' })}
+            ${renderUiBadge({ label: 'Migracao', tone: 'warning' })}
           </div>
-          <details class="ui-details">
-            <summary>Avisos default</summary>
-            <div class="ui-details__content">
-              <ul>
-                ${snapshot.adminSettings.ui.defaultNotificationRules
-                  .map(
-                    (rule) =>
-                      `<li>${escapeHtml(rule.label ?? rule.kind)} - ${escapeHtml(rule.localTime ?? `${rule.daysBeforeEvent ?? 0}d / ${rule.offsetMinutesBeforeEvent ?? 0}m`)}</li>`,
-                  )
-                  .join('')}
-              </ul>
-            </div>
-          </details>
-          <details class="ui-details" open>
-            <summary>LLM live e provider</summary>
-            <div class="ui-details__content">
-              <ul>
-                <li>Configurado: ${escapeHtml(snapshot.adminSettings.llm.provider)} / ${escapeHtml(snapshot.adminSettings.llm.model)}</li>
-                <li>Em uso agora: ${escapeHtml(snapshot.llmRuntime.effectiveProviderId)} / ${escapeHtml(snapshot.llmRuntime.effectiveModelId)}</li>
-                <li>Estado: ${escapeHtml(llmStatusLabel)}</li>
-                ${
-                  snapshot.llmRuntime.fallbackReason
-                    ? `<li>Motivo atual: ${escapeHtml(snapshot.llmRuntime.fallbackReason)}</li>`
-                    : ''
-                }
-                <li>
-                  Auth do Codex: ${escapeHtml(
-                    snapshot.llmRuntime.providerReadiness.find((provider) => provider.providerId === 'codex-oauth')?.ready
-                      ? `pronta (${snapshot.authRouterStatus?.accountCount ?? 0} conta(s) visiveis)`
-                      : snapshot.llmRuntime.providerReadiness.find((provider) => provider.providerId === 'codex-oauth')?.reason ??
-                          'indisponivel',
-                  )}
-                </li>
-              </ul>
-            </div>
-          </details>
-          <details class="ui-details">
-            <summary>Energia</summary>
-            <div class="ui-details__content">
-              <ul>
-                <li>Modo: ${escapeHtml(snapshot.powerStatus.policy.mode)}</li>
-                <li>Politica ativa: ${snapshot.powerStatus.policy.enabled ? 'sim' : 'nao'}</li>
-                <li>Razoes: ${escapeHtml(snapshot.powerStatus.reasons.join(', ') || 'nenhuma')}</li>
-              </ul>
-            </div>
-          </details>
-          <details class="ui-details">
-            <summary>Host e auth</summary>
-            <div class="ui-details__content">
-              <ul>
-                <li>Auth live presente: ${snapshot.hostStatus.auth.exists ? 'sim' : 'nao'}</li>
-                <li>Mesmo auth do Codex: ${snapshot.hostStatus.auth.sameAsCodexCanonical ? 'sim' : 'nao'}</li>
-                <li>Heartbeat: ${escapeHtml(formatShortDateTime(snapshot.hostStatus.runtime.lastHeartbeatAt))}</li>
-              </ul>
-              ${
-                this.state.advancedDetailsEnabled
-                  ? `
-                      <details class="ui-details">
-                        <summary>Detalhes avancados</summary>
-                        <div class="ui-details__content">
-                          <p>Auth file: ${escapeHtml(snapshot.hostStatus.auth.filePath)}</p>
-                          <p>Service: ${escapeHtml(snapshot.hostStatus.autostart.serviceName)}</p>
-                        </div>
-                      </details>
-                    `
-                  : ''
-              }
-            </div>
-          </details>
           <details class="ui-details" open>
             <summary>Migracao de schedules do WA-notify</summary>
             <div class="ui-details__content">
@@ -4489,7 +4319,7 @@ export class AppShell {
                 draft.report
                   ? `
                       <div class="guide-preview">
-                        <p><strong>Modo</strong>: ${escapeHtml(draft.report.mode === 'apply' ? 'Import aplicado' : 'Preview') }</p>
+                        <p><strong>Modo</strong>: ${escapeHtml(draft.report.mode === 'apply' ? 'Import aplicado' : 'Preview')}</p>
                         <p><strong>Ficheiro</strong>: ${escapeHtml(draft.report.sourceFile.fileName)}</p>
                         <p><strong>Criados</strong>: ${draft.report.totals.created} · <strong>Atualizados</strong>: ${draft.report.totals.updated} · <strong>Iguais</strong>: ${draft.report.totals.unchanged}</p>
                         <p><strong>Ambiguos</strong>: ${draft.report.totals.ambiguous} · <strong>Grupos em falta</strong>: ${draft.report.totals.missingGroups}</p>
@@ -4605,8 +4435,8 @@ export class AppShell {
                 <summary>Matches recentes</summary>
                 <div class="ui-details__content">
                   <ul>
-                    ${page.data.recentAlertMatches.length > 0
-                      ? page.data.recentAlertMatches
+                    ${pageData.recentAlertMatches.length > 0
+                      ? pageData.recentAlertMatches
                           .map(
                             (match: MessageAlertMatchSnapshot) =>
                               `<li>${escapeHtml(match.ruleId)} · ${escapeHtml(match.text)} · ${escapeHtml(formatShortDateTime(match.matchedAt))}</li>`,
@@ -4686,8 +4516,8 @@ export class AppShell {
                 <summary>Execucoes recentes</summary>
                 <div class="ui-details__content">
                   <ul>
-                    ${page.data.recentAutomationRuns.length > 0
-                      ? page.data.recentAutomationRuns
+                    ${pageData.recentAutomationRuns.length > 0
+                      ? pageData.recentAutomationRuns
                           .map(
                             (run: AutomationRunSnapshot) =>
                               `<li>${escapeHtml(run.entryId)} · ${escapeHtml(run.groupLabel)} · ${escapeHtml(run.status)} · ${escapeHtml(formatShortDateTime(run.firedAt))}</li>`,
@@ -4699,6 +4529,308 @@ export class AppShell {
               </details>
             </div>
           </details>
+        </article>
+      </section>
+    `;
+  }
+
+  private renderSettingsPage(page: UiPage<SettingsPageData>): string {
+    const snapshot = page.data.settings;
+    const people = buildSettingsPeopleViews(page.data.people, snapshot);
+    const enabledCommandSettings = PRODUCT_COMMAND_SETTING_KEYS.filter((key) => snapshot.adminSettings.commands[key]).length;
+    const defaultRuleSummary =
+      snapshot.adminSettings.ui.defaultNotificationRules.length > 0
+        ? snapshot.adminSettings.ui.defaultNotificationRules
+            .map((rule) => rule.label ?? rule.kind)
+            .slice(0, 3)
+            .join(', ')
+        : 'Sem regras default';
+    const llmTone =
+      snapshot.llmRuntime.mode === 'live'
+        ? 'positive'
+        : snapshot.llmRuntime.mode === 'fallback'
+          ? 'warning'
+          : 'neutral';
+    const llmStatusLabel =
+      snapshot.llmRuntime.mode === 'live'
+        ? 'Provider real ativo'
+        : snapshot.llmRuntime.mode === 'fallback'
+          ? 'Fallback deterministico'
+          : 'LLM live desligada';
+    const appOwnerCount = people.filter((person) => person.globalRoles.includes('app_owner')).length;
+    const privateAuthorizedCount = people.filter((person) => person.privateAssistantAuthorized).length;
+    const llmAuthLabel = readCodexAuthLabel(snapshot);
+    const powerMode = snapshot.powerStatus.policy.mode;
+    const activePowerModeLabel = readPowerModeLabel(powerMode);
+    const currentDefaultRules =
+      snapshot.adminSettings.ui.defaultNotificationRules.length > 0
+        ? snapshot.adminSettings.ui.defaultNotificationRules
+        : createCanonicalDefaultNotificationRules();
+
+    return `
+      <section class="surface hero surface--strong">
+        <div>
+          <p class="eyebrow">Configuracao do produto</p>
+          <h2>Os switches globais do LumeHub vivem aqui, separados do canal WhatsApp e da migracao.</h2>
+          <p>${escapeHtml(page.description)}</p>
+          <div class="action-row">
+            ${renderUiActionButton({ label: 'Abrir WhatsApp', href: '/whatsapp', dataAttributes: { route: '/whatsapp' } })}
+            ${renderUiActionButton({ label: 'Abrir migracao', href: '/migration', variant: 'secondary', dataAttributes: { route: '/migration' } })}
+            ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', variant: 'secondary', dataAttributes: { route: '/groups' } })}
+          </div>
+        </div>
+        <div class="hero-panel">
+          ${renderUiPanelCard({
+            title: 'Separacao clara',
+            badgeLabel: 'Produto',
+            badgeTone: 'positive',
+            contentHtml:
+              '<p>WhatsApp trata sessao, auth e discovery. LumeHub trata comportamento global, defaults, LLM, energia e governanca da app.</p>',
+          })}
+          ${renderUiPanelCard({
+            title: 'Fora desta pagina',
+            badgeLabel: 'Migracao',
+            badgeTone: 'warning',
+            contentHtml:
+              '<p>Imports legacy, readiness de shadow mode e o Codex auto router vivem agora so na pagina Migracao.</p>',
+          })}
+        </div>
+      </section>
+      <section class="card-grid">
+        ${renderUiMetricCard({
+          title: 'Switches globais',
+          value: `${enabledCommandSettings}/${PRODUCT_COMMAND_SETTING_KEYS.length}`,
+          tone: enabledCommandSettings > 0 ? 'positive' : 'warning',
+          description: 'Contagem dos toggles globais ativos do produto.',
+        })}
+        ${renderUiMetricCard({
+          title: 'LLM live',
+          value: llmStatusLabel,
+          tone: llmTone,
+          description: `${snapshot.llmRuntime.effectiveProviderId} / ${snapshot.llmRuntime.effectiveModelId}`,
+        })}
+        ${renderUiMetricCard({
+          title: 'Governanca',
+          value: `${appOwnerCount} owner(s)`,
+          tone: appOwnerCount > 0 ? 'positive' : 'warning',
+          description: `${privateAuthorizedCount} contacto(s) com privado autorizado nesta configuracao global.`,
+        })}
+        ${renderUiMetricCard({
+          title: 'Host companion',
+          value: snapshot.hostStatus.autostart.enabled ? 'Autostart ligado' : 'Autostart desligado',
+          tone: snapshot.hostStatus.autostart.enabled ? 'positive' : 'warning',
+          description: `${activePowerModeLabel} · ${snapshot.hostStatus.auth.sameAsCodexCanonical ? 'auth partilhado' : 'auth isolado'}`,
+        })}
+      </section>
+      <section class="content-grid">
+        <article class="surface content-card span-7">
+          <div class="card-header">
+            <div>
+              <h3>Comportamento global do produto</h3>
+              <p>Estes switches mandam no que a app pode fazer de forma transversal, antes de qualquer detalhe por grupo.</p>
+            </div>
+            ${renderUiBadge({ label: `${enabledCommandSettings} ativos`, tone: enabledCommandSettings > 0 ? 'positive' : 'warning' })}
+          </div>
+          <div class="settings-switch-grid">
+            ${PRODUCT_COMMAND_SETTING_KEYS.map((key) =>
+              renderUiSwitch({
+                label: readCommandSettingLabel(key),
+                checked: snapshot.adminSettings.commands[key],
+                description: readCommandSettingDescription(key, snapshot.adminSettings.commands[key]),
+                dataAttributes: {
+                  'settings-action': 'toggle-command-setting',
+                  'command-setting': key,
+                },
+              }),
+            ).join('')}
+          </div>
+          <div class="settings-inline-note">
+            <strong>Fronteira desta pagina</strong>
+            <p>O canal WhatsApp continua a tratar sessao, QR, auth e discovery. Os grupos continuam a tratar owner, modo local e policy de tag.</p>
+          </div>
+        </article>
+
+        <article class="surface content-card span-5">
+          <div class="card-header">
+            <div>
+              <h3>LLM, energia e host companion</h3>
+              <p>O runtime live e o host local ficam juntos aqui para nao se confundirem com o canal.</p>
+            </div>
+            ${renderUiBadge({ label: llmStatusLabel, tone: llmTone })}
+          </div>
+          <div class="settings-switch-grid">
+            ${PRODUCT_LLM_SETTING_KEYS.map((key) =>
+              renderUiSwitch({
+                label: readLlmSettingLabel(key),
+                checked: snapshot.adminSettings.llm[key],
+                description: readLlmSettingDescription(key, snapshot.adminSettings.llm[key]),
+                dataAttributes: {
+                  'settings-action': 'toggle-llm-setting',
+                  'llm-setting': key,
+                },
+              }),
+            ).join('')}
+          </div>
+          <ul class="settings-summary-list">
+            <li><strong>Configurado</strong>: ${escapeHtml(snapshot.adminSettings.llm.provider)} / ${escapeHtml(snapshot.adminSettings.llm.model)}</li>
+            <li><strong>Em uso</strong>: ${escapeHtml(snapshot.llmRuntime.effectiveProviderId)} / ${escapeHtml(snapshot.llmRuntime.effectiveModelId)}</li>
+            <li><strong>Auth Codex</strong>: ${escapeHtml(llmAuthLabel)}</li>
+            <li><strong>Energia</strong>: ${escapeHtml(activePowerModeLabel)}${snapshot.powerStatus.policy.enabled ? '' : ' (policy desligada)'}</li>
+            <li><strong>Heartbeat</strong>: ${escapeHtml(formatShortDateTime(snapshot.hostStatus.runtime.lastHeartbeatAt))}</li>
+            ${
+              snapshot.llmRuntime.fallbackReason
+                ? `<li><strong>Fallback</strong>: ${escapeHtml(snapshot.llmRuntime.fallbackReason)}</li>`
+                : ''
+            }
+          </ul>
+          <div class="settings-mode-actions">
+            ${renderUiActionButton({
+              label: snapshot.powerStatus.policy.enabled ? 'Desligar policy de energia' : 'Ligar policy de energia',
+              variant: snapshot.powerStatus.policy.enabled ? 'secondary' : 'primary',
+              dataAttributes: { 'settings-action': 'toggle-power-enabled' },
+            })}
+            ${PRODUCT_POWER_MODES.map((mode) =>
+              renderUiActionButton({
+                label: readPowerModeLabel(mode),
+                variant: mode === powerMode ? 'primary' : 'secondary',
+                disabled: mode === powerMode,
+                dataAttributes: {
+                  'settings-action': 'set-power-mode',
+                  'power-mode': mode,
+                },
+              }),
+            ).join('')}
+            ${renderUiActionButton({
+              label: snapshot.hostStatus.autostart.enabled ? 'Desligar autostart' : 'Ligar autostart',
+              variant: 'secondary',
+              dataAttributes: { 'settings-action': 'toggle-autostart' },
+            })}
+          </div>
+          ${
+            this.state.advancedDetailsEnabled
+              ? `
+                  <details class="ui-details">
+                    <summary>Detalhes avancados</summary>
+                    <div class="ui-details__content">
+                      <p>Auth file: ${escapeHtml(snapshot.hostStatus.auth.filePath)}</p>
+                      <p>Service: ${escapeHtml(snapshot.hostStatus.autostart.serviceName)}</p>
+                      <p>Manifesto: ${escapeHtml(snapshot.hostStatus.autostart.manifestPath)}</p>
+                    </div>
+                  </details>
+                `
+              : ''
+          }
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-6">
+          <div class="card-header">
+            <div>
+              <h3>Defaults canonicos</h3>
+              <p>Os avisos base do calendario vivem aqui e sao reaproveitados pelas criacoes manuais e assistidas.</p>
+            </div>
+            ${renderUiBadge({
+              label: `${currentDefaultRules.length} regra(s)`,
+              tone: currentDefaultRules.length > 0 ? 'positive' : 'warning',
+            })}
+          </div>
+          <ul class="settings-summary-list">
+            ${currentDefaultRules
+              .map(
+                (rule) =>
+                  `<li><strong>${escapeHtml(rule.label ?? rule.kind)}</strong>: ${escapeHtml(
+                    rule.localTime ?? `${rule.daysBeforeEvent ?? 0}d / ${rule.offsetMinutesBeforeEvent ?? 0}m`,
+                  )}</li>`,
+              )
+              .join('')}
+          </ul>
+          <div class="action-row">
+            ${renderUiActionButton({
+              label: 'Repor defaults canonicos',
+              variant: 'secondary',
+              dataAttributes: { 'settings-action': 'restore-default-notification-rules' },
+            })}
+          </div>
+          <div class="settings-inline-note">
+            <strong>Imports legacy fora daqui</strong>
+            <p>Schedules, alerts e automations do WA-notify passaram para a pagina Migracao, junto da readiness de shadow mode.</p>
+          </div>
+        </article>
+
+        <article class="surface content-card span-6">
+          <div class="card-header">
+            <div>
+              <h3>Governanca global</h3>
+              <p>App owners e permissao de privado vivem aqui, porque sao decisoes de produto e nao do canal.</p>
+            </div>
+            ${renderUiBadge({ label: `${people.length} pessoa(s)`, tone: people.length > 0 ? 'neutral' : 'warning' })}
+          </div>
+          ${
+            people.length > 0
+              ? `
+                  <div class="settings-governance-list">
+                    ${people
+                      .map(
+                        (person) => `
+                          <article class="settings-governance-item">
+                            <div class="settings-governance-item__header">
+                              <div>
+                                <strong>${escapeHtml(person.displayName)}</strong>
+                                <p>${escapeHtml(
+                                  person.whatsappJids.length > 0
+                                    ? `${person.whatsappJids.length} contacto(s) WhatsApp conhecido(s)`
+                                    : 'Sem contacto WhatsApp mapeado',
+                                )}</p>
+                              </div>
+                              <div class="ui-card__chips">
+                                ${renderUiBadge({
+                                  label: person.globalRoles.includes('app_owner') ? 'App owner' : 'Membro',
+                                  tone: person.globalRoles.includes('app_owner') ? 'positive' : 'neutral',
+                                  style: 'chip',
+                                })}
+                                ${renderUiBadge({
+                                  label: person.privateAssistantAuthorized ? 'Privado permitido' : 'Privado bloqueado',
+                                  tone: person.privateAssistantAuthorized ? 'positive' : 'warning',
+                                  style: 'chip',
+                                })}
+                              </div>
+                            </div>
+                            <div class="action-row">
+                              ${renderUiActionButton({
+                                label: person.globalRoles.includes('app_owner') ? 'Remover app owner' : 'Tornar app owner',
+                                variant: person.globalRoles.includes('app_owner') ? 'secondary' : 'primary',
+                                dataAttributes: {
+                                  'settings-action': 'toggle-app-owner',
+                                  'person-id': person.personId ?? '',
+                                },
+                              })}
+                              ${
+                                person.whatsappJids.length > 0
+                                  ? renderUiActionButton({
+                                      label: person.privateAssistantAuthorized ? 'Bloquear privado' : 'Permitir privado',
+                                      variant: 'secondary',
+                                      dataAttributes: {
+                                        'settings-action': 'toggle-private-person',
+                                        'person-id': person.personId ?? '',
+                                      },
+                                    })
+                                  : ''
+                              }
+                            </div>
+                          </article>
+                        `,
+                      )
+                      .join('')}
+                  </div>
+                `
+              : `
+                  <div class="settings-inline-note">
+                    <strong>Sem pessoas conhecidas</strong>
+                    <p>Assim que o runtime reconhecer identidades, esta pagina passa a gerir app owners e privados globais aqui.</p>
+                  </div>
+                `
+          }
         </article>
       </section>
     `;
@@ -5608,6 +5740,16 @@ export class AppShell {
     return page;
   }
 
+  private readMigrationPageData(): UiPage<MigrationPageData> | null {
+    const page = this.state.page as UiPage<MigrationPageData> | null;
+
+    if (!page || page.route !== '/migration') {
+      return null;
+    }
+
+    return page;
+  }
+
   private readSettingsSurfacePage(): UiPage<SettingsPageData | MigrationPageData> | null {
     const page = this.state.page as UiPage<SettingsPageData | MigrationPageData> | null;
 
@@ -6311,6 +6453,284 @@ export class AppShell {
       return;
     }
 
+    if (action === 'toggle-command-setting') {
+      const settingsPage = this.readSettingsPageData();
+
+      if (!settingsPage) {
+        return;
+      }
+
+      const setting = dataset.commandSetting;
+
+      if (!setting || !isProductCommandSettingKey(setting)) {
+        return;
+      }
+
+      const people = buildSettingsPeopleViews(settingsPage.data.people, settingsPage.data.settings);
+      const pendingConfirmation = !options.confirmed
+        ? this.buildSettingsConfirmation(action, dataset, settingsPage.data.settings, people)
+        : null;
+
+      if (pendingConfirmation) {
+        this.state = {
+          ...this.state,
+          pendingConfirmation,
+          flowFeedback: {
+            tone: 'warning',
+            message: pendingConfirmation.description,
+          },
+        };
+        this.recordUxEvent('warning', `Confirmacao pedida: ${pendingConfirmation.title}`);
+        this.render();
+        return;
+      }
+
+      const nextValue = !settingsPage.data.settings.adminSettings.commands[setting];
+
+      await this.runSettingsMutation(
+        async () => {
+          await this.currentClient().updateCommandSettings({
+            [setting]: nextValue,
+          } as Partial<typeof settingsPage.data.settings.adminSettings.commands>);
+        },
+        readCommandSettingMutationMessage(setting, nextValue),
+      );
+      return;
+    }
+
+    if (action === 'toggle-llm-setting') {
+      const settingsPage = this.readSettingsPageData();
+
+      if (!settingsPage) {
+        return;
+      }
+
+      const setting = dataset.llmSetting;
+
+      if (!setting || !isProductLlmSettingKey(setting)) {
+        return;
+      }
+
+      const people = buildSettingsPeopleViews(settingsPage.data.people, settingsPage.data.settings);
+      const pendingConfirmation = !options.confirmed
+        ? this.buildSettingsConfirmation(action, dataset, settingsPage.data.settings, people)
+        : null;
+
+      if (pendingConfirmation) {
+        this.state = {
+          ...this.state,
+          pendingConfirmation,
+          flowFeedback: {
+            tone: 'warning',
+            message: pendingConfirmation.description,
+          },
+        };
+        this.recordUxEvent('warning', `Confirmacao pedida: ${pendingConfirmation.title}`);
+        this.render();
+        return;
+      }
+
+      const nextValue = !settingsPage.data.settings.adminSettings.llm[setting];
+
+      await this.runSettingsMutation(
+        async () => {
+          await this.currentClient().updateLlmSettings({
+            [setting]: nextValue,
+          } as Partial<typeof settingsPage.data.settings.adminSettings.llm>);
+        },
+        readLlmSettingMutationMessage(setting, nextValue),
+      );
+      return;
+    }
+
+    if (action === 'toggle-power-enabled') {
+      const settingsPage = this.readSettingsPageData();
+
+      if (!settingsPage) {
+        return;
+      }
+
+      const nextValue = !settingsPage.data.settings.powerStatus.policy.enabled;
+
+      await this.runSettingsMutation(
+        async () => {
+          await this.currentClient().updatePowerPolicy({
+            enabled: nextValue,
+          });
+        },
+        nextValue
+          ? 'A policy de energia ficou ligada no host companion.'
+          : 'A policy de energia ficou desligada no host companion.',
+      );
+      return;
+    }
+
+    if (action === 'set-power-mode') {
+      const settingsPage = this.readSettingsPageData();
+
+      if (!settingsPage) {
+        return;
+      }
+
+      const mode = dataset.powerMode;
+
+      if (!mode || !isProductPowerMode(mode) || mode === settingsPage.data.settings.powerStatus.policy.mode) {
+        return;
+      }
+
+      await this.runSettingsMutation(
+        async () => {
+          await this.currentClient().updatePowerPolicy({
+            mode,
+          });
+        },
+        `A policy de energia ficou em ${readPowerModeLabel(mode)}.`,
+      );
+      return;
+    }
+
+    if (action === 'toggle-autostart') {
+      const settingsPage = this.readSettingsPageData();
+
+      if (!settingsPage) {
+        return;
+      }
+
+      const nextValue = !settingsPage.data.settings.hostStatus.autostart.enabled;
+
+      await this.runSettingsMutation(
+        async () => {
+          await this.currentClient().setAutostartEnabled(nextValue);
+        },
+        nextValue
+          ? 'O autostart do host companion ficou ligado.'
+          : 'O autostart do host companion ficou desligado.',
+      );
+      return;
+    }
+
+    if (action === 'restore-default-notification-rules') {
+      await this.runSettingsMutation(
+        async () => {
+          await this.currentClient().updateDefaultNotificationRules(createCanonicalDefaultNotificationRules());
+        },
+        'Os defaults canonicos de notificacao foram repostos.',
+      );
+      return;
+    }
+
+    if (action === 'toggle-app-owner') {
+      const settingsPage = this.readSettingsPageData();
+
+      if (!settingsPage) {
+        return;
+      }
+
+      const people = buildSettingsPeopleViews(settingsPage.data.people, settingsPage.data.settings);
+      const pendingConfirmation = !options.confirmed
+        ? this.buildSettingsConfirmation(action, dataset, settingsPage.data.settings, people)
+        : null;
+
+      if (pendingConfirmation) {
+        this.state = {
+          ...this.state,
+          pendingConfirmation,
+          flowFeedback: {
+            tone: 'warning',
+            message: pendingConfirmation.description,
+          },
+        };
+        this.recordUxEvent('warning', `Confirmacao pedida: ${pendingConfirmation.title}`);
+        this.render();
+        return;
+      }
+
+      const personId = dataset.personId;
+      const person = people.find((candidate) => candidate.personId === personId);
+
+      if (!personId || !person) {
+        return;
+      }
+
+      const isAppOwner = person.globalRoles.includes('app_owner');
+      const nextRoles = dedupePersonRoles(
+        isAppOwner
+          ? person.globalRoles.filter((role) => role !== 'app_owner')
+          : [...person.globalRoles, 'app_owner'],
+      );
+      const normalizedRoles = nextRoles.length > 0 ? nextRoles : (['member'] as const);
+
+      await this.runSettingsMutation(
+        async () => {
+          await this.currentClient().updatePersonRoles(personId, normalizedRoles);
+        },
+        isAppOwner
+          ? `${person.displayName} deixou de ser app owner.`
+          : `${person.displayName} passou a ter controlo global como app owner.`,
+      );
+      return;
+    }
+
+    if (action === 'toggle-private-person') {
+      const settingsPage = this.readSettingsPageData();
+
+      if (!settingsPage) {
+        return;
+      }
+
+      const people = buildSettingsPeopleViews(settingsPage.data.people, settingsPage.data.settings);
+      const pendingConfirmation = !options.confirmed
+        ? this.buildSettingsConfirmation(action, dataset, settingsPage.data.settings, people)
+        : null;
+
+      if (pendingConfirmation) {
+        this.state = {
+          ...this.state,
+          pendingConfirmation,
+          flowFeedback: {
+            tone: 'warning',
+            message: pendingConfirmation.description,
+          },
+        };
+        this.recordUxEvent('warning', `Confirmacao pedida: ${pendingConfirmation.title}`);
+        this.render();
+        return;
+      }
+
+      const personId = dataset.personId;
+      const person = people.find((candidate) => candidate.personId === personId);
+
+      if (!personId || !person || person.whatsappJids.length === 0) {
+        return;
+      }
+
+      const knownPrivateJids = dedupeStringList(people.flatMap((candidate) => candidate.whatsappJids));
+      const currentAuthorizedPrivateJids = resolveAuthorizedPrivateJidsForCommands(
+        settingsPage.data.settings.adminSettings.commands,
+        knownPrivateJids,
+      );
+      const nextAuthorizedPrivateJids = person.privateAssistantAuthorized
+        ? currentAuthorizedPrivateJids.filter((chatJid) => !person.whatsappJids.includes(chatJid))
+        : dedupeStringList([...currentAuthorizedPrivateJids, ...person.whatsappJids]);
+      const nextAllowPrivateAssistant = nextAuthorizedPrivateJids.length > 0;
+
+      await this.runSettingsMutation(
+        async () => {
+          await this.currentClient().updateCommandSettings({
+            allowPrivateAssistant: nextAllowPrivateAssistant,
+            authorizedPrivateJids:
+              nextAllowPrivateAssistant && nextAuthorizedPrivateJids.length === knownPrivateJids.length
+                ? []
+                : nextAuthorizedPrivateJids,
+          });
+        },
+        person.privateAssistantAuthorized
+          ? `O acesso privado de ${person.displayName} ficou bloqueado.`
+          : `O acesso privado de ${person.displayName} ficou autorizado.`,
+      );
+      return;
+    }
+
     if (action === 'clear-legacy-import-report') {
       this.state = {
         ...this.state,
@@ -6617,16 +7037,16 @@ export class AppShell {
       return;
     }
 
-    const settingsPage = this.readSettingsPageData();
+    const migrationPage = this.readMigrationPageData();
 
-    if (!settingsPage) {
+    if (!migrationPage) {
       return;
     }
 
     const draft = resolveLegacyScheduleMigrationDraft(
       this.state.legacyScheduleMigrationDraft,
-      settingsPage.data.legacyScheduleImportFiles,
-      settingsPage.data.legacyScheduleImportReport,
+      migrationPage.data.legacyScheduleImportFiles,
+      migrationPage.data.legacyScheduleImportReport,
     );
 
     if (!draft.fileName) {
@@ -6658,7 +7078,7 @@ export class AppShell {
       try {
         const report = await this.currentClient().previewLegacyScheduleImport({
           fileName: draft.fileName,
-          requestedBy: 'settings-ui',
+          requestedBy: 'migration-ui',
         });
         this.state = {
           ...this.state,
@@ -6742,7 +7162,7 @@ export class AppShell {
     try {
       const report = await this.currentClient().applyLegacyScheduleImport({
         fileName: draft.fileName,
-        requestedBy: 'settings-ui',
+        requestedBy: 'migration-ui',
       });
       this.state = {
         ...this.state,
@@ -7276,6 +7696,45 @@ export class AppShell {
       this.recordUxEvent('positive', successMessage);
     } catch (error) {
       const message = `Nao foi possivel atualizar esta configuracao do grupo. ${readErrorMessage(error)}`;
+      this.state = {
+        ...this.state,
+        pendingConfirmation: null,
+        flowFeedback: {
+          tone: 'danger',
+          message,
+        },
+      };
+      this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+    }
+
+    this.render();
+  }
+
+  private async runSettingsMutation(task: () => Promise<void>, successMessage: string): Promise<void> {
+    this.state = {
+      ...this.state,
+      pendingConfirmation: null,
+      flowFeedback: {
+        tone: 'neutral',
+        message: 'A guardar esta configuracao global do produto.',
+      },
+    };
+    this.render();
+
+    try {
+      await task();
+      await this.refreshCurrentRouteData();
+      this.state = {
+        ...this.state,
+        pendingConfirmation: null,
+        flowFeedback: {
+          tone: 'positive',
+          message: successMessage,
+        },
+      };
+      this.recordUxEvent('positive', successMessage);
+    } catch (error) {
+      const message = `Nao foi possivel atualizar esta configuracao global. ${readErrorMessage(error)}`;
       this.state = {
         ...this.state,
         pendingConfirmation: null,
@@ -7890,6 +8349,92 @@ export class AppShell {
           : `${person.displayName} ficou como owner de ${group.preferredSubject}.`,
       );
     }
+  }
+
+  private buildSettingsConfirmation(
+    action: string,
+    dataset: ActionDataset,
+    snapshot: SettingsSnapshot,
+    people: readonly WorkspacePersonView[],
+  ): PendingConfirmation | null {
+    if (action === 'toggle-command-setting') {
+      const setting = dataset.commandSetting;
+
+      if (setting === 'assistantEnabled' && snapshot.adminSettings.commands.assistantEnabled) {
+        return {
+          domain: 'settings',
+          key: 'toggle-command-setting:assistantEnabled',
+          action,
+          dataset,
+          title: 'Desligar o assistente global?',
+          description: 'Isto corta o assistente em toda a app, mesmo que os grupos continuem autorizados.',
+          confirmLabel: 'Desligar assistente',
+          tone: 'danger',
+        };
+      }
+
+      if (setting === 'allowPrivateAssistant' && snapshot.adminSettings.commands.allowPrivateAssistant) {
+        return {
+          domain: 'settings',
+          key: 'toggle-command-setting:allowPrivateAssistant',
+          action,
+          dataset,
+          title: 'Bloquear todos os privados?',
+          description: 'Os contactos privados deixam de poder usar o assistente ate voltares a abrir esta permissao.',
+          confirmLabel: 'Bloquear privados',
+          tone: 'warning',
+        };
+      }
+    }
+
+    if (action === 'toggle-llm-setting' && dataset.llmSetting === 'enabled' && snapshot.adminSettings.llm.enabled) {
+      return {
+        domain: 'settings',
+        key: 'toggle-llm-setting:enabled',
+        action,
+        dataset,
+        title: 'Desligar a LLM live?',
+        description: 'O runtime passa a fallback deterministico ou modo desligado, conforme a configuracao atual.',
+        confirmLabel: 'Desligar LLM',
+        tone: 'warning',
+      };
+    }
+
+    if (action === 'toggle-app-owner') {
+      const person = people.find((candidate) => candidate.personId === dataset.personId);
+
+      if (person?.globalRoles.includes('app_owner')) {
+        return {
+          domain: 'settings',
+          key: `toggle-app-owner:${person.personId}`,
+          action,
+          dataset,
+          title: `Remover ${person.displayName} como app owner?`,
+          description: 'Esta pessoa perde controlo global da app. Confirma antes de retirar este nivel de acesso.',
+          confirmLabel: 'Remover app owner',
+          tone: 'warning',
+        };
+      }
+    }
+
+    if (action === 'toggle-private-person') {
+      const person = people.find((candidate) => candidate.personId === dataset.personId);
+
+      if (person?.privateAssistantAuthorized) {
+        return {
+          domain: 'settings',
+          key: `toggle-private-person:${person.personId}`,
+          action,
+          dataset,
+          title: `Bloquear o privado de ${person.displayName}?`,
+          description: 'A partir daqui o assistente deixa de responder neste contacto privado.',
+          confirmLabel: 'Bloquear privado',
+          tone: 'warning',
+        };
+      }
+    }
+
+    return null;
   }
 
   private buildWhatsAppConfirmation(
@@ -9826,16 +10371,208 @@ function describeGroupRoleSchedulingAccess(
   return 'Pode pedir scheduling assistido pela LLM.';
 }
 
-function resolveAuthorizedPrivateJids(snapshot: WhatsAppWorkspaceSnapshot): string[] {
-  if (!snapshot.settings.commands.assistantEnabled || !snapshot.settings.commands.allowPrivateAssistant) {
+function buildSettingsPeopleViews(
+  people: readonly Person[],
+  settings: SettingsSnapshot,
+): readonly WorkspacePersonView[] {
+  const knownPrivateJids = dedupeStringList(
+    people.flatMap((person) =>
+      person.identifiers
+        .filter((identifier) => identifier.kind === 'whatsapp_jid')
+        .map((identifier) => identifier.value),
+    ),
+  );
+  const authorizedPrivateJids = resolveAuthorizedPrivateJidsForCommands(
+    settings.adminSettings.commands,
+    knownPrivateJids,
+  );
+
+  return people.map((person) => {
+    const whatsappJids = person.identifiers
+      .filter((identifier) => identifier.kind === 'whatsapp_jid')
+      .map((identifier) => identifier.value);
+
+    return {
+      personId: person.personId,
+      displayName: person.displayName,
+      whatsappJids,
+      globalRoles: dedupePersonRoles(person.globalRoles),
+      privateAssistantAuthorized: whatsappJids.some((jid) => authorizedPrivateJids.includes(jid)),
+      ownedGroupJids: [],
+      knownToBot: whatsappJids.length > 0,
+    } satisfies WorkspacePersonView;
+  });
+}
+
+function resolveAuthorizedPrivateJidsForCommands(
+  commands: SettingsSnapshot['adminSettings']['commands'],
+  knownPrivateJids: readonly string[],
+): string[] {
+  if (!commands.assistantEnabled || !commands.allowPrivateAssistant) {
     return [];
   }
 
-  if (snapshot.settings.commands.authorizedPrivateJids.length === 0) {
-    return dedupeStringList(snapshot.conversations.flatMap((conversation) => conversation.whatsappJids));
+  if (commands.authorizedPrivateJids.length === 0) {
+    return dedupeStringList(knownPrivateJids);
   }
 
-  return dedupeStringList(snapshot.settings.commands.authorizedPrivateJids);
+  return dedupeStringList(commands.authorizedPrivateJids);
+}
+
+function resolveAuthorizedPrivateJids(snapshot: WhatsAppWorkspaceSnapshot): string[] {
+  return resolveAuthorizedPrivateJidsForCommands(
+    snapshot.settings.commands,
+    snapshot.conversations.flatMap((conversation) => conversation.whatsappJids),
+  );
+}
+
+function isProductCommandSettingKey(value: string): value is ProductCommandSettingKey {
+  return PRODUCT_COMMAND_SETTING_KEYS.includes(value as ProductCommandSettingKey);
+}
+
+function isProductLlmSettingKey(value: string): value is ProductLlmSettingKey {
+  return PRODUCT_LLM_SETTING_KEYS.includes(value as ProductLlmSettingKey);
+}
+
+function isProductPowerMode(value: string): value is ProductPowerMode {
+  return PRODUCT_POWER_MODES.includes(value as ProductPowerMode);
+}
+
+function readCommandSettingLabel(key: ProductCommandSettingKey): string {
+  switch (key) {
+    case 'assistantEnabled':
+      return 'Assistente global';
+    case 'schedulingEnabled':
+      return 'Scheduling global';
+    case 'autoReplyEnabled':
+      return 'Auto-reply';
+    case 'directRepliesEnabled':
+      return 'Respostas diretas';
+    case 'allowPrivateAssistant':
+      return 'Assistente privado';
+    case 'ownerTerminalEnabled':
+      return 'Terminal do owner';
+  }
+}
+
+function readCommandSettingDescription(key: ProductCommandSettingKey, enabled: boolean): string {
+  switch (key) {
+    case 'assistantEnabled':
+      return enabled
+        ? 'O assistente pode operar nos grupos autorizados.'
+        : 'O assistente fica bloqueado em toda a app.';
+    case 'schedulingEnabled':
+      return enabled
+        ? 'Calendario e jobs continuam disponiveis quando o grupo o permite.'
+        : 'Bloqueia scheduling em toda a app.';
+    case 'autoReplyEnabled':
+      return enabled
+        ? 'O bot pode responder de forma automatica quando a policy o permite.'
+        : 'As respostas automaticas ficam paradas.';
+    case 'directRepliesEnabled':
+      return enabled
+        ? 'Permite replies diretas quando o runtime as decide.'
+        : 'As replies diretas ficam bloqueadas.';
+    case 'allowPrivateAssistant':
+      return enabled
+        ? 'Os privados autorizados podem falar com o assistente.'
+        : 'Nenhum privado pode usar o assistente.';
+    case 'ownerTerminalEnabled':
+      return enabled
+        ? 'Owners continuam com capacidades avancadas no produto.'
+        : 'O terminal do owner fica desligado.';
+  }
+}
+
+function readCommandSettingMutationMessage(key: ProductCommandSettingKey, enabled: boolean): string {
+  switch (key) {
+    case 'assistantEnabled':
+      return enabled ? 'O assistente global ficou ligado.' : 'O assistente global ficou desligado.';
+    case 'schedulingEnabled':
+      return enabled ? 'O scheduling global ficou ligado.' : 'O scheduling global ficou desligado.';
+    case 'autoReplyEnabled':
+      return enabled ? 'O auto-reply ficou ligado.' : 'O auto-reply ficou desligado.';
+    case 'directRepliesEnabled':
+      return enabled ? 'As respostas diretas ficaram ligadas.' : 'As respostas diretas ficaram desligadas.';
+    case 'allowPrivateAssistant':
+      return enabled ? 'O assistente privado ficou ligado.' : 'O assistente privado ficou desligado.';
+    case 'ownerTerminalEnabled':
+      return enabled ? 'O terminal do owner ficou ligado.' : 'O terminal do owner ficou desligado.';
+  }
+}
+
+function readLlmSettingLabel(key: ProductLlmSettingKey): string {
+  switch (key) {
+    case 'enabled':
+      return 'LLM live';
+    case 'streamingEnabled':
+      return 'Streaming';
+  }
+}
+
+function readLlmSettingDescription(key: ProductLlmSettingKey, enabled: boolean): string {
+  switch (key) {
+    case 'enabled':
+      return enabled
+        ? 'O provider configurado continua ativo quando a auth o permitir.'
+        : 'A LLM live fica desligada e o runtime cai para fallback.';
+    case 'streamingEnabled':
+      return enabled
+        ? 'As respostas podem chegar em streaming quando o provider o suporta.'
+        : 'As respostas passam a sair fechadas no fim.';
+  }
+}
+
+function readLlmSettingMutationMessage(key: ProductLlmSettingKey, enabled: boolean): string {
+  switch (key) {
+    case 'enabled':
+      return enabled ? 'A LLM live ficou ligada.' : 'A LLM live ficou desligada.';
+    case 'streamingEnabled':
+      return enabled ? 'O streaming da LLM ficou ligado.' : 'O streaming da LLM ficou desligado.';
+  }
+}
+
+function readPowerModeLabel(mode: ProductPowerMode): string {
+  switch (mode) {
+    case 'allow_sleep':
+      return 'Dormir permitido';
+    case 'on_demand':
+      return 'Inibir por procura';
+    case 'always_inhibit':
+      return 'Inibir sempre';
+  }
+}
+
+function readCodexAuthLabel(snapshot: SettingsSnapshot): string {
+  const codexProvider = snapshot.llmRuntime.providerReadiness.find((provider) => provider.providerId === 'codex-oauth');
+
+  if (codexProvider?.ready) {
+    const accountCount = snapshot.authRouterStatus?.accountCount ?? 0;
+    return accountCount > 0 ? `pronta (${accountCount} conta(s) visiveis)` : 'pronta';
+  }
+
+  return codexProvider?.reason ?? 'indisponivel';
+}
+
+function createCanonicalDefaultNotificationRules() {
+  return [
+    {
+      kind: 'relative_before_event' as const,
+      daysBeforeEvent: 1,
+      offsetMinutesBeforeEvent: 0,
+      localTime: null,
+      enabled: true,
+      label: '24h antes',
+    },
+    {
+      kind: 'relative_before_event' as const,
+      daysBeforeEvent: 0,
+      offsetMinutesBeforeEvent: 30,
+      localTime: null,
+      enabled: true,
+      label: '30 min antes',
+    },
+  ];
 }
 
 function isCalendarAccessScope(value: string): value is CalendarAccessScope {

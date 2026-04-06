@@ -118,8 +118,19 @@ O runtime em `runtime/` deve ser tratado como destino de build/publicacao, nao c
   - grupos WhatsApp conhecidos pelo sistema
   - conversas privadas/pessoas conhecidas com `whatsapp_jid`
   - permissoes efetivas por grupo e por pessoa
-  - `app owners`, `group owners` e ACL do calendario por grupo
+  - diagnostico do canal sem misturar settings globais do produto
 - o backend deve expor um snapshot unico de workspace WhatsApp para esta pagina, em vez de obrigar a UI a compor varios endpoints sem contexto
+
+## Pagina LumeHub
+
+- a UI operacional inclui uma pagina `LumeHub`
+- essa pagina deve concentrar:
+  - switches globais do produto
+  - defaults canonicos de notificacao
+  - runtime LLM
+  - host companion, energia e autostart
+  - governanca global da app, incluindo `app owners` e permissao de privados
+- imports legacy e readiness de shadow mode nao vivem aqui; ficam na pagina `Migracao`
 
 ## Principios de UX do Frontend
 
@@ -217,7 +228,8 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 57` ja foram executadas e validadas.
+As `Wave 0` a `Wave 58` ja foram executadas e validadas.
+a pagina `LumeHub` passou a concentrar settings globais, defaults, host companion e governanca da app.
 O `LumeHub` ja tem:
 
 - runtime `Live` operacional com WhatsApp, LLM, scheduling, alerts e automations

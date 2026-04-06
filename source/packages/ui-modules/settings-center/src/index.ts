@@ -28,7 +28,7 @@ export class SettingsCenterUiModule {
     return {
       route: this.config.route,
       title: this.config.label,
-      description: 'Configuracao operacional: avisos default, anti-sleep, autostart e auth live do Codex.',
+      description: 'Comportamento global do produto, runtime LLM, energia e host companion.',
       sections: [
         createListSection(
           'Avisos Default',

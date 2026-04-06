@@ -777,6 +777,84 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       return this.ok(nextAdminSettings);
     }
 
+    if (request.method === 'PATCH' && pathname === '/api/settings/ui') {
+      const nextAdminSettings: AdminSettings = {
+        ...this.state.settings.adminSettings,
+        ui: {
+          ...this.state.settings.adminSettings.ui,
+          ...(request.body as Partial<AdminSettings['ui']>),
+        },
+        updatedAt: new Date().toISOString(),
+      };
+
+      this.state.settings = {
+        ...this.state.settings,
+        adminSettings: nextAdminSettings,
+      };
+
+      this.emit('settings.ui.updated', nextAdminSettings.ui);
+      return this.ok(nextAdminSettings);
+    }
+
+    if (request.method === 'PATCH' && pathname === '/api/settings/power-policy') {
+      const update = request.body as Partial<SettingsSnapshot['powerStatus']['policy']>;
+      const nextPolicy = {
+        ...this.state.settings.powerStatus.policy,
+        ...update,
+        updatedAt: new Date().toISOString(),
+      };
+      const nextPowerStatus: SettingsSnapshot['powerStatus'] = {
+        ...this.state.settings.powerStatus,
+        policy: nextPolicy,
+        inhibitorActive: nextPolicy.enabled && nextPolicy.mode !== 'allow_sleep',
+        desiredState: nextPolicy.enabled && nextPolicy.mode !== 'allow_sleep' ? 'inhibited' : 'released',
+        explanation:
+          nextPolicy.enabled && nextPolicy.mode !== 'allow_sleep'
+            ? 'O sistema continuaria a manter o PC acordado com esta politica.'
+            : 'O sistema deixa de pedir inibicao permanente com esta politica.',
+        updatedAt: new Date().toISOString(),
+      };
+
+      this.state.settings = {
+        ...this.state.settings,
+        powerStatus: nextPowerStatus,
+        hostStatus: {
+          ...this.state.settings.hostStatus,
+          power: {
+            ...this.state.settings.hostStatus.power,
+            leaseId: this.state.settings.hostStatus.power?.leaseId ?? null,
+            policyMode: nextPolicy.mode,
+            inhibitorActive: nextPowerStatus.inhibitorActive,
+            explanation: nextPowerStatus.explanation,
+          },
+        },
+      };
+
+      this.emit('settings.power.updated', nextPowerStatus);
+      return this.ok(nextPowerStatus);
+    }
+
+    if (request.method === 'PATCH' && pathname === '/api/settings/autostart') {
+      const body = request.body as { readonly enabled?: boolean };
+      const nextEnabled = body.enabled === true;
+      const nextHostStatus: SettingsSnapshot['hostStatus'] = {
+        ...this.state.settings.hostStatus,
+        autostart: {
+          ...this.state.settings.hostStatus.autostart,
+          enabled: nextEnabled,
+          installedAt: new Date().toISOString(),
+        },
+      };
+
+      this.state.settings = {
+        ...this.state.settings,
+        hostStatus: nextHostStatus,
+      };
+
+      this.emit('settings.autostart.updated', nextHostStatus.autostart);
+      return this.ok(nextHostStatus);
+    }
+
     const personRolesMatch = matchParameterizedPath(pathname, '/api/people/:personId/roles');
 
     if (request.method === 'PUT' && personRolesMatch) {
