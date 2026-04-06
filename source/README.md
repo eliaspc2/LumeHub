@@ -36,13 +36,14 @@ Decisao de storage:
 
 ## Estado
 
-A base do monorepo ja existe e as `Wave 0` a `Wave 54` foram executadas.
+A base do monorepo ja existe e as `Wave 0` a `Wave 55` foram executadas.
 Hoje esta pasta ja contem:
 
 - `apps/lume-hub-backend`, `apps/lume-hub-web` e `apps/lume-hub-host`
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
+  - `validate:wave55`
   - `validate:wave54`
   - `validate:wave53`
   - `validate:wave52`
@@ -87,7 +88,8 @@ A ronda de paridade e migracao do `WA-notify` tambem ficou fechada:
 - a `Wave 52` fechou a fundacao do modelo `group-first`
 - a `Wave 53` fechou a shell `group-first` com switcher global de grupo e navegacao principal curta
 - a `Wave 54` fechou a pagina operacional de grupo com owner, modos e politicas locais persistentes
-- a validacao consolidada mais recente do backlog ativo passou a ser `validate:wave54`
+- a `Wave 55` fechou a rota `/week` como calendario semanal com grelha por dia, estados canonicos e acoes inline
+- a validacao consolidada mais recente do backlog ativo passou a ser `validate:wave55`
 
 Na ronda curta de operacao de migracao, agora ja fechada:
 

@@ -153,8 +153,12 @@ Os gaps principais ja nao sao de paridade tecnica com o `WA-notify`; passam a se
   - owner operacional persistente
   - modo do grupo, policy de tag e switches locais na mesma pagina
   - instrucoes e documentos mantidos como contexto isolado do grupo
-- a vista principal ainda nao e um calendario semanal de notificacoes
+- a `Wave 55` ja fechou a vista principal como calendario semanal de notificacoes:
+  - grelha semanal por dia
+  - leitura clara de `pending`, `waiting_confirmation` e `sent`
+  - criacao, edicao e desativacao inline sem sair da rota `/week`
 - `WhatsApp`, `LumeHub` e `LLM` ainda nao estao separados em paginas dedicadas como experiencia final
+- o comportamento por modo de grupo ainda nao esta fechado ponta a ponta entre UI e roteamento de produto
 
 ## Trabalho futuro fora do scope atual
 

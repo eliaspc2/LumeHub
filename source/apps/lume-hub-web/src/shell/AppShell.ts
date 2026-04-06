@@ -64,6 +64,17 @@ type ActionDataset = Readonly<Record<string, string | undefined>>;
 
 const ADVANCED_DETAILS_STORAGE_KEY = 'lumehub.web.advanced_details';
 const UX_TELEMETRY_STORAGE_KEY = 'lumehub.web.ux_telemetry';
+const WEEK_DAY_OPTIONS = [
+  { value: 'segunda-feira', label: 'Segunda-feira', shortLabel: 'Seg' },
+  { value: 'terca-feira', label: 'Terca-feira', shortLabel: 'Ter' },
+  { value: 'quarta-feira', label: 'Quarta-feira', shortLabel: 'Qua' },
+  { value: 'quinta-feira', label: 'Quinta-feira', shortLabel: 'Qui' },
+  { value: 'sexta-feira', label: 'Sexta-feira', shortLabel: 'Sex' },
+  { value: 'sabado', label: 'Sabado', shortLabel: 'Sab' },
+  { value: 'domingo', label: 'Domingo', shortLabel: 'Dom' },
+] as const;
+
+type WeekDayValue = (typeof WEEK_DAY_OPTIONS)[number]['value'];
 
 interface GuidedScheduleDraft {
   readonly eventId: string | null;
@@ -217,7 +228,7 @@ interface UxTelemetryEntry {
 }
 
 interface PendingConfirmation {
-  readonly domain: 'assistant' | 'settings' | 'whatsapp' | 'workspace';
+  readonly domain: 'assistant' | 'flow' | 'settings' | 'whatsapp' | 'workspace';
   readonly key: string;
   readonly action: string;
   readonly dataset: ActionDataset;
@@ -246,6 +257,21 @@ interface ShellGroupSwitcherState {
   }[];
   readonly selectedGroupJid: string;
   readonly selectedLabel: string;
+}
+
+interface WeekCalendarDayView {
+  readonly dayLabel: WeekDayValue;
+  readonly label: string;
+  readonly shortLabel: string;
+  readonly localDate: string;
+  readonly dateLabel: string;
+  readonly events: readonly WeekPlannerSnapshot['events'][number][];
+  readonly notifications: {
+    readonly pendingNotifications: number;
+    readonly waitingConfirmationNotifications: number;
+    readonly sentNotifications: number;
+  };
+  readonly isToday: boolean;
 }
 
 export class AppShell {
@@ -1168,6 +1194,12 @@ export class AppShell {
     const draft = resolveScheduleDraft(this.state.scheduleDraft, groups);
     const selectedGroup = groups.find((group) => group.groupJid === draft.groupJid) ?? null;
     const editingEvent = page.data.events.find((event) => event.eventId === draft.eventId) ?? null;
+    const weekDays = buildWeekCalendarDays(page.data);
+    const occupiedDays = weekDays.filter((day) => day.events.length > 0).length;
+    const busiestDay = weekDays.reduce<WeekCalendarDayView | null>(
+      (best, day) => (!best || day.events.length > best.events.length ? day : best),
+      null,
+    );
     const notificationLabels = page.data.defaultNotificationRuleLabels.length > 0
       ? page.data.defaultNotificationRuleLabels
       : ['24h antes', '30 min antes'];
@@ -1186,16 +1218,16 @@ export class AppShell {
     return `
       <section class="surface hero surface--strong">
         <div>
-          <p class="eyebrow">Criar agendamento</p>
-          <h2>Fluxo guiado para montar ou ajustar um agendamento sem mexer em termos internos.</h2>
+          <p class="eyebrow">Calendario semanal</p>
+          <h2>A semana passa a ser a vista principal para criar, rever e ajustar notificacoes reais.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
-              label: editingEvent ? 'Guardar alteracoes' : 'Criar agendamento',
+              label: editingEvent ? 'Guardar alteracoes' : 'Criar notificacao',
               dataAttributes: { 'flow-action': 'schedule-save' },
             })}
             ${renderUiActionButton({
-              label: 'Limpar formulario',
+              label: 'Limpar editor',
               variant: 'secondary',
               dataAttributes: { 'flow-action': 'schedule-clear' },
             })}
@@ -1206,214 +1238,251 @@ export class AppShell {
             title: 'Semana em foco',
             badgeLabel: page.data.focusWeekLabel,
             badgeTone: 'neutral',
-            contentHtml: `<p>${escapeHtml(`${page.data.focusWeekRangeLabel}. Timezone ${page.data.timezone}. ${groups.length} grupos prontos para usar neste fluxo.`)}</p>`,
+            contentHtml: `<p>${escapeHtml(`${page.data.focusWeekRangeLabel}. Timezone ${page.data.timezone}. ${groups.length} grupos visiveis nesta operacao semanal.`)}</p>`,
           })}
           ${renderUiPanelCard({
-            title: 'Estado live',
-            badgeLabel: `${page.data.diagnostics.eventCount} eventos`,
+            title: 'Leitura rapida da semana',
+            badgeLabel: `${page.data.diagnostics.eventCount} notificacoes`,
             badgeTone: page.data.diagnostics.eventCount > 0 ? 'positive' : 'neutral',
             contentHtml: `<p>${escapeHtml(
-              `${page.data.diagnostics.pendingNotifications} avisos pendentes, ${page.data.diagnostics.waitingConfirmationNotifications} a aguardar confirmacao e ${page.data.diagnostics.sentNotifications} enviados.`,
+              occupiedDays > 0
+                ? `${occupiedDays} dia(s) ocupados. Pico em ${busiestDay?.label ?? 'sem dia dominante'} com ${busiestDay?.events.length ?? 0} notificacao(oes).`
+                : 'Ainda nao ha notificacoes planeadas nesta semana.',
             )}</p>`,
           })}
+        </div>
+      </section>
+
+      <section class="card-grid">
+        ${renderUiMetricCard({
+          title: 'pending',
+          value: String(page.data.diagnostics.pendingNotifications),
+          tone: page.data.diagnostics.pendingNotifications > 0 ? 'neutral' : 'positive',
+          description: 'Notificacoes materializadas e ainda por enviar.',
+        })}
+        ${renderUiMetricCard({
+          title: 'waiting_confirmation',
+          value: String(page.data.diagnostics.waitingConfirmationNotifications),
+          tone: page.data.diagnostics.waitingConfirmationNotifications > 0 ? 'warning' : 'positive',
+          description: 'Tentativas que ainda esperam confirmacao forte.',
+        })}
+        ${renderUiMetricCard({
+          title: 'sent',
+          value: String(page.data.diagnostics.sentNotifications),
+          tone: page.data.diagnostics.sentNotifications > 0 ? 'positive' : 'neutral',
+          description: 'Notificacoes ja observadas como fechadas.',
+        })}
+        ${renderUiMetricCard({
+          title: 'Dias ocupados',
+          value: `${occupiedDays}/7`,
+          tone: occupiedDays > 0 ? 'positive' : 'neutral',
+          description: 'Dias com pelo menos uma notificacao nesta semana.',
+        })}
+      </section>
+
+      <section class="surface content-card">
+        <div class="card-header">
+          <div>
+            <h3>Semana operacional</h3>
+            <p class="week-section-note">Cada coluna representa um dia real da semana ISO em foco. Cria, edita ou desativa sem sair desta vista.</p>
+          </div>
+          ${renderUiBadge({
+            label: `${page.data.diagnostics.eventCount} notificacao(oes)`,
+            tone: page.data.diagnostics.eventCount > 0 ? 'positive' : 'neutral',
+          })}
+        </div>
+        <div class="week-calendar" data-week-calendar>
+          ${weekDays
+            .map(
+              (day) => `
+                <section class="week-calendar__day${day.isToday ? ' week-calendar__day--today' : ''}" data-week-day="${day.dayLabel}">
+                  <div class="week-calendar__day-header">
+                    <div>
+                      <p class="week-calendar__eyebrow">${escapeHtml(`${day.shortLabel} · ${day.dateLabel}`)}</p>
+                      <h4>${escapeHtml(day.label)}</h4>
+                    </div>
+                    ${renderUiBadge({
+                      label: day.events.length > 0 ? `${day.events.length} evento(s)` : 'Livre',
+                      tone: day.events.length > 0 ? 'positive' : 'neutral',
+                    })}
+                  </div>
+                  <div class="week-calendar__day-meta">
+                    ${renderUiBadge({ label: `pending ${day.notifications.pendingNotifications}`, tone: day.notifications.pendingNotifications > 0 ? 'neutral' : 'positive', style: 'chip' })}
+                    ${renderUiBadge({
+                      label: `waiting_confirmation ${day.notifications.waitingConfirmationNotifications}`,
+                      tone: day.notifications.waitingConfirmationNotifications > 0 ? 'warning' : 'neutral',
+                      style: 'chip',
+                    })}
+                    ${renderUiBadge({ label: `sent ${day.notifications.sentNotifications}`, tone: day.notifications.sentNotifications > 0 ? 'positive' : 'neutral', style: 'chip' })}
+                  </div>
+                  <div class="action-row week-calendar__day-actions">
+                    ${renderUiActionButton({
+                      label: 'Novo neste dia',
+                      variant: 'secondary',
+                      dataAttributes: {
+                        'flow-action': 'schedule-compose-day',
+                        'flow-value': day.dayLabel,
+                      },
+                    })}
+                  </div>
+                  <div class="week-calendar__events">
+                    ${
+                      day.events.length > 0
+                        ? day.events
+                            .map((event) => renderWeekCalendarEventCard(event, draft.eventId === event.eventId))
+                            .join('')
+                        : `
+                          <div class="week-calendar__empty">
+                            <p>Sem notificacoes planeadas neste dia.</p>
+                            <p>Usa o botao acima para abrir o editor ja neste dia.</p>
+                          </div>
+                        `
+                    }
+                  </div>
+                </section>
+              `,
+            )
+            .join('')}
         </div>
       </section>
 
       <section class="content-grid">
         <article class="surface content-card span-7">
           <div class="card-header">
-            <h3>Passo 1. Dados base do agendamento</h3>
+            <h3>${editingEvent ? 'Editar notificacao' : 'Nova notificacao'}</h3>
             ${renderUiBadge({
-              label: editingEvent ? 'A editar evento real' : selectedGroup ? 'Pronto para gravar' : 'Escolhe um grupo',
+              label: editingEvent ? 'Edicao live' : `Dia em foco: ${readableWeekDayLabel(draft.dayLabel)}`,
               tone: editingEvent || selectedGroup ? 'positive' : 'warning',
             })}
           </div>
-          <div class="ui-form-grid">
-            ${renderUiSelectField({
-              label: 'Grupo',
-              value: draft.groupJid,
-              dataKey: 'schedule.groupJid',
-              options: groups.map((group) => ({
-                value: group.groupJid,
-                label: group.preferredSubject,
-              })),
-              hint: 'Escolhe o grupo sem precisares de ver JIDs.',
-            })}
-            ${renderUiInputField({
-              label: 'Titulo',
-              value: draft.title,
-              dataKey: 'schedule.title',
-              placeholder: 'Ex.: Aula aberta de sexta',
-              hint: 'Usa um titulo humano e curto.',
-            })}
-            ${renderUiSelectField({
-              label: 'Dia',
-              value: draft.dayLabel,
-              dataKey: 'schedule.dayLabel',
-              options: [
-                { value: 'segunda-feira', label: 'Segunda-feira' },
-                { value: 'terca-feira', label: 'Terca-feira' },
-                { value: 'quarta-feira', label: 'Quarta-feira' },
-                { value: 'quinta-feira', label: 'Quinta-feira' },
-                { value: 'sexta-feira', label: 'Sexta-feira' },
-                { value: 'sabado', label: 'Sabado' },
-              ],
-            })}
-            ${renderUiInputField({
-              label: 'Hora',
-              value: draft.startTime,
-              dataKey: 'schedule.startTime',
-              type: 'time',
-            })}
-            ${renderUiSelectField({
-              label: 'Duracao',
-              value: draft.durationMinutes,
-              dataKey: 'schedule.durationMinutes',
-              options: [
-                { value: '45', label: '45 minutos' },
-                { value: '60', label: '60 minutos' },
-                { value: '75', label: '75 minutos' },
-                { value: '90', label: '90 minutos' },
-              ],
-            })}
-            ${renderUiTextAreaField({
-              label: 'Notas para a equipa',
-              value: draft.notes,
-              dataKey: 'schedule.notes',
-              rows: 4,
-              placeholder: 'Ex.: levar material de ensaio e confirmar sala 2.',
-              hint: 'Esta nota aparece no preview para veres se a mensagem ficou clara.',
-            })}
+          <div class="week-editor" data-week-editor>
+            <div class="ui-form-grid">
+              ${renderUiSelectField({
+                label: 'Grupo',
+                value: draft.groupJid,
+                dataKey: 'schedule.groupJid',
+                options: groups.map((group) => ({
+                  value: group.groupJid,
+                  label: group.preferredSubject,
+                })),
+                hint: 'Escolhe o grupo sem precisares de ver JIDs.',
+              })}
+              ${renderUiInputField({
+                label: 'Titulo',
+                value: draft.title,
+                dataKey: 'schedule.title',
+                placeholder: 'Ex.: Aula aberta de sexta',
+                hint: 'Usa um titulo humano e curto.',
+              })}
+              ${renderUiSelectField({
+                label: 'Dia',
+                value: draft.dayLabel,
+                dataKey: 'schedule.dayLabel',
+                options: WEEK_DAY_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                })),
+                hint: 'Tambem podes abrir este editor a partir de cada coluna do calendario.',
+              })}
+              ${renderUiInputField({
+                label: 'Hora',
+                value: draft.startTime,
+                dataKey: 'schedule.startTime',
+                type: 'time',
+              })}
+              ${renderUiSelectField({
+                label: 'Duracao',
+                value: draft.durationMinutes,
+                dataKey: 'schedule.durationMinutes',
+                options: [
+                  { value: '45', label: '45 minutos' },
+                  { value: '60', label: '60 minutos' },
+                  { value: '75', label: '75 minutos' },
+                  { value: '90', label: '90 minutos' },
+                ],
+              })}
+              ${renderUiTextAreaField({
+                label: 'Notas para a equipa',
+                value: draft.notes,
+                dataKey: 'schedule.notes',
+                rows: 4,
+                placeholder: 'Ex.: levar material de ensaio e confirmar sala 2.',
+                hint: 'Esta nota aparece no calendario para reveres rapidamente a intencao.',
+              })}
+            </div>
+            <div class="week-editor__summary">
+              <p><strong>Grupo</strong>: ${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe um grupo')}</p>
+              <p><strong>Quando</strong>: ${escapeHtml(`${readableWeekDayLabel(draft.dayLabel)}, ${draft.startTime}`)}</p>
+              <p><strong>Duracao</strong>: ${escapeHtml(`${draft.durationMinutes} minutos`)}</p>
+              <p><strong>Owners</strong>: ${escapeHtml(
+                selectedGroup
+                  ? selectedGroup.ownerLabels.length > 0
+                    ? selectedGroup.ownerLabels.join(', ')
+                    : 'sem owner definido'
+                  : 'sem owner definido',
+              )}</p>
+              <p><strong>Mensagem interna</strong>: ${escapeHtml(draft.notes || 'Sem nota adicional.')}</p>
+              <div class="ui-card__chips">
+                ${notificationLabels.map((label) => renderUiBadge({ label, tone: 'positive', style: 'chip' })).join('')}
+              </div>
+            </div>
           </div>
         </article>
 
         <article class="surface content-card span-5">
           <div class="card-header">
-            <h3>Passo 2. Preview humano</h3>
-            ${renderUiBadge({ label: editingEvent ? 'Edicao live' : 'Antes de confirmar', tone: editingEvent ? 'positive' : 'neutral' })}
+            <h3>Apoio rapido</h3>
+            ${renderUiBadge({ label: 'Operacao diaria', tone: 'positive' })}
           </div>
-          <div class="guide-preview">
-            <p><strong>Grupo</strong>: ${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe um grupo')}</p>
-            <p><strong>Quando</strong>: ${escapeHtml(`${draft.dayLabel}, ${draft.startTime}`)}</p>
-            <p><strong>Duracao</strong>: ${escapeHtml(`${draft.durationMinutes} minutos`)}</p>
-            <p><strong>Owners</strong>: ${escapeHtml(
-              selectedGroup
-                ? selectedGroup.ownerLabels.length > 0
-                  ? `${selectedGroup.ownerLabels.length} owner(s) definidos`
-                  : 'sem owner definido'
-                : 'sem owner definido',
-            )}</p>
-            <p><strong>Mensagem interna</strong>: ${escapeHtml(draft.notes || 'Sem nota adicional.')}</p>
-            <div class="ui-card__chips">
-              ${notificationLabels.map((label) => renderUiBadge({ label, tone: 'positive', style: 'chip' })).join('')}
+          <div class="week-editor">
+            <div class="week-editor__section">
+              <p class="week-section-note">Estados canonicos visiveis no calendario.</p>
+              <ul class="week-state-legend">
+                <li><strong>pending</strong>: notificacao preparada e ainda sem envio fechado.</li>
+                <li><strong>waiting_confirmation</strong>: houve tentativa e o sistema esta a aguardar confirmacao forte.</li>
+                <li><strong>sent</strong>: o envio ja foi observado como concluido.</li>
+              </ul>
             </div>
-          </div>
-          <ul>
-            <li>O fluxo continua a esconder JIDs e IDs da operacao principal.</li>
-            <li>Este botao ja grava no backend real da semana atual.</li>
-            <li>Podes carregar um evento da agenda abaixo para o editar sem sair desta pagina.</li>
-          </ul>
-        </article>
-      </section>
-
-      <section class="content-grid">
-        <article class="surface content-card span-8">
-          <div class="card-header">
-            <h3>Agenda live desta semana</h3>
-            ${renderUiBadge({ label: `${page.data.events.length} eventos`, tone: page.data.events.length > 0 ? 'positive' : 'neutral' })}
-          </div>
-          ${
-            page.data.events.length > 0
-              ? `
-                <div class="card-grid">
-                  ${page.data.events
-                    .map((event) =>
-                      renderUiRecordCard({
-                        title: event.title,
-                        subtitle: `${event.groupLabel} | ${event.dayLabel}, ${event.startTime}`,
-                        badgeLabel:
-                          event.notifications.waitingConfirmation > 0
-                            ? 'A aguardar confirmacao'
-                            : event.notifications.pending > 0
-                              ? 'Com avisos pendentes'
-                              : 'Estavel',
-                        badgeTone:
-                          event.notifications.waitingConfirmation > 0
-                            ? 'warning'
-                            : event.notifications.pending > 0
-                              ? 'neutral'
-                              : 'positive',
-                        chips: [
-                          { label: `${event.durationMinutes} min`, tone: 'neutral' },
-                          { label: `${event.notificationRuleLabels.length} avisos`, tone: 'positive' },
-                        ],
-                        bodyHtml: `
-                          <ul>
-                            <li>Notas: ${escapeHtml(event.notes || 'sem nota')}</li>
-                            <li>Pendentes: ${event.notifications.pending}</li>
-                            <li>Waiting confirmation: ${event.notifications.waitingConfirmation}</li>
-                            <li>Enviados: ${event.notifications.sent}</li>
-                          </ul>
-                          <div class="action-row">
-                            ${renderUiActionButton({
-                              label: 'Editar',
-                              variant: 'secondary',
-                              dataAttributes: {
-                                'flow-action': 'schedule-load-event',
-                                'flow-value': event.eventId,
-                              },
-                            })}
-                          </div>
-                        `,
-                      }),
-                    )
-                    .join('')}
-                </div>
-              `
-              : `
-                <section class="surface placeholder-card">
-                  <div>
-                    <p class="eyebrow">Agenda vazia</p>
-                    <h3>Ainda nao ha eventos gravados nesta semana</h3>
-                    <p>Usa o formulario acima para criar o primeiro agendamento real.</p>
-                  </div>
-                </section>
-              `
-          }
-        </article>
-
-        <article class="surface content-card span-4">
-          <div class="card-header">
-            <h3>Bases rapidas</h3>
-          </div>
-          <div class="card-grid">
-            ${examples
-              .map((example) =>
-                renderUiRecordCard({
-                  title: example.title,
-                  subtitle: example.notes,
-                  badgeLabel: example.preview.dayLabel,
-                  badgeTone: 'neutral',
-                  bodyHtml: `
-                    <ul>
-                      <li>Grupo: ${escapeHtml(example.preview.groupLabel)}</li>
-                      <li>Hora: ${escapeHtml(example.preview.startTime)}</li>
-                      <li>Duracao: ${escapeHtml(example.preview.durationMinutes)} min</li>
-                    </ul>
-                    <div class="action-row">
-                      ${renderUiActionButton({
-                        label: 'Usar como base',
-                        variant: 'secondary',
-                        dataAttributes: {
-                          'flow-action': 'schedule-load-example',
-                          'flow-value': example.key,
-                        },
-                      })}
-                    </div>
-                  `,
-                }),
-              )
-              .join('')}
+            <div class="week-editor__section">
+              <p class="week-section-note">Bases rapidas para preencher o editor num clique.</p>
+              <div class="card-grid">
+                ${examples
+                  .map((example) =>
+                    renderUiRecordCard({
+                      title: example.title,
+                      subtitle: example.notes,
+                      badgeLabel: readableWeekDayLabel(example.preview.dayLabel),
+                      badgeTone: 'neutral',
+                      bodyHtml: `
+                        <ul>
+                          <li>Grupo: ${escapeHtml(example.preview.groupLabel)}</li>
+                          <li>Hora: ${escapeHtml(example.preview.startTime)}</li>
+                          <li>Duracao: ${escapeHtml(example.preview.durationMinutes)} min</li>
+                        </ul>
+                        <div class="action-row">
+                          ${renderUiActionButton({
+                            label: 'Usar como base',
+                            variant: 'secondary',
+                            dataAttributes: {
+                              'flow-action': 'schedule-load-example',
+                              'flow-value': example.key,
+                            },
+                          })}
+                        </div>
+                      `,
+                    }),
+                  )
+                  .join('')}
+              </div>
+            </div>
+            <div class="week-editor__section">
+              <p class="week-section-note">Como operar esta vista sem te perderes.</p>
+              <ul>
+                <li>Clica em Novo neste dia para abrir o editor logo no dia certo.</li>
+                <li>Os cartoes da semana deixam-te editar e desativar sem sair da pagina.</li>
+                <li>O storage continua mensal por grupo; aqui so vemos a projection semanal live.</li>
+              </ul>
+            </div>
           </div>
         </article>
       </section>
@@ -4687,7 +4756,13 @@ export class AppShell {
     }
   }
 
-  private async handleFlowAction(action: string, value?: string): Promise<void> {
+  private async handleFlowAction(
+    action: string,
+    value?: string,
+    options: {
+      readonly confirmed?: boolean;
+    } = {},
+  ): Promise<void> {
     if (action === 'schedule-save') {
       const page = this.readWeekPageData();
 
@@ -4770,6 +4845,35 @@ export class AppShell {
       return;
     }
 
+    if (action === 'schedule-compose-day') {
+      const page = this.readWeekPageData();
+
+      if (!page || !value) {
+        return;
+      }
+
+      const nextDraft = resolveScheduleDraft(
+        {
+          ...this.state.scheduleDraft,
+          eventId: null,
+          dayLabel: value,
+        },
+        page.data.groups,
+      );
+
+      this.state = {
+        ...this.state,
+        scheduleDraft: nextDraft,
+        flowFeedback: {
+          tone: 'positive',
+          message: `Editor preparado para ${readableWeekDayLabel(nextDraft.dayLabel)}. Agora so falta ajustar os detalhes.`,
+        },
+      };
+      this.recordUxEvent('positive', `Editor semanal aberto em ${readableWeekDayLabel(nextDraft.dayLabel)}.`);
+      this.render();
+      return;
+    }
+
     if (action === 'schedule-load-example') {
       const page = this.readWeekPageData();
 
@@ -4828,6 +4932,84 @@ export class AppShell {
       };
       this.recordUxEvent('positive', `Evento ${event.title} carregado para edicao.`);
       this.render();
+      return;
+    }
+
+    if (action === 'schedule-delete') {
+      const page = this.readWeekPageData();
+
+      if (!page || !value) {
+        return;
+      }
+
+      const event = page.data.events.find((candidate) => candidate.eventId === value);
+
+      if (!event) {
+        return;
+      }
+
+      if (!options.confirmed) {
+        this.state = {
+          ...this.state,
+          pendingConfirmation: {
+            domain: 'flow',
+            key: `schedule-delete:${event.eventId}`,
+            action,
+            dataset: {
+              flowValue: event.eventId,
+            },
+            title: `Desativar ${event.title}?`,
+            description:
+              'Isto remove o agendamento real desta semana e apaga a projection ativa desta notificacao. Vale a pena confirmar antes de continuar.',
+            confirmLabel: 'Desativar agora',
+            tone: 'danger',
+          },
+          flowFeedback: {
+            tone: 'warning',
+            message: `Confirmacao pedida antes de desativar ${event.title}.`,
+          },
+        };
+        this.recordUxEvent('warning', `Confirmacao pedida para desativar ${event.title}.`);
+        this.render();
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: `A desativar ${event.title} da semana ${event.weekId}.`,
+        },
+      };
+      this.render();
+
+      try {
+        const result = await this.currentClient().deleteWeeklySchedule(event.eventId, event.groupJid);
+        this.state = {
+          ...this.state,
+          scheduleDraft:
+            this.state.scheduleDraft.eventId === event.eventId ? createEmptyScheduleDraft() : this.state.scheduleDraft,
+          flowFeedback: {
+            tone: result.deleted ? 'positive' : 'warning',
+            message: result.deleted
+              ? `Agendamento ${event.title} desativado da semana ${event.weekId}.`
+              : `O agendamento ${event.title} ja nao existia quando tentaste desativar.`,
+          },
+        };
+        this.recordUxEvent('positive', `Agendamento ${event.title} desativado.`);
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel desativar o agendamento. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
       return;
     }
 
@@ -7621,6 +7803,17 @@ export class AppShell {
       pendingConfirmation: null,
     };
 
+    if (pendingConfirmation.domain === 'flow') {
+      await this.handleFlowAction(
+        pendingConfirmation.action,
+        pendingConfirmation.dataset.flowValue,
+        {
+          confirmed: true,
+        },
+      );
+      return;
+    }
+
     if (pendingConfirmation.domain === 'assistant') {
       await this.handleAssistantAction(pendingConfirmation.action, pendingConfirmation.dataset, {
         confirmed: true,
@@ -8445,6 +8638,201 @@ function buildScheduleExample(
     ...(presets[index] ?? presets[0]),
     groupLabel: group.preferredSubject,
   };
+}
+
+function renderWeekCalendarEventCard(
+  event: WeekPlannerSnapshot['events'][number],
+  active: boolean,
+): string {
+  const status = describeWeekCalendarEventStatus(event);
+
+  return `
+    <article class="week-event-card week-event-card--${status.tone}${active ? ' week-event-card--active' : ''}" data-week-event-id="${escapeHtml(event.eventId)}">
+      <div class="week-event-card__header">
+        <div>
+          <p class="week-calendar__eyebrow">${escapeHtml(`${event.startTime} · ${event.durationMinutes} min`)}</p>
+          <h4>${escapeHtml(event.title)}</h4>
+        </div>
+        ${renderUiBadge({ label: status.label, tone: status.tone })}
+      </div>
+      <p class="week-event-card__group">${escapeHtml(event.groupLabel)}</p>
+      <p class="week-event-card__notes">${escapeHtml(event.notes || 'Sem nota interna.')}</p>
+      <div class="ui-card__chips">
+        ${renderUiBadge({ label: `${event.notificationRuleLabels.length} aviso(s)`, tone: 'positive', style: 'chip' })}
+        ${renderUiBadge({ label: `pending ${event.notifications.pending}`, tone: event.notifications.pending > 0 ? 'neutral' : 'positive', style: 'chip' })}
+        ${renderUiBadge({
+          label: `waiting_confirmation ${event.notifications.waitingConfirmation}`,
+          tone: event.notifications.waitingConfirmation > 0 ? 'warning' : 'neutral',
+          style: 'chip',
+        })}
+        ${renderUiBadge({ label: `sent ${event.notifications.sent}`, tone: event.notifications.sent > 0 ? 'positive' : 'neutral', style: 'chip' })}
+      </div>
+      <dl class="week-event-card__stats">
+        <div>
+          <dt>Dia</dt>
+          <dd>${escapeHtml(readableWeekDayLabel(event.dayLabel))}</dd>
+        </div>
+        <div>
+          <dt>Data</dt>
+          <dd>${escapeHtml(formatWeekDayDateLabel(event.localDate))}</dd>
+        </div>
+        <div>
+          <dt>Grupo</dt>
+          <dd>${escapeHtml(event.groupLabel)}</dd>
+        </div>
+      </dl>
+      <div class="action-row">
+        ${renderUiActionButton({
+          label: 'Editar',
+          variant: 'secondary',
+          dataAttributes: {
+            'flow-action': 'schedule-load-event',
+            'flow-value': event.eventId,
+          },
+        })}
+        ${renderUiActionButton({
+          label: 'Desativar',
+          variant: 'secondary',
+          dataAttributes: {
+            'flow-action': 'schedule-delete',
+            'flow-value': event.eventId,
+          },
+        })}
+      </div>
+    </article>
+  `;
+}
+
+function describeWeekCalendarEventStatus(event: WeekPlannerSnapshot['events'][number]): {
+  readonly label: string;
+  readonly tone: UiTone;
+} {
+  if (event.notifications.waitingConfirmation > 0) {
+    return {
+      label: `${event.notifications.waitingConfirmation} a aguardar`,
+      tone: 'warning',
+    };
+  }
+
+  if (event.notifications.pending > 0) {
+    return {
+      label: `${event.notifications.pending} pendentes`,
+      tone: 'neutral',
+    };
+  }
+
+  if (event.notifications.sent > 0) {
+    return {
+      label: 'Enviado',
+      tone: 'positive',
+    };
+  }
+
+  return {
+    label: 'Sem avisos',
+    tone: 'neutral',
+  };
+}
+
+function buildWeekCalendarDays(snapshot: WeekPlannerSnapshot): readonly WeekCalendarDayView[] {
+  const weekDates = resolveIsoWeekDates(snapshot.focusWeekLabel);
+  const today = new Date().toISOString().slice(0, 10);
+
+  return WEEK_DAY_OPTIONS.map((option, index) => {
+    const localDate = weekDates[index] ?? resolveExistingDateForDay(snapshot.events, option.value) ?? '';
+    const events = snapshot.events
+      .filter((event) => {
+        if (localDate && event.localDate === localDate) {
+          return true;
+        }
+
+        return normalizeWeekDayLabel(event.dayLabel) === option.value;
+      })
+      .slice()
+      .sort(
+        (left, right) =>
+          left.startTime.localeCompare(right.startTime) ||
+          left.title.localeCompare(right.title) ||
+          left.eventId.localeCompare(right.eventId),
+      );
+
+    return {
+      dayLabel: option.value,
+      label: option.label,
+      shortLabel: option.shortLabel,
+      localDate,
+      dateLabel: localDate ? formatWeekDayDateLabel(localDate) : option.shortLabel,
+      events,
+      notifications: {
+        pendingNotifications: events.reduce((sum, event) => sum + event.notifications.pending, 0),
+        waitingConfirmationNotifications: events.reduce(
+          (sum, event) => sum + event.notifications.waitingConfirmation,
+          0,
+        ),
+        sentNotifications: events.reduce((sum, event) => sum + event.notifications.sent, 0),
+      },
+      isToday: localDate === today,
+    };
+  });
+}
+
+function resolveIsoWeekDates(weekLabel: string): readonly string[] {
+  const match = /^(\d{4})-W(\d{2})$/u.exec(weekLabel);
+
+  if (!match) {
+    return [];
+  }
+
+  const year = Number.parseInt(match[1] ?? '', 10);
+  const week = Number.parseInt(match[2] ?? '', 10);
+
+  if (!Number.isInteger(year) || !Number.isInteger(week) || week < 1 || week > 53) {
+    return [];
+  }
+
+  const januaryFourth = new Date(Date.UTC(year, 0, 4));
+  const januaryFourthDay = januaryFourth.getUTCDay() || 7;
+  const monday = new Date(januaryFourth);
+  monday.setUTCDate(januaryFourth.getUTCDate() - januaryFourthDay + 1 + (week - 1) * 7);
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const current = new Date(monday);
+    current.setUTCDate(monday.getUTCDate() + index);
+    return current.toISOString().slice(0, 10);
+  });
+}
+
+function resolveExistingDateForDay(
+  events: readonly WeekPlannerSnapshot['events'][number][],
+  dayLabel: WeekDayValue,
+): string | null {
+  return events.find((event) => normalizeWeekDayLabel(event.dayLabel) === dayLabel)?.localDate ?? null;
+}
+
+function readableWeekDayLabel(dayLabel: string): string {
+  const normalized = normalizeWeekDayLabel(dayLabel);
+  return WEEK_DAY_OPTIONS.find((option) => option.value === normalized)?.label ?? dayLabel;
+}
+
+function normalizeWeekDayLabel(dayLabel: string): string {
+  return dayLabel
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function formatWeekDayDateLabel(localDate: string): string {
+  const [, month, day] = localDate.split('-');
+  const monthLabels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const monthIndex = Number.parseInt(month ?? '', 10) - 1;
+  const safeDay = day ?? localDate;
+
+  if (!month || !day || monthIndex < 0 || monthIndex >= monthLabels.length) {
+    return localDate;
+  }
+
+  return `${safeDay} ${monthLabels[monthIndex]}`;
 }
 
 function resolveDistributionDraft(

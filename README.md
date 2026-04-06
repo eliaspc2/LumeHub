@@ -217,7 +217,7 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 54` ja foram executadas e validadas.
+As `Wave 0` a `Wave 55` ja foram executadas e validadas.
 O `LumeHub` ja tem:
 
 - runtime `Live` operacional com WhatsApp, LLM, scheduling, alerts e automations
@@ -248,10 +248,11 @@ Em `2026-04-06`, a leitura canonica passa a ser esta:
   - ou migracao parcial por areas
   - nao cutover total imediato
 - a ronda curta de operacao de migracao tambem ficou fechada com a `Wave 51`
-- a validacao consolidada mais recente do backlog ativo passou a ser `validate:wave54`
+- a validacao consolidada mais recente do backlog ativo passou a ser `validate:wave55`
 - a `Wave 52` ja fechou a fundacao do modelo `group-first`
 - a `Wave 53` ja fechou a shell `group-first`, com switcher global de grupo e navegacao principal curta
 - a `Wave 54` ja fechou a pagina operacional de grupo, com owner, modos e politicas locais persistentes
+- a `Wave 55` ja fechou o calendario semanal como vista operacional principal, com create/edit/deactivate inline e leitura clara de `pending`, `waiting_confirmation` e `sent`
 O storage canonico de inteligencia por grupo ja ficou aberto com:
 
 - `data/groups/<jid>/llm/instructions.md`

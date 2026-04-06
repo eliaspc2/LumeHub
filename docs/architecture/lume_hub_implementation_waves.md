@@ -100,33 +100,11 @@ Regra desta ronda:
 A `Wave 52` ja fechou a fundacao do modelo `group-first`, deixando o contrato canonico de modos de grupo, settings operacionais locais e snapshot de paginas futuras alinhado entre backend, frontend e seeds sem regressao do runtime atual.
 A `Wave 53` ja fechou a shell `group-first`, com navegacao principal curta, `Migracao` secundario, switcher global de grupo e rota base `group-first` em `/groups/:groupJid`.
 A `Wave 54` ja fechou a pagina operacional por grupo, com resumo claro, dropdown local para trocar de grupo, owner operacional, modos, policy de tag ao bot e switches locais persistentes sem perder instrucoes e documentos isolados.
+A `Wave 55` ja fechou o calendario semanal de notificacoes como vista operacional principal, com grelha por dia, leitura clara de `pending`, `waiting_confirmation` e `sent`, e acoes de criar, editar e desativar sem mexer na fronteira mensal do storage.
 
 Primeiros pontos em que vale a pena o utilizador testar:
 
-- no fim da `Wave 55`, para validar se o calendario semanal representa a operacao certa
 - no fim da `Wave 57`, para validar se ownership e politicas de grupo batem certo com o workflow real
-
-### Wave 55 - Calendario semanal de notificacoes
-
-Objetivo:
-- fazer do calendario semanal de notificacoes a vista principal de operacao
-
-Entregaveis esperados:
-- vista semanal canonica para notificacoes por grupo
-- leitura clara de:
-  - `pending`
-  - `waiting_confirmation`
-  - `sent`
-- criacao, edicao e desativacao de notificacoes no proprio calendario semanal
-- traducao da storage mensal canonica para projection semanal sem mudar a fronteira de persistencia
-
-Validacao esperada:
-- `validate:wave55`
-- browser headless da pagina semanal
-- smoke de criar, editar e desativar notificacao
-
-Vale a pena o utilizador testar aqui?
-- sim; este e o checkpoint principal para validar se a UX semanal esta certa
 
 ### Wave 56 - Modos do grupo e roteamento `agendamento` vs `distribuicao`
 

@@ -1594,6 +1594,208 @@ textarea {
   line-height: 1.5;
 }
 
+.week-section-note {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+.week-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.week-calendar__day {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(244, 248, 242, 0.92)),
+    var(--surface-subtle);
+}
+
+.week-calendar__day--today {
+  border-color: rgba(105, 138, 87, 0.3);
+  box-shadow: inset 0 0 0 1px rgba(105, 138, 87, 0.12);
+}
+
+.week-calendar__day-header,
+.week-event-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.week-calendar__day-header h4,
+.week-event-card__header h4 {
+  margin: 0;
+  font-size: 1.02rem;
+  line-height: 1.34;
+}
+
+.week-calendar__eyebrow {
+  margin: 0 0 6px;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.week-calendar__day-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.week-calendar__day-actions .ui-button {
+  width: 100%;
+}
+
+.week-calendar__events {
+  display: grid;
+  gap: 12px;
+}
+
+.week-calendar__empty {
+  padding: 16px;
+  border: 1px dashed rgba(174, 186, 171, 0.9);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.week-calendar__empty p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+.week-calendar__empty p + p {
+  margin-top: 8px;
+}
+
+.week-editor {
+  display: grid;
+  gap: 18px;
+}
+
+.week-editor__section {
+  display: grid;
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.week-editor__section:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.week-editor__summary {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  background: var(--surface-subtle);
+}
+
+.week-editor__summary p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+.week-event-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.week-event-card--neutral {
+  border-color: rgba(135, 151, 132, 0.34);
+}
+
+.week-event-card--positive {
+  border-color: rgba(105, 138, 87, 0.28);
+  background: rgba(239, 247, 236, 0.9);
+}
+
+.week-event-card--warning {
+  border-color: rgba(211, 154, 69, 0.3);
+  background: rgba(255, 247, 232, 0.92);
+}
+
+.week-event-card--active {
+  box-shadow: inset 0 0 0 2px rgba(105, 138, 87, 0.18);
+}
+
+.week-event-card__group,
+.week-event-card__notes {
+  margin: 0;
+  line-height: 1.58;
+}
+
+.week-event-card__group {
+  color: var(--ink-strong);
+  font-weight: 700;
+}
+
+.week-event-card__notes {
+  color: var(--ink-soft);
+}
+
+.week-event-card__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.week-event-card__stats div {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(202, 212, 200, 0.8);
+}
+
+.week-event-card__stats dt {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.week-event-card__stats dd {
+  margin: 6px 0 0;
+  color: var(--ink-strong);
+  font-weight: 700;
+}
+
+.week-state-legend {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.week-state-legend li {
+  color: var(--ink-soft);
+  line-height: 1.58;
+}
+
 .state-card,
 .placeholder-card {
   min-height: 320px;
@@ -1698,6 +1900,10 @@ textarea {
   .workspace-search-actions .ui-button {
     width: 100%;
   }
+
+  .week-calendar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 960px) {
@@ -1735,6 +1941,14 @@ textarea {
   .acl-access-row {
     grid-template-columns: 1fr;
   }
+
+  .week-calendar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .week-event-card__stats {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1770,5 +1984,9 @@ textarea {
 
   .header-group-switcher {
     width: 100%;
+  }
+
+  .week-calendar {
+    grid-template-columns: 1fr;
   }
 }
