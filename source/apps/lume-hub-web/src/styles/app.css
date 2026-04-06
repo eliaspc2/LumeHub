@@ -583,6 +583,11 @@ textarea {
   gap: 20px;
 }
 
+.group-page-switcher {
+  margin-top: 18px;
+  max-width: 420px;
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -670,6 +675,43 @@ textarea {
 .card-header p {
   margin: 5px 0 0;
   color: var(--ink-soft);
+}
+
+.group-page-overview-grid {
+  margin-bottom: 18px;
+}
+
+.group-configuration-card {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcfb 100%);
+}
+
+.group-settings-note {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  background: var(--surface-subtle);
+}
+
+.group-settings-note strong {
+  color: var(--ink-strong);
+}
+
+.group-settings-note p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.58;
+}
+
+.group-settings-switches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.group-settings-switches .ui-switch {
+  height: 100%;
 }
 
 .surface ul {

@@ -57,6 +57,7 @@ export interface WhatsAppManagementPageData {
 
 export interface GroupManagementPageData {
   readonly groups: readonly import('@lume-hub/frontend-api-client').Group[];
+  readonly people: readonly Person[];
   readonly commandSettings: SettingsSnapshot['adminSettings']['commands'];
   readonly selectedGroupJid: string | null;
   readonly previewText: string;
@@ -218,9 +219,10 @@ export class AppRouter {
         description: 'Workspace por grupo com contexto isolado, owners e politicas locais.',
         navigationPlacement: 'primary',
         render: async () => {
-          const [groups, settings] = await Promise.all([
+          const [groups, settings, people] = await Promise.all([
             this.readQuery('groups', () => this.client.listGroups()),
             this.readQuery('settings', () => this.client.getSettings()),
+            this.readOptionalPeople(),
           ]);
           const selectedGroupJid =
             this.groupManagementSelection.selectedGroupJid && groups.some((group) => group.groupJid === this.groupManagementSelection.selectedGroupJid)
@@ -254,6 +256,7 @@ export class AppRouter {
             ...basePage,
             data: {
               groups,
+              people,
               commandSettings: settings.adminSettings.commands,
               selectedGroupJid,
               previewText: this.groupManagementSelection.previewText,

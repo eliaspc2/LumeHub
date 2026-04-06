@@ -148,8 +148,12 @@ Os gaps principais ja nao sao de paridade tecnica com o `WA-notify`; passam a se
   - `Migracao` passou a area secundaria
   - switcher global de grupo visivel
   - rota base `/groups/:groupJid`
+- a `Wave 54` ja fechou a pagina de grupo como unidade operacional explicita:
+  - dropdown local para trocar de grupo
+  - owner operacional persistente
+  - modo do grupo, policy de tag e switches locais na mesma pagina
+  - instrucoes e documentos mantidos como contexto isolado do grupo
 - a vista principal ainda nao e um calendario semanal de notificacoes
-- cada grupo ainda nao e uma unidade operacional explicita com modo, owner e politicas locais
 - `WhatsApp`, `LumeHub` e `LLM` ainda nao estao separados em paginas dedicadas como experiencia final
 
 ## Trabalho futuro fora do scope atual

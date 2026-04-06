@@ -15,10 +15,11 @@ import type {
   LegacyScheduleImportFileSnapshot,
   LegacyScheduleImportReportSnapshot,
   LlmChatInput,
-  MediaAssetSnapshot,
-  MessageAlertMatchSnapshot,
-  PersonRole,
-  SettingsSnapshot,
+    MediaAssetSnapshot,
+    MessageAlertMatchSnapshot,
+    Person,
+    PersonRole,
+    SettingsSnapshot,
   WhatsAppWorkspaceSnapshot,
   WatchdogIssue,
   WorkspaceAgentRunSnapshot,
@@ -2442,7 +2443,7 @@ export class AppShell {
   }
 
   private renderGroupsPage(page: UiPage<GroupManagementPageData>): string {
-    const { groups, intelligence, contextPreview } = page.data;
+    const { groups, people, intelligence, contextPreview } = page.data;
     const selectedGroup =
       groups.find((group) => group.groupJid === this.state.groupManagementDraft.selectedGroupJid) ?? null;
     const selectedDocument =
@@ -2460,12 +2461,28 @@ export class AppShell {
           : 'danger';
     const authorizedGroupJids = resolveAuthorizedGroupJidsForCommands(groups, page.data.commandSettings);
     const activeGroups = authorizedGroupJids.length;
+    const assistantAuthorized = selectedGroup ? authorizedGroupJids.includes(selectedGroup.groupJid) : false;
+    const ownerSummary = selectedGroup ? describeGroupOwners(selectedGroup, people) : 'Sem responsavel definido.';
+    const primaryOwnerPersonId = selectedGroup?.groupOwners[0]?.personId ?? '';
+    const primaryOwnerLabel =
+      primaryOwnerPersonId.length > 0 ? resolvePersonDisplayName(primaryOwnerPersonId, people) : 'Sem responsavel definido';
+    const groupModeLabel = selectedGroup ? readableGroupMode(selectedGroup.operationalSettings.mode) : 'Escolher grupo';
+    const groupModeTone = selectedGroup ? toneForGroupMode(selectedGroup.operationalSettings.mode) : 'warning';
+    const memberTagLabel = selectedGroup
+      ? readableGroupMemberTagPolicy(selectedGroup.operationalSettings.memberTagPolicy)
+      : 'Sem grupo';
+    const schedulingLabel =
+      selectedGroup && selectedGroup.operationalSettings.schedulingEnabled ? 'Agendamento ativo' : 'Agendamento desligado';
+    const llmSchedulingLabel =
+      selectedGroup && selectedGroup.operationalSettings.allowLlmScheduling ? 'LLM pode agendar' : 'LLM sem scheduling';
+    const ownerOptions = selectedGroup ? buildGroupOwnerOptions(selectedGroup, people) : [{ value: '', label: 'Sem pessoas conhecidas' }];
+    const ownerOverflowCount = Math.max((selectedGroup?.groupOwners.length ?? 0) - (primaryOwnerPersonId ? 1 : 0), 0);
 
     return `
       <section class="surface hero surface--strong">
         <div>
-          <p class="eyebrow">Inteligencia por grupo</p>
-          <h2>Editar instrucoes e documentos do grupo certo sem misturar contexto com outras turmas.</h2>
+          <p class="eyebrow">Pagina do grupo</p>
+          <h2>Gerir owner, modo e politicas locais sem perder o contexto isolado de cada grupo.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
@@ -2479,26 +2496,44 @@ export class AppShell {
               dataAttributes: { route: '/whatsapp' },
             })}
           </div>
+          ${
+            groups.length > 0
+              ? `
+                <label class="ui-field group-page-switcher">
+                  <span class="ui-field__label">Trocar grupo nesta pagina</span>
+                  <select class="ui-control" data-group-page-switcher>
+                    ${groups
+                      .map(
+                        (group) =>
+                          `<option value="${escapeHtml(group.groupJid)}"${group.groupJid === selectedGroup?.groupJid ? ' selected' : ''}>${escapeHtml(group.preferredSubject)}</option>`,
+                      )
+                      .join('')}
+                  </select>
+                  <span class="ui-field__hint">Ao trocares aqui, abres logo o workspace operacional desse grupo.</span>
+                </label>
+              `
+              : ''
+          }
         </div>
         <div class="hero-panel">
           ${renderUiPanelCard({
             title: 'Grupo em foco',
-            badgeLabel: selectedGroup ? selectedGroup.preferredSubject : 'Escolher grupo',
-            badgeTone: selectedGroup ? 'positive' : 'warning',
+            badgeLabel: selectedGroup ? groupModeLabel : 'Escolher grupo',
+            badgeTone: groupModeTone,
             contentHtml: `<p>${escapeHtml(
               selectedGroup
-                ? `Estas a gerir ${selectedGroup.preferredSubject}. O contexto fica isolado neste grupo.`
-                : 'Escolhe um grupo para veres instrucoes, documentos e preview.',
+                ? `Estas a gerir ${selectedGroup.preferredSubject}. O owner atual e ${primaryOwnerLabel} e o contexto continua isolado neste grupo.`
+                : 'Escolhe um grupo para veres owner, politicas locais, instrucoes e documentos.',
             )}</p>`,
           })}
           ${renderUiPanelCard({
-            title: 'Estado das instrucoes',
-            badgeLabel: instructionsState,
-            badgeTone: instructionsTone,
+            title: 'Comportamento esperado',
+            badgeLabel: memberTagLabel,
+            badgeTone: selectedGroup?.operationalSettings.memberTagPolicy === 'members_can_tag' ? 'positive' : 'warning',
             contentHtml: `<p>${escapeHtml(
-              intelligence?.instructions.source === 'llm_instructions'
-                ? 'A LLM ja esta a usar o ficheiro canonico deste grupo.'
-                : 'Ainda falta criar ou guardar instrucoes especificas para este grupo.',
+              selectedGroup
+                ? describeGroupMode(selectedGroup.operationalSettings.mode, selectedGroup.operationalSettings.allowLlmScheduling)
+                : 'Escolhe um grupo para a pagina te explicar o que o bot pode fazer aqui.',
             )}</p>`,
           })}
         </div>
@@ -2517,7 +2552,10 @@ export class AppShell {
       <section class="content-grid">
         <article class="surface content-card span-4">
           <div class="card-header card-header--with-switch">
-            <h3>Grupos</h3>
+            <div>
+              <h3>Mapa de grupos</h3>
+              <p>Troca rapidamente entre grupos e confirma onde o assistente esta ligado.</p>
+            </div>
             <div class="card-header__actions card-header__actions--group-master">
               ${renderUiBadge({ label: `${groups.length} grupos`, tone: 'neutral' })}
               ${renderUiSwitch({
@@ -2536,7 +2574,7 @@ export class AppShell {
             ${groups
               .map((group) => {
                 const isSelected = group.groupJid === selectedGroup?.groupJid;
-                const owners = group.groupOwners.map((owner) => owner.personId.replace('person-', '')).join(', ');
+                const owners = describeGroupOwners(group, people);
                 const groupAuthorized = authorizedGroupJids.includes(group.groupJid);
 
                 return `
@@ -2549,7 +2587,7 @@ export class AppShell {
                     >
                       <strong>${escapeHtml(group.preferredSubject)}</strong>
                       <time>${escapeHtml(group.courseId ?? 'Sem curso associado')}</time>
-                      <p>${escapeHtml(owners.length > 0 ? `Responsavel: ${owners}` : 'Sem responsavel definido.')}</p>
+                      <p>${escapeHtml(`${owners} • ${readableGroupMode(group.operationalSettings.mode)}`)}</p>
                     </button>
                     <div class="group-tile__switch">
                       ${renderUiSwitch({
@@ -2570,6 +2608,178 @@ export class AppShell {
         </article>
 
         <article class="surface content-card span-8">
+          <div class="card-header">
+            <div>
+              <h3>Configuracao operacional</h3>
+              <p>Esta pagina deve responder primeiro a owner, modo do grupo, tags ao bot e switches locais.</p>
+            </div>
+            ${renderUiBadge({ label: selectedGroup ? selectedGroup.preferredSubject : 'Escolher grupo', tone: selectedGroup ? 'positive' : 'warning' })}
+          </div>
+          ${
+            selectedGroup
+              ? `
+                <div class="card-grid group-page-overview-grid">
+                  ${renderUiRecordCard({
+                    title: 'Resumo operacional',
+                    subtitle: ownerSummary,
+                    badgeLabel: assistantAuthorized ? 'Assistente ligado' : 'Assistente bloqueado',
+                    badgeTone: assistantAuthorized ? 'positive' : 'warning',
+                    chips: [
+                      { label: groupModeLabel, tone: groupModeTone },
+                      {
+                        label: schedulingLabel,
+                        tone: selectedGroup.operationalSettings.schedulingEnabled ? 'positive' : 'warning',
+                      },
+                      {
+                        label: llmSchedulingLabel,
+                        tone: selectedGroup.operationalSettings.allowLlmScheduling ? 'positive' : 'warning',
+                      },
+                    ],
+                    bodyHtml: `
+                      <p><strong>Tags ao bot</strong>: ${escapeHtml(memberTagLabel)}.</p>
+                      <p><strong>Calendario</strong>: ${escapeHtml(
+                        `Membros ${readableCalendarAccessMode(selectedGroup.calendarAccessPolicy.group)}, Responsavel ${readableCalendarAccessMode(selectedGroup.calendarAccessPolicy.groupOwner)}, Admin ${readableCalendarAccessMode(selectedGroup.calendarAccessPolicy.appOwner)}.`,
+                      )}</p>
+                    `,
+                    detailsSummary: this.state.advancedDetailsEnabled ? 'Detalhes tecnicos deste grupo' : undefined,
+                    detailsHtml: this.state.advancedDetailsEnabled
+                      ? `
+                          <p>JID: ${escapeHtml(selectedGroup.groupJid)}</p>
+                          <p>Alias: ${escapeHtml(selectedGroup.aliases.join(', ') || 'sem alias')}</p>
+                          <p>Instrucoes canonicas: ${escapeHtml(intelligence?.instructions.primaryFilePath ?? 'ainda sem ficheiro carregado')}</p>
+                        `
+                      : undefined,
+                  })}
+                  ${renderUiRecordCard({
+                    title: 'Como este grupo opera',
+                    subtitle:
+                      selectedGroup.operationalSettings.mode === 'com_agendamento'
+                        ? 'Pedidos deste grupo podem entrar no fluxo assistido de scheduling.'
+                        : 'Mensagens entram em distribuicao/fan-out e nao em agendamento local por defeito.',
+                    badgeLabel: memberTagLabel,
+                    badgeTone:
+                      selectedGroup.operationalSettings.memberTagPolicy === 'members_can_tag' ? 'positive' : 'warning',
+                    bodyHtml: `
+                      <p>${escapeHtml(
+                        describeGroupMode(
+                          selectedGroup.operationalSettings.mode,
+                          selectedGroup.operationalSettings.allowLlmScheduling,
+                        ),
+                      )}</p>
+                      <p>${escapeHtml(
+                        selectedGroup.operationalSettings.memberTagPolicy === 'members_can_tag'
+                          ? 'Qualquer membro pode dirigir o bot neste grupo quando a policy o permitir.'
+                          : 'So o owner do grupo pode dirigir o bot neste grupo por tag.',
+                      )}</p>
+                    `,
+                  })}
+                </div>
+
+                <article class="surface ui-card group-configuration-card">
+                  <div class="ui-card__header">
+                    <div>
+                      <p class="ui-card__eyebrow">Configuracao</p>
+                      <h3 class="ui-card__title">Owner, modo e politicas locais</h3>
+                    </div>
+                    ${renderUiBadge({ label: instructionsState, tone: instructionsTone })}
+                  </div>
+                  <div class="ui-card__content">
+                    <div class="ui-form-grid ui-form-grid--double">
+                      <label class="ui-field">
+                        <span class="ui-field__label">Responsavel do grupo</span>
+                        <select
+                          class="ui-control"
+                          data-group-owner-select
+                          data-group-jid="${escapeHtml(selectedGroup.groupJid)}"
+                          ${ownerOptions.length <= 1 ? 'disabled' : ''}
+                        >
+                          ${ownerOptions
+                            .map(
+                              (option) =>
+                                `<option value="${escapeHtml(option.value)}"${option.value === primaryOwnerPersonId ? ' selected' : ''}>${escapeHtml(option.label)}</option>`,
+                            )
+                            .join('')}
+                        </select>
+                        <span class="ui-field__hint">${escapeHtml(
+                          ownerOverflowCount > 0
+                            ? `Existem ${ownerOverflowCount} owner(s) extra no catalogo atual; esta pagina assume um owner operacional principal.`
+                            : 'Ao mudar aqui, o grupo fica com esse owner operacional principal.',
+                        )}</span>
+                      </label>
+                      <label class="ui-field">
+                        <span class="ui-field__label">Modo do grupo</span>
+                        <select
+                          class="ui-control"
+                          data-group-operational-setting="mode"
+                          data-group-jid="${escapeHtml(selectedGroup.groupJid)}"
+                        >
+                          <option value="com_agendamento"${selectedGroup.operationalSettings.mode === 'com_agendamento' ? ' selected' : ''}>Com agendamento</option>
+                          <option value="distribuicao_apenas"${selectedGroup.operationalSettings.mode === 'distribuicao_apenas' ? ' selected' : ''}>Distribuicao apenas</option>
+                        </select>
+                        <span class="ui-field__hint">Define se este grupo usa scheduling assistido ou apenas distribuicao.</span>
+                      </label>
+                    </div>
+                    <div class="ui-form-grid ui-form-grid--double">
+                      <label class="ui-field">
+                        <span class="ui-field__label">Quem pode tagar o bot</span>
+                        <select
+                          class="ui-control"
+                          data-group-operational-setting="memberTagPolicy"
+                          data-group-jid="${escapeHtml(selectedGroup.groupJid)}"
+                        >
+                          <option value="members_can_tag"${selectedGroup.operationalSettings.memberTagPolicy === 'members_can_tag' ? ' selected' : ''}>Membros podem tagar</option>
+                          <option value="owner_only"${selectedGroup.operationalSettings.memberTagPolicy === 'owner_only' ? ' selected' : ''}>So o owner pode tagar</option>
+                        </select>
+                        <span class="ui-field__hint">A policy define quem pode dirigir o bot no grupo antes de qualquer ACL mais fina.</span>
+                      </label>
+                      <div class="group-settings-note">
+                        <strong>Switches locais</strong>
+                        <p>Estes switches deixam-te separar o modo do grupo da disponibilidade real do assistente e do scheduling.</p>
+                      </div>
+                    </div>
+                    <div class="group-settings-switches">
+                      ${renderUiSwitch({
+                        label: 'Assistente neste grupo',
+                        checked: assistantAuthorized,
+                        description: assistantAuthorized ? 'Ligado neste grupo.' : 'Bloqueado neste grupo.',
+                        dataAttributes: {
+                          'group-action': 'toggle-group-authorized',
+                          'group-jid': selectedGroup.groupJid,
+                        },
+                      })}
+                      ${renderUiSwitch({
+                        label: 'Agendamento ativo',
+                        checked: selectedGroup.operationalSettings.schedulingEnabled,
+                        description: selectedGroup.operationalSettings.schedulingEnabled
+                          ? 'O grupo pode manter scheduling local ativo.'
+                          : 'O scheduling local fica desligado neste grupo.',
+                        dataAttributes: {
+                          'group-action': 'toggle-scheduling-enabled',
+                          'group-jid': selectedGroup.groupJid,
+                        },
+                      })}
+                      ${renderUiSwitch({
+                        label: 'LLM pode decidir agendamentos',
+                        checked: selectedGroup.operationalSettings.allowLlmScheduling,
+                        description: selectedGroup.operationalSettings.allowLlmScheduling
+                          ? 'A LLM pode preparar ou decidir scheduling neste grupo.'
+                          : 'A LLM fica sem poderes de scheduling neste grupo.',
+                        dataAttributes: {
+                          'group-action': 'toggle-llm-scheduling',
+                          'group-jid': selectedGroup.groupJid,
+                        },
+                      })}
+                    </div>
+                  </div>
+                </article>
+              `
+              : '<p>Escolhe um grupo na coluna da esquerda para comecares a gerir owner, politicas locais e contexto LLM.</p>'
+          }
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-7">
           <div class="card-header">
             <div>
               <h3>Instrucoes e preview</h3>
@@ -2659,13 +2869,11 @@ export class AppShell {
                     : ''
                 }
               `
-              : '<p>Escolhe um grupo na coluna da esquerda para comecares a editar instrucoes e preview.</p>'
+              : '<p>Escolhe um grupo para comecares a editar instrucoes e preview.</p>'
           }
         </article>
-      </section>
 
-      <section class="content-grid">
-        <article class="surface content-card span-12">
+        <article class="surface content-card span-5">
           <div class="card-header">
             <div>
               <h3>Documentos deste grupo</h3>
@@ -2686,52 +2894,51 @@ export class AppShell {
                     dataAttributes: { 'group-action': 'new-document' },
                   })}
                 </div>
-                <div class="content-grid">
-                  <div class="span-4">
-                    <div class="timeline">
-                      ${
-                        intelligence && intelligence.knowledge.documents.length > 0
-                          ? intelligence.knowledge.documents
-                              .map((document) => {
-                                const isSelected = document.documentId === selectedDocument?.documentId;
+                <div class="timeline">
+                  ${
+                    intelligence && intelligence.knowledge.documents.length > 0
+                      ? intelligence.knowledge.documents
+                          .map((document) => {
+                            const isSelected = document.documentId === selectedDocument?.documentId;
 
-                                return `
-                                  <article class="timeline-item ${isSelected ? 'group-document--selected' : ''}">
-                                    <strong>${escapeHtml(document.title)}</strong>
-                                    <time>${escapeHtml(document.filePath)}</time>
-                                    <p>${escapeHtml(document.summary ?? 'Sem resumo ainda.')}</p>
-                                    <div class="action-row">
-                                      ${renderUiActionButton({
-                                        label: isSelected ? 'A editar' : 'Editar',
-                                        variant: isSelected ? 'primary' : 'secondary',
-                                        dataAttributes: {
-                                          'group-action': 'load-document',
-                                          'group-document-id': document.documentId,
-                                        },
-                                      })}
-                                      ${renderUiActionButton({
-                                        label: 'Apagar',
-                                        variant: 'secondary',
-                                        dataAttributes: {
-                                          'group-action': 'delete-document',
-                                          'group-document-id': document.documentId,
-                                        },
-                                      })}
-                                    </div>
-                                  </article>
-                                `;
-                              })
-                              .join('')
-                          : `
-                            <div class="timeline-item">
-                              <strong>Sem documentos ainda</strong>
-                              <time>Podes guardar aqui o primeiro documento desta knowledge base.</time>
-                            </div>
-                          `
-                      }
-                    </div>
-                  </div>
-                  <div class="span-8">
+                            return `
+                              <article class="timeline-item ${isSelected ? 'group-document--selected' : ''}">
+                                <strong>${escapeHtml(document.title)}</strong>
+                                <time>${escapeHtml(document.filePath)}</time>
+                                <p>${escapeHtml(document.summary ?? 'Sem resumo ainda.')}</p>
+                                <div class="action-row">
+                                  ${renderUiActionButton({
+                                    label: isSelected ? 'A editar' : 'Editar',
+                                    variant: isSelected ? 'primary' : 'secondary',
+                                    dataAttributes: {
+                                      'group-action': 'load-document',
+                                      'group-document-id': document.documentId,
+                                    },
+                                  })}
+                                  ${renderUiActionButton({
+                                    label: 'Apagar',
+                                    variant: 'secondary',
+                                    dataAttributes: {
+                                      'group-action': 'delete-document',
+                                      'group-document-id': document.documentId,
+                                    },
+                                  })}
+                                </div>
+                              </article>
+                            `;
+                          })
+                          .join('')
+                      : `
+                        <div class="timeline-item">
+                          <strong>Sem documentos ainda</strong>
+                          <time>Podes guardar aqui o primeiro documento desta knowledge base.</time>
+                        </div>
+                      `
+                  }
+                </div>
+                <details class="ui-details">
+                  <summary>Editar documento selecionado</summary>
+                  <div class="ui-details__content">
                     <div class="ui-form-grid">
                       ${renderUiInputField({
                         label: 'Titulo humano',
@@ -2812,7 +3019,7 @@ export class AppShell {
                       })}
                     </div>
                   </div>
-                </div>
+                </details>
               `
               : '<p>Escolhe primeiro um grupo para comecares a gerir documentos de conhecimento.</p>'
           }
@@ -6222,6 +6429,118 @@ export class AppShell {
       return;
     }
 
+    if (action === 'set-group-owner') {
+      const groupJid = dataset.groupJid;
+      const personId = dataset.personId?.trim() ?? '';
+      const group = page.data.groups.find((candidate) => candidate.groupJid === groupJid);
+
+      if (!groupJid || !group) {
+        return;
+      }
+
+      const nextOwners = personId.length > 0 ? [{ personId }] : [];
+      const ownerLabel = personId.length > 0 ? resolvePersonDisplayName(personId, page.data.people) : null;
+
+      await this.runGroupMutation(
+        async () => {
+          await this.currentClient().replaceGroupOwners(groupJid, nextOwners);
+        },
+        ownerLabel
+          ? `${ownerLabel} ficou como owner operacional de ${group.preferredSubject}.`
+          : `O owner operacional de ${group.preferredSubject} ficou limpo.`,
+      );
+      return;
+    }
+
+    if (action === 'set-operational-setting') {
+      const groupJid = dataset.groupJid;
+      const setting = dataset.setting;
+      const value = dataset.value;
+      const group = page.data.groups.find((candidate) => candidate.groupJid === groupJid);
+
+      if (!groupJid || !group || !setting || !value) {
+        return;
+      }
+
+      if (setting === 'mode') {
+        if (!isGroupMode(value)) {
+          return;
+        }
+
+        await this.runGroupMutation(
+          async () => {
+            await this.currentClient().updateGroupOperationalSettings(groupJid, {
+              mode: value,
+            });
+          },
+          `${group.preferredSubject} ficou em modo ${readableGroupMode(value)}.`,
+        );
+        return;
+      }
+
+      if (setting === 'memberTagPolicy') {
+        if (!isGroupMemberTagPolicy(value)) {
+          return;
+        }
+
+        await this.runGroupMutation(
+          async () => {
+            await this.currentClient().updateGroupOperationalSettings(groupJid, {
+              memberTagPolicy: value,
+            });
+          },
+          `${group.preferredSubject}: ${readableGroupMemberTagPolicy(value)}.`,
+        );
+      }
+      return;
+    }
+
+    if (action === 'toggle-scheduling-enabled') {
+      const groupJid = dataset.groupJid;
+      const group = page.data.groups.find((candidate) => candidate.groupJid === groupJid);
+
+      if (!groupJid || !group) {
+        return;
+      }
+
+      const nextValue = !group.operationalSettings.schedulingEnabled;
+
+      await this.runGroupMutation(
+        async () => {
+          await this.currentClient().updateGroupOperationalSettings(groupJid, {
+            schedulingEnabled: nextValue,
+          });
+        },
+        nextValue
+          ? `${group.preferredSubject} voltou a ter agendamento local ativo.`
+          : `${group.preferredSubject} ficou sem agendamento local ativo.`,
+      );
+      return;
+    }
+
+    if (action === 'toggle-llm-scheduling') {
+      const groupJid = dataset.groupJid;
+      const group = page.data.groups.find((candidate) => candidate.groupJid === groupJid);
+
+      if (!groupJid || !group) {
+        return;
+      }
+
+      const nextValue = !group.operationalSettings.allowLlmScheduling;
+
+      await this.runGroupMutation(
+        async () => {
+          await this.currentClient().updateGroupOperationalSettings(groupJid, {
+            allowLlmScheduling: nextValue,
+          });
+        },
+        nextValue
+          ? `A LLM voltou a poder preparar scheduling em ${group.preferredSubject}.`
+          : `A LLM deixou de poder preparar scheduling em ${group.preferredSubject}.`,
+      );
+      return;
+    }
+
     if (action === 'toggle-group-authorized') {
       const groupJid = dataset.groupJid;
       const group = page.data.groups.find((candidate) => candidate.groupJid === groupJid);
@@ -6494,6 +6813,45 @@ export class AppShell {
         this.render();
       }
     }
+  }
+
+  private async runGroupMutation(task: () => Promise<void>, successMessage: string): Promise<void> {
+    this.state = {
+      ...this.state,
+      pendingConfirmation: null,
+      flowFeedback: {
+        tone: 'neutral',
+        message: 'A guardar a configuracao operacional deste grupo.',
+      },
+    };
+    this.render();
+
+    try {
+      await task();
+      await this.refreshCurrentRouteData();
+      this.state = {
+        ...this.state,
+        pendingConfirmation: null,
+        flowFeedback: {
+          tone: 'positive',
+          message: successMessage,
+        },
+      };
+      this.recordUxEvent('positive', successMessage);
+    } catch (error) {
+      const message = `Nao foi possivel atualizar esta configuracao do grupo. ${readErrorMessage(error)}`;
+      this.state = {
+        ...this.state,
+        pendingConfirmation: null,
+        flowFeedback: {
+          tone: 'danger',
+          message,
+        },
+      };
+      this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+    }
+
+    this.render();
   }
 
   private renderContextRailCards(currentRoute: ResolvedAppRoute): string {
@@ -7310,6 +7668,33 @@ export class AppShell {
     for (const field of this.root.querySelectorAll<HTMLSelectElement>('[data-shell-group-switcher]')) {
       field.addEventListener('change', () => {
         void this.handleShellGroupSwitch(field.value);
+      });
+    }
+
+    for (const field of this.root.querySelectorAll<HTMLSelectElement>('[data-group-page-switcher]')) {
+      field.addEventListener('change', () => {
+        void this.handleGroupAction('select-group', {
+          groupJid: field.value,
+        });
+      });
+    }
+
+    for (const field of this.root.querySelectorAll<HTMLSelectElement>('[data-group-owner-select]')) {
+      field.addEventListener('change', () => {
+        void this.handleGroupAction('set-group-owner', {
+          groupJid: field.dataset.groupJid,
+          personId: field.value,
+        });
+      });
+    }
+
+    for (const field of this.root.querySelectorAll<HTMLSelectElement>('[data-group-operational-setting]')) {
+      field.addEventListener('change', () => {
+        void this.handleGroupAction('set-operational-setting', {
+          groupJid: field.dataset.groupJid,
+          setting: field.dataset.groupOperationalSetting,
+          value: field.value,
+        });
       });
     }
 
@@ -8549,6 +8934,77 @@ function resolveAuthorizedGroupJidsForCommands(
   }
 
   return dedupeStringList(commands.authorizedGroupJids);
+}
+
+function isGroupMode(value: string): value is Group['operationalSettings']['mode'] {
+  return value === 'com_agendamento' || value === 'distribuicao_apenas';
+}
+
+function isGroupMemberTagPolicy(value: string): value is Group['operationalSettings']['memberTagPolicy'] {
+  return value === 'members_can_tag' || value === 'owner_only';
+}
+
+function resolvePersonDisplayName(personId: string, people: readonly Person[]): string {
+  return people.find((person) => person.personId === personId)?.displayName ?? personId.replace(/^person-/u, '');
+}
+
+function describeGroupOwners(group: Group, people: readonly Person[]): string {
+  if (group.groupOwners.length === 0) {
+    return 'Sem responsavel definido';
+  }
+
+  return `Responsavel: ${group.groupOwners.map((owner) => resolvePersonDisplayName(owner.personId, people)).join(', ')}`;
+}
+
+function buildGroupOwnerOptions(
+  group: Group,
+  people: readonly Person[],
+): readonly {
+  readonly value: string;
+  readonly label: string;
+}[] {
+  const options = new Map<string, string>();
+  options.set('', 'Sem responsavel');
+
+  for (const person of people) {
+    options.set(person.personId, person.displayName);
+  }
+
+  for (const owner of group.groupOwners) {
+    if (!options.has(owner.personId)) {
+      options.set(owner.personId, resolvePersonDisplayName(owner.personId, people));
+    }
+  }
+
+  return [...options.entries()].map(([value, label]) => ({
+    value,
+    label,
+  }));
+}
+
+function readableGroupMode(mode: Group['operationalSettings']['mode']): string {
+  return mode === 'com_agendamento' ? 'Com agendamento' : 'Distribuicao apenas';
+}
+
+function toneForGroupMode(mode: Group['operationalSettings']['mode']): UiTone {
+  return mode === 'com_agendamento' ? 'positive' : 'warning';
+}
+
+function readableGroupMemberTagPolicy(policy: Group['operationalSettings']['memberTagPolicy']): string {
+  return policy === 'members_can_tag' ? 'Membros podem tagar' : 'So o owner pode tagar';
+}
+
+function describeGroupMode(
+  mode: Group['operationalSettings']['mode'],
+  allowLlmScheduling: boolean,
+): string {
+  if (mode === 'com_agendamento') {
+    return allowLlmScheduling
+      ? 'Este grupo esta preparado para pedidos assistidos de scheduling, com apoio da LLM quando fizer sentido.'
+      : 'Este grupo continua com agendamento ativo, mas a LLM nao toma decisoes de scheduling neste momento.';
+  }
+
+  return 'Este grupo funciona como destino de distribuicao: o foco passa a ser fan-out e nao agendamento local.';
 }
 
 function resolveAuthorizedPrivateJids(snapshot: WhatsAppWorkspaceSnapshot): string[] {

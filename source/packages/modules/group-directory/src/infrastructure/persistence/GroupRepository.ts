@@ -125,7 +125,8 @@ function mergeGroups(seed: Group, persisted: Group): Group {
     ...seed,
     ...persisted,
     aliases: [...seed.aliases, ...persisted.aliases],
-    groupOwners: [...seed.groupOwners, ...persisted.groupOwners],
+    // Persisted owners are operator-managed state and must override seed owners.
+    groupOwners: persisted.groupOwners,
     calendarAccessPolicy: {
       ...seed.calendarAccessPolicy,
       ...persisted.calendarAccessPolicy,

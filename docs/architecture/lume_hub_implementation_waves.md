@@ -99,33 +99,12 @@ Regra desta ronda:
 
 A `Wave 52` ja fechou a fundacao do modelo `group-first`, deixando o contrato canonico de modos de grupo, settings operacionais locais e snapshot de paginas futuras alinhado entre backend, frontend e seeds sem regressao do runtime atual.
 A `Wave 53` ja fechou a shell `group-first`, com navegacao principal curta, `Migracao` secundario, switcher global de grupo e rota base `group-first` em `/groups/:groupJid`.
+A `Wave 54` ja fechou a pagina operacional por grupo, com resumo claro, dropdown local para trocar de grupo, owner operacional, modos, policy de tag ao bot e switches locais persistentes sem perder instrucoes e documentos isolados.
 
 Primeiros pontos em que vale a pena o utilizador testar:
 
 - no fim da `Wave 55`, para validar se o calendario semanal representa a operacao certa
 - no fim da `Wave 57`, para validar se ownership e politicas de grupo batem certo com o workflow real
-
-### Wave 54 - Pagina de grupo e configuracao operacional por grupo
-
-Objetivo:
-- dar a cada grupo uma pagina propria e uma configuracao clara
-
-Entregaveis esperados:
-- pagina de grupo com resumo operacional, owner, modo do grupo e politicas locais
-- dropdown na propria pagina para trocar rapidamente de grupo
-- area de configuracao do grupo com:
-  - owner do grupo
-  - grupo com ou sem agendamento
-  - permitir ou bloquear tag ao bot por membros
-  - switches locais relevantes
-- esconder detalhes tecnicos secundarios atras de modo avancado
-
-Validacao esperada:
-- `validate:wave54`
-- smoke da pagina de grupo com troca de grupo e persistencia de settings
-
-Vale a pena o utilizador testar aqui?
-- sim; aqui valida-se se o workspace por grupo faz sentido na operacao real
 
 ### Wave 55 - Calendario semanal de notificacoes
 
