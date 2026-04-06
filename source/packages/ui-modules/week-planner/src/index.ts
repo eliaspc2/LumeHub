@@ -10,6 +10,12 @@ export interface WeekPlannerSnapshot {
     readonly preferredSubject: string;
     readonly courseId: string | null;
     readonly ownerLabels: readonly string[];
+    readonly operationalSettings: {
+      readonly mode: 'com_agendamento' | 'distribuicao_apenas';
+      readonly schedulingEnabled: boolean;
+      readonly allowLlmScheduling: boolean;
+      readonly memberTagPolicy: 'members_can_tag' | 'owner_only';
+    };
   }[];
   readonly defaultNotificationRuleLabels: readonly string[];
   readonly events: readonly {

@@ -101,31 +101,11 @@ A `Wave 52` ja fechou a fundacao do modelo `group-first`, deixando o contrato ca
 A `Wave 53` ja fechou a shell `group-first`, com navegacao principal curta, `Migracao` secundario, switcher global de grupo e rota base `group-first` em `/groups/:groupJid`.
 A `Wave 54` ja fechou a pagina operacional por grupo, com resumo claro, dropdown local para trocar de grupo, owner operacional, modos, policy de tag ao bot e switches locais persistentes sem perder instrucoes e documentos isolados.
 A `Wave 55` ja fechou o calendario semanal de notificacoes como vista operacional principal, com grelha por dia, leitura clara de `pending`, `waiting_confirmation` e `sent`, e acoes de criar, editar e desativar sem mexer na fronteira mensal do storage.
+A `Wave 56` ja fechou o roteamento por modo de grupo entre calendario semanal, assistente e distribuicao, deixando o comportamento `com_agendamento` vs `distribuicao_apenas` coerente na UI, nos endpoints e no runtime live.
 
 Primeiros pontos em que vale a pena o utilizador testar:
 
 - no fim da `Wave 57`, para validar se ownership e politicas de grupo batem certo com o workflow real
-
-### Wave 56 - Modos do grupo e roteamento `agendamento` vs `distribuicao`
-
-Objetivo:
-- tornar explicito o comportamento do produto conforme o modo de cada grupo
-
-Entregaveis esperados:
-- quando o grupo esta `com_agendamento`:
-  - pedidos relevantes passam pela LLM e podem originar `preview/apply` de scheduling
-- quando o grupo esta `distribuicao_apenas`:
-  - nao ha scheduling local para esse grupo
-  - mensagens pessoais elegiveis entram apenas em fan-out/distribuicao
-- regras de UI e backend coerentes com o modo atual do grupo
-- copy clara para o utilizador perceber o que o bot faz em cada modo
-
-Validacao esperada:
-- `validate:wave56`
-- testes de integracao para ambos os modos
-
-Vale a pena o utilizador testar aqui?
-- sim; aqui da para corrigir cedo a semantica do produto antes das permissoes finas
 
 ### Wave 57 - Ownership por grupo e politica de interacao com o bot
 

@@ -330,7 +330,19 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
     }
 
     if (request.method === 'POST' && pathname === '/api/schedules') {
-      const schedule = upsertDemoSchedule(this.state, request.body as Record<string, unknown>);
+      const payload = request.body as Record<string, unknown>;
+      const groupJid =
+        typeof payload.groupJid === 'string' && payload.groupJid.trim().length > 0
+          ? payload.groupJid.trim()
+          : this.state.groups[0]?.groupJid ?? '';
+      const group = this.state.groups.find((candidate) => candidate.groupJid === groupJid) ?? null;
+      const blockingReason = readDemoScheduleRouteBlockingReason(group, 'manual');
+
+      if (blockingReason) {
+        return this.error(400, blockingReason);
+      }
+
+      const schedule = upsertDemoSchedule(this.state, payload);
       this.emit('schedules.updated', {
         eventId: schedule.eventId,
         groupJid: schedule.groupJid,
@@ -864,10 +876,22 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
     }
 
     if (request.method === 'PATCH' && scheduleMatch) {
-      const schedule = upsertDemoSchedule(this.state, {
+      const payload: Record<string, unknown> = {
         ...(request.body as Record<string, unknown>),
         eventId: scheduleMatch.eventId,
-      });
+      };
+      const groupJid =
+        typeof payload.groupJid === 'string' && payload.groupJid.trim().length > 0
+          ? payload.groupJid.trim()
+          : this.state.groups[0]?.groupJid ?? '';
+      const group = this.state.groups.find((candidate) => candidate.groupJid === groupJid) ?? null;
+      const blockingReason = readDemoScheduleRouteBlockingReason(group, 'manual');
+
+      if (blockingReason) {
+        return this.error(400, blockingReason);
+      }
+
+      const schedule = upsertDemoSchedule(this.state, payload);
       this.emit('schedules.updated', {
         eventId: schedule.eventId,
         groupJid: schedule.groupJid,
@@ -2727,6 +2751,7 @@ function buildWeeklyPlannerSnapshot(state: DemoState): WeeklyPlannerSnapshot {
       preferredSubject: group.preferredSubject,
       courseId: group.courseId,
       ownerLabels: group.groupOwners.map((owner) => owner.personId),
+      operationalSettings: group.operationalSettings,
     })),
     defaultNotificationRuleLabels: state.settings.adminSettings.ui.defaultNotificationRules.map(
       (rule) => rule.label ?? rule.kind,
@@ -2927,6 +2952,29 @@ function upsertDemoSchedule(state: DemoState, payload: Record<string, unknown>):
   return nextEvent;
 }
 
+function readDemoScheduleRouteBlockingReason(
+  group: Group | null,
+  route: 'manual' | 'llm',
+): string | null {
+  if (!group) {
+    return 'Escolhe primeiro um grupo valido.';
+  }
+
+  if (group.operationalSettings.mode === 'distribuicao_apenas') {
+    return `O grupo ${group.preferredSubject} esta em distribuicao apenas e nao aceita scheduling local.`;
+  }
+
+  if (!group.operationalSettings.schedulingEnabled) {
+    return `O grupo ${group.preferredSubject} tem o agendamento local desligado neste momento.`;
+  }
+
+  if (route === 'llm' && !group.operationalSettings.allowLlmScheduling) {
+    return `O grupo ${group.preferredSubject} so aceita calendario manual neste momento; o LLM scheduling esta desligado.`;
+  }
+
+  return null;
+}
+
 function buildDemoLegacyScheduleImportReport(
   state: DemoState,
   payload: Record<string, unknown>,
@@ -3109,15 +3157,19 @@ function buildDemoAssistantSchedulePreview(
     : null;
   const operation = resolveDemoAssistantScheduleOperation(text, targetEvent);
   const candidate = buildDemoAssistantCandidate(text, targetEvent);
+  const routingBlock = readDemoScheduleRouteBlockingReason(group, 'llm');
   const canApply =
     text.length > 0 &&
     group !== null &&
+    !routingBlock &&
     (operation === 'create' || targetEvent !== null) &&
     (operation !== null);
   const blockingReason = !text
     ? 'Escreve primeiro o pedido para a agenda.'
     : !group
       ? 'Escolhe primeiro um grupo.'
+      : routingBlock
+        ? routingBlock
       : operation !== 'create' && !targetEvent
         ? 'Nao encontramos um evento real para atualizar ou apagar neste grupo.'
         : null;

@@ -2,6 +2,7 @@ import { BaseModule } from '@lume-hub/kernel';
 import { AssistantContextModule } from '@lume-hub/assistant-context';
 import { AudienceRoutingModule } from '@lume-hub/audience-routing';
 import { CommandPolicyModule } from '@lume-hub/command-policy';
+import { GroupDirectoryModule } from '@lume-hub/group-directory';
 import { InstructionQueueModule } from '@lume-hub/instruction-queue';
 import { IntentClassifierModule } from '@lume-hub/intent-classifier';
 import { LlmOrchestratorModule } from '@lume-hub/llm-orchestrator';
@@ -27,6 +28,7 @@ export class AgentRuntimeModule extends BaseModule implements AgentRuntimeModule
         'assistant-context',
         'audience-routing',
         'command-policy',
+        'group-directory',
         'instruction-queue',
         'intent-classifier',
         'llm-orchestrator',
@@ -38,6 +40,7 @@ export class AgentRuntimeModule extends BaseModule implements AgentRuntimeModule
     const assistantContext = config.assistantContext ?? new AssistantContextModule();
     const audienceRouting = config.audienceRouting ?? new AudienceRoutingModule();
     const commandPolicy = config.commandPolicy ?? new CommandPolicyModule();
+    const groupDirectory = config.groupDirectory ?? new GroupDirectoryModule();
     const instructionQueue = config.instructionQueue ?? new InstructionQueueModule();
     const intentClassifier = config.intentClassifier ?? new IntentClassifierModule();
     const llmOrchestrator = config.llmOrchestrator ?? new LlmOrchestratorModule();
@@ -50,6 +53,7 @@ export class AgentRuntimeModule extends BaseModule implements AgentRuntimeModule
         assistantContext,
         audienceRouting,
         commandPolicy,
+        groupDirectory,
         instructionQueue,
         intentClassifier,
         llmOrchestrator,

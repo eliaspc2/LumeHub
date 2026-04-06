@@ -392,6 +392,9 @@ importers:
       '@lume-hub/command-policy':
         specifier: workspace:*
         version: link:../command-policy
+      '@lume-hub/group-directory':
+        specifier: workspace:*
+        version: link:../group-directory
       '@lume-hub/instruction-queue':
         specifier: workspace:*
         version: link:../instruction-queue

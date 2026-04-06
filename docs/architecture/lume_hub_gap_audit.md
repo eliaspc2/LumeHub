@@ -157,8 +157,12 @@ Os gaps principais ja nao sao de paridade tecnica com o `WA-notify`; passam a se
   - grelha semanal por dia
   - leitura clara de `pending`, `waiting_confirmation` e `sent`
   - criacao, edicao e desativacao inline sem sair da rota `/week`
+- a `Wave 56` ja fechou o comportamento `com_agendamento` vs `distribuicao_apenas` ponta a ponta:
+  - grupos `distribuicao_apenas` saem do scheduling local e passam a fan-out/distribuicao
+  - grupos com calendario manual mas sem LLM scheduling ficam bloqueados no assistente e continuam editaveis na rota `/week`
+  - calendario semanal, assistente e endpoints backend usam agora a mesma semantica operacional
 - `WhatsApp`, `LumeHub` e `LLM` ainda nao estao separados em paginas dedicadas como experiencia final
-- o comportamento por modo de grupo ainda nao esta fechado ponta a ponta entre UI e roteamento de produto
+- ownership e politica de interacao com o bot ainda seguem como proximo foco da ronda
 
 ## Trabalho futuro fora do scope atual
 

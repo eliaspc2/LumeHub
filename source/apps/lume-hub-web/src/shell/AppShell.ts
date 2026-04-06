@@ -259,6 +259,17 @@ interface ShellGroupSwitcherState {
   readonly selectedLabel: string;
 }
 
+interface OperationalGroupLike {
+  readonly groupJid: string;
+  readonly preferredSubject: string;
+  readonly operationalSettings: {
+    readonly mode: 'com_agendamento' | 'distribuicao_apenas';
+    readonly schedulingEnabled: boolean;
+    readonly allowLlmScheduling: boolean;
+    readonly memberTagPolicy: 'members_can_tag' | 'owner_only';
+  };
+}
+
 interface WeekCalendarDayView {
   readonly dayLabel: WeekDayValue;
   readonly label: string;
@@ -1191,19 +1202,36 @@ export class AppShell {
 
   private renderWeekPage(page: UiPage<WeekPlannerSnapshot>): string {
     const groups = page.data.groups;
-    const draft = resolveScheduleDraft(this.state.scheduleDraft, groups);
+    const schedulableGroups = groups.filter((group) => canGroupUseManualScheduling(group));
+    const llmDisabledGroups = groups.filter((group) => canGroupUseManualScheduling(group) && !canGroupUseLlmScheduling(group));
+    const distributionGroups = groups.filter((group) => !canGroupUseManualScheduling(group));
+    const draft = resolveScheduleDraft(this.state.scheduleDraft, schedulableGroups.length > 0 ? schedulableGroups : groups);
     const selectedGroup = groups.find((group) => group.groupJid === draft.groupJid) ?? null;
     const editingEvent = page.data.events.find((event) => event.eventId === draft.eventId) ?? null;
+    const groupsByJid = new Map(groups.map((group) => [group.groupJid, group]));
     const weekDays = buildWeekCalendarDays(page.data);
     const occupiedDays = weekDays.filter((day) => day.events.length > 0).length;
     const busiestDay = weekDays.reduce<WeekCalendarDayView | null>(
       (best, day) => (!best || day.events.length > best.events.length ? day : best),
       null,
     );
+    const canSaveSchedule = Boolean(selectedGroup && canGroupUseManualScheduling(selectedGroup));
+    const weekSecondaryActionHref =
+      selectedGroup && canGroupUseLlmScheduling(selectedGroup)
+        ? '/assistant'
+        : selectedGroup && canGroupUseManualScheduling(selectedGroup)
+          ? '/week'
+          : '/distributions';
+    const weekSecondaryActionLabel =
+      selectedGroup && canGroupUseLlmScheduling(selectedGroup)
+        ? 'Assistente LLM'
+        : selectedGroup && canGroupUseManualScheduling(selectedGroup)
+          ? 'Calendario manual'
+          : 'Abrir distribuicoes';
     const notificationLabels = page.data.defaultNotificationRuleLabels.length > 0
       ? page.data.defaultNotificationRuleLabels
       : ['24h antes', '30 min antes'];
-    const examples = groups.slice(0, 3).map((group, index) => ({
+    const examples = schedulableGroups.slice(0, 3).map((group, index) => ({
       key: group.groupJid,
       title: index === 0 ? 'Aula regular' : index === 1 ? 'Reposicao' : 'Sessao especial',
       notes:
@@ -1219,11 +1247,12 @@ export class AppShell {
       <section class="surface hero surface--strong">
         <div>
           <p class="eyebrow">Calendario semanal</p>
-          <h2>A semana passa a ser a vista principal para criar, rever e ajustar notificacoes reais.</h2>
+          <h2>A semana mostra agora quem vive em calendario e quem vive so em distribuicao.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
               label: editingEvent ? 'Guardar alteracoes' : 'Criar notificacao',
+              disabled: !canSaveSchedule,
               dataAttributes: { 'flow-action': 'schedule-save' },
             })}
             ${renderUiActionButton({
@@ -1236,18 +1265,20 @@ export class AppShell {
         <div class="hero-panel">
           ${renderUiPanelCard({
             title: 'Semana em foco',
-            badgeLabel: page.data.focusWeekLabel,
+            badgeLabel: `${schedulableGroups.length} grupo(s) com calendario`,
             badgeTone: 'neutral',
-            contentHtml: `<p>${escapeHtml(`${page.data.focusWeekRangeLabel}. Timezone ${page.data.timezone}. ${groups.length} grupos visiveis nesta operacao semanal.`)}</p>`,
+            contentHtml: `<p>${escapeHtml(
+              `${page.data.focusWeekRangeLabel}. Timezone ${page.data.timezone}. ${distributionGroups.length} grupo(s) desta ronda seguem apenas para distribuicao.`,
+            )}</p>`,
           })}
           ${renderUiPanelCard({
-            title: 'Leitura rapida da semana',
-            badgeLabel: `${page.data.diagnostics.eventCount} notificacoes`,
+            title: 'Leitura rapida por modo',
+            badgeLabel: `${page.data.focusWeekLabel} operativo`,
             badgeTone: page.data.diagnostics.eventCount > 0 ? 'positive' : 'neutral',
             contentHtml: `<p>${escapeHtml(
               occupiedDays > 0
-                ? `${occupiedDays} dia(s) ocupados. Pico em ${busiestDay?.label ?? 'sem dia dominante'} com ${busiestDay?.events.length ?? 0} notificacao(oes).`
-                : 'Ainda nao ha notificacoes planeadas nesta semana.',
+                ? `${occupiedDays} dia(s) ocupados. Pico em ${busiestDay?.label ?? 'sem dia dominante'} com ${busiestDay?.events.length ?? 0} notificacao(oes). ${llmDisabledGroups.length} grupo(s) ficam em calendario manual sem LLM scheduling.`
+                : `Ainda nao ha notificacoes planeadas nesta semana. ${distributionGroups.length} grupo(s) seguem apenas em fan-out/distribuicao.`,
             )}</p>`,
           })}
         </div>
@@ -1278,19 +1309,41 @@ export class AppShell {
           tone: occupiedDays > 0 ? 'positive' : 'neutral',
           description: 'Dias com pelo menos uma notificacao nesta semana.',
         })}
+        ${renderUiMetricCard({
+          title: 'Fan-out only',
+          value: String(distributionGroups.length),
+          tone: distributionGroups.length > 0 ? 'warning' : 'positive',
+          description: 'Grupos que saem do calendario local e entram so em distribuicao.',
+        })}
       </section>
 
       <section class="surface content-card">
         <div class="card-header">
           <div>
             <h3>Semana operacional</h3>
-            <p class="week-section-note">Cada coluna representa um dia real da semana ISO em foco. Cria, edita ou desativa sem sair desta vista.</p>
+            <p class="week-section-note">Cada coluna representa um dia real da semana ISO em foco. So os grupos com agendamento ativo podem abrir ou editar notificacoes nesta grelha.</p>
           </div>
           ${renderUiBadge({
-            label: `${page.data.diagnostics.eventCount} notificacao(oes)`,
-            tone: page.data.diagnostics.eventCount > 0 ? 'positive' : 'neutral',
+            label:
+              schedulableGroups.length > 0
+                ? `${schedulableGroups.length} grupo(s) com calendario`
+                : 'Sem grupos com calendario',
+            tone: schedulableGroups.length > 0 ? 'positive' : 'warning',
           })}
         </div>
+        ${
+          distributionGroups.length > 0
+            ? `
+              <div class="week-mode-strip" data-week-mode-strip>
+                <strong>Distribuicao/fan-out</strong>
+                <span>${escapeHtml(
+                  distributionGroups.map((group) => group.preferredSubject).join(', '),
+                )}</span>
+                <span>Estes grupos nao aceitam scheduling local nesta wave.</span>
+              </div>
+            `
+            : ''
+        }
         <div class="week-calendar" data-week-calendar>
           ${weekDays
             .map(
@@ -1319,6 +1372,7 @@ export class AppShell {
                     ${renderUiActionButton({
                       label: 'Novo neste dia',
                       variant: 'secondary',
+                      disabled: schedulableGroups.length === 0,
                       dataAttributes: {
                         'flow-action': 'schedule-compose-day',
                         'flow-value': day.dayLabel,
@@ -1329,12 +1383,22 @@ export class AppShell {
                     ${
                       day.events.length > 0
                         ? day.events
-                            .map((event) => renderWeekCalendarEventCard(event, draft.eventId === event.eventId))
+                            .map((event) =>
+                              renderWeekCalendarEventCard(
+                                event,
+                                draft.eventId === event.eventId,
+                                groupsByJid.get(event.groupJid) ?? null,
+                              ),
+                            )
                             .join('')
                         : `
                           <div class="week-calendar__empty">
                             <p>Sem notificacoes planeadas neste dia.</p>
-                            <p>Usa o botao acima para abrir o editor ja neste dia.</p>
+                            <p>${
+                              schedulableGroups.length > 0
+                                ? 'Usa o botao acima para abrir o editor ja neste dia.'
+                                : 'Quando um grupo voltar a modo de agendamento, esta grelha volta a aceitar criacao local.'
+                            }</p>
                           </div>
                         `
                     }
@@ -1351,69 +1415,86 @@ export class AppShell {
           <div class="card-header">
             <h3>${editingEvent ? 'Editar notificacao' : 'Nova notificacao'}</h3>
             ${renderUiBadge({
-              label: editingEvent ? 'Edicao live' : `Dia em foco: ${readableWeekDayLabel(draft.dayLabel)}`,
-              tone: editingEvent || selectedGroup ? 'positive' : 'warning',
+              label:
+                editingEvent
+                  ? 'Edicao live'
+                  : selectedGroup
+                    ? `${readableGroupMode(selectedGroup.operationalSettings.mode)}`
+                    : 'Sem grupo elegivel',
+              tone: canSaveSchedule ? 'positive' : 'warning',
             })}
           </div>
           <div class="week-editor" data-week-editor>
-            <div class="ui-form-grid">
-              ${renderUiSelectField({
-                label: 'Grupo',
-                value: draft.groupJid,
-                dataKey: 'schedule.groupJid',
-                options: groups.map((group) => ({
-                  value: group.groupJid,
-                  label: group.preferredSubject,
-                })),
-                hint: 'Escolhe o grupo sem precisares de ver JIDs.',
-              })}
-              ${renderUiInputField({
-                label: 'Titulo',
-                value: draft.title,
-                dataKey: 'schedule.title',
-                placeholder: 'Ex.: Aula aberta de sexta',
-                hint: 'Usa um titulo humano e curto.',
-              })}
-              ${renderUiSelectField({
-                label: 'Dia',
-                value: draft.dayLabel,
-                dataKey: 'schedule.dayLabel',
-                options: WEEK_DAY_OPTIONS.map((option) => ({
-                  value: option.value,
-                  label: option.label,
-                })),
-                hint: 'Tambem podes abrir este editor a partir de cada coluna do calendario.',
-              })}
-              ${renderUiInputField({
-                label: 'Hora',
-                value: draft.startTime,
-                dataKey: 'schedule.startTime',
-                type: 'time',
-              })}
-              ${renderUiSelectField({
-                label: 'Duracao',
-                value: draft.durationMinutes,
-                dataKey: 'schedule.durationMinutes',
-                options: [
-                  { value: '45', label: '45 minutos' },
-                  { value: '60', label: '60 minutos' },
-                  { value: '75', label: '75 minutos' },
-                  { value: '90', label: '90 minutos' },
-                ],
-              })}
-              ${renderUiTextAreaField({
-                label: 'Notas para a equipa',
-                value: draft.notes,
-                dataKey: 'schedule.notes',
-                rows: 4,
-                placeholder: 'Ex.: levar material de ensaio e confirmar sala 2.',
-                hint: 'Esta nota aparece no calendario para reveres rapidamente a intencao.',
-              })}
-            </div>
+            ${
+              schedulableGroups.length > 0
+                ? `
+                  <div class="ui-form-grid">
+                    ${renderUiSelectField({
+                      label: 'Grupo',
+                      value: draft.groupJid,
+                      dataKey: 'schedule.groupJid',
+                      options: schedulableGroups.map((group) => ({
+                        value: group.groupJid,
+                        label: group.preferredSubject,
+                      })),
+                      hint: 'So aparecem aqui grupos com calendario local ativo.',
+                    })}
+                    ${renderUiInputField({
+                      label: 'Titulo',
+                      value: draft.title,
+                      dataKey: 'schedule.title',
+                      placeholder: 'Ex.: Aula aberta de sexta',
+                      hint: 'Usa um titulo humano e curto.',
+                    })}
+                    ${renderUiSelectField({
+                      label: 'Dia',
+                      value: draft.dayLabel,
+                      dataKey: 'schedule.dayLabel',
+                      options: WEEK_DAY_OPTIONS.map((option) => ({
+                        value: option.value,
+                        label: option.label,
+                      })),
+                      hint: 'Tambem podes abrir este editor a partir de cada coluna do calendario.',
+                    })}
+                    ${renderUiInputField({
+                      label: 'Hora',
+                      value: draft.startTime,
+                      dataKey: 'schedule.startTime',
+                      type: 'time',
+                    })}
+                    ${renderUiSelectField({
+                      label: 'Duracao',
+                      value: draft.durationMinutes,
+                      dataKey: 'schedule.durationMinutes',
+                      options: [
+                        { value: '45', label: '45 minutos' },
+                        { value: '60', label: '60 minutos' },
+                        { value: '75', label: '75 minutos' },
+                        { value: '90', label: '90 minutos' },
+                      ],
+                    })}
+                    ${renderUiTextAreaField({
+                      label: 'Notas para a equipa',
+                      value: draft.notes,
+                      dataKey: 'schedule.notes',
+                      rows: 4,
+                      placeholder: 'Ex.: levar material de ensaio e confirmar sala 2.',
+                      hint: 'Esta nota aparece no calendario para reveres rapidamente a intencao.',
+                    })}
+                  </div>
+                `
+                : `
+                  <div class="timeline-item timeline-item--warning">
+                    <strong>Sem grupos com agendamento ativo</strong>
+                    <p>Todos os grupos desta ronda estao em distribuicao/fan-out ou com scheduling local desligado. Reativa um grupo na pagina de grupo para voltar a usar o calendario semanal.</p>
+                  </div>
+                `
+            }
             <div class="week-editor__summary">
               <p><strong>Grupo</strong>: ${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe um grupo')}</p>
               <p><strong>Quando</strong>: ${escapeHtml(`${readableWeekDayLabel(draft.dayLabel)}, ${draft.startTime}`)}</p>
               <p><strong>Duracao</strong>: ${escapeHtml(`${draft.durationMinutes} minutos`)}</p>
+              <p><strong>Modo</strong>: ${escapeHtml(selectedGroup ? describeManualSchedulingState(selectedGroup) : 'Sem grupo selecionado.')}</p>
               <p><strong>Owners</strong>: ${escapeHtml(
                 selectedGroup
                   ? selectedGroup.ownerLabels.length > 0
@@ -1424,6 +1505,24 @@ export class AppShell {
               <p><strong>Mensagem interna</strong>: ${escapeHtml(draft.notes || 'Sem nota adicional.')}</p>
               <div class="ui-card__chips">
                 ${notificationLabels.map((label) => renderUiBadge({ label, tone: 'positive', style: 'chip' })).join('')}
+              </div>
+              <div class="action-row">
+                ${renderUiActionButton({
+                  label: 'Abrir grupo',
+                  href: selectedGroup ? `/groups/${encodeURIComponent(selectedGroup.groupJid)}` : '/groups',
+                  variant: 'secondary',
+                  dataAttributes: {
+                    route: selectedGroup ? `/groups/${encodeURIComponent(selectedGroup.groupJid)}` : '/groups',
+                  },
+                })}
+                ${renderUiActionButton({
+                  label: weekSecondaryActionLabel,
+                  href: weekSecondaryActionHref,
+                  variant: 'secondary',
+                  dataAttributes: {
+                    route: weekSecondaryActionHref,
+                  },
+                })}
               </div>
             </div>
           </div>
@@ -1445,41 +1544,60 @@ export class AppShell {
             </div>
             <div class="week-editor__section">
               <p class="week-section-note">Bases rapidas para preencher o editor num clique.</p>
-              <div class="card-grid">
-                ${examples
-                  .map((example) =>
-                    renderUiRecordCard({
-                      title: example.title,
-                      subtitle: example.notes,
-                      badgeLabel: readableWeekDayLabel(example.preview.dayLabel),
-                      badgeTone: 'neutral',
-                      bodyHtml: `
-                        <ul>
-                          <li>Grupo: ${escapeHtml(example.preview.groupLabel)}</li>
-                          <li>Hora: ${escapeHtml(example.preview.startTime)}</li>
-                          <li>Duracao: ${escapeHtml(example.preview.durationMinutes)} min</li>
-                        </ul>
-                        <div class="action-row">
-                          ${renderUiActionButton({
-                            label: 'Usar como base',
-                            variant: 'secondary',
-                            dataAttributes: {
-                              'flow-action': 'schedule-load-example',
-                              'flow-value': example.key,
-                            },
-                          })}
-                        </div>
-                      `,
-                    }),
-                  )
-                  .join('')}
-              </div>
+              ${
+                examples.length > 0
+                  ? `
+                    <div class="card-grid">
+                      ${examples
+                        .map((example) =>
+                          renderUiRecordCard({
+                            title: example.title,
+                            subtitle: example.notes,
+                            badgeLabel: readableWeekDayLabel(example.preview.dayLabel),
+                            badgeTone: 'neutral',
+                            bodyHtml: `
+                              <ul>
+                                <li>Grupo: ${escapeHtml(example.preview.groupLabel)}</li>
+                                <li>Hora: ${escapeHtml(example.preview.startTime)}</li>
+                                <li>Duracao: ${escapeHtml(example.preview.durationMinutes)} min</li>
+                              </ul>
+                              <div class="action-row">
+                                ${renderUiActionButton({
+                                  label: 'Usar como base',
+                                  variant: 'secondary',
+                                  dataAttributes: {
+                                    'flow-action': 'schedule-load-example',
+                                    'flow-value': example.key,
+                                  },
+                                })}
+                              </div>
+                            `,
+                          }),
+                        )
+                        .join('')}
+                    </div>
+                  `
+                  : `
+                    <div class="timeline-item timeline-item--warning">
+                      <strong>Sem base de calendario disponivel</strong>
+                      <p>Nesta fase so ha grupos em distribuicao/fan-out ou com scheduling local desligado.</p>
+                    </div>
+                  `
+              }
+            </div>
+            <div class="week-editor__section">
+              <p class="week-section-note">Como ler os modos desta ronda.</p>
+              <ul>
+                <li><strong>Com agendamento</strong>: o grupo aparece no editor semanal e pode usar o calendario local.</li>
+                <li><strong>Distribuicao apenas</strong>: o grupo sai do calendario e passa para fan-out/distribuicao.</li>
+                <li><strong>LLM scheduling desligado</strong>: continuas com calendario manual, mas a LLM nao decide alteracoes.</li>
+              </ul>
             </div>
             <div class="week-editor__section">
               <p class="week-section-note">Como operar esta vista sem te perderes.</p>
               <ul>
                 <li>Clica em Novo neste dia para abrir o editor logo no dia certo.</li>
-                <li>Os cartoes da semana deixam-te editar e desativar sem sair da pagina.</li>
+                <li>Os cartoes da semana deixam-te editar ou desativar conforme o modo real do grupo.</li>
                 <li>O storage continua mensal por grupo; aqui so vemos a projection semanal live.</li>
               </ul>
             </div>
@@ -1494,6 +1612,20 @@ export class AppShell {
     const selectedGroup = page.data.groups.find((group) => group.groupJid === draft.groupJid) ?? null;
     const preview = draft.preview;
     const canApply = Boolean(preview?.canApply && preview.previewFingerprint);
+    const canRunLlmScheduling = Boolean(selectedGroup && canGroupUseLlmScheduling(selectedGroup));
+    const assistantRoutingNote = selectedGroup
+      ? describeAssistantSchedulingState(selectedGroup)
+      : 'Escolhe primeiro um grupo para perceberes se esta rota segue para scheduling ou para distribuicao.';
+    const assistantFallbackHref = !selectedGroup
+      ? '/groups'
+      : selectedGroup.operationalSettings.mode === 'distribuicao_apenas'
+        ? '/distributions'
+        : '/week';
+    const assistantFallbackLabel = !selectedGroup
+      ? 'Abrir grupos'
+      : selectedGroup.operationalSettings.mode === 'distribuicao_apenas'
+        ? 'Abrir distribuicoes'
+        : 'Abrir calendario semanal';
     const latestAudit = page.data.recentSchedulingAudit[0] ?? null;
 
     return `
@@ -1505,13 +1637,13 @@ export class AppShell {
           <div class="action-row">
             ${renderUiActionButton({
               label: draft.previewLoading ? 'A gerar preview...' : 'Gerar preview',
-              disabled: draft.previewLoading || draft.applying,
+              disabled: draft.previewLoading || draft.applying || !canRunLlmScheduling,
               dataAttributes: { 'assistant-action': 'preview-schedule' },
             })}
             ${renderUiActionButton({
               label: draft.applying ? 'A aplicar...' : 'Aplicar alteracao',
               variant: 'secondary',
-              disabled: !canApply || draft.previewLoading || draft.applying,
+              disabled: !canRunLlmScheduling || !canApply || draft.previewLoading || draft.applying,
               dataAttributes: { 'assistant-action': 'apply-schedule' },
             })}
             ${renderUiActionButton({
@@ -1540,6 +1672,12 @@ export class AppShell {
                 : 'Assim que aplicares um pedido, a ultima alteracao aparece aqui.',
             )}</p>`,
           })}
+          ${renderUiPanelCard({
+            title: 'Roteamento do grupo',
+            badgeLabel: selectedGroup ? readableGroupMode(selectedGroup.operationalSettings.mode) : 'Sem grupo',
+            badgeTone: canRunLlmScheduling ? 'positive' : 'warning',
+            contentHtml: `<p>${escapeHtml(assistantRoutingNote)}</p>`,
+          })}
         </div>
       </section>
 
@@ -1562,9 +1700,9 @@ export class AppShell {
               dataKey: 'assistant.groupJid',
               options: page.data.groups.map((group) => ({
                 value: group.groupJid,
-                label: group.preferredSubject,
+                label: `${group.preferredSubject} · ${describeAssistantSchedulingOption(group)}`,
               })),
-              hint: 'O preview e o apply correm sempre dentro do grupo escolhido.',
+              hint: 'So grupos com LLM scheduling ativo podem gerar preview/apply. Os restantes explicam o roteamento certo.',
             })}
             ${renderUiTextAreaField({
               label: 'Pedido em linguagem natural',
@@ -1578,10 +1716,29 @@ export class AppShell {
           <div class="guide-preview">
             <p><strong>Grupo em foco</strong>: ${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe primeiro um grupo.')}</p>
             <p><strong>Acesso pedido</strong>: Ver e editar calendario</p>
+            <p><strong>Roteamento</strong>: ${escapeHtml(assistantRoutingNote)}</p>
             <p><strong>Estado do preview</strong>: ${escapeHtml(
               draft.previewLoading ? 'a gerar preview' : preview ? preview.summary : 'sem preview ainda',
             )}</p>
           </div>
+          ${
+            selectedGroup && !canRunLlmScheduling
+              ? `
+                <div class="timeline-item timeline-item--warning">
+                  <strong>Este grupo nao usa scheduling pela LLM</strong>
+                  <p>${escapeHtml(assistantRoutingNote)}</p>
+                  <div class="action-row">
+                    ${renderUiActionButton({
+                      label: assistantFallbackLabel,
+                      href: assistantFallbackHref,
+                      variant: 'secondary',
+                      dataAttributes: { route: assistantFallbackHref },
+                    })}
+                  </div>
+                </div>
+              `
+              : ''
+          }
         </article>
 
         <article class="surface content-card span-5">
@@ -1634,10 +1791,28 @@ export class AppShell {
                 }
               `
               : `
-                <div class="timeline-item">
-                  <strong>Sem preview ainda</strong>
-                  <time>Escreve o pedido e carrega em "Gerar preview" para ver a alteracao antes de aplicar.</time>
+                <div class="timeline-item${canRunLlmScheduling ? '' : ' timeline-item--warning'}">
+                  <strong>${escapeHtml(canRunLlmScheduling ? 'Sem preview ainda' : 'Scheduling LLM indisponivel neste grupo')}</strong>
+                  <time>${escapeHtml(
+                    canRunLlmScheduling
+                      ? 'Escreve o pedido e carrega em "Gerar preview" para ver a alteracao antes de aplicar.'
+                      : assistantRoutingNote,
+                  )}</time>
                 </div>
+                ${
+                  canRunLlmScheduling
+                    ? ''
+                    : `
+                      <div class="action-row">
+                        ${renderUiActionButton({
+                          label: assistantFallbackLabel,
+                          href: assistantFallbackHref,
+                          variant: 'secondary',
+                          dataAttributes: { route: assistantFallbackHref },
+                        })}
+                      </div>
+                    `
+                }
               `
           }
           ${
@@ -4671,7 +4846,8 @@ export class AppShell {
           assistantSchedulingDraft: {
             ...this.state.assistantSchedulingDraft,
             [fieldKey === 'assistant.groupJid' ? 'groupJid' : 'text']: value,
-            ...(fieldKey === 'assistant.text' ? { preview: null, lastApplied: null } : {}),
+            preview: null,
+            lastApplied: null,
           } as AssistantSchedulingDraft,
         };
         this.render();
@@ -4771,6 +4947,7 @@ export class AppShell {
       }
 
       const draft = resolveScheduleDraft(this.state.scheduleDraft, page.data.groups);
+      const selectedGroup = page.data.groups.find((group) => group.groupJid === draft.groupJid) ?? null;
 
       if (!draft.groupJid || !draft.title.trim()) {
         this.state = {
@@ -4778,6 +4955,20 @@ export class AppShell {
           flowFeedback: {
             tone: 'warning',
             message: 'Falta escolher um grupo e dar um titulo claro antes de gravar.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      if (!selectedGroup || !canGroupUseManualScheduling(selectedGroup)) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message: selectedGroup
+              ? describeManualSchedulingState(selectedGroup)
+              : 'Escolhe primeiro um grupo com calendario ativo antes de gravar.',
           },
         };
         this.render();
@@ -4858,7 +5049,7 @@ export class AppShell {
           eventId: null,
           dayLabel: value,
         },
-        page.data.groups,
+        page.data.groups.filter((group) => canGroupUseManualScheduling(group)),
       );
 
       this.state = {
@@ -4884,6 +5075,18 @@ export class AppShell {
       const group = page.data.groups.find((candidate) => candidate.groupJid === value);
 
       if (!group) {
+        return;
+      }
+
+      if (!canGroupUseManualScheduling(group)) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message: describeManualSchedulingState(group),
+          },
+        };
+        this.render();
         return;
       }
 
@@ -4919,6 +5122,22 @@ export class AppShell {
       const event = page.data.events.find((candidate) => candidate.eventId === value);
 
       if (!event) {
+        return;
+      }
+
+      const eventGroup = page.data.groups.find((group) => group.groupJid === event.groupJid) ?? null;
+
+      if (!eventGroup || !canGroupUseManualScheduling(eventGroup)) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message: eventGroup
+              ? `${describeManualSchedulingState(eventGroup)} Podes desativar este agendamento, mas nao reabri-lo para edicao aqui.`
+              : 'Nao encontramos um grupo com agendamento ativo para este evento.',
+          },
+        };
+        this.render();
         return;
       }
 
@@ -5764,6 +5983,7 @@ export class AppShell {
     }
 
     const draft = resolveAssistantSchedulingDraft(this.state.assistantSchedulingDraft, page.data.groups);
+    const selectedGroup = page.data.groups.find((group) => group.groupJid === draft.groupJid) ?? null;
 
     if (!draft.groupJid || !draft.text.trim()) {
       this.state = {
@@ -5771,6 +5991,20 @@ export class AppShell {
         flowFeedback: {
           tone: 'warning',
           message: 'Escolhe um grupo e escreve o pedido antes de continuares.',
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (!selectedGroup || !canGroupUseLlmScheduling(selectedGroup)) {
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'warning',
+          message: selectedGroup
+            ? describeAssistantSchedulingState(selectedGroup)
+            : 'Escolhe primeiro um grupo com LLM scheduling ativo.',
         },
       };
       this.render();
@@ -8323,7 +8557,7 @@ function resolveScheduleDraft(
   draft: GuidedScheduleDraft,
   groups: readonly WeekPlannerSnapshot['groups'][number][],
 ): GuidedScheduleDraft {
-  const fallbackGroup = groups[0] ?? null;
+  const fallbackGroup = groups.find((group) => canGroupUseManualScheduling(group)) ?? groups[0] ?? null;
   const selectedGroup =
     groups.find((group) => group.groupJid === draft.groupJid) ??
     fallbackGroup;
@@ -8418,7 +8652,7 @@ function resolveAssistantSchedulingGroupJid(
     return selectedGroupJid;
   }
 
-  return groups[0]?.groupJid ?? '';
+  return groups.find((group) => canGroupUseLlmScheduling(group))?.groupJid ?? groups[0]?.groupJid ?? '';
 }
 
 function resolveAssistantSchedulingDraft(
@@ -8643,8 +8877,10 @@ function buildScheduleExample(
 function renderWeekCalendarEventCard(
   event: WeekPlannerSnapshot['events'][number],
   active: boolean,
+  group: WeekPlannerSnapshot['groups'][number] | null,
 ): string {
   const status = describeWeekCalendarEventStatus(event);
+  const canEdit = group ? canGroupUseManualScheduling(group) : true;
 
   return `
     <article class="week-event-card week-event-card--${status.tone}${active ? ' week-event-card--active' : ''}" data-week-event-id="${escapeHtml(event.eventId)}">
@@ -8666,6 +8902,15 @@ function renderWeekCalendarEventCard(
           style: 'chip',
         })}
         ${renderUiBadge({ label: `sent ${event.notifications.sent}`, tone: event.notifications.sent > 0 ? 'positive' : 'neutral', style: 'chip' })}
+        ${
+          group
+            ? renderUiBadge({
+                label: canEdit ? 'Agendamento local ativo' : 'Distribuicao / manual bloqueado',
+                tone: canEdit ? 'positive' : 'warning',
+                style: 'chip',
+              })
+            : ''
+        }
       </div>
       <dl class="week-event-card__stats">
         <div>
@@ -8685,6 +8930,7 @@ function renderWeekCalendarEventCard(
         ${renderUiActionButton({
           label: 'Editar',
           variant: 'secondary',
+          disabled: !canEdit,
           dataAttributes: {
             'flow-action': 'schedule-load-event',
             'flow-value': event.eventId,
@@ -8807,6 +9053,62 @@ function resolveExistingDateForDay(
   dayLabel: WeekDayValue,
 ): string | null {
   return events.find((event) => normalizeWeekDayLabel(event.dayLabel) === dayLabel)?.localDate ?? null;
+}
+
+function canGroupUseManualScheduling(group: OperationalGroupLike): boolean {
+  return group.operationalSettings.mode === 'com_agendamento' && group.operationalSettings.schedulingEnabled;
+}
+
+function canGroupUseLlmScheduling(group: OperationalGroupLike): boolean {
+  return canGroupUseManualScheduling(group) && group.operationalSettings.allowLlmScheduling;
+}
+
+function describeManualSchedulingState(group: OperationalGroupLike): string {
+  if (group.operationalSettings.mode === 'distribuicao_apenas') {
+    return 'Segue para distribuicao e nao para calendario local.';
+  }
+
+  if (!group.operationalSettings.schedulingEnabled) {
+    return 'Agendamento local desligado neste grupo.';
+  }
+
+  if (!group.operationalSettings.allowLlmScheduling) {
+    return 'Calendario manual ativo, mas a LLM nao decide scheduling aqui.';
+  }
+
+  return 'Calendario e LLM scheduling ativos neste grupo.';
+}
+
+function describeAssistantSchedulingState(group: OperationalGroupLike): string {
+  if (group.operationalSettings.mode === 'distribuicao_apenas') {
+    return 'Este grupo esta em distribuicao apenas. Mensagens elegiveis seguem para fan-out/distribuicao e nao para scheduling.';
+  }
+
+  if (!group.operationalSettings.schedulingEnabled) {
+    return 'O calendario local esta desligado neste grupo. Reativa-o na pagina do grupo antes de pedir alteracoes.';
+  }
+
+  if (!group.operationalSettings.allowLlmScheduling) {
+    return 'Este grupo continua com calendario manual, mas a LLM nao pode decidir scheduling aqui.';
+  }
+
+  return 'A LLM pode gerar preview e apply neste grupo.';
+}
+
+function describeAssistantSchedulingOption(group: OperationalGroupLike): string {
+  if (canGroupUseLlmScheduling(group)) {
+    return 'LLM scheduling ativo';
+  }
+
+  if (group.operationalSettings.mode === 'distribuicao_apenas') {
+    return 'Distribuicao apenas';
+  }
+
+  if (!group.operationalSettings.schedulingEnabled) {
+    return 'Agendamento local desligado';
+  }
+
+  return 'Calendario manual';
 }
 
 function readableWeekDayLabel(dayLabel: string): string {

@@ -1,4 +1,5 @@
 import type { NotificationRuleDefinitionInput } from '@lume-hub/notification-rules';
+import type { GroupOperationalSettings } from '@lume-hub/group-directory';
 
 export interface WeeklyPlannerQuery {
   readonly weekId?: string;
@@ -19,6 +20,7 @@ export interface WeeklyPlannerGroupSummary {
   readonly preferredSubject: string;
   readonly courseId: string | null;
   readonly ownerLabels: readonly string[];
+  readonly operationalSettings: GroupOperationalSettings;
 }
 
 export interface WeeklyPlannerEventSummary {

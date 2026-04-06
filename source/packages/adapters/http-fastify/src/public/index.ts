@@ -111,6 +111,7 @@ export interface HttpApiModules {
   readonly groupDirectory: Pick<
     GroupDirectoryModuleContract,
     | 'listGroups'
+    | 'findByJid'
     | 'replaceGroupOwners'
     | 'updateCalendarAccessPolicy'
     | 'updateOperationalSettings'
@@ -573,7 +574,9 @@ export class RouteRegistrar {
           throw new ApiError(404, 'Weekly planner is not configured.');
         }
 
-        const schedule = await this.modules.weeklyPlanner.saveSchedule(readWeeklyPlannerUpsertBody(context.body));
+        const input = readWeeklyPlannerUpsertBody(context.body);
+        await assertGroupSupportsScheduleRoute(this.modules.groupDirectory, input.groupJid, 'manual');
+        const schedule = await this.modules.weeklyPlanner.saveSchedule(input);
         this.publish('schedules.updated', {
           eventId: schedule.eventId,
           groupJid: schedule.groupJid,
@@ -590,10 +593,12 @@ export class RouteRegistrar {
           throw new ApiError(404, 'Weekly planner is not configured.');
         }
 
-        const schedule = await this.modules.weeklyPlanner.saveSchedule({
+        const input = {
           ...readWeeklyPlannerUpsertBody(context.body),
           eventId: context.params.eventId,
-        });
+        };
+        await assertGroupSupportsScheduleRoute(this.modules.groupDirectory, input.groupJid, 'manual');
+        const schedule = await this.modules.weeklyPlanner.saveSchedule(input);
         this.publish('schedules.updated', {
           eventId: schedule.eventId,
           groupJid: schedule.groupJid,
@@ -2536,6 +2541,39 @@ function readAssistantScheduleBody(
     requestedAccessMode,
     previewFingerprint: previewFingerprint ?? undefined,
   };
+}
+
+async function assertGroupSupportsScheduleRoute(
+  groupDirectory: Pick<GroupDirectoryModuleContract, 'findByJid'>,
+  groupJid: string,
+  route: 'manual' | 'llm',
+): Promise<void> {
+  const group = await groupDirectory.findByJid(groupJid);
+
+  if (!group) {
+    throw new ApiError(404, `Unknown group '${groupJid}'.`);
+  }
+
+  if (group.operationalSettings.mode === 'distribuicao_apenas') {
+    throw new ApiError(
+      400,
+      `O grupo ${group.preferredSubject} esta em distribuicao apenas e nao aceita scheduling local.`,
+    );
+  }
+
+  if (!group.operationalSettings.schedulingEnabled) {
+    throw new ApiError(
+      400,
+      `O grupo ${group.preferredSubject} tem o agendamento local desligado neste momento.`,
+    );
+  }
+
+  if (route === 'llm' && !group.operationalSettings.allowLlmScheduling) {
+    throw new ApiError(
+      400,
+      `O grupo ${group.preferredSubject} so aceita calendario manual neste momento; o LLM scheduling esta desligado.`,
+    );
+  }
 }
 
 function readBooleanBodyField(body: unknown, fieldName: string): boolean {

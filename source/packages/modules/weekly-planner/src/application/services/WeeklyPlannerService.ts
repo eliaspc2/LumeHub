@@ -71,6 +71,7 @@ export class WeeklyPlannerService {
         preferredSubject: group.preferredSubject,
         courseId: group.courseId,
         ownerLabels: group.groupOwners.map((owner) => owner.personId),
+        operationalSettings: group.operationalSettings,
       }),
     );
     const mappedEvents = events
@@ -103,6 +104,18 @@ export class WeeklyPlannerService {
 
     if (!group) {
       throw new Error(`Unknown group '${input.groupJid}'.`);
+    }
+
+    if (group.operationalSettings.mode !== 'com_agendamento') {
+      throw new Error(
+        `O grupo ${group.preferredSubject} esta em distribuicao apenas e nao aceita agendamento local.`,
+      );
+    }
+
+    if (!group.operationalSettings.schedulingEnabled) {
+      throw new Error(
+        `O grupo ${group.preferredSubject} tem o agendamento local desligado neste momento.`,
+      );
     }
 
     const timeZone = input.timeZone ?? this.defaultTimeZone;

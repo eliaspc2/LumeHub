@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import type { AssistantContextModuleContract, AssistantChatContext, SchedulingContext } from '@lume-hub/assistant-context';
 import type { AudienceRoutingModuleContract, DistributionPlan } from '@lume-hub/audience-routing';
-import type { CalendarAccessMode } from '@lume-hub/group-directory';
+import type { CalendarAccessMode, Group, GroupDirectoryModuleContract } from '@lume-hub/group-directory';
 import type { CommandPolicyModuleContract, PolicyActorContext } from '@lume-hub/command-policy';
 import type {
   Instruction,
@@ -65,10 +65,17 @@ interface SchedulingEvaluation {
   readonly schedulingMemoryUsage: AgentMemoryUsage;
   readonly targetGroupJid: string | null;
   readonly targetGroupLabel: string | null;
+  readonly targetGroup: Group | null;
   readonly requestedAccessMode: CalendarAccessMode | null;
   readonly hasAccess: boolean;
   readonly weekSnapshot: WeeklyPlannerSnapshot | null;
   readonly parseResult: LlmScheduleParseResult | null;
+  readonly routingDecision: SchedulingRoutingDecision | null;
+}
+
+interface SchedulingRoutingDecision {
+  readonly route: 'schedule' | 'manual_only' | 'distribution_only';
+  readonly blockingReason: string | null;
 }
 
 export class AgentRuntime {
@@ -82,6 +89,7 @@ export class AgentRuntime {
       CommandPolicyModuleContract,
       'canManageCalendar' | 'canUseAssistant'
     >,
+    private readonly groupDirectory: Pick<GroupDirectoryModuleContract, 'findByJid'>,
     private readonly instructionQueue: Pick<
       InstructionQueueModuleContract,
       'enqueueDistributionPlan' | 'enqueueScheduleApply' | 'listInstructions' | 'tickWorker'
@@ -286,6 +294,8 @@ export class AgentRuntime {
       replyText = llmChatResult.text;
     } else if (classification.intent === 'scheduling_request') {
       const targetGroupJid = schedulingContext?.resolvedGroupJids[0] ?? input.groupJid ?? null;
+      const targetGroup = targetGroupJid ? (await this.groupDirectory.findByJid(targetGroupJid)) ?? null : null;
+      const routingDecision = resolveSchedulingRoutingDecision(targetGroup);
       const requestedAccessMode = classification.requestedAccessMode ?? 'read';
       const schedulingMemoryUsage = schedulingContext
         ? buildMemoryUsage(schedulingContext.chatContext, targetGroupJid)
@@ -307,6 +317,20 @@ export class AgentRuntime {
           toolName: 'schedule_parse',
           status: 'blocked',
           summary: `schedule_acl_blocked:${requestedAccessMode}`,
+        });
+      } else if (routingDecision?.blockingReason) {
+        plan = this.decisionService.withAdditionalNote(plan, 'schedule_mode_blocked');
+        replyText = routingDecision.blockingReason;
+        toolResults.push({
+          toolName: 'schedule_parse',
+          status: 'blocked',
+          summary: `schedule_mode_blocked:${routingDecision.route}`,
+          data: {
+            groupJid: targetGroupJid,
+            groupLabel: targetGroup?.preferredSubject ?? null,
+            route: routingDecision.route,
+            blockingReason: routingDecision.blockingReason,
+          },
         });
       } else {
         scheduleParseResult = await this.llmOrchestrator.parseSchedules({
@@ -410,6 +434,8 @@ export class AgentRuntime {
       requestedAccessMode,
     });
     const targetGroupJid = schedulingContext.resolvedGroupJids[0] ?? input.groupJid ?? null;
+    const targetGroup = targetGroupJid ? (await this.groupDirectory.findByJid(targetGroupJid)) ?? null : null;
+    const routingDecision = resolveSchedulingRoutingDecision(targetGroup);
     const schedulingMemoryUsage = buildMemoryUsage(schedulingContext.chatContext, targetGroupJid);
     const hasAccess =
       targetGroupJid === null
@@ -422,7 +448,7 @@ export class AgentRuntime {
         })
       : null;
     const parseResult =
-      classification.intent === 'scheduling_request' && hasAccess && targetGroupJid
+      classification.intent === 'scheduling_request' && hasAccess && targetGroupJid && !routingDecision?.blockingReason
         ? await this.llmOrchestrator.parseSchedules({
             text: input.text,
             contextSummary: summariseContext(chatContext, schedulingMemoryUsage),
@@ -437,13 +463,16 @@ export class AgentRuntime {
       schedulingContext,
       schedulingMemoryUsage,
       targetGroupJid,
+      targetGroup,
       targetGroupLabel: weekSnapshot?.groups.find((group) => group.groupJid === targetGroupJid)?.preferredSubject
+        ?? targetGroup?.preferredSubject
         ?? schedulingContext.chatContext.group?.preferredSubject
         ?? null,
       requestedAccessMode,
       hasAccess,
       weekSnapshot,
       parseResult,
+      routingDecision,
     };
   }
 
@@ -481,6 +510,17 @@ export class AgentRuntime {
         groupLabel: evaluation.targetGroupLabel,
         weekId: evaluation.weekSnapshot.focusWeekLabel,
         blockingReason: `A ACL deste grupo nao permite acesso '${evaluation.requestedAccessMode ?? 'read'}' para esta alteracao.`,
+      });
+    }
+
+    if (evaluation.routingDecision?.blockingReason) {
+      return createBlockedSchedulePreview({
+        requestText: input.text,
+        requestedAccessMode: evaluation.requestedAccessMode,
+        groupJid: evaluation.targetGroupJid,
+        groupLabel: evaluation.targetGroupLabel,
+        weekId: evaluation.weekSnapshot?.focusWeekLabel ?? null,
+        blockingReason: evaluation.routingDecision.blockingReason,
       });
     }
 
@@ -608,6 +648,38 @@ export class AgentRuntime {
       deleteEventId: preview.operation === 'delete' ? preview.targetEvent?.eventId ?? null : null,
     };
   }
+}
+
+function resolveSchedulingRoutingDecision(group: Group | null): SchedulingRoutingDecision | null {
+  if (!group) {
+    return null;
+  }
+
+  if (group.operationalSettings.mode === 'distribuicao_apenas') {
+    return {
+      route: 'distribution_only',
+      blockingReason: `O grupo ${group.preferredSubject} esta em distribuicao apenas. Aqui nao ha scheduling local; mensagens pessoais elegiveis seguem para fan-out/distribuicao.`,
+    };
+  }
+
+  if (!group.operationalSettings.schedulingEnabled) {
+    return {
+      route: 'manual_only',
+      blockingReason: `O agendamento local esta desligado no grupo ${group.preferredSubject}. Reativa-o na pagina do grupo antes de mexer nesta agenda.`,
+    };
+  }
+
+  if (!group.operationalSettings.allowLlmScheduling) {
+    return {
+      route: 'manual_only',
+      blockingReason: `O grupo ${group.preferredSubject} continua com calendario manual, mas a LLM nao pode decidir scheduling aqui. Usa a vista semanal para editar manualmente ou reativa o LLM scheduling na pagina do grupo.`,
+    };
+  }
+
+  return {
+    route: 'schedule',
+    blockingReason: null,
+  };
 }
 
 function summariseContext(

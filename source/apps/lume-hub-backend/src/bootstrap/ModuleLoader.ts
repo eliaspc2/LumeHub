@@ -270,6 +270,7 @@ export class ModuleLoader {
       assistantContext: assistantContextModule,
       audienceRouting: audienceRoutingModule,
       commandPolicy: commandPolicyModule,
+      groupDirectory: groupDirectoryModule,
       instructionQueue: instructionQueueModule,
       intentClassifier: intentClassifierModule,
       llmOrchestrator: llmOrchestratorModule,
