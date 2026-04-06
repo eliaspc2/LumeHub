@@ -9,7 +9,7 @@ Objetivo:
 ## Pre-condicoes minimas
 
 - ronda de paridade validada com:
-  - `corepack pnpm run validate:wave49`
+  - `corepack pnpm run validate:wave51`
 - `WA-notify` continua a ser a referencia produtiva
 - `LumeHub` abre em `Live` sem erro
 - a pagina `Configuracao` mostra:

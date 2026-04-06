@@ -217,7 +217,7 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 50` ja foram executadas e validadas.
+As `Wave 0` a `Wave 51` ja foram executadas e validadas.
 O `LumeHub` ja tem:
 
 - runtime `Live` operacional com WhatsApp, LLM, scheduling, alerts e automations
@@ -227,12 +227,12 @@ O `LumeHub` ja tem:
 - checklist de `shadow mode` em [lume_hub_shadow_mode_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md)
 - checklist de cutover em [lume_hub_live_cutover_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_live_cutover_checklist.md)
 
-A partir de `2026-03-30`, o bloqueador principal para substituir de vez o `WA-notify` ja nao e tecnico: passa a ser a execucao real da semana paralela e a decisao final de cutover.
+Em `2026-04-06`, o bloqueador principal para substituir de vez o `WA-notify` ja nao e tecnico: passa a ser a execucao real da semana paralela e a decisao final de cutover.
 O `LumeHub` ja mostra readiness de migracao, checklist de `shadow mode` e consola do `codex auto router` na pagina `Migracao`, mas o cutover total do `WA-notify` continua dependente de uma semana paralela real antes da decisao final.
 
 Mas isso nao significa, por si so, que o `WA-notify` ja deva ser desligado.
 
-Em `2026-03-29`, a leitura canonica passa a ser esta:
+Em `2026-04-06`, a leitura canonica passa a ser esta:
 
 - o `LumeHub` ja esta forte em arquitetura, UI, ownership, media, knowledge por grupo e runtime live base
 - o `LumeHub` ja nao depende do `WA-notify` para:
@@ -247,7 +247,9 @@ Em `2026-03-29`, a leitura canonica passa a ser esta:
   - `shadow mode`
   - ou migracao parcial por areas
   - nao cutover total imediato
-- do ponto de vista de backlog, resta apenas a `Wave 51` de limpeza final desta ronda curta de operacao de migracao
+- a ronda curta de operacao de migracao tambem ficou fechada com a `Wave 51`
+- a validacao consolidada desta ronda passou a ser `validate:wave51`
+- o backlog ativo abre agora a ronda `group-first`
 O storage canonico de inteligencia por grupo ja ficou aberto com:
 
 - `data/groups/<jid>/llm/instructions.md`

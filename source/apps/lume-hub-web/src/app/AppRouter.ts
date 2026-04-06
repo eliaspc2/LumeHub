@@ -92,13 +92,17 @@ export interface AssistantPageData {
 
 export interface SettingsPageData {
   readonly settings: SettingsSnapshot;
-  readonly migrationReadiness: MigrationReadinessSnapshot;
   readonly legacyScheduleImportFiles: readonly LegacyScheduleImportFileSnapshot[];
   readonly legacyScheduleImportReport: LegacyScheduleImportReportSnapshot | null;
   readonly legacyAlertImportReport: LegacyAlertImportReportSnapshot | null;
   readonly legacyAutomationImportReport: LegacyAutomationImportReportSnapshot | null;
   readonly recentAlertMatches: readonly MessageAlertMatchSnapshot[];
   readonly recentAutomationRuns: readonly AutomationRunSnapshot[];
+}
+
+export interface MigrationPageData {
+  readonly settings: SettingsSnapshot;
+  readonly migrationReadiness: MigrationReadinessSnapshot;
 }
 
 export class AppRouter {
@@ -396,7 +400,7 @@ export class AppRouter {
           title: 'Migracao',
           description: 'Semana paralela real, readiness de cutover e consola do Codex auto router.',
           sections: [],
-          data: await this.readSettingsPageData(),
+          data: await this.readMigrationPageData(),
         }),
       },
       {
@@ -415,18 +419,15 @@ export class AppRouter {
   }
 
   private async readSettingsPageData(): Promise<SettingsPageData> {
-    const [settings, migrationReadiness, legacyScheduleImportFiles, recentAlertMatches, recentAutomationRuns] =
-      await Promise.all([
-        this.readQuery('settings', () => this.client.getSettings()),
-        this.readQuery('migration-readiness', () => this.client.getMigrationReadiness()),
-        this.readQuery('legacy-schedule-import-files', () => this.client.listLegacyScheduleImportFiles()),
-        this.readQuery('alert-matches', () => this.client.listRecentAlertMatches(8)),
-        this.readQuery('automation-runs', () => this.client.listRecentAutomationRuns(8)),
-      ]);
+    const [settings, legacyScheduleImportFiles, recentAlertMatches, recentAutomationRuns] = await Promise.all([
+      this.readQuery('settings', () => this.client.getSettings()),
+      this.readQuery('legacy-schedule-import-files', () => this.client.listLegacyScheduleImportFiles()),
+      this.readQuery('alert-matches', () => this.client.listRecentAlertMatches(8)),
+      this.readQuery('automation-runs', () => this.client.listRecentAutomationRuns(8)),
+    ]);
 
     return {
       settings,
-      migrationReadiness,
       legacyScheduleImportFiles,
       legacyScheduleImportReport: null,
       legacyAlertImportReport: null,
@@ -434,6 +435,18 @@ export class AppRouter {
       recentAlertMatches,
       recentAutomationRuns,
     } satisfies SettingsPageData;
+  }
+
+  private async readMigrationPageData(): Promise<MigrationPageData> {
+    const [settings, migrationReadiness] = await Promise.all([
+      this.readQuery('settings', () => this.client.getSettings()),
+      this.readQuery('migration-readiness', () => this.client.getMigrationReadiness()),
+    ]);
+
+    return {
+      settings,
+      migrationReadiness,
+    } satisfies MigrationPageData;
   }
 
   async renderRoute(rawPath: string): Promise<UiPage> {

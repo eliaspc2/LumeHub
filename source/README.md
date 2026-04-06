@@ -36,13 +36,14 @@ Decisao de storage:
 
 ## Estado
 
-A base do monorepo ja existe e as `Wave 0` a `Wave 50` foram executadas.
+A base do monorepo ja existe e as `Wave 0` a `Wave 51` foram executadas.
 Hoje esta pasta ja contem:
 
 - `apps/lume-hub-backend`, `apps/lume-hub-web` e `apps/lume-hub-host`
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
+  - `validate:wave51`
   - `validate:wave49`
   - `validate:wave42`
   - `validate:wave38`
@@ -76,17 +77,18 @@ A ronda de paridade e migracao do `WA-notify` tambem ficou fechada:
 - o importador de `wNNyYYYY.json` ficou idempotente e operacional em `Configuracao`
 - `alerts` e `automations` ficaram portados para a arquitetura nova
 - `pnpm run test` ficou verde com hardening de restart/cutover
-- a pagina `Configuracao` passou a mostrar readiness live de migracao com dados reais
+- a pagina `Configuracao` ficou como area secundaria para imports legacy e ajustes base
 - a pagina `Migracao` passou a concentrar readiness live, checklist de shadow mode e GUI do `codex auto router`
 - a API expoe `GET /api/migrations/readiness`
 - a semana paralela ficou descrita em `docs/deployment/lume_hub_shadow_mode_checklist.md`
-- a validacao consolidada desta ronda passou a ser `validate:wave49`
+- a validacao consolidada desta ronda passou a ser `validate:wave51`
 
-Na ronda curta atual de operacao de migracao:
+Na ronda curta de operacao de migracao, agora ja fechada:
 
 - a `Wave 50` ja deixou a rota `/migration` na navegacao principal
 - o `codex auto router` ja tem GUI live para `prepare` e `switch`
-- resta apenas a `Wave 51` de limpeza final desta serie curta
+- a `Wave 51` removeu copy e validadores obsoletos da ronda
+- o backlog ativo passou a ser a serie `group-first`
 
 Nota operacional:
 

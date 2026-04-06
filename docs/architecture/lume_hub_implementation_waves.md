@@ -73,7 +73,7 @@ A `Wave 49` fechou a limpeza final da ronda:
 ## Estado do plano
 
 A ronda de paridade e migracao face ao `WA-notify` ficou fechada do ponto de vista de implementacao.
-A `Wave 51` continua ativa como limpeza final curta dessa ronda.
+A `Wave 51` ja fechou a limpeza final curta dessa ronda, consolidando `validate:wave51`, removendo copy e validadores obsoletos e alinhando docs ao estado final.
 
 Foi agora aberta uma nova ronda maior para reposicionar o produto em torno de:
 
@@ -84,24 +84,6 @@ Foi agora aberta uma nova ronda maior para reposicionar o produto em torno de:
 - ownership real por grupo
 - politica explicita sobre quem pode ou nao tagar o bot
 - separacao clara entre configuracao `WhatsApp`, configuracao `LumeHub` e chat direto com a LLM
-
-## Waves ativas
-
-### Wave 51 - Limpeza final da ronda de operacao de migracao
-
-Objetivo:
-- remover copy e validadores obsoletos da ronda
-- deixar docs e scripts alinhados ao estado final
-
-Entregaveis esperados:
-- `validate:wave51`
-- docs, README e backlog alinhados
-- limpeza de lixo tecnico/documental criado pela `Wave 50`
-
-Contexto atual:
-- a `Wave 50` ja deixou pronta a pagina `Migracao`
-- o shadow mode deixou de depender de `Configuracao avancada`
-- o `codex auto router` ja tem GUI live para preparar a melhor conta e fazer switch manual
 
 ## Nova ronda ativa
 

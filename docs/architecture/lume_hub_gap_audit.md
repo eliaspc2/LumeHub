@@ -1,6 +1,6 @@
 # Lume Hub Gap Audit
 
-Data: `2026-03-30`
+Data: `2026-04-06`
 
 Objetivo:
 - descrever apenas gaps reais ainda ativos para o produto scoped atual
@@ -122,17 +122,27 @@ O que sobra agora e um passo operacional fora do backlog de implementacao:
 ## Gaps ativos da ronda curta de operacao de migracao
 
 Nao restam gaps funcionais ativos nesta ronda curta.
-A `Wave 50` ja deixou a pagina `Migracao` e o GUI live do `codex auto router` operacionais.
-O que resta nesta serie e apenas a `Wave 51` de limpeza final:
+A `Wave 50` deixou a pagina `Migracao` e o GUI live do `codex auto router` operacionais.
+A `Wave 51` ja fechou a limpeza final desta ronda curta:
 
-- consolidar o validador da ronda
-- alinhar docs e README ao estado final
-- remover lixo tecnico/documental criado pela `Wave 50`
+- validador consolidado em `validate:wave51`
+- docs, README e backlog alinhados ao estado final
+- limpeza de copy e validadores obsoletos da `Wave 50`
 
 ## Gaps ativos da ronda do agente de projeto
 
 Nao restam gaps funcionais ativos nesta ronda.
 A fundacao do agente, os diffs, os guardrails operacionais e a limpeza final da serie ficaram fechados.
+
+## Gaps ativos da ronda `group-first`
+
+Esta e agora a ronda ativa do produto.
+Os gaps principais ja nao sao de paridade tecnica com o `WA-notify`; passam a ser de modelo operacional e UX:
+
+- a shell ainda nao esta organizada de forma `group-first`
+- a vista principal ainda nao e um calendario semanal de notificacoes
+- cada grupo ainda nao e uma unidade operacional explicita com modo, owner e politicas locais
+- `WhatsApp`, `LumeHub` e `LLM` ainda nao estao separados em paginas dedicadas como experiencia final
 
 ## Trabalho futuro fora do scope atual
 
