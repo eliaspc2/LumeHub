@@ -8,7 +8,10 @@ export interface CommandPolicyModuleConfig {
   readonly enabled?: boolean;
   readonly settings?: Partial<CommandPolicySettings>;
   readonly settingsResolver?: () => Promise<Partial<CommandPolicySettings> | undefined> | Partial<CommandPolicySettings> | undefined;
-  readonly groupDirectory?: Pick<GroupDirectoryModuleContract, 'listGroups' | 'isGroupOwner' | 'getCalendarAccessPolicy'>;
+  readonly groupDirectory?: Pick<
+    GroupDirectoryModuleContract,
+    'listGroups' | 'isGroupOwner' | 'getCalendarAccessPolicy' | 'getOperationalSettings'
+  >;
   readonly peopleMemory?: Pick<PeopleMemoryModuleContract, 'isAppOwner'>;
   readonly service?: CommandPolicyService;
 }

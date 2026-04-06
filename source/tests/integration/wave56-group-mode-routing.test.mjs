@@ -128,10 +128,18 @@ function createAgentRuntime(groups) {
       },
     },
     {
-      async canManageCalendar() {
-        return true;
+      async explainAssistantAccess(context) {
+        return {
+          allowed: true,
+          actorRole: context.personId === 'person-owner' ? 'group_owner' : 'member',
+          chatType: 'group',
+          groupJid: context.groupJid ?? null,
+          interactionPolicy: 'members_can_tag',
+          reasonCode: 'group_member_allowed',
+          summary: 'Qualquer membro pode dirigir o bot aqui por tag ou reply.',
+        };
       },
-      async canUseAssistant() {
+      async canManageCalendar() {
         return true;
       },
     },

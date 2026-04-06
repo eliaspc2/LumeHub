@@ -1,4 +1,4 @@
-import type { CalendarAccessMode } from '@lume-hub/group-directory';
+import type { CalendarAccessMode, GroupMemberTagPolicy } from '@lume-hub/group-directory';
 
 export type PolicyChatType = 'group' | 'private';
 
@@ -26,6 +26,18 @@ export interface CalendarAccessQuery {
   readonly personId: string | null;
   readonly groupJid: string;
   readonly requiredMode: CalendarAccessMode;
+}
+
+export type PolicyActorRole = 'app_owner' | 'group_owner' | 'member' | 'unknown';
+
+export interface PolicyAccessDecision {
+  readonly allowed: boolean;
+  readonly actorRole: PolicyActorRole;
+  readonly chatType: PolicyChatType;
+  readonly groupJid: string | null;
+  readonly interactionPolicy: GroupMemberTagPolicy | null;
+  readonly reasonCode: string;
+  readonly summary: string;
 }
 
 export const DEFAULT_COMMAND_POLICY_SETTINGS: CommandPolicySettings = {

@@ -118,6 +118,10 @@ interface GroupManagementDraft {
   readonly knowledgeDocument: GroupKnowledgeDraft;
 }
 
+type GroupPermissionSource = Pick<Group, 'calendarAccessPolicy' | 'operationalSettings'> & {
+  readonly assistantAuthorized: boolean;
+};
+
 interface WorkspaceAgentDraft {
   readonly mode: 'plan' | 'apply';
   readonly prompt: string;
@@ -2917,6 +2921,20 @@ export class AppShell {
                       )}</p>
                     `,
                   })}
+                  ${renderUiRecordCard({
+                    title: 'Permissoes efetivas',
+                    subtitle: 'Leitura rapida por papel: app owner, owner do grupo e membros.',
+                    badgeLabel: 'App owner / owner / membro',
+                    badgeTone: 'neutral',
+                    bodyHtml: `
+                      <p>Esta leitura mostra quem consegue realmente dirigir o bot e o que acontece com agendamento neste grupo.</p>
+                      ${renderGroupEffectivePermissionList({
+                        assistantAuthorized,
+                        calendarAccessPolicy: selectedGroup.calendarAccessPolicy,
+                        operationalSettings: selectedGroup.operationalSettings,
+                      })}
+                    `,
+                  })}
                 </div>
 
                 <article class="surface ui-card group-configuration-card">
@@ -3527,6 +3545,8 @@ export class AppShell {
                       <p><strong>Calendario</strong>: ${escapeHtml(
                         `Membros ${readableCalendarAccessMode(group.calendarAccessPolicy.group)}, Responsavel ${readableCalendarAccessMode(group.calendarAccessPolicy.groupOwner)}, Admin ${readableCalendarAccessMode(group.calendarAccessPolicy.appOwner)}.`,
                       )}</p>
+                      <p><strong>Permissoes efetivas</strong></p>
+                      ${renderGroupEffectivePermissionList(group)}
                       <div class="action-row">
                         ${renderUiActionButton({
                           label: group.assistantAuthorized ? 'Bloquear grupo' : 'Autorizar grupo',
@@ -8730,8 +8750,15 @@ function readableAssistantOperation(operation: 'create' | 'update' | 'delete' | 
 function describeAssistantConversationMemory(
   entry: AssistantPageData['recentConversationAudit'][number],
 ): string {
+  const segments: string[] = [];
+
+  if (entry.permissionInsight?.summary) {
+    segments.push(entry.permissionInsight.summary);
+  }
+
   if (!entry.memoryUsage || entry.memoryUsage.scope !== 'group') {
-    return 'Sem memoria de grupo';
+    segments.push('Sem memoria de grupo');
+    return segments.join(' | ');
   }
 
   const documentLabel =
@@ -8742,12 +8769,13 @@ function describeAssistantConversationMemory(
           .join(', ')}`
       : 'sem docs';
 
-  return [
+  segments.push(
     `grupo ${entry.memoryUsage.groupLabel ?? entry.memoryUsage.groupJid ?? 'desconhecido'}`,
     `instr ${entry.memoryUsage.instructionsSource ?? 'missing'}`,
     `${entry.memoryUsage.knowledgeSnippetCount} snippet(s)`,
     documentLabel,
-  ].join(' | ');
+  );
+  return segments.join(' | ');
 }
 
 function readableInstructionStatus(status: Instruction['status']): string {
@@ -9695,6 +9723,107 @@ function describeGroupMode(
   }
 
   return 'Este grupo funciona como destino de distribuicao: o foco passa a ser fan-out e nao agendamento local.';
+}
+
+function renderGroupEffectivePermissionList(group: GroupPermissionSource): string {
+  return `
+    <div class="group-role-permission-list">
+      ${buildGroupRolePermissionRows(group)
+        .map(
+          (row) => `
+            <p><strong>${escapeHtml(row.roleLabel)}</strong>: ${escapeHtml(row.botSummary)} ${escapeHtml(row.schedulingSummary)}</p>
+          `,
+        )
+        .join('')}
+    </div>
+  `;
+}
+
+function buildGroupRolePermissionRows(
+  group: GroupPermissionSource,
+): readonly {
+  readonly roleLabel: string;
+  readonly botSummary: string;
+  readonly schedulingSummary: string;
+}[] {
+  return [
+    {
+      roleLabel: 'App owner',
+      botSummary: describeGroupRoleBotAccess('app_owner', group),
+      schedulingSummary: describeGroupRoleSchedulingAccess('app_owner', group),
+    },
+    {
+      roleLabel: 'Owner do grupo',
+      botSummary: describeGroupRoleBotAccess('group_owner', group),
+      schedulingSummary: describeGroupRoleSchedulingAccess('group_owner', group),
+    },
+    {
+      roleLabel: 'Membro',
+      botSummary: describeGroupRoleBotAccess('member', group),
+      schedulingSummary: describeGroupRoleSchedulingAccess('member', group),
+    },
+  ];
+}
+
+function describeGroupRoleBotAccess(
+  role: 'app_owner' | 'group_owner' | 'member',
+  group: GroupPermissionSource,
+): string {
+  if (role === 'app_owner') {
+    return group.assistantAuthorized
+      ? 'Pode sempre chamar o bot neste grupo.'
+      : 'Pode chamar o bot mesmo com o grupo bloqueado para membros.';
+  }
+
+  if (!group.assistantAuthorized) {
+    return 'Nao pode usar o bot enquanto este grupo estiver bloqueado.';
+  }
+
+  if (role === 'group_owner') {
+    return 'Pode chamar o bot por tag ou reply.';
+  }
+
+  return group.operationalSettings.memberTagPolicy === 'members_can_tag'
+    ? 'Pode chamar o bot por tag ou reply.'
+    : 'Nao pode dirigir o bot; este grupo reserva o bot ao owner.';
+}
+
+function describeGroupRoleSchedulingAccess(
+  role: 'app_owner' | 'group_owner' | 'member',
+  group: GroupPermissionSource,
+): string {
+  if (role !== 'app_owner' && !group.assistantAuthorized) {
+    return 'Sem acesso operacional enquanto o assistente estiver bloqueado.';
+  }
+
+  if (role === 'member' && group.operationalSettings.memberTagPolicy === 'owner_only') {
+    return 'Tambem fica sem pedir agendamentos porque o bot esta reservado ao owner.';
+  }
+
+  if (group.operationalSettings.mode === 'distribuicao_apenas') {
+    return 'Nao usa agenda local; tudo aqui segue para distribuicao.';
+  }
+
+  if (!group.operationalSettings.schedulingEnabled) {
+    return 'A agenda local esta desligada neste grupo.';
+  }
+
+  const accessMode =
+    role === 'app_owner'
+      ? group.calendarAccessPolicy.appOwner
+      : role === 'group_owner'
+        ? group.calendarAccessPolicy.groupOwner
+        : group.calendarAccessPolicy.group;
+
+  if (accessMode === 'read') {
+    return 'Pode consultar o calendario, mas nao pedir alteracoes.';
+  }
+
+  if (!group.operationalSettings.allowLlmScheduling) {
+    return 'Pode mexer no calendario, mas a LLM nao agenda aqui.';
+  }
+
+  return 'Pode pedir scheduling assistido pela LLM.';
 }
 
 function resolveAuthorizedPrivateJids(snapshot: WhatsAppWorkspaceSnapshot): string[] {

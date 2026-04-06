@@ -714,6 +714,21 @@ textarea {
   height: 100%;
 }
 
+.group-role-permission-list {
+  display: grid;
+  gap: 10px;
+}
+
+.group-role-permission-list p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.58;
+}
+
+.group-role-permission-list strong {
+  color: var(--ink-strong);
+}
+
 .surface ul {
   display: grid;
   gap: 10px;

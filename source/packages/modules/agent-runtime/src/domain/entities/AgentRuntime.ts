@@ -4,7 +4,7 @@ import type {
   SchedulingContext,
 } from '@lume-hub/assistant-context';
 import type { DistributionPlan } from '@lume-hub/audience-routing';
-import type { PolicyActorContext } from '@lume-hub/command-policy';
+import type { PolicyAccessDecision, PolicyActorContext } from '@lume-hub/command-policy';
 import type { CalendarAccessMode } from '@lume-hub/group-directory';
 import type { Instruction } from '@lume-hub/instruction-queue';
 import type { IntentClassification, MessageIntent } from '@lume-hub/intent-classifier';
@@ -57,6 +57,7 @@ export interface AgentSessionContext {
   readonly classification: IntentClassification;
   readonly policyContext: PolicyActorContext;
   readonly assistantAllowed: boolean;
+  readonly assistantAccess: PolicyAccessDecision;
   readonly chatContext: AssistantChatContext;
   readonly schedulingContext: SchedulingContext | null;
 }

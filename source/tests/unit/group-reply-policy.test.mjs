@@ -10,6 +10,17 @@ test('group replies are suppressed instead of being rerouted to private chats', 
     async canAutoReplyInGroup() {
       return false;
     },
+    async explainAutoReplyInGroup() {
+      return {
+        allowed: false,
+        actorRole: 'member',
+        chatType: 'group',
+        groupJid: '120363400000000001@g.us',
+        interactionPolicy: 'owner_only',
+        reasonCode: 'group_member_blocked_by_owner_policy',
+        summary: 'Este grupo reserva o bot ao owner; membros nao podem dirigi-lo por tag.',
+      };
+    },
   });
 
   const decision = await policy.decide(
@@ -28,6 +39,15 @@ test('group replies are suppressed instead of being rerouted to private chats', 
         classification: {
           intent: 'casual_chat',
         },
+        assistantAccess: {
+          allowed: true,
+          actorRole: 'member',
+          chatType: 'group',
+          groupJid: '120363400000000001@g.us',
+          interactionPolicy: 'members_can_tag',
+          reasonCode: 'group_member_allowed',
+          summary: 'Qualquer membro pode dirigir o bot aqui por tag ou reply.',
+        },
       },
     },
   );
@@ -36,6 +56,6 @@ test('group replies are suppressed instead of being rerouted to private chats', 
     shouldReply: false,
     targetChatType: null,
     targetChatJid: null,
-    reason: 'group_reply_not_permitted',
+    reason: 'group_member_blocked_by_owner_policy',
   });
 });

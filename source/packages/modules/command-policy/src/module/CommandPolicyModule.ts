@@ -30,6 +30,10 @@ export class CommandPolicyModule extends BaseModule implements CommandPolicyModu
     return this.service.canUseAssistant(context);
   }
 
+  async explainAssistantAccess(context: PolicyActorContext) {
+    return this.service.explainAssistantAccess(context);
+  }
+
   async canUseScheduling(context: PolicyActorContext, requiredMode?: CalendarAccessMode) {
     return this.service.canUseScheduling(context, requiredMode);
   }
@@ -48,5 +52,9 @@ export class CommandPolicyModule extends BaseModule implements CommandPolicyModu
 
   async canAutoReplyInGroup(context: PolicyActorContext) {
     return this.service.canAutoReplyInGroup(context);
+  }
+
+  async explainAutoReplyInGroup(context: PolicyActorContext) {
+    return this.service.explainAutoReplyInGroup(context);
   }
 }

@@ -161,8 +161,13 @@ Os gaps principais ja nao sao de paridade tecnica com o `WA-notify`; passam a se
   - grupos `distribuicao_apenas` saem do scheduling local e passam a fan-out/distribuicao
   - grupos com calendario manual mas sem LLM scheduling ficam bloqueados no assistente e continuam editaveis na rota `/week`
   - calendario semanal, assistente e endpoints backend usam agora a mesma semantica operacional
+- a `Wave 57` ja fechou ownership por grupo e politica de interacao com o bot:
+  - `app owner`, `group owner` e membros normais passaram a ter enforcement real no runtime
+  - grupos `owner_only` bloqueiam membros normais mesmo quando tagam o bot
+  - a auditoria conversacional passou a guardar permissao efetiva com resumo humano
+  - as paginas `Grupos`, `WhatsApp` e `LLM` passaram a mostrar esse poder efetivo sem linguagem demasiado tecnica
 - `WhatsApp`, `LumeHub` e `LLM` ainda nao estao separados em paginas dedicadas como experiencia final
-- ownership e politica de interacao com o bot ainda seguem como proximo foco da ronda
+- a separacao limpa entre settings do canal e settings do produto segue como proximo foco da ronda
 
 ## Trabalho futuro fora do scope atual
 

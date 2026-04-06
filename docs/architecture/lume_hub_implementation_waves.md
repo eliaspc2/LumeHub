@@ -102,29 +102,11 @@ A `Wave 53` ja fechou a shell `group-first`, com navegacao principal curta, `Mig
 A `Wave 54` ja fechou a pagina operacional por grupo, com resumo claro, dropdown local para trocar de grupo, owner operacional, modos, policy de tag ao bot e switches locais persistentes sem perder instrucoes e documentos isolados.
 A `Wave 55` ja fechou o calendario semanal de notificacoes como vista operacional principal, com grelha por dia, leitura clara de `pending`, `waiting_confirmation` e `sent`, e acoes de criar, editar e desativar sem mexer na fronteira mensal do storage.
 A `Wave 56` ja fechou o roteamento por modo de grupo entre calendario semanal, assistente e distribuicao, deixando o comportamento `com_agendamento` vs `distribuicao_apenas` coerente na UI, nos endpoints e no runtime live.
+A `Wave 57` ja fechou ownership por grupo e politica de interacao com o bot, com enforcement real de `app owner` vs `group owner` vs membro, auditoria com permissao efetiva e leitura humana dessa policy nas paginas `Grupos`, `WhatsApp` e `LLM`.
 
 Primeiros pontos em que vale a pena o utilizador testar:
 
-- no fim da `Wave 57`, para validar se ownership e politicas de grupo batem certo com o workflow real
-
-### Wave 57 - Ownership por grupo e politica de interacao com o bot
-
-Objetivo:
-- dar poderes reais ao owner do grupo e fechar as ACL de interacao
-
-Entregaveis esperados:
-- owner do grupo pode usar a LLM para scheduling no(s) grupo(s) que possui
-- politica explicita sobre quem pode tagar o bot em grupos
-- alinhamento entre `app owner`, `group owner` e membros normais
-- UI e auditoria que mostrem permissao efetiva sem linguagem tecnica excessiva
-
-Validacao esperada:
-- `validate:wave57`
-- testes de integracao de permissao
-- smoke de comportamento em grupo para owner vs nao owner
-
-Vale a pena o utilizador testar aqui?
-- sim; este e o checkpoint certo para validar se ownership e politicas batem com o workflow humano real
+- no fim da `Wave 58`, para validar se a separacao entre configuracao de canal e configuracao do produto fica clara sem perder poder operacional
 
 ### Wave 58 - Separacao de `WhatsApp` e `LumeHub` Settings
 

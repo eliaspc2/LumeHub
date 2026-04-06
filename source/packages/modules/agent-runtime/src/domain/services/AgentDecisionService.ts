@@ -86,6 +86,7 @@ export class AgentDecisionService {
   createSession(
     classification: IntentClassification,
     assistantAllowed: boolean,
+    assistantAccess: AgentSessionContext['assistantAccess'],
     policyContext: AgentSessionContext['policyContext'],
     chatContext: AgentSessionContext['chatContext'],
     schedulingContext: AgentSessionContext['schedulingContext'],
@@ -93,6 +94,7 @@ export class AgentDecisionService {
     return {
       classification,
       assistantAllowed,
+      assistantAccess,
       policyContext,
       chatContext,
       schedulingContext,

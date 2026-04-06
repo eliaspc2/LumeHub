@@ -62,6 +62,9 @@ function normaliseEntry(entry: ConversationAuditRecord): ConversationAuditRecord
   const schedulingInsight = normaliseSchedulingInsight(
     (entry as ConversationAuditRecord & { readonly schedulingInsight?: ConversationAuditRecord['schedulingInsight'] }).schedulingInsight,
   );
+  const permissionInsight = normalisePermissionInsight(
+    (entry as ConversationAuditRecord & { readonly permissionInsight?: ConversationAuditRecord['permissionInsight'] }).permissionInsight,
+  );
 
   return {
     ...entry,
@@ -75,6 +78,7 @@ function normaliseEntry(entry: ConversationAuditRecord): ConversationAuditRecord
     targetChatJid: entry.targetChatJid?.trim() || null,
     memoryUsage,
     schedulingInsight,
+    permissionInsight,
   };
 }
 
@@ -127,5 +131,23 @@ function normaliseSchedulingInsight(
     memoryScope: schedulingInsight.memoryScope,
     memoryGroupJid: schedulingInsight.memoryGroupJid?.trim() || null,
     memoryGroupLabel: schedulingInsight.memoryGroupLabel?.trim() || null,
+  };
+}
+
+function normalisePermissionInsight(
+  permissionInsight: ConversationAuditRecord['permissionInsight'] | undefined,
+): ConversationAuditRecord['permissionInsight'] {
+  if (!permissionInsight) {
+    return null;
+  }
+
+  return {
+    allowed: permissionInsight.allowed,
+    actorRole: permissionInsight.actorRole,
+    chatType: permissionInsight.chatType,
+    groupJid: permissionInsight.groupJid?.trim() || null,
+    interactionPolicy: permissionInsight.interactionPolicy ?? null,
+    reasonCode: permissionInsight.reasonCode.trim(),
+    summary: permissionInsight.summary.trim(),
   };
 }

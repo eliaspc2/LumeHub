@@ -1,3 +1,4 @@
+import type { PolicyAccessDecision } from '@lume-hub/command-policy';
 import type { AgentAssistantTurnInput, AgentReplyMode, AgentTurnResult } from '@lume-hub/agent-runtime';
 
 export interface IncomingConversationMessage extends AgentAssistantTurnInput {}
@@ -44,6 +45,7 @@ export interface ConversationAuditRecord {
     readonly memoryGroupJid: string | null;
     readonly memoryGroupLabel: string | null;
   } | null;
+  readonly permissionInsight: PolicyAccessDecision | null;
   readonly createdAt: string;
 }
 

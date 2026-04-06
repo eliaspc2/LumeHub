@@ -183,6 +183,7 @@ export class ConversationPipelineRuntime {
       auditId: generatedReply.auditId,
       memoryUsage: generatedReply.agentResult.memoryUsage,
       schedulingInsight: generatedReply.agentResult.schedulingInsight,
+      permissionInsight: generatedReply.agentResult.session.assistantAccess,
     });
 
     if (!generatedReply.shouldReply || !generatedReply.replyText || !generatedReply.targetChatJid) {

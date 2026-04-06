@@ -41,6 +41,7 @@ export class ConversationAuditService {
             memoryGroupLabel: reply.agentResult.schedulingInsight.memoryUsage?.groupLabel ?? null,
           }
         : null,
+      permissionInsight: reply.agentResult.session.assistantAccess ?? null,
       createdAt: now.toISOString(),
     });
   }

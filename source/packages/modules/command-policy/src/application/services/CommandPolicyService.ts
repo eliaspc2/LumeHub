@@ -1,7 +1,11 @@
 import type { CalendarAccessMode, GroupDirectoryModuleContract } from '@lume-hub/group-directory';
 import type { PeopleMemoryModuleContract } from '@lume-hub/people-memory';
 
-import type { CommandPolicySettings, PolicyActorContext } from '../../domain/entities/CommandPolicy.js';
+import type {
+  CommandPolicySettings,
+  PolicyAccessDecision,
+  PolicyActorContext,
+} from '../../domain/entities/CommandPolicy.js';
 import { DEFAULT_COMMAND_POLICY_SETTINGS } from '../../domain/entities/CommandPolicy.js';
 import { CalendarAccessAuthorizer } from '../../domain/services/CalendarAccessAuthorizer.js';
 import { OwnerPolicy } from '../../domain/services/OwnerPolicy.js';
@@ -16,7 +20,7 @@ export class CommandPolicyService {
   constructor(
     groupDirectory: Pick<
       GroupDirectoryModuleContract,
-      'listGroups' | 'isGroupOwner' | 'getCalendarAccessPolicy'
+      'listGroups' | 'isGroupOwner' | 'getCalendarAccessPolicy' | 'getOperationalSettings'
     >,
     peopleMemory: Pick<PeopleMemoryModuleContract, 'isAppOwner'>,
     settings: Partial<CommandPolicySettings> = {},
@@ -24,12 +28,16 @@ export class CommandPolicyService {
   ) {
     this.baseSettings = settings;
     this.ownerPolicy = new OwnerPolicy(peopleMemory, groupDirectory);
-    this.senderPolicy = new SenderAuthorizationPolicy(this.ownerPolicy);
+    this.senderPolicy = new SenderAuthorizationPolicy(this.ownerPolicy, groupDirectory);
     this.calendarAccessAuthorizer = new CalendarAccessAuthorizer(groupDirectory, this.ownerPolicy);
   }
 
   async canUseAssistant(context: PolicyActorContext): Promise<boolean> {
     return this.senderPolicy.canUseAssistant(context, await this.readSettings());
+  }
+
+  async explainAssistantAccess(context: PolicyActorContext): Promise<PolicyAccessDecision> {
+    return this.senderPolicy.explainAssistantAccess(context, await this.readSettings());
   }
 
   async canUseScheduling(
@@ -63,6 +71,10 @@ export class CommandPolicyService {
 
   async canAutoReplyInGroup(context: PolicyActorContext): Promise<boolean> {
     return this.senderPolicy.canAutoReplyInGroup(context, await this.readSettings());
+  }
+
+  async explainAutoReplyInGroup(context: PolicyActorContext): Promise<PolicyAccessDecision> {
+    return this.senderPolicy.explainAutoReplyInGroup(context, await this.readSettings());
   }
 
   private async readSettings(): Promise<CommandPolicySettings> {

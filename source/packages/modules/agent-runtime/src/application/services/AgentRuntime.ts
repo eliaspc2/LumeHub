@@ -2,8 +2,8 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import type { AssistantContextModuleContract, AssistantChatContext, SchedulingContext } from '@lume-hub/assistant-context';
 import type { AudienceRoutingModuleContract, DistributionPlan } from '@lume-hub/audience-routing';
-import type { CalendarAccessMode, Group, GroupDirectoryModuleContract } from '@lume-hub/group-directory';
 import type { CommandPolicyModuleContract, PolicyActorContext } from '@lume-hub/command-policy';
+import type { CalendarAccessMode, Group, GroupDirectoryModuleContract } from '@lume-hub/group-directory';
 import type {
   Instruction,
   InstructionQueueModuleContract,
@@ -87,7 +87,7 @@ export class AgentRuntime {
     private readonly audienceRouting: Pick<AudienceRoutingModuleContract, 'previewDistributionPlan'>,
     private readonly commandPolicy: Pick<
       CommandPolicyModuleContract,
-      'canManageCalendar' | 'canUseAssistant'
+      'canManageCalendar' | 'explainAssistantAccess'
     >,
     private readonly groupDirectory: Pick<GroupDirectoryModuleContract, 'findByJid'>,
     private readonly instructionQueue: Pick<
@@ -166,7 +166,8 @@ export class AgentRuntime {
       wasTagged: input.wasTagged,
       isReplyToBot: input.isReplyToBot,
     };
-    const assistantAllowed = await this.commandPolicy.canUseAssistant(policyContext);
+    const assistantAccess = await this.commandPolicy.explainAssistantAccess(policyContext);
+    const assistantAllowed = assistantAccess.allowed;
     const chatContext = await this.assistantContext.buildChatContext(input);
     const chatMemoryUsage = buildMemoryUsage(chatContext);
     const schedulingContext =
@@ -179,6 +180,7 @@ export class AgentRuntime {
     const session = this.decisionService.createSession(
       classification,
       assistantAllowed,
+      assistantAccess,
       policyContext,
       chatContext,
       schedulingContext,
@@ -233,6 +235,14 @@ export class AgentRuntime {
     }
 
     if (!assistantAllowed) {
+      plan = this.decisionService.withAdditionalNote(plan, assistantAccess.reasonCode);
+      toolResults.push({
+        toolName: 'chat_reply',
+        status: 'blocked',
+        summary: `assistant_blocked:${assistantAccess.reasonCode}`,
+        data: assistantAccess,
+      });
+
       return {
         plan,
         session,

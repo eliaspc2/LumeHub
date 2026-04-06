@@ -11,7 +11,7 @@ export interface ReplyTargetDecision {
 
 export class GroupReplyPolicy {
   constructor(
-    private readonly commandPolicy: Pick<CommandPolicyModuleContract, 'canAutoReplyInGroup'>,
+    private readonly commandPolicy: Pick<CommandPolicyModuleContract, 'canAutoReplyInGroup' | 'explainAutoReplyInGroup'>,
   ) {}
 
   async decide(input: AgentAssistantTurnInput, result: AgentTurnResult): Promise<ReplyTargetDecision> {
@@ -20,7 +20,7 @@ export class GroupReplyPolicy {
         shouldReply: false,
         targetChatType: null,
         targetChatJid: null,
-        reason: 'reply_suppressed',
+        reason: result.session.assistantAccess.allowed ? 'reply_suppressed' : result.session.assistantAccess.reasonCode,
       };
     }
 
@@ -33,10 +33,15 @@ export class GroupReplyPolicy {
       };
     }
 
+    const autoReplyDecision =
+      result.session.classification.intent === 'owner_command' ||
+      result.session.classification.intent === 'fanout_request'
+        ? null
+        : await this.commandPolicy.explainAutoReplyInGroup(result.session.policyContext);
     const canReplyInGroup =
       result.session.classification.intent === 'owner_command' ||
       result.session.classification.intent === 'fanout_request' ||
-      (await this.commandPolicy.canAutoReplyInGroup(result.session.policyContext));
+      autoReplyDecision?.allowed === true;
 
     if (canReplyInGroup) {
       return {
@@ -51,7 +56,7 @@ export class GroupReplyPolicy {
       shouldReply: false,
       targetChatType: null,
       targetChatJid: null,
-      reason: 'group_reply_not_permitted',
+      reason: autoReplyDecision?.reasonCode ?? 'group_reply_not_permitted',
     };
   }
 }
