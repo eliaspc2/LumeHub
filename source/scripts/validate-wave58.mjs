@@ -315,6 +315,7 @@ await withLiveRuntime(async ({ baseUrl }) => {
     implementationWavesDoc,
     /A `Wave 58` ja fechou a separacao entre `WhatsApp`, `LumeHub` e `Migracao`/u,
   );
+  assert.doesNotMatch(implementationWavesDoc, /^### Wave 58 - /mu);
   assert.match(implementationWavesDoc, /### Wave 59 - Pagina de chat direto com a LLM/u);
 
   assert.match(

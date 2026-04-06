@@ -109,24 +109,6 @@ Primeiros pontos em que vale a pena o utilizador testar:
 
 - no fim da `Wave 59`, para validar se o chat direto com a LLM fecha bem a shell `group-first` sem reintroduzir confusao de fluxo
 
-### Wave 58 - Separacao de `WhatsApp` e `LumeHub` Settings
-
-Objetivo:
-- separar claramente configuracao de canal de configuracao do produto
-
-Entregaveis esperados:
-- pagina `WhatsApp` focada em sessao, auth, grupos, conversas e diagnostico do canal
-- pagina `LumeHub` focada em settings globais, defaults, host companion e comportamento do produto
-- mover switches globais para estas paginas e tirar esse peso do workspace diario
-- manter a pagina `Migracao` como area propria, sem contaminar as settings base
-
-Validacao esperada:
-- `validate:wave58`
-- browser headless nas paginas `WhatsApp`, `LumeHub` e `Migracao`
-
-Vale a pena o utilizador testar aqui?
-- opcional; aqui o foco e consolidacao da IA de produto nas settings
-
 ### Wave 59 - Pagina de chat direto com a LLM
 
 Objetivo:
