@@ -228,7 +228,7 @@ O fluxo canónico de release passa por:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 59` ja foram executadas e validadas.
+As `Wave 0` a `Wave 60` ja foram executadas e validadas.
 a pagina `LumeHub` passou a concentrar settings globais, defaults, host companion e governanca da app.
 a pagina `LLM` ja permite chat direto em escopo global ou de grupo, mantendo conversa segura separada de `preview/apply`.
 O `LumeHub` ja tem:
@@ -261,7 +261,7 @@ Em `2026-04-06`, a leitura canonica passa a ser esta:
   - ou migracao parcial por areas
   - nao cutover total imediato
 - a ronda curta de operacao de migracao tambem ficou fechada com a `Wave 51`
-- a validacao consolidada mais recente do backlog ativo passou a ser `validate:wave59`
+- a validacao consolidada mais recente passou a ser `validate:wave60`
 - a `Wave 52` ja fechou a fundacao do modelo `group-first`
 - a `Wave 53` ja fechou a shell `group-first`, com switcher global de grupo e navegacao principal curta
 - a `Wave 54` ja fechou a pagina operacional de grupo, com owner, modos e politicas locais persistentes
@@ -270,6 +270,7 @@ Em `2026-04-06`, a leitura canonica passa a ser esta:
 - a `Wave 57` ja fechou o enforcement de ownership por grupo e da politica de interacao com o bot, com auditoria de permissao efetiva e leitura humana nas paginas `Grupos`, `WhatsApp` e `LLM`
 - a `Wave 58` ja separou `WhatsApp`, `LumeHub` e `Migracao` em paginas de configuracao distintas
 - a `Wave 59` ja fechou a pagina `LLM` como chat direto com escopo global ou de grupo e ponte segura para `preview/apply`
+- a `Wave 60` ja fechou a limpeza final da ronda `group-first`, removendo validadores intermédios e rotas provisórias da pagina `LLM`
 O storage canonico de inteligencia por grupo ja ficou aberto com:
 
 - `data/groups/<jid>/llm/instructions.md`

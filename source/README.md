@@ -36,21 +36,14 @@ Decisao de storage:
 
 ## Estado
 
-A base do monorepo ja existe e as `Wave 0` a `Wave 59` foram executadas.
+A base do monorepo ja existe e as `Wave 0` a `Wave 60` foram executadas.
 Hoje esta pasta ja contem:
 
 - `apps/lume-hub-backend`, `apps/lume-hub-web` e `apps/lume-hub-host`
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
-  - `validate:wave59`
-  - `validate:wave58`
-  - `validate:wave57`
-  - `validate:wave56`
-  - `validate:wave55`
-  - `validate:wave54`
-  - `validate:wave53`
-  - `validate:wave52`
+  - `validate:wave60`
   - `validate:wave51`
   - `validate:wave49`
   - `validate:wave42`
@@ -97,17 +90,20 @@ A ronda de paridade e migracao do `WA-notify` tambem ficou fechada:
 - a `Wave 57` fechou o ownership por grupo e a politica de interacao com o bot, com enforcement real e auditoria de permissao efetiva
 - a `Wave 58` separou a pagina `WhatsApp` da pagina `LumeHub` e empurrou imports legacy para `Migracao`
 - a `Wave 59` fechou a pagina `LLM` como chat direto com escopo global ou de grupo, `memoryScope` auditavel e separacao clara entre conversa segura e `preview/apply`
+- a `Wave 60` fechou a limpeza final da ronda `group-first`, consolidando `validate:wave60` e removendo validadores intermédios `52..59`
 - grupos `distribuicao_apenas` saem do scheduling local e passam a fan-out/distribuicao
-- a validacao consolidada mais recente do backlog ativo passou a ser `validate:wave59`
+- a validacao consolidada mais recente passou a ser `validate:wave60`
 
 Na ronda curta de operacao de migracao, agora ja fechada:
 
 - a `Wave 50` ja deixou a rota `/migration` na navegacao principal
 - o `codex auto router` ja tem GUI live para `prepare` e `switch`
 - a `Wave 51` removeu copy e validadores obsoletos da ronda
-- a `Wave 52` fechou os contratos canonicos dessa nova serie
-- a `Wave 53` abriu a shell nova com rota base por grupo e switcher global de grupo
-- a `Wave 54` transformou a pagina `/groups/:groupJid` numa pagina operacional com owner, modos e politicas locais
+
+Na ronda `group-first`, agora ja fechada:
+
+- as `Wave 52` a `Wave 59` fecharam modelo, shell, pagina de grupo, calendario semanal, roteamento, ownership, separacao de settings e chat direto com a LLM
+- a `Wave 60` fechou a limpeza final e deixou `validate:wave60` como entrada canonica da serie
 
 Nota operacional:
 

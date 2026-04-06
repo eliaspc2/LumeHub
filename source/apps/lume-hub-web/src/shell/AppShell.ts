@@ -525,7 +525,7 @@ export class AppShell {
           loadingGroups: false,
         },
       };
-      this.recordUxEvent('warning', `Grupos do chat lateral indisponiveis: ${summarizeTelemetryMessage(readErrorMessage(error))}.`);
+      this.recordUxEvent('warning', `Grupos do chat de apoio indisponiveis: ${summarizeTelemetryMessage(readErrorMessage(error))}.`);
     }
 
     this.render();
@@ -8098,7 +8098,7 @@ export class AppShell {
     const chatSurfaceLabel =
       this.currentRouter().resolveRoute(this.state.route).canonicalRoute === '/assistant'
         ? 'chat direto'
-        : 'chat lateral';
+        : 'chat de apoio';
 
     if (action === 'clear-chat') {
       this.state = {

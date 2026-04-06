@@ -10,121 +10,24 @@ Regra editorial:
 
 ## Estado atual
 
-As `Wave 0` a `Wave 49` ja foram executadas e validadas.
-O runtime `Live` atual continua funcional e a ronda de inteligencia por grupo ficou fechada com storage canonico, retrieval isolado, UI/API operacional, uso live auditavel e limpeza final.
+As `Wave 0` a `Wave 60` ja foram executadas e validadas.
+A `Wave 60` fechou a limpeza final da ronda `group-first`, consolidando `validate:wave60`, removendo validadores intermédios da serie `52..59`, retirando rotas provisórias da pagina `LLM` e alinhando docs/README ao estado final.
 
-O storage canonico da ronda de media ja ficou aberto com:
+Nao ha waves ativas neste momento.
 
-- `data/runtime/media/assets/<assetId>/binary`
-- `data/runtime/media/assets/<assetId>/metadata.json`
-- `data/runtime/media/library.json`
+Estado canonico deixado pela ronda `group-first`:
 
-O inbound live de media tambem ja ficou fechado com:
-
-- deteccao de `video`, `image`, `document` e `audio` no adapter WhatsApp
-- ingest automatica para a biblioteca operacional
-- API para listar assets e consultar metadata
-- pagina `/media` no frontend live
-- distribuicao multi-grupo de media por `assetId` na `instruction-queue`
-- retry apenas dos alvos falhados
-- auditoria por alvo na queue
-
-O fluxo guiado desta ronda tambem ja ficou aberto com:
-
-- escolha direta do video recebido na pagina `Media`
-- selecao explicita de grupos com master switch e switches por grupo
-- `dry_run` e envio `confirmed` a partir da mesma pagina
-- visao recente de entrega por grupo sem sair do fluxo
-
-A ronda do agente de projeto tambem ja ficou fechada com:
-
-- pagina `/workspace` no frontend
-- modulo `workspace-agent` no backend
-- API live para pesquisar ficheiros, ler preview e correr runs do agente
-- execucao real via `codex exec` limitada ao repo do `LumeHub`
-- historico recente de runs e ficheiros alterados
-- diff por ficheiro e contexto guiado antes de `apply`
-- aprovacao explicita, bloqueio de concorrencia e auditoria visivel
-- limpeza final de docs, naming e validadores da serie
-
-## Estado do plano
-
-As `Wave 35` a `Wave 42` ja foram executadas e validadas.
-A ronda de simplificacao do GUI ficou fechada com shell minima, paginas principais mais curtas, configuracao avancada sob demanda e limpeza final dos validadores e do copy de transicao.
-A `Wave 40` tambem ja fechou diffs por ficheiro, resumo estruturado de contexto e revisao guiada de ficheiro na pagina `Projeto`.
-A `Wave 41` ja fechou aprovacao explicita para `apply`, bloqueio de concorrencia, auditoria visivel do pedido/modo/resultado e guardrails operacionais no backend e na UI.
-A `Wave 42` fechou a limpeza final da ronda do agente de projeto, consolidando validadores, removendo copy provisoria e alinhando docs ao estado final da pagina `Projeto`.
-A `Wave 43` fechou a LLM live por defeito, com provider real ativo quando a auth existe e fallback deterministico visivel e auditavel quando a auth falha.
-A `Wave 44` fechou o scheduling live com `preview -> apply -> queue -> auditoria`, incluindo alteracao real do calendario por assistente e diff funcional visivel antes e depois do `apply`.
-A `Wave 45` fechou o importador idempotente de schedules do `WA-notify`, com pagina operacional em `Configuracao`, relatorio de itens importados/ambiguos e migracao real para o storage mensal canonico por grupo.
-A `Wave 46` fechou `alerts` e `automations` dentro da arquitetura nova, com import minimo de `alerts.json` e `automations.json`, execucao live, auditoria e pagina operacional em `Configuracao`.
-A `Wave 47` fechou a suite verde e o hardening de restart/cutover, com `pnpm run test` a passar por completo e cobertura atualizada para o copy live mais recente.
-A `Wave 48` fechou o shadow mode com dados reais:
-- snapshot live de readiness em `Configuracao`
-- checklist de shadow mode e de cutover
-- comparacao curta `WA-notify` vs `LumeHub`
-- validacao consolidada agora em `validate:wave49`
-
-A `Wave 49` fechou a limpeza final da ronda:
-- consolidacao da serie em `validate:wave49`
-- remocao dos validadores intermédios `43..48`
-- docs e backlog alinhados ao estado final da ronda
-
-## Estado do plano
-
-A ronda de paridade e migracao face ao `WA-notify` ficou fechada do ponto de vista de implementacao.
-A `Wave 51` ja fechou a limpeza final curta dessa ronda, consolidando `validate:wave51`, removendo copy e validadores obsoletos e alinhando docs ao estado final.
-
-Foi agora aberta uma nova ronda maior para reposicionar o produto em torno de:
-
-- experiencia `group-first`
-- calendario semanal de notificacoes como vista principal
-- pagina propria por grupo com switcher explicito
-- modos de grupo `com_agendamento` e `distribuicao_apenas`
-- ownership real por grupo
-- politica explicita sobre quem pode ou nao tagar o bot
-- separacao clara entre configuracao `WhatsApp`, configuracao `LumeHub` e chat direto com a LLM
-
-## Nova ronda ativa
-
-Foi aberta uma nova ronda para reorientar o frontend e a operacao diaria do produto.
-O objetivo desta serie ja nao e apenas "mostrar modulos"; passa a ser tornar o `LumeHub` numa experiencia operacional centrada em grupos e em notificacoes semanais.
-
-Regra desta ronda:
-
-- manter storage canonico mensal por grupo e `week_id` ISO no backend
-- a UI operacional principal passa a ser semanal
-- switches globais deixam de dominar a shell e passam a viver em paginas de configuracao dedicadas
-- cada grupo passa a ser uma unidade operacional explicita, com modo, owner e politicas locais
-
-A `Wave 52` ja fechou a fundacao do modelo `group-first`, deixando o contrato canonico de modos de grupo, settings operacionais locais e snapshot de paginas futuras alinhado entre backend, frontend e seeds sem regressao do runtime atual.
-A `Wave 53` ja fechou a shell `group-first`, com navegacao principal curta, `Migracao` secundario, switcher global de grupo e rota base `group-first` em `/groups/:groupJid`.
-A `Wave 54` ja fechou a pagina operacional por grupo, com resumo claro, dropdown local para trocar de grupo, owner operacional, modos, policy de tag ao bot e switches locais persistentes sem perder instrucoes e documentos isolados.
-A `Wave 55` ja fechou o calendario semanal de notificacoes como vista operacional principal, com grelha por dia, leitura clara de `pending`, `waiting_confirmation` e `sent`, e acoes de criar, editar e desativar sem mexer na fronteira mensal do storage.
-A `Wave 56` ja fechou o roteamento por modo de grupo entre calendario semanal, assistente e distribuicao, deixando o comportamento `com_agendamento` vs `distribuicao_apenas` coerente na UI, nos endpoints e no runtime live.
-A `Wave 57` ja fechou ownership por grupo e politica de interacao com o bot, com enforcement real de `app owner` vs `group owner` vs membro, auditoria com permissao efetiva e leitura humana dessa policy nas paginas `Grupos`, `WhatsApp` e `LLM`.
-A `Wave 58` ja fechou a separacao entre `WhatsApp`, `LumeHub` e `Migracao`, deixando o canal focado em sessao/auth/discovery, a pagina `LumeHub` focada em configuracao global do produto, e os imports legacy presos a `Migracao`.
-A `Wave 59` ja fechou a pagina dedicada `LLM` com chat direto em escopo global ou de grupo, sem rail duplicada na propria pagina, com `memoryScope` auditavel nos logs da LLM e ponte segura para `preview/apply` quando a conversa passa a acao de calendario.
-
-Primeiros pontos em que vale a pena o utilizador testar:
-
-- no fim da `Wave 60`, para validar se a ronda `group-first` ficou limpa e sem copy/validadores de transicao
-
-### Wave 60 - Limpeza final da ronda `group-first`
-
-Objetivo:
-- fechar a ronda sem lixo tecnico nem copy herdado da shell anterior
-
-Entregaveis esperados:
-- `validate:wave60`
-- docs, README e backlog alinhados ao novo fluxo
-- remocao de copy obsoleto, rotas provisórias, seeds/demo desatualizados e validadores intermédios
-
-Contexto esperado no fecho:
 - calendario semanal como vista operacional principal
 - paginas por grupo como unidade de configuracao e trabalho
-- modos `com_agendamento` e `distribuicao_apenas` fechados
-- `WhatsApp`, `LumeHub` e `LLM` como areas separadas e claras
+- modos `com_agendamento` e `distribuicao_apenas` fechados no runtime e na UI
+- ownership por grupo e politica de tag ao bot com enforcement real
+- `WhatsApp`, `LumeHub`, `Migracao` e `LLM` como areas separadas e claras
+- chat direto com a LLM em escopo global ou de grupo, separado de `preview/apply`
+
+Validacao consolidada atual:
+
+- `cd /home/eliaspc/Documentos/lume-hub/source`
+- `corepack pnpm run validate:wave60`
 
 ## Como reabrir uma ronda
 

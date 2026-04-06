@@ -136,46 +136,21 @@ A fundacao do agente, os diffs, os guardrails operacionais e a limpeza final da 
 
 ## Gaps ativos da ronda `group-first`
 
-Esta e agora a ronda ativa do produto.
-Os gaps principais ja nao sao de paridade tecnica com o `WA-notify`; passam a ser de modelo operacional e UX:
+Nao restam gaps funcionais ativos nesta ronda.
+A `Wave 60` ja fechou a limpeza final da ronda `group-first`:
 
-- a `Wave 52` ja fechou a fundacao do modelo:
-  - modos canonicos `com_agendamento` e `distribuicao_apenas`
-  - settings operacionais por grupo
-  - contrato backend/frontend para paginas `group-first`
-- a `Wave 53` ja fechou a shell e a navegacao principal:
-  - entradas principais `Calendario`, `Grupos`, `WhatsApp`, `LumeHub` e `LLM`
-  - `Migracao` passou a area secundaria
-  - switcher global de grupo visivel
-  - rota base `/groups/:groupJid`
-- a `Wave 54` ja fechou a pagina de grupo como unidade operacional explicita:
-  - dropdown local para trocar de grupo
-  - owner operacional persistente
-  - modo do grupo, policy de tag e switches locais na mesma pagina
-  - instrucoes e documentos mantidos como contexto isolado do grupo
-- a `Wave 55` ja fechou a vista principal como calendario semanal de notificacoes:
-  - grelha semanal por dia
-  - leitura clara de `pending`, `waiting_confirmation` e `sent`
-  - criacao, edicao e desativacao inline sem sair da rota `/week`
-- a `Wave 56` ja fechou o comportamento `com_agendamento` vs `distribuicao_apenas` ponta a ponta:
-  - grupos `distribuicao_apenas` saem do scheduling local e passam a fan-out/distribuicao
-  - grupos com calendario manual mas sem LLM scheduling ficam bloqueados no assistente e continuam editaveis na rota `/week`
-  - calendario semanal, assistente e endpoints backend usam agora a mesma semantica operacional
-- a `Wave 57` ja fechou ownership por grupo e politica de interacao com o bot:
-  - `app owner`, `group owner` e membros normais passaram a ter enforcement real no runtime
-  - grupos `owner_only` bloqueiam membros normais mesmo quando tagam o bot
-  - a auditoria conversacional passou a guardar permissao efetiva com resumo humano
-  - as paginas `Grupos`, `WhatsApp` e `LLM` passaram a mostrar esse poder efetivo sem linguagem demasiado tecnica
-- a `Wave 58` ja fechou a separacao entre configuracao de canal, configuracao do produto e ferramentas de migracao:
-  - `WhatsApp` ficou centrado em sessao, auth, discovery, grupos e conversas conhecidas
-  - `LumeHub` ficou centrado em switches globais, defaults, LLM, host companion e governanca da app
-  - `Migracao` passou a concentrar imports legacy e readiness de shadow mode sem contaminar a configuracao base
-- a `Wave 59` ja fechou a pagina direta da LLM:
-  - a rota `LLM` passou a ter chat direto proprio, sem rail duplicada na propria pagina
-  - o chat permite escopo global ou escopo de grupo com memoria e instrucoes locais
-  - `preview/apply` ficou separado como modo de acao, para nao confundir conversa segura com alteracao real de calendario
-  - os logs LLM passam a preservar `memoryScope` nos pedidos diretos com contexto de grupo
-- a proxima frente ativa desta ronda passa a ser a `Wave 60`, para limpeza final da serie `group-first`
+- `validate:wave60` consolidou typecheck, build, testes de regressao de ownership/roteamento e smoke live das rotas principais
+- os validadores intermédios da serie `52..59` foram removidos
+- a pagina `LLM` ficou sem aliases provisórias antigas
+- docs, README e backlog passaram a declarar que nao ha waves ativas
+
+O estado canonico desta ronda fica:
+
+- calendario semanal como vista operacional principal
+- paginas por grupo como unidade de configuracao e trabalho
+- modos `com_agendamento` e `distribuicao_apenas` fechados ponta a ponta
+- ownership por grupo e politica de tag ao bot com enforcement real
+- `WhatsApp`, `LumeHub`, `Migracao` e `LLM` como areas separadas
 
 ## Trabalho futuro fora do scope atual
 
