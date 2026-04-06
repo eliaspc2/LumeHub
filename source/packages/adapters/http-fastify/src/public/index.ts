@@ -20,9 +20,11 @@ import type { CodexAuthRouterModuleContract } from '@lume-hub/codex-auth-router'
 import type { ConversationAuditRecord } from '@lume-hub/conversation';
 import {
   DEFAULT_GROUP_CALENDAR_ACCESS_POLICY,
+  DEFAULT_GROUP_OPERATIONAL_SETTINGS,
   type CalendarAccessMode,
   type GroupCalendarAccessPolicy,
   type GroupDirectoryModuleContract,
+  type GroupOperationalSettingsUpdate,
 } from '@lume-hub/group-directory';
 import type { GroupKnowledgeModuleContract } from '@lume-hub/group-knowledge';
 import type { HealthMonitorModuleContract } from '@lume-hub/health-monitor';
@@ -108,7 +110,12 @@ export interface HttpApiModules {
   readonly codexAuthRouter?: Pick<CodexAuthRouterModuleContract, 'prepareAuthForRequest' | 'forceSwitch' | 'getStatus'>;
   readonly groupDirectory: Pick<
     GroupDirectoryModuleContract,
-    'listGroups' | 'replaceGroupOwners' | 'updateCalendarAccessPolicy' | 'getGroupLlmInstructions' | 'updateGroupLlmInstructions'
+    | 'listGroups'
+    | 'replaceGroupOwners'
+    | 'updateCalendarAccessPolicy'
+    | 'updateOperationalSettings'
+    | 'getGroupLlmInstructions'
+    | 'updateGroupLlmInstructions'
   >;
   readonly groupKnowledge?: Pick<GroupKnowledgeModuleContract, 'getIndex' | 'upsertDocument' | 'deleteDocument'>;
   readonly healthMonitor: Pick<HealthMonitorModuleContract, 'getHealthSnapshot' | 'getReadiness'>;
@@ -172,6 +179,41 @@ export interface HttpApiModules {
     }>;
   };
 }
+
+const GROUP_FIRST_CONTRACT_SNAPSHOT = {
+  schemaVersion: 1,
+  pages: {
+    calendar: {
+      pageId: 'calendar',
+      currentRoute: '/week',
+      scope: 'weekly_notifications',
+      groupQueryParam: 'groupJid',
+    },
+    groups: {
+      pageId: 'groups',
+      collectionRoute: '/groups',
+      itemRoutePattern: '/groups/:groupJid',
+      switcherEnabled: true,
+      switcherSource: '/api/groups',
+    },
+    whatsapp: {
+      pageId: 'whatsapp',
+      currentRoute: '/whatsapp',
+    },
+    lumeHub: {
+      pageId: 'lumehub',
+      currentRoute: '/settings',
+    },
+    llm: {
+      pageId: 'llm',
+      currentRoute: '/assistant',
+    },
+    migration: {
+      pageId: 'migration',
+      currentRoute: '/migration',
+    },
+  },
+} as const;
 
 export interface FastifyHttpServerConfig {
   readonly modules: HttpApiModules;
@@ -725,6 +767,11 @@ export class RouteRegistrar {
     });
     server.registerRoute({
       method: 'GET',
+      path: '/api/group-first/contract',
+      handler: async () => GROUP_FIRST_CONTRACT_SNAPSHOT,
+    });
+    server.registerRoute({
+      method: 'GET',
       path: '/api/groups/:groupJid/intelligence',
       handler: async (context) => this.getGroupIntelligenceSnapshot(context.params.groupJid),
     });
@@ -945,6 +992,19 @@ export class RouteRegistrar {
           calendarAccessPolicy: nextPolicy,
         });
         return nextPolicy;
+      },
+    });
+    server.registerRoute({
+      method: 'PATCH',
+      path: '/api/groups/:groupJid/operational-settings',
+      handler: async (context) => {
+        const update = readGroupOperationalSettingsBody(context.body);
+        const nextSettings = await this.modules.groupDirectory.updateOperationalSettings(context.params.groupJid, update);
+        this.publish('groups.operational_settings.updated', {
+          groupJid: context.params.groupJid,
+          operationalSettings: nextSettings,
+        });
+        return nextSettings;
       },
     });
     server.registerRoute({
@@ -1645,6 +1705,7 @@ export class RouteRegistrar {
           adminSettings.whatsapp.enabled &&
           (allowAllGroups || adminSettings.commands.authorizedGroupJids.includes(group.groupJid)),
         calendarAccessPolicy: group.calendarAccessPolicy,
+        operationalSettings: group.operationalSettings,
         lastRefreshedAt: runtimeGroup?.updatedAt ?? group.lastRefreshedAt,
         knownToBot: runtimeGroupsByJid.has(group.groupJid),
       };
@@ -1667,6 +1728,7 @@ export class RouteRegistrar {
           adminSettings.whatsapp.enabled &&
           (allowAllGroups || adminSettings.commands.authorizedGroupJids.includes(runtimeGroup.groupJid)),
         calendarAccessPolicy: DEFAULT_GROUP_CALENDAR_ACCESS_POLICY,
+        operationalSettings: DEFAULT_GROUP_OPERATIONAL_SETTINGS,
         lastRefreshedAt: runtimeGroup.updatedAt,
         knownToBot: true,
       });
@@ -1687,6 +1749,7 @@ export class RouteRegistrar {
         ownerLabels: [],
         assistantAuthorized: adminSettings.commands.assistantEnabled && adminSettings.whatsapp.enabled,
         calendarAccessPolicy: DEFAULT_GROUP_CALENDAR_ACCESS_POLICY,
+        operationalSettings: DEFAULT_GROUP_OPERATIONAL_SETTINGS,
         lastRefreshedAt: null,
         knownToBot: false,
       });
@@ -2164,6 +2227,27 @@ function readCalendarAccessBody(body: unknown): Partial<GroupCalendarAccessPolic
   }
 
   return update;
+}
+
+function readGroupOperationalSettingsBody(body: unknown): GroupOperationalSettingsUpdate {
+  const payload = readBodyObject(body, 'group operational settings payload must be an object.');
+  const mode = readOptionalTrimmedStringValue(payload.mode, 'mode');
+  const memberTagPolicy = readOptionalTrimmedStringValue(payload.memberTagPolicy, 'memberTagPolicy');
+
+  if (mode !== undefined && mode !== 'com_agendamento' && mode !== 'distribuicao_apenas') {
+    throw new ApiError(400, "mode must be 'com_agendamento' or 'distribuicao_apenas'.");
+  }
+
+  if (memberTagPolicy !== undefined && memberTagPolicy !== 'members_can_tag' && memberTagPolicy !== 'owner_only') {
+    throw new ApiError(400, "memberTagPolicy must be 'members_can_tag' or 'owner_only'.");
+  }
+
+  return {
+    mode,
+    schedulingEnabled: readOptionalBooleanValue(payload.schedulingEnabled, 'schedulingEnabled'),
+    allowLlmScheduling: readOptionalBooleanValue(payload.allowLlmScheduling, 'allowLlmScheduling'),
+    memberTagPolicy,
+  };
 }
 
 function readGroupInstructionsBody(body: unknown): { readonly content: string } {

@@ -2,8 +2,11 @@ import { readdir, readFile } from 'node:fs/promises';
 
 import { AtomicJsonWriter, GroupPathResolver } from '@lume-hub/persistence-group-files';
 
-import type { Group, GroupCatalogFile } from '../../domain/entities/Group.js';
-import { DEFAULT_GROUP_CALENDAR_ACCESS_POLICY } from '../../domain/entities/Group.js';
+import type { Group, GroupCatalogFile, GroupOperationalSettings } from '../../domain/entities/Group.js';
+import {
+  DEFAULT_GROUP_CALENDAR_ACCESS_POLICY,
+  DEFAULT_GROUP_OPERATIONAL_SETTINGS,
+} from '../../domain/entities/Group.js';
 
 interface PersistedGroupFile extends Group {
   readonly schemaVersion: 1;
@@ -127,6 +130,10 @@ function mergeGroups(seed: Group, persisted: Group): Group {
       ...seed.calendarAccessPolicy,
       ...persisted.calendarAccessPolicy,
     },
+    operationalSettings: {
+      ...seed.operationalSettings,
+      ...persisted.operationalSettings,
+    },
   });
 }
 
@@ -142,7 +149,27 @@ function normaliseGroup(group: Group): Group {
       groupOwner: group.calendarAccessPolicy?.groupOwner ?? DEFAULT_GROUP_CALENDAR_ACCESS_POLICY.groupOwner,
       appOwner: group.calendarAccessPolicy?.appOwner ?? DEFAULT_GROUP_CALENDAR_ACCESS_POLICY.appOwner,
     },
+    operationalSettings: normaliseOperationalSettings(group.operationalSettings),
     lastRefreshedAt: group.lastRefreshedAt ?? null,
+  };
+}
+
+function normaliseOperationalSettings(settings: Group['operationalSettings'] | undefined): GroupOperationalSettings {
+  const mode = settings?.mode ?? DEFAULT_GROUP_OPERATIONAL_SETTINGS.mode;
+  const schedulingEnabled =
+    mode === 'com_agendamento'
+      ? settings?.schedulingEnabled ?? DEFAULT_GROUP_OPERATIONAL_SETTINGS.schedulingEnabled
+      : false;
+  const allowLlmScheduling =
+    schedulingEnabled && mode === 'com_agendamento'
+      ? settings?.allowLlmScheduling ?? DEFAULT_GROUP_OPERATIONAL_SETTINGS.allowLlmScheduling
+      : false;
+
+  return {
+    mode,
+    schedulingEnabled,
+    allowLlmScheduling,
+    memberTagPolicy: settings?.memberTagPolicy ?? DEFAULT_GROUP_OPERATIONAL_SETTINGS.memberTagPolicy,
   };
 }
 

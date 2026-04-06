@@ -15,10 +15,12 @@ import type {
   FrontendApiTransport,
   FrontendUiEvent,
   Group,
+  GroupFirstContractSnapshot,
   GroupContextPreviewSnapshot,
   GroupCalendarAccessPolicy,
   GroupIntelligenceSnapshot,
   GroupKnowledgeDocumentSnapshot,
+  GroupOperationalSettings,
   GroupOwnerAssignmentInput,
   Instruction,
   LegacyAlertImportReportSnapshot,
@@ -115,6 +117,48 @@ const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
     definitions: [],
   },
   updatedAt: null,
+};
+
+const DEFAULT_DEMO_GROUP_OPERATIONAL_SETTINGS: GroupOperationalSettings = {
+  mode: 'com_agendamento',
+  schedulingEnabled: true,
+  allowLlmScheduling: true,
+  memberTagPolicy: 'members_can_tag',
+};
+
+const GROUP_FIRST_CONTRACT_SNAPSHOT: GroupFirstContractSnapshot = {
+  schemaVersion: 1,
+  pages: {
+    calendar: {
+      pageId: 'calendar',
+      currentRoute: '/week',
+      scope: 'weekly_notifications',
+      groupQueryParam: 'groupJid',
+    },
+    groups: {
+      pageId: 'groups',
+      collectionRoute: '/groups',
+      itemRoutePattern: '/groups/:groupJid',
+      switcherEnabled: true,
+      switcherSource: '/api/groups',
+    },
+    whatsapp: {
+      pageId: 'whatsapp',
+      currentRoute: '/whatsapp',
+    },
+    lumeHub: {
+      pageId: 'lumehub',
+      currentRoute: '/settings',
+    },
+    llm: {
+      pageId: 'llm',
+      currentRoute: '/assistant',
+    },
+    migration: {
+      pageId: 'migration',
+      currentRoute: '/migration',
+    },
+  },
 };
 
 export function createInitialTransportMode(
@@ -318,6 +362,10 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
 
     if (request.method === 'GET' && pathname === '/api/groups') {
       return this.ok(this.state.groups);
+    }
+
+    if (request.method === 'GET' && pathname === '/api/group-first/contract') {
+      return this.ok(GROUP_FIRST_CONTRACT_SNAPSHOT);
     }
 
     if (request.method === 'GET' && pathname === '/api/media/assets') {
@@ -765,6 +813,7 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
     }
 
     const groupAccessMatch = matchParameterizedPath(pathname, '/api/groups/:groupJid/calendar-access');
+    const groupOperationalSettingsMatch = matchParameterizedPath(pathname, '/api/groups/:groupJid/operational-settings');
     const scheduleMatch = matchParameterizedPath(pathname, '/api/schedules/:eventId');
     const instructionRetryMatch = matchParameterizedPath(pathname, '/api/instruction-queue/:instructionId/retry');
 
@@ -789,6 +838,29 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
         calendarAccessPolicy: nextPolicy,
       });
       return this.ok(nextPolicy);
+    }
+
+    if (request.method === 'PATCH' && groupOperationalSettingsMatch) {
+      const groupIndex = this.state.groups.findIndex((group) => group.groupJid === groupOperationalSettingsMatch.groupJid);
+
+      if (groupIndex < 0) {
+        return this.error(404, `Demo group ${groupOperationalSettingsMatch.groupJid} not found.`);
+      }
+
+      const body = request.body as Partial<GroupOperationalSettings>;
+      const nextSettings = normaliseDemoGroupOperationalSettings({
+        ...this.state.groups[groupIndex].operationalSettings,
+        ...body,
+      });
+      this.state.groups[groupIndex] = {
+        ...this.state.groups[groupIndex],
+        operationalSettings: nextSettings,
+      };
+      this.emit('groups.operational_settings.updated', {
+        groupJid: groupOperationalSettingsMatch.groupJid,
+        operationalSettings: nextSettings,
+      });
+      return this.ok(nextSettings);
     }
 
     if (request.method === 'PATCH' && scheduleMatch) {
@@ -945,6 +1017,7 @@ function createDemoState(): DemoState {
       courseId: 'ballet-init',
       groupOwners: [{ personId: 'person-ana', assignedAt: iso(-1_200), assignedBy: 'person-marta' }],
       calendarAccessPolicy: { group: 'read', groupOwner: 'read_write', appOwner: 'read_write' },
+      operationalSettings: DEFAULT_DEMO_GROUP_OPERATIONAL_SETTINGS,
       lastRefreshedAt: iso(-18),
     },
     {
@@ -954,6 +1027,7 @@ function createDemoState(): DemoState {
       courseId: 'contemp-jovens',
       groupOwners: [{ personId: 'person-tiago', assignedAt: iso(-980), assignedBy: 'person-marta' }],
       calendarAccessPolicy: { group: 'read', groupOwner: 'read_write', appOwner: 'read_write' },
+      operationalSettings: DEFAULT_DEMO_GROUP_OPERATIONAL_SETTINGS,
       lastRefreshedAt: iso(-14),
     },
     {
@@ -963,6 +1037,12 @@ function createDemoState(): DemoState {
       courseId: 'pilates-adultos',
       groupOwners: [{ personId: 'person-lucia', assignedAt: iso(-720), assignedBy: 'person-marta' }],
       calendarAccessPolicy: { group: 'read', groupOwner: 'read_write', appOwner: 'read_write' },
+      operationalSettings: {
+        mode: 'distribuicao_apenas',
+        schedulingEnabled: false,
+        allowLlmScheduling: false,
+        memberTagPolicy: 'owner_only',
+      },
       lastRefreshedAt: iso(-22),
     },
     {
@@ -972,6 +1052,7 @@ function createDemoState(): DemoState {
       courseId: 'barra-chao',
       groupOwners: [],
       calendarAccessPolicy: { group: 'read', groupOwner: 'read_write', appOwner: 'read_write' },
+      operationalSettings: DEFAULT_DEMO_GROUP_OPERATIONAL_SETTINGS,
       lastRefreshedAt: iso(-35),
     },
     {
@@ -981,6 +1062,7 @@ function createDemoState(): DemoState {
       courseId: 'jazz-teens',
       groupOwners: [{ personId: 'person-rita', assignedAt: iso(-630), assignedBy: 'person-marta' }],
       calendarAccessPolicy: { group: 'read', groupOwner: 'read_write', appOwner: 'read_write' },
+      operationalSettings: DEFAULT_DEMO_GROUP_OPERATIONAL_SETTINGS,
       lastRefreshedAt: iso(-9),
     },
     {
@@ -990,6 +1072,7 @@ function createDemoState(): DemoState {
       courseId: 'teatro-musical',
       groupOwners: [{ personId: 'person-joao', assignedAt: iso(-580), assignedBy: 'person-marta' }],
       calendarAccessPolicy: { group: 'read', groupOwner: 'read_write', appOwner: 'read_write' },
+      operationalSettings: DEFAULT_DEMO_GROUP_OPERATIONAL_SETTINGS,
       lastRefreshedAt: iso(-27),
     },
   ];
@@ -2661,6 +2744,26 @@ function buildWeeklyPlannerSnapshot(state: DemoState): WeeklyPlannerSnapshot {
   };
 }
 
+function normaliseDemoGroupOperationalSettings(
+  input: Partial<GroupOperationalSettings> | undefined,
+): GroupOperationalSettings {
+  const mode = input?.mode ?? DEFAULT_DEMO_GROUP_OPERATIONAL_SETTINGS.mode;
+  const schedulingEnabled = mode === 'distribuicao_apenas'
+    ? false
+    : (input?.schedulingEnabled ?? DEFAULT_DEMO_GROUP_OPERATIONAL_SETTINGS.schedulingEnabled);
+  const allowLlmScheduling =
+    mode === 'com_agendamento' &&
+    schedulingEnabled &&
+    (input?.allowLlmScheduling ?? DEFAULT_DEMO_GROUP_OPERATIONAL_SETTINGS.allowLlmScheduling);
+
+  return {
+    mode,
+    schedulingEnabled,
+    allowLlmScheduling,
+    memberTagPolicy: input?.memberTagPolicy ?? DEFAULT_DEMO_GROUP_OPERATIONAL_SETTINGS.memberTagPolicy,
+  };
+}
+
 function buildWhatsAppWorkspaceSnapshot(state: DemoState): WhatsAppWorkspaceSnapshot {
   const peopleById = new Map(state.people.map((person) => [person.personId, person]));
   const ownedGroupsByPersonId = new Map<string, string[]>();
@@ -2690,6 +2793,7 @@ function buildWhatsAppWorkspaceSnapshot(state: DemoState): WhatsAppWorkspaceSnap
       state.settings.adminSettings.whatsapp.enabled &&
       (allowAllGroups || commands.authorizedGroupJids.includes(group.groupJid)),
     calendarAccessPolicy: group.calendarAccessPolicy,
+    operationalSettings: group.operationalSettings,
     lastRefreshedAt: group.lastRefreshedAt,
     knownToBot: true,
   }));

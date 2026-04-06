@@ -1,4 +1,6 @@
 export type CalendarAccessMode = 'read' | 'read_write';
+export type GroupMode = 'com_agendamento' | 'distribuicao_apenas';
+export type GroupMemberTagPolicy = 'members_can_tag' | 'owner_only';
 
 export interface GroupOwnerAssignment {
   readonly personId: string;
@@ -18,6 +20,20 @@ export interface GroupCalendarAccessPolicy {
   readonly appOwner: CalendarAccessMode;
 }
 
+export interface GroupOperationalSettings {
+  readonly mode: GroupMode;
+  readonly schedulingEnabled: boolean;
+  readonly allowLlmScheduling: boolean;
+  readonly memberTagPolicy: GroupMemberTagPolicy;
+}
+
+export interface GroupOperationalSettingsUpdate {
+  readonly mode?: GroupMode;
+  readonly schedulingEnabled?: boolean;
+  readonly allowLlmScheduling?: boolean;
+  readonly memberTagPolicy?: GroupMemberTagPolicy;
+}
+
 export interface Group {
   readonly groupJid: string;
   readonly preferredSubject: string;
@@ -25,6 +41,7 @@ export interface Group {
   readonly courseId: string | null;
   readonly groupOwners: readonly GroupOwnerAssignment[];
   readonly calendarAccessPolicy: GroupCalendarAccessPolicy;
+  readonly operationalSettings: GroupOperationalSettings;
   readonly lastRefreshedAt: string | null;
 }
 
@@ -78,4 +95,11 @@ export const DEFAULT_GROUP_CALENDAR_ACCESS_POLICY: GroupCalendarAccessPolicy = {
   group: 'read',
   groupOwner: 'read_write',
   appOwner: 'read_write',
+};
+
+export const DEFAULT_GROUP_OPERATIONAL_SETTINGS: GroupOperationalSettings = {
+  mode: 'com_agendamento',
+  schedulingEnabled: true,
+  allowLlmScheduling: true,
+  memberTagPolicy: 'members_can_tag',
 };

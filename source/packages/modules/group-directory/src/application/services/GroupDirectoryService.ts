@@ -8,13 +8,18 @@ import type {
   GroupCalendarAccessPolicy,
   GroupKnowledgeWorkspaceDescriptor,
   GroupLlmInstructionsDocument,
+  GroupOperationalSettings,
+  GroupOperationalSettingsUpdate,
   GroupOwnerAssignmentInput,
   GroupOwnerAssignment,
   GroupPolicyDocument,
   GroupWorkspaceDescriptor,
   WhatsAppGroupSnapshot,
 } from '../../domain/entities/Group.js';
-import { DEFAULT_GROUP_CALENDAR_ACCESS_POLICY } from '../../domain/entities/Group.js';
+import {
+  DEFAULT_GROUP_CALENDAR_ACCESS_POLICY,
+  DEFAULT_GROUP_OPERATIONAL_SETTINGS,
+} from '../../domain/entities/Group.js';
 import { GroupRepository } from '../../infrastructure/persistence/GroupRepository.js';
 
 export class GroupDirectoryService {
@@ -60,6 +65,7 @@ export class GroupDirectoryService {
         courseId: existing?.courseId ?? null,
         groupOwners: existing?.groupOwners ?? [],
         calendarAccessPolicy: existing?.calendarAccessPolicy ?? DEFAULT_GROUP_CALENDAR_ACCESS_POLICY,
+        operationalSettings: existing?.operationalSettings ?? DEFAULT_GROUP_OPERATIONAL_SETTINGS,
         lastRefreshedAt: now.toISOString(),
       };
 
@@ -101,6 +107,10 @@ export class GroupDirectoryService {
     return (await this.findRequiredGroup(groupJid)).calendarAccessPolicy;
   }
 
+  async getOperationalSettings(groupJid: string): Promise<GroupOperationalSettings> {
+    return (await this.findRequiredGroup(groupJid)).operationalSettings;
+  }
+
   async updateCalendarAccessPolicy(
     groupJid: string,
     update: Partial<GroupCalendarAccessPolicy>,
@@ -115,6 +125,22 @@ export class GroupDirectoryService {
     };
 
     return (await this.repository.saveGroup(nextGroup)).calendarAccessPolicy;
+  }
+
+  async updateOperationalSettings(
+    groupJid: string,
+    update: GroupOperationalSettingsUpdate,
+  ): Promise<GroupOperationalSettings> {
+    const group = await this.findRequiredGroup(groupJid);
+    const nextGroup: Group = {
+      ...group,
+      operationalSettings: normaliseOperationalSettings({
+        ...group.operationalSettings,
+        ...update,
+      }),
+    };
+
+    return (await this.repository.saveGroup(nextGroup)).operationalSettings;
   }
 
   async getGroupWorkspace(groupJid: string): Promise<GroupWorkspaceDescriptor> {
@@ -220,4 +246,25 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
 function ensureTrailingNewline(value: string): string {
   const trimmed = value.replace(/\r\n/gu, '\n');
   return trimmed.endsWith('\n') ? trimmed : `${trimmed}\n`;
+}
+
+function normaliseOperationalSettings(
+  settings: Partial<GroupOperationalSettings> | undefined,
+): GroupOperationalSettings {
+  const mode = settings?.mode ?? DEFAULT_GROUP_OPERATIONAL_SETTINGS.mode;
+  const schedulingEnabled =
+    mode === 'com_agendamento'
+      ? settings?.schedulingEnabled ?? DEFAULT_GROUP_OPERATIONAL_SETTINGS.schedulingEnabled
+      : false;
+  const allowLlmScheduling =
+    schedulingEnabled && mode === 'com_agendamento'
+      ? settings?.allowLlmScheduling ?? DEFAULT_GROUP_OPERATIONAL_SETTINGS.allowLlmScheduling
+      : false;
+
+  return {
+    mode,
+    schedulingEnabled,
+    allowLlmScheduling,
+    memberTagPolicy: settings?.memberTagPolicy ?? DEFAULT_GROUP_OPERATIONAL_SETTINGS.memberTagPolicy,
+  };
 }

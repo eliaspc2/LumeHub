@@ -70,11 +70,22 @@ export class GroupDirectoryModule extends BaseModule implements GroupDirectoryMo
     return this.service.getCalendarAccessPolicy(groupJid);
   }
 
+  async getOperationalSettings(groupJid: string) {
+    return this.service.getOperationalSettings(groupJid);
+  }
+
   async updateCalendarAccessPolicy(
     groupJid: string,
     update: Parameters<GroupDirectoryService['updateCalendarAccessPolicy']>[1],
   ) {
     return this.service.updateCalendarAccessPolicy(groupJid, update);
+  }
+
+  async updateOperationalSettings(
+    groupJid: string,
+    update: Parameters<GroupDirectoryService['updateOperationalSettings']>[1],
+  ) {
+    return this.service.updateOperationalSettings(groupJid, update);
   }
 
   async getGroupWorkspace(groupJid: string) {

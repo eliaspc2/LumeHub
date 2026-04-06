@@ -97,39 +97,13 @@ Regra desta ronda:
 - switches globais deixam de dominar a shell e passam a viver em paginas de configuracao dedicadas
 - cada grupo passa a ser uma unidade operacional explicita, com modo, owner e politicas locais
 
+A `Wave 52` ja fechou a fundacao do modelo `group-first`, deixando o contrato canonico de modos de grupo, settings operacionais locais e snapshot de paginas futuras alinhado entre backend, frontend e seeds sem regressao do runtime atual.
+
 Primeiros pontos em que vale a pena o utilizador testar:
 
 - no fim da `Wave 53`, para validar shell, navegacao e a direcao `group-first`
 - no fim da `Wave 55`, para validar se o calendario semanal representa a operacao certa
 - no fim da `Wave 57`, para validar se ownership e politicas de grupo batem certo com o workflow real
-
-### Wave 52 - Fundacao do modelo `group-first`
-
-Objetivo:
-- fechar contratos, naming e copy canonicos para o novo modelo operacional antes de mexer pesado na UI
-
-Entregaveis esperados:
-- modelo canonico de `group mode`:
-  - `com_agendamento`
-  - `distribuicao_apenas`
-- metadata por grupo para:
-  - owner do grupo
-  - estado de scheduling
-  - politica de tag ao bot
-  - permissao de usar LLM para scheduling
-- contratos backend/frontend alinhados para:
-  - paginas por grupo
-  - switcher de grupo
-  - calendario semanal de notificacoes
-  - paginas separadas `WhatsApp`, `LumeHub` e `LLM`
-- docs e seeds minimos atualizados sem quebrar o runtime atual
-
-Validacao esperada:
-- `validate:wave52`
-- smoke de arranque sem regressao de runtime
-
-Vale a pena o utilizador testar aqui?
-- nao; esta wave prepara o terreno e fecha o modelo antes da UX visivel
 
 ### Wave 53 - Shell `group-first` e navegacao nova
 

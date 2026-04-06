@@ -29,6 +29,8 @@ import type {
   CalendarAccessMode,
   Group,
   GroupCalendarAccessPolicy,
+  GroupOperationalSettings,
+  GroupOperationalSettingsUpdate,
   GroupOwnerAssignment,
   GroupOwnerAssignmentInput,
 } from '@lume-hub/group-directory';
@@ -249,8 +251,44 @@ export interface WhatsAppGroupSummary {
   readonly ownerLabels: readonly string[];
   readonly assistantAuthorized: boolean;
   readonly calendarAccessPolicy: GroupCalendarAccessPolicy;
+  readonly operationalSettings: GroupOperationalSettings;
   readonly lastRefreshedAt: string | null;
   readonly knownToBot: boolean;
+}
+
+export interface GroupFirstContractSnapshot {
+  readonly schemaVersion: 1;
+  readonly pages: {
+    readonly calendar: {
+      readonly pageId: 'calendar';
+      readonly currentRoute: '/week';
+      readonly scope: 'weekly_notifications';
+      readonly groupQueryParam: 'groupJid';
+    };
+    readonly groups: {
+      readonly pageId: 'groups';
+      readonly collectionRoute: '/groups';
+      readonly itemRoutePattern: '/groups/:groupJid';
+      readonly switcherEnabled: true;
+      readonly switcherSource: '/api/groups';
+    };
+    readonly whatsapp: {
+      readonly pageId: 'whatsapp';
+      readonly currentRoute: '/whatsapp';
+    };
+    readonly lumeHub: {
+      readonly pageId: 'lumehub';
+      readonly currentRoute: '/settings';
+    };
+    readonly llm: {
+      readonly pageId: 'llm';
+      readonly currentRoute: '/assistant';
+    };
+    readonly migration: {
+      readonly pageId: 'migration';
+      readonly currentRoute: '/migration';
+    };
+  };
 }
 
 export interface WhatsAppWorkspaceSnapshot {
@@ -727,6 +765,19 @@ export class FrontendApiClient {
     );
   }
 
+  async updateGroupOperationalSettings(
+    groupJid: string,
+    update: GroupOperationalSettingsUpdate,
+  ): Promise<GroupOperationalSettings> {
+    return this.expectOk(
+      await this.transport.request<GroupOperationalSettings>({
+        method: 'PATCH',
+        path: `/api/groups/${encodeURIComponent(groupJid)}/operational-settings`,
+        body: update,
+      }),
+    );
+  }
+
   async getGroupIntelligence(groupJid: string): Promise<GroupIntelligenceSnapshot> {
     return this.expectOk(
       await this.transport.request<GroupIntelligenceSnapshot>({
@@ -938,6 +989,15 @@ export class FrontendApiClient {
       await this.transport.request<MigrationReadinessSnapshot>({
         method: 'GET',
         path: '/api/migrations/readiness',
+      }),
+    );
+  }
+
+  async getGroupFirstContract(): Promise<GroupFirstContractSnapshot> {
+    return this.expectOk(
+      await this.transport.request<GroupFirstContractSnapshot>({
+        method: 'GET',
+        path: '/api/group-first/contract',
       }),
     );
   }
@@ -1185,6 +1245,8 @@ export type {
   DistributionPlan,
   Group,
   GroupCalendarAccessPolicy,
+  GroupOperationalSettings,
+  GroupOperationalSettingsUpdate,
   GroupOwnerAssignment,
   GroupOwnerAssignmentInput,
   HostCompanionStatus,

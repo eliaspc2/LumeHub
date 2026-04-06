@@ -87,7 +87,7 @@ export class WhatsAppConsoleUiModule {
           'Grupos',
           snapshot.groups.map(
             (group) =>
-              `${group.preferredSubject} | jid=${group.groupJid} | owners=${group.ownerLabels.join(', ') || 'nenhum'} | assistant_access=${group.assistantAuthorized ? 'allowed' : 'blocked'} | acl: group=${group.calendarAccessPolicy.group}, owner=${group.calendarAccessPolicy.groupOwner}, app=${group.calendarAccessPolicy.appOwner} | known=${group.knownToBot}`,
+              `${group.preferredSubject} | jid=${group.groupJid} | owners=${group.ownerLabels.join(', ') || 'nenhum'} | assistant_access=${group.assistantAuthorized ? 'allowed' : 'blocked'} | mode=${group.operationalSettings.mode} | scheduling=${group.operationalSettings.schedulingEnabled} | llm_scheduling=${group.operationalSettings.allowLlmScheduling} | member_tag_policy=${group.operationalSettings.memberTagPolicy} | acl: group=${group.calendarAccessPolicy.group}, owner=${group.calendarAccessPolicy.groupOwner}, app=${group.calendarAccessPolicy.appOwner} | known=${group.knownToBot}`,
           ),
           'Sem grupos conhecidos.',
         ),

@@ -18,13 +18,13 @@ export class GroupDirectoryConsoleUiModule {
     return {
       route: this.config.route,
       title: this.config.label,
-      description: 'Catalogo conhecido de grupos, owners e ACL do calendario.',
+      description: 'Catalogo conhecido de grupos, owners, ACL do calendario e modo operacional local.',
       sections: [
         createListSection(
           'Grupos',
           groups.map(
             (group) =>
-              `${group.preferredSubject} | owners: ${group.groupOwners.map((owner) => owner.personId).join(', ') || 'nenhum'} | acl: group=${group.calendarAccessPolicy.group}, owner=${group.calendarAccessPolicy.groupOwner}, app=${group.calendarAccessPolicy.appOwner}`,
+              `${group.preferredSubject} | owners: ${group.groupOwners.map((owner) => owner.personId).join(', ') || 'nenhum'} | mode=${group.operationalSettings.mode} | scheduling=${group.operationalSettings.schedulingEnabled} | llm_scheduling=${group.operationalSettings.allowLlmScheduling} | member_tag_policy=${group.operationalSettings.memberTagPolicy} | acl: group=${group.calendarAccessPolicy.group}, owner=${group.calendarAccessPolicy.groupOwner}, app=${group.calendarAccessPolicy.appOwner}`,
           ),
           'Sem grupos conhecidos.',
         ),

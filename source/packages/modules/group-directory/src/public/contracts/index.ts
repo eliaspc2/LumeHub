@@ -4,6 +4,8 @@ import type {
   GroupLlmInstructionsDocument,
   GroupLlmInstructionsUpdateInput,
   GroupCalendarAccessPolicy,
+  GroupOperationalSettings,
+  GroupOperationalSettingsUpdate,
   GroupOwnerAssignmentInput,
   GroupOwnerAssignment,
   GroupPolicyDocument,
@@ -22,10 +24,12 @@ export interface GroupDirectoryModuleContract {
   getGroupOwners(groupJid: string): Promise<readonly GroupOwnerAssignment[]>;
   replaceGroupOwners(groupJid: string, owners: readonly GroupOwnerAssignmentInput[]): Promise<readonly GroupOwnerAssignment[]>;
   getCalendarAccessPolicy(groupJid: string): Promise<GroupCalendarAccessPolicy>;
+  getOperationalSettings(groupJid: string): Promise<GroupOperationalSettings>;
   updateCalendarAccessPolicy(
     groupJid: string,
     update: Partial<GroupCalendarAccessPolicy>,
   ): Promise<GroupCalendarAccessPolicy>;
+  updateOperationalSettings(groupJid: string, update: GroupOperationalSettingsUpdate): Promise<GroupOperationalSettings>;
   getGroupWorkspace(groupJid: string): Promise<GroupWorkspaceDescriptor>;
   getGroupKnowledgeWorkspace(groupJid: string): Promise<GroupKnowledgeWorkspaceDescriptor>;
   getGroupLlmInstructions(groupJid: string): Promise<GroupLlmInstructionsDocument>;
