@@ -143,7 +143,11 @@ Os gaps principais ja nao sao de paridade tecnica com o `WA-notify`; passam a se
   - modos canonicos `com_agendamento` e `distribuicao_apenas`
   - settings operacionais por grupo
   - contrato backend/frontend para paginas `group-first`
-- a shell ainda nao esta organizada de forma `group-first`
+- a `Wave 53` ja fechou a shell e a navegacao principal:
+  - entradas principais `Calendario`, `Grupos`, `WhatsApp`, `LumeHub` e `LLM`
+  - `Migracao` passou a area secundaria
+  - switcher global de grupo visivel
+  - rota base `/groups/:groupJid`
 - a vista principal ainda nao e um calendario semanal de notificacoes
 - cada grupo ainda nao e uma unidade operacional explicita com modo, owner e politicas locais
 - `WhatsApp`, `LumeHub` e `LLM` ainda nao estao separados em paginas dedicadas como experiencia final

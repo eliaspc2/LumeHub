@@ -174,7 +174,26 @@ textarea {
   display: flex;
   flex: 1;
   flex-direction: column;
+  gap: 16px;
+}
+
+.nav-section {
+  display: grid;
   gap: 6px;
+}
+
+.nav-section--secondary {
+  padding-top: 16px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.nav-section-label {
+  margin: 0 0 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
 }
 
 .nav-link {
@@ -254,8 +273,49 @@ textarea {
 
 .header-meta {
   display: flex;
-  justify-content: flex-end;
-  min-width: min(100%, 280px);
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  min-width: min(100%, 320px);
+}
+
+.header-group-switcher {
+  width: min(100%, 320px);
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  background: var(--surface-subtle);
+}
+
+.header-group-switcher strong {
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.header-group-switcher__eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.header-group-switcher__field {
+  display: grid;
+  gap: 6px;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.header-group-switcher__hint {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
 }
 
 .status-strip {
@@ -1619,6 +1679,7 @@ textarea {
   .header-meta {
     justify-content: flex-start;
     min-width: 0;
+    align-items: stretch;
   }
 
   .status-strip {
@@ -1663,5 +1724,9 @@ textarea {
 
   .header-copy h1 {
     font-size: 2rem;
+  }
+
+  .header-group-switcher {
+    width: 100%;
   }
 }

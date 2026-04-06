@@ -46,8 +46,8 @@ import type { WeekPlannerSnapshot } from '@lume-hub/week-planner';
 import type { FrontendTransportMode } from '../app/BrowserTransportFactory.js';
 import type {
   AssistantPageData,
-  AppRouteDefinition,
   AppRouter,
+  ResolvedAppRoute,
   GroupManagementPageData,
   MediaLibraryPageData,
   MigrationPageData,
@@ -236,6 +236,15 @@ interface RouteLoadOptions {
 interface ScrollSnapshot {
   readonly left: number;
   readonly top: number;
+}
+
+interface ShellGroupSwitcherState {
+  readonly groups: readonly {
+    readonly groupJid: string;
+    readonly preferredSubject: string;
+  }[];
+  readonly selectedGroupJid: string;
+  readonly selectedLabel: string;
 }
 
 export class AppShell {
@@ -551,7 +560,7 @@ export class AppShell {
           };
           this.render();
 
-          if (shouldAutoRefreshRoute(this.state.route, event.topic) && this.state.previewState === 'none') {
+          if (shouldAutoRefreshRoute(this.currentRouter().resolveRoute(this.state.route).canonicalRoute, event.topic) && this.state.previewState === 'none') {
             if (this.liveRefreshTimer !== null) {
               window.clearTimeout(this.liveRefreshTimer);
             }
@@ -763,6 +772,36 @@ export class AppShell {
     };
   }
 
+  private resolveShellGroupSwitcherState(): ShellGroupSwitcherState | null {
+    const page = this.state.page;
+    const currentRoute = this.currentRouter().resolveRoute(this.state.route);
+
+    const groups = readRouteGroupOptions(page, this.state.assistantRailChat.availableGroups);
+
+    if (groups.length === 0) {
+      return null;
+    }
+
+    const preferredSelectedGroupJid =
+      currentRoute.canonicalRoute === '/groups'
+        ? this.readGroupManagementPageData()?.data.selectedGroupJid ?? null
+        : this.state.assistantRailChat.selectedGroupJid;
+    const selectedGroup =
+      groups.find((group) => group.groupJid === preferredSelectedGroupJid) ??
+      groups[0] ??
+      null;
+
+    if (!selectedGroup) {
+      return null;
+    }
+
+    return {
+      groups,
+      selectedGroupJid: selectedGroup.groupJid,
+      selectedLabel: selectedGroup.preferredSubject,
+    };
+  }
+
   private render(options: { readonly preserveScroll?: boolean } = {}): void {
     if (!this.root) {
       return;
@@ -774,6 +813,7 @@ export class AppShell {
     const router = bootstrap.router;
     const currentRoute = router.resolveRoute(this.state.route);
     const navigation = router.navigation();
+    const groupSwitcher = this.resolveShellGroupSwitcherState();
     const showAssistantRail = this.shouldRenderAssistantRail(currentRoute);
 
     document.title = `LumeHub | ${currentRoute.label}`;
@@ -788,22 +828,48 @@ export class AppShell {
             </div>
           </section>
           <nav class="surface nav-card" aria-label="Navegacao principal">
-            ${navigation
-              .map(
-                (item) => `
-                  <a
-                    href="${escapeHtml(item.route)}"
-                    data-route="${escapeHtml(item.route)}"
-                    class="nav-link ${item.route === currentRoute.route ? 'is-active' : ''}"
-                    ${item.route === currentRoute.route ? 'aria-current="page"' : ''}
-                  >
-                    <span>
-                      <span class="nav-link-label">${escapeHtml(item.label)}</span>
-                    </span>
-                  </a>
-                `,
-              )
-              .join('')}
+            <div class="nav-section">
+              <p class="nav-section-label">Principal</p>
+              ${navigation.primary
+                .map(
+                  (item) => `
+                    <a
+                      href="${escapeHtml(item.route)}"
+                      data-route="${escapeHtml(item.route)}"
+                      class="nav-link ${item.route === currentRoute.canonicalRoute ? 'is-active' : ''}"
+                      ${item.route === currentRoute.canonicalRoute ? 'aria-current="page"' : ''}
+                    >
+                      <span>
+                        <span class="nav-link-label">${escapeHtml(item.label)}</span>
+                      </span>
+                    </a>
+                  `,
+                )
+                .join('')}
+            </div>
+            ${navigation.secondary.length > 0
+              ? `
+                <div class="nav-section nav-section--secondary">
+                  <p class="nav-section-label">Apoio</p>
+                  ${navigation.secondary
+                    .map(
+                      (item) => `
+                        <a
+                          href="${escapeHtml(item.route)}"
+                          data-route="${escapeHtml(item.route)}"
+                          class="nav-link ${item.route === currentRoute.canonicalRoute ? 'is-active' : ''}"
+                          ${item.route === currentRoute.canonicalRoute ? 'aria-current="page"' : ''}
+                        >
+                          <span>
+                            <span class="nav-link-label">${escapeHtml(item.label)}</span>
+                          </span>
+                        </a>
+                      `,
+                    )
+                    .join('')}
+                </div>
+              `
+              : ''}
           </nav>
         </aside>
 
@@ -815,6 +881,26 @@ export class AppShell {
               <p>${escapeHtml(currentRoute.description)}</p>
             </div>
             <div class="header-meta">
+              ${groupSwitcher
+                ? `
+                  <section class="header-group-switcher" aria-label="Switcher global de grupo">
+                    <p class="header-group-switcher__eyebrow">Grupo em foco</p>
+                    <strong>${escapeHtml(groupSwitcher.selectedLabel)}</strong>
+                    <label class="header-group-switcher__field">
+                      <span>Abrir pagina de grupo</span>
+                      <select class="ui-control" data-shell-group-switcher>
+                        ${groupSwitcher.groups
+                          .map(
+                            (group) =>
+                              `<option value="${escapeHtml(group.groupJid)}"${group.groupJid === groupSwitcher.selectedGroupJid ? ' selected' : ''}>${escapeHtml(group.preferredSubject)}</option>`,
+                          )
+                          .join('')}
+                      </select>
+                    </label>
+                    <p class="header-group-switcher__hint">Ao trocar aqui, abres logo o workspace desse grupo.</p>
+                  </section>
+                `
+                : ''}
               <div class="status-strip">
                 ${renderUiBadge({
                   label: this.state.mode === 'demo' ? 'Preview demo' : 'Ligado live',
@@ -879,11 +965,11 @@ export class AppShell {
     `;
   }
 
-  private shouldRenderAssistantRail(currentRoute: AppRouteDefinition): boolean {
-    return currentRoute.route !== '/settings';
+  private shouldRenderAssistantRail(currentRoute: ResolvedAppRoute): boolean {
+    return currentRoute.canonicalRoute !== '/settings' && currentRoute.canonicalRoute !== '/migration';
   }
 
-  private renderMainContent(currentRoute: AppRouteDefinition): string {
+  private renderMainContent(currentRoute: ResolvedAppRoute): string {
     if (this.state.screenState === 'loading') {
       return `
         <section class="surface state-card">
@@ -6114,6 +6200,10 @@ export class AppShell {
         ...this.state,
         flowFeedback: null,
       };
+      if (groupJid) {
+        this.navigateToRoute(this.currentRouter().buildGroupRoute(groupJid));
+        return;
+      }
       await this.refreshCurrentRouteData();
       return;
     }
@@ -6406,15 +6496,15 @@ export class AppShell {
     }
   }
 
-  private renderContextRailCards(currentRoute: AppRouteDefinition): string {
-    if (currentRoute.route !== '/groups') {
+  private renderContextRailCards(currentRoute: ResolvedAppRoute): string {
+    if (currentRoute.canonicalRoute !== '/groups') {
       return '';
     }
 
     return '';
   }
 
-  private renderAssistantRail(currentRoute: AppRouteDefinition): string {
+  private renderAssistantRail(currentRoute: ResolvedAppRoute): string {
     const groups = this.state.assistantRailChat.availableGroups;
     const selectedGroup =
       groups.find((group) => group.groupJid === this.state.assistantRailChat.selectedGroupJid) ?? null;
@@ -7213,12 +7303,13 @@ export class AppShell {
           return;
         }
 
-        this.state = {
-          ...this.state,
-          pendingConfirmation: null,
-          route: this.currentRouter().normalizeRoute(nextRoute),
-        };
-        void this.loadCurrentRoute();
+        this.navigateToRoute(nextRoute);
+      });
+    }
+
+    for (const field of this.root.querySelectorAll<HTMLSelectElement>('[data-shell-group-switcher]')) {
+      field.addEventListener('change', () => {
+        void this.handleShellGroupSwitch(field.value);
       });
     }
 
@@ -7462,6 +7553,36 @@ export class AppShell {
     window.history.pushState({}, '', nextUrl);
   }
 
+  private navigateToRoute(nextRoute: string, options: { readonly replaceHistory?: boolean } = {}): void {
+    this.state = {
+      ...this.state,
+      pendingConfirmation: null,
+      route: this.currentRouter().normalizeRoute(nextRoute),
+    };
+    void this.loadCurrentRoute({ replaceHistory: options.replaceHistory });
+  }
+
+  private async handleShellGroupSwitch(groupJid: string): Promise<void> {
+    if (!groupJid) {
+      return;
+    }
+
+    this.currentRouter().setGroupManagementSelection(groupJid);
+    this.state = {
+      ...this.state,
+      flowFeedback: null,
+      assistantRailChat: {
+        ...this.state.assistantRailChat,
+        selectedGroupJid: groupJid,
+      },
+      assistantSchedulingDraft: {
+        ...this.state.assistantSchedulingDraft,
+        groupJid,
+      },
+    };
+    this.navigateToRoute(this.currentRouter().buildGroupRoute(groupJid));
+  }
+
   private captureScrollSnapshot(): ScrollSnapshot {
     return {
       left: window.scrollX,
@@ -7593,7 +7714,7 @@ function truncateText(value: string, maxLength: number): string {
   return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
 }
 
-function createPreviewPage(route: AppRouteDefinition, previewState: PreviewState): UiPage<null> {
+function createPreviewPage(route: ResolvedAppRoute, previewState: PreviewState): UiPage<null> {
   const suffix = previewState === 'empty' ? 'Sem dados simulados.' : 'Preview state simulado.';
 
   return {
@@ -8368,6 +8489,51 @@ function resolveAuthorizedGroupJids(snapshot: WhatsAppWorkspaceSnapshot): string
   }
 
   return dedupeStringList(snapshot.settings.commands.authorizedGroupJids);
+}
+
+function readRouteGroupOptions(
+  page: UiPage | null,
+  assistantRailGroups: readonly Group[],
+): ShellGroupSwitcherState['groups'] {
+  if (page && page.route === '/groups') {
+    return (page as UiPage<GroupManagementPageData>).data.groups.map((group) => ({
+      groupJid: group.groupJid,
+      preferredSubject: group.preferredSubject,
+    }));
+  }
+
+  if (page && page.route === '/assistant') {
+    return (page as UiPage<AssistantPageData>).data.groups.map((group) => ({
+      groupJid: group.groupJid,
+      preferredSubject: group.preferredSubject,
+    }));
+  }
+
+  if (page && page.route === '/media') {
+    return (page as UiPage<MediaLibraryPageData>).data.groups.map((group) => ({
+      groupJid: group.groupJid,
+      preferredSubject: group.preferredSubject,
+    }));
+  }
+
+  if (page && page.route === '/week') {
+    return (page as UiPage<WeekPlannerSnapshot>).data.groups.map((group) => ({
+      groupJid: group.groupJid,
+      preferredSubject: group.preferredSubject,
+    }));
+  }
+
+  if (page && page.route === '/whatsapp') {
+    return (page as UiPage<WhatsAppManagementPageData>).data.workspace.groups.map((group) => ({
+      groupJid: group.groupJid,
+      preferredSubject: group.preferredSubject,
+    }));
+  }
+
+  return assistantRailGroups.map((group) => ({
+    groupJid: group.groupJid,
+    preferredSubject: group.preferredSubject,
+  }));
 }
 
 function resolveAuthorizedGroupJidsForCommands(

@@ -98,36 +98,12 @@ Regra desta ronda:
 - cada grupo passa a ser uma unidade operacional explicita, com modo, owner e politicas locais
 
 A `Wave 52` ja fechou a fundacao do modelo `group-first`, deixando o contrato canonico de modos de grupo, settings operacionais locais e snapshot de paginas futuras alinhado entre backend, frontend e seeds sem regressao do runtime atual.
+A `Wave 53` ja fechou a shell `group-first`, com navegacao principal curta, `Migracao` secundario, switcher global de grupo e rota base `group-first` em `/groups/:groupJid`.
 
 Primeiros pontos em que vale a pena o utilizador testar:
 
-- no fim da `Wave 53`, para validar shell, navegacao e a direcao `group-first`
 - no fim da `Wave 55`, para validar se o calendario semanal representa a operacao certa
 - no fim da `Wave 57`, para validar se ownership e politicas de grupo batem certo com o workflow real
-
-### Wave 53 - Shell `group-first` e navegacao nova
-
-Objetivo:
-- trocar a shell atual por uma navegacao mais curta e centrada em grupos
-
-Entregaveis esperados:
-- nova navegacao principal com entradas curtas e estaveis:
-  - `Calendario`
-  - `Grupos`
-  - `WhatsApp`
-  - `LumeHub`
-  - `LLM`
-  - `Migracao` continua acessivel, mas deixa de contaminar o fluxo principal
-- switcher de grupo global visivel
-- rota base de grupo tipo `/groups/:groupJid`
-- shell limpa sem excesso de copy tecnico nem mistura de settings globais no workspace operacional
-
-Validacao esperada:
-- `validate:wave53`
-- browser headless nas rotas novas sem ecra branco
-
-Vale a pena o utilizador testar aqui?
-- sim; aqui vale a pena validar a direcao visual e a navegacao antes de aprofundar features
 
 ### Wave 54 - Pagina de grupo e configuracao operacional por grupo
 

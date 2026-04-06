@@ -455,7 +455,7 @@ export class FastifyHttpServer {
     const exists = await fileExists(filePath);
 
     if (!exists) {
-      if (pathname.includes('.')) {
+      if (looksLikeStaticAssetPath(pathname)) {
         response.writeHead(404, {
           'content-type': 'text/plain; charset=utf-8',
           'cache-control': 'no-store',
@@ -2929,6 +2929,7 @@ function resolveContentType(filePath: string): string {
     case '.js':
       return 'text/javascript; charset=utf-8';
     case '.json':
+    case '.map':
       return 'application/json; charset=utf-8';
     case '.png':
       return 'image/png';
@@ -2939,6 +2940,24 @@ function resolveContentType(filePath: string): string {
     default:
       return 'application/octet-stream';
   }
+}
+
+function looksLikeStaticAssetPath(pathname: string): boolean {
+  const extension = extname(pathname).toLowerCase();
+
+  return [
+    '.css',
+    '.html',
+    '.ico',
+    '.jpeg',
+    '.jpg',
+    '.js',
+    '.json',
+    '.map',
+    '.png',
+    '.svg',
+    '.webp',
+  ].includes(extension);
 }
 
 function injectFrontendBootConfig(html: string, config: HttpFrontendBootConfig): string {

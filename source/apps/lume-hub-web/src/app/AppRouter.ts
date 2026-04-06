@@ -35,8 +35,19 @@ export interface AppRouteDefinition {
   readonly route: string;
   readonly label: string;
   readonly description: string;
+  readonly navigationPlacement?: 'primary' | 'secondary' | 'hidden';
   readonly legacyRoutes?: readonly string[];
   render(): Promise<UiPage>;
+}
+
+export interface ResolvedAppRoute extends AppRouteDefinition {
+  readonly canonicalRoute: string;
+  readonly params: Readonly<Record<string, string>>;
+}
+
+export interface AppNavigationSections {
+  readonly primary: readonly NavigationItem[];
+  readonly secondary: readonly NavigationItem[];
 }
 
 export interface WhatsAppManagementPageData {
@@ -117,7 +128,10 @@ export class AppRouter {
     route: '/today',
     label: 'Hoje',
   });
-  private readonly weekPlanner = new WeekPlannerUiModule();
+  private readonly weekPlanner = new WeekPlannerUiModule({
+    route: '/week',
+    label: 'Calendario',
+  });
   private readonly routing = new QueueConsoleUiModule({
     route: '/distributions',
     label: 'Distribuicoes',
@@ -128,7 +142,7 @@ export class AppRouter {
   private readonly whatsapp = new WhatsAppConsoleUiModule();
   private readonly settings = new SettingsCenterUiModule({
     route: '/settings',
-    label: 'Configuracao',
+    label: 'LumeHub',
   });
 
   constructor(
@@ -136,163 +150,73 @@ export class AppRouter {
     private readonly queryClient: QueryClient,
   ) {}
 
-  navigation(): readonly NavigationItem[] {
-    return this.routes()
-      .filter((route) => route.route !== '/settings')
-      .map((route) => ({
-        route: route.route,
-        label: route.label,
-      }));
+  navigation(): AppNavigationSections {
+    const items = this.routes().map((route) => ({
+      route: route.route,
+      label: route.label,
+      placement: route.navigationPlacement ?? 'hidden',
+    }));
+
+    return {
+      primary: items
+        .filter((item) => item.placement === 'primary')
+        .map(({ route, label }) => ({ route, label })),
+      secondary: items
+        .filter((item) => item.placement === 'secondary')
+        .map(({ route, label }) => ({ route, label })),
+    };
   }
 
   normalizeRoute(rawPath: string): string {
-    const pathname = new URL(rawPath, 'http://lume-hub.local').pathname;
+    const pathname = normalizeAppPathname(new URL(rawPath, 'http://lume-hub.local').pathname);
+    const dynamicGroupJid = readDynamicGroupRouteJid(pathname);
+
+    if (dynamicGroupJid) {
+      return `/groups/${encodeURIComponent(dynamicGroupJid)}`;
+    }
+
     return this.legacyRouteAliases().get(pathname) ?? pathname;
   }
 
-  resolveRoute(rawPath: string): AppRouteDefinition {
+  resolveRoute(rawPath: string): ResolvedAppRoute {
     const normalized = this.normalizeRoute(rawPath);
-    return this.routes().find((route) => route.route === normalized) ?? this.routes()[0];
+    const dynamicGroupJid = readDynamicGroupRouteJid(normalized);
+
+    if (dynamicGroupJid) {
+      const route = this.routes().find((candidate) => candidate.route === '/groups') ?? this.routes()[0];
+      return {
+        ...route,
+        route: normalized,
+        canonicalRoute: route.route,
+        params: {
+          groupJid: dynamicGroupJid,
+        },
+      };
+    }
+
+    const route = this.routes().find((candidate) => candidate.route === normalized) ?? this.routes()[0];
+    return {
+      ...route,
+      canonicalRoute: route.route,
+      params: {},
+    };
   }
 
   routes(): readonly AppRouteDefinition[] {
     return [
       {
-        route: this.dashboard.config.route,
-        label: this.dashboard.config.label,
-        description: 'Resumo claro do estado atual, do WhatsApp e do que merece atencao primeiro.',
-        legacyRoutes: ['/', '/dashboard'],
-        render: async () => this.dashboard.render(await this.readQuery('dashboard', () => this.client.getDashboard())),
-      },
-      {
         route: this.weekPlanner.config.route,
-        label: this.weekPlanner.config.label,
-        description: 'Agenda semanal para criar e rever aulas e avisos.',
-        legacyRoutes: ['/week-planner'],
+        label: 'Calendario',
+        description: 'Vista principal semanal para navegar grupos e preparar a operacao da semana.',
+        navigationPlacement: 'primary',
+        legacyRoutes: ['/', '/dashboard', '/week-planner'],
         render: async () => this.weekPlanner.render(await this.readQuery('weekly-planner', () => this.client.getWeeklyPlanner())),
-      },
-      {
-        route: '/assistant',
-        label: 'Assistente',
-        description: 'Entrada dedicada ao assistente, com linguagem simples e espaco para contexto.',
-        legacyRoutes: ['/assistant-console'],
-        render: async () => {
-          const [settings, recentRuns, recentConversationAudit, groups, queue] = await Promise.all([
-            this.readQuery('settings', () => this.client.getSettings()),
-            this.readQuery('llm-logs', () => this.client.listLlmLogs(8)),
-            this.readQuery('conversation-logs', () => this.client.listConversationLogs(8)),
-            this.readQuery('groups', () => this.client.listGroups()),
-            this.readQuery('instruction-queue', () => this.client.listInstructionQueue()),
-          ]);
-
-          return {
-            route: '/assistant',
-            title: 'Assistente',
-            description: 'Entrada dedicada ao assistente, com linguagem simples e espaco para contexto.',
-            sections: [
-              {
-                title: 'LLM live',
-                lines: [
-                  `Configurado: ${settings.adminSettings.llm.provider} / ${settings.adminSettings.llm.model}`,
-                  `Em uso agora: ${settings.llmRuntime.effectiveProviderId} / ${settings.llmRuntime.effectiveModelId}`,
-                  `Estado live: ${settings.llmRuntime.mode}`,
-                  settings.llmRuntime.fallbackReason ? `Motivo do fallback: ${settings.llmRuntime.fallbackReason}` : 'Provider real ativo.',
-                ],
-              },
-            ],
-            data: {
-              settings,
-              groups,
-              recentLlmRuns: recentRuns,
-              recentConversationAudit,
-              recentSchedulingAudit: queue
-                .filter((instruction) => instruction.sourceType === 'assistant_schedule_apply')
-                .slice()
-                .reverse()
-                .slice(0, 8)
-                .map((instruction) => mapAssistantSchedulingAuditEntry(instruction)),
-              schedulingPreview: null,
-              lastAppliedSchedule: null,
-            } satisfies AssistantPageData,
-          };
-        },
-      },
-      {
-        route: '/workspace',
-        label: 'Projeto',
-        description: 'Pedir a uma LLM para ler, rever e alterar ficheiros do LumeHub sem sair da interface.',
-        render: async () => {
-          const [files, recentRuns, status] = await Promise.all([
-            this.readQuery('workspace-files', () => this.client.searchWorkspaceFiles('', 40)),
-            this.readQuery('workspace-runs', () => this.client.listWorkspaceAgentRuns(10)),
-            this.readQuery('workspace-status', () => this.client.getWorkspaceAgentStatus()),
-          ]);
-
-          return {
-            route: '/workspace',
-            title: 'Projeto',
-            description: 'Pedir a uma LLM para ler, rever e alterar ficheiros do LumeHub sem sair da interface.',
-            sections: [
-              {
-                title: 'Resumo',
-                lines: [
-                  `${files.length} ficheiro(s) listados nesta vista inicial.`,
-                  recentRuns.length > 0
-                    ? `${recentRuns.length} run(s) recente(s) do agente de projeto.`
-                    : 'Ainda nao ha runs do agente de projeto.',
-                ],
-              },
-            ],
-            data: {
-              files,
-              recentRuns,
-              status,
-            } satisfies WorkspaceAgentPageData,
-          };
-        },
-      },
-      {
-        route: this.routing.config.route,
-        label: this.routing.config.label,
-        description: 'Visao de distribuicoes, regras declarativas e estados de fan-out.',
-        legacyRoutes: ['/routing-fanout'],
-        render: async () =>
-          this.routing.render({
-            rules: await this.readQuery('routing-rules', () => this.client.listRoutingRules()),
-            distributions: await this.readQuery('routing-distributions', () => this.client.listDistributions()),
-            groups: (await this.readQuery('groups', () => this.client.listGroups())).map((group) => ({
-              groupJid: group.groupJid,
-              preferredSubject: group.preferredSubject,
-            })),
-          }),
-      },
-      {
-        route: this.delivery.config.route,
-        label: this.delivery.config.label,
-        description: 'Estado das entregas e confirmacoes mais recentes.',
-        legacyRoutes: ['/delivery-monitor'],
-        render: async () => {
-          const dashboard = await this.readQuery('dashboard', () => this.client.getDashboard());
-
-          return this.delivery.render({
-            pending: dashboard.health.jobs.pending,
-            waitingConfirmation: dashboard.health.jobs.waitingConfirmation,
-            sent: dashboard.health.jobs.sent,
-            openIssues: dashboard.watchdog.openIssues,
-          });
-        },
-      },
-      {
-        route: this.watchdog.config.route,
-        label: this.watchdog.config.label,
-        description: 'Inbox de problemas ativos e sinais que merecem acao manual.',
-        render: async () =>
-          this.watchdog.render(await this.readQuery('watchdog-issues', () => this.client.getWatchdogIssues())),
       },
       {
         route: this.groupDirectory.config.route,
         label: this.groupDirectory.config.label,
-        description: 'Catalogo de grupos, owners e politicas de acesso em linguagem mais humana.',
+        description: 'Workspace por grupo com contexto isolado, owners e politicas locais.',
+        navigationPlacement: 'primary',
         render: async () => {
           const [groups, settings] = await Promise.all([
             this.readQuery('groups', () => this.client.listGroups()),
@@ -343,7 +267,8 @@ export class AppRouter {
       {
         route: this.whatsapp.config.route,
         label: this.whatsapp.config.label,
-        description: 'Ligacao do canal, grupos conhecidos, conversas privadas e permissoes efetivas.',
+        description: 'Estado do canal, grupos conhecidos, owners e permissoes efetivas do WhatsApp.',
+        navigationPlacement: 'primary',
         render: async () => {
           const workspace = await this.readQuery('whatsapp-workspace', () => this.client.getWhatsAppWorkspace());
           const people = await this.readOptionalPeople();
@@ -359,9 +284,154 @@ export class AppRouter {
         },
       },
       {
+        route: this.settings.config.route,
+        label: this.settings.config.label,
+        description: 'Configuracao da app, imports legacy, energia e integracoes do LumeHub.',
+        navigationPlacement: 'primary',
+        render: async () => ({
+          route: '/settings',
+          title: 'LumeHub',
+          description: 'Configuracao da app, imports legacy, energia e integracoes do LumeHub.',
+          sections: [],
+          data: await this.readSettingsPageData(),
+        }),
+      },
+      {
+        route: '/assistant',
+        label: 'LLM',
+        description: 'Chat, auditoria e scheduling assistido sobre a LLM do produto.',
+        navigationPlacement: 'primary',
+        legacyRoutes: ['/assistant-console'],
+        render: async () => {
+          const [settings, recentRuns, recentConversationAudit, groups, queue] = await Promise.all([
+            this.readQuery('settings', () => this.client.getSettings()),
+            this.readQuery('llm-logs', () => this.client.listLlmLogs(8)),
+            this.readQuery('conversation-logs', () => this.client.listConversationLogs(8)),
+            this.readQuery('groups', () => this.client.listGroups()),
+            this.readQuery('instruction-queue', () => this.client.listInstructionQueue()),
+          ]);
+
+          return {
+            route: '/assistant',
+            title: 'LLM',
+            description: 'Chat, auditoria e scheduling assistido sobre a LLM do produto.',
+            sections: [
+              {
+                title: 'LLM live',
+                lines: [
+                  `Configurado: ${settings.adminSettings.llm.provider} / ${settings.adminSettings.llm.model}`,
+                  `Em uso agora: ${settings.llmRuntime.effectiveProviderId} / ${settings.llmRuntime.effectiveModelId}`,
+                  `Estado live: ${settings.llmRuntime.mode}`,
+                  settings.llmRuntime.fallbackReason ? `Motivo do fallback: ${settings.llmRuntime.fallbackReason}` : 'Provider real ativo.',
+                ],
+              },
+            ],
+            data: {
+              settings,
+              groups,
+              recentLlmRuns: recentRuns,
+              recentConversationAudit,
+              recentSchedulingAudit: queue
+                .filter((instruction) => instruction.sourceType === 'assistant_schedule_apply')
+                .slice()
+                .reverse()
+                .slice(0, 8)
+                .map((instruction) => mapAssistantSchedulingAuditEntry(instruction)),
+              schedulingPreview: null,
+              lastAppliedSchedule: null,
+            } satisfies AssistantPageData,
+          };
+        },
+      },
+      {
+        route: this.routing.config.route,
+        label: this.routing.config.label,
+        description: 'Visao de distribuicoes, regras declarativas e estados de fan-out.',
+        navigationPlacement: 'hidden',
+        legacyRoutes: ['/routing-fanout'],
+        render: async () =>
+          this.routing.render({
+            rules: await this.readQuery('routing-rules', () => this.client.listRoutingRules()),
+            distributions: await this.readQuery('routing-distributions', () => this.client.listDistributions()),
+            groups: (await this.readQuery('groups', () => this.client.listGroups())).map((group) => ({
+              groupJid: group.groupJid,
+              preferredSubject: group.preferredSubject,
+            })),
+          }),
+      },
+      {
+        route: this.delivery.config.route,
+        label: this.delivery.config.label,
+        description: 'Estado das entregas e confirmacoes mais recentes.',
+        navigationPlacement: 'hidden',
+        legacyRoutes: ['/delivery-monitor'],
+        render: async () => {
+          const dashboard = await this.readQuery('dashboard', () => this.client.getDashboard());
+
+          return this.delivery.render({
+            pending: dashboard.health.jobs.pending,
+            waitingConfirmation: dashboard.health.jobs.waitingConfirmation,
+            sent: dashboard.health.jobs.sent,
+            openIssues: dashboard.watchdog.openIssues,
+          });
+        },
+      },
+      {
+        route: this.watchdog.config.route,
+        label: this.watchdog.config.label,
+        description: 'Inbox de problemas ativos e sinais que merecem acao manual.',
+        navigationPlacement: 'hidden',
+        render: async () =>
+          this.watchdog.render(await this.readQuery('watchdog-issues', () => this.client.getWatchdogIssues())),
+      },
+      {
+        route: this.dashboard.config.route,
+        label: this.dashboard.config.label,
+        description: 'Resumo claro do estado atual, do WhatsApp e do que merece atencao primeiro.',
+        navigationPlacement: 'hidden',
+        legacyRoutes: ['/dashboard'],
+        render: async () => this.dashboard.render(await this.readQuery('dashboard', () => this.client.getDashboard())),
+      },
+      {
+        route: '/workspace',
+        label: 'Projeto',
+        description: 'Pedir a uma LLM para ler, rever e alterar ficheiros do LumeHub sem sair da interface.',
+        navigationPlacement: 'hidden',
+        render: async () => {
+          const [files, recentRuns, status] = await Promise.all([
+            this.readQuery('workspace-files', () => this.client.searchWorkspaceFiles('', 40)),
+            this.readQuery('workspace-runs', () => this.client.listWorkspaceAgentRuns(10)),
+            this.readQuery('workspace-status', () => this.client.getWorkspaceAgentStatus()),
+          ]);
+
+          return {
+            route: '/workspace',
+            title: 'Projeto',
+            description: 'Pedir a uma LLM para ler, rever e alterar ficheiros do LumeHub sem sair da interface.',
+            sections: [
+              {
+                title: 'Resumo',
+                lines: [
+                  `${files.length} ficheiro(s) listados nesta vista inicial.`,
+                  recentRuns.length > 0
+                    ? `${recentRuns.length} run(s) recente(s) do agente de projeto.`
+                    : 'Ainda nao ha runs do agente de projeto.',
+                ],
+              },
+            ],
+            data: {
+              files,
+              recentRuns,
+              status,
+            } satisfies WorkspaceAgentPageData,
+          };
+        },
+      },
+      {
         route: '/media',
         label: 'Media',
         description: 'Biblioteca operacional da media recebida por WhatsApp, pronta para identificar origem e preparar distribuicao.',
+        navigationPlacement: 'hidden',
         render: async () => {
           const [assets, groups, instructionQueue] = await Promise.all([
             this.readQuery('media-assets', () => this.client.listMediaAssets()),
@@ -395,24 +465,13 @@ export class AppRouter {
         route: '/migration',
         label: 'Migracao',
         description: 'Semana paralela real, readiness de cutover e consola do Codex auto router.',
+        navigationPlacement: 'secondary',
         render: async () => ({
           route: '/migration',
           title: 'Migracao',
           description: 'Semana paralela real, readiness de cutover e consola do Codex auto router.',
           sections: [],
           data: await this.readMigrationPageData(),
-        }),
-      },
-      {
-        route: this.settings.config.route,
-        label: this.settings.config.label,
-        description: 'Area secundaria para defaults, energia, host companion e auth.',
-        render: async () => ({
-          route: '/settings',
-          title: 'Configuracao',
-          description: 'Area secundaria para defaults, energia, host companion e auth.',
-          sections: [],
-          data: await this.readSettingsPageData(),
         }),
       },
     ];
@@ -450,7 +509,13 @@ export class AppRouter {
   }
 
   async renderRoute(rawPath: string): Promise<UiPage> {
-    return this.resolveRoute(rawPath).render();
+    const resolved = this.resolveRoute(rawPath);
+
+    if (resolved.canonicalRoute === '/groups') {
+      this.setGroupManagementSelection(resolved.params.groupJid ?? this.groupManagementSelection.selectedGroupJid);
+    }
+
+    return resolved.render();
   }
 
   setGroupManagementSelection(groupJid: string | null): void {
@@ -465,6 +530,10 @@ export class AppRouter {
       ...this.groupManagementSelection,
       previewText: text,
     };
+  }
+
+  buildGroupRoute(groupJid: string): string {
+    return `/groups/${encodeURIComponent(groupJid)}`;
   }
 
   private async readQuery<T>(key: string, loader: () => Promise<T>): Promise<T> {
@@ -487,13 +556,35 @@ export class AppRouter {
 
   private legacyRouteAliases(): ReadonlyMap<string, string> {
     return new Map<string, string>([
-      ['/', '/today'],
-      ['/dashboard', '/today'],
+      ['/', '/week'],
+      ['/dashboard', '/week'],
       ['/week-planner', '/week'],
       ['/assistant-console', '/assistant'],
       ['/routing-fanout', '/distributions'],
       ['/delivery-monitor', '/deliveries'],
     ]);
+  }
+}
+
+function normalizeAppPathname(pathname: string): string {
+  if (pathname.length > 1 && pathname.endsWith('/')) {
+    return pathname.slice(0, -1);
+  }
+
+  return pathname;
+}
+
+function readDynamicGroupRouteJid(pathname: string): string | null {
+  const match = /^\/groups\/([^/]+)$/u.exec(pathname);
+
+  if (!match) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
   }
 }
 
