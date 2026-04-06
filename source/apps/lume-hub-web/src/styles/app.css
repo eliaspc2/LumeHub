@@ -533,6 +533,25 @@ textarea {
   gap: 10px;
 }
 
+.llm-chat-workbench {
+  background:
+    radial-gradient(circle at 92% 8%, rgba(105, 138, 87, 0.08), transparent 26%),
+    var(--surface);
+}
+
+.llm-chat-workbench__stack {
+  gap: 18px;
+}
+
+.llm-chat-history--page {
+  max-height: 44vh;
+  padding: 2px 6px 2px 0;
+}
+
+.llm-chat-workbench__input {
+  min-height: 180px;
+}
+
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.95fr);

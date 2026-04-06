@@ -170,7 +170,12 @@ Os gaps principais ja nao sao de paridade tecnica com o `WA-notify`; passam a se
   - `WhatsApp` ficou centrado em sessao, auth, discovery, grupos e conversas conhecidas
   - `LumeHub` ficou centrado em switches globais, defaults, LLM, host companion e governanca da app
   - `Migracao` passou a concentrar imports legacy e readiness de shadow mode sem contaminar a configuracao base
-- a proxima frente ativa desta ronda passa a ser a `Wave 59`, com uma pagina dedicada de chat direto com a LLM
+- a `Wave 59` ja fechou a pagina direta da LLM:
+  - a rota `LLM` passou a ter chat direto proprio, sem rail duplicada na propria pagina
+  - o chat permite escopo global ou escopo de grupo com memoria e instrucoes locais
+  - `preview/apply` ficou separado como modo de acao, para nao confundir conversa segura com alteracao real de calendario
+  - os logs LLM passam a preservar `memoryScope` nos pedidos diretos com contexto de grupo
+- a proxima frente ativa desta ronda passa a ser a `Wave 60`, para limpeza final da serie `group-first`
 
 ## Trabalho futuro fora do scope atual
 

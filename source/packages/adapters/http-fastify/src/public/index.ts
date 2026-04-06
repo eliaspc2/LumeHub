@@ -2504,7 +2504,93 @@ function readLlmChatBody(body: unknown): LlmChatInput {
     intent: readOptionalTrimmedStringValue(payload.intent, 'intent') ?? null,
     contextSummary: readOptionalStringArrayValue(payload.contextSummary, 'contextSummary'),
     domainFacts: readOptionalStringArrayValue(payload.domainFacts, 'domainFacts'),
+    memoryScope: readOptionalLlmMemoryScopeValue(payload.memoryScope, 'memoryScope'),
   };
+}
+
+function readOptionalLlmMemoryScopeValue(
+  value: unknown,
+  fieldName: string,
+): LlmChatInput['memoryScope'] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  const payload = readBodyObject(value, `${fieldName} must be an object when provided.`);
+  const scope = readOptionalTrimmedStringValue(payload.scope, `${fieldName}.scope`) ?? 'none';
+
+  if (scope !== 'none' && scope !== 'group') {
+    throw new ApiError(400, `${fieldName}.scope must be 'none' or 'group'.`);
+  }
+
+  const knowledgeDocuments = readOptionalLlmMemoryDocumentsValue(
+    payload.knowledgeDocuments,
+    `${fieldName}.knowledgeDocuments`,
+  ) ?? [];
+
+  if (scope === 'none') {
+    return {
+      scope,
+      groupJid: null,
+      groupLabel: null,
+      instructionsSource: null,
+      instructionsApplied: false,
+      knowledgeSnippetCount: 0,
+      knowledgeDocuments: [],
+    };
+  }
+
+  const instructionsSource = readOptionalTrimmedStringValue(
+    payload.instructionsSource,
+    `${fieldName}.instructionsSource`,
+  );
+
+  if (instructionsSource !== undefined && instructionsSource !== 'llm_instructions' && instructionsSource !== 'missing') {
+    throw new ApiError(400, `${fieldName}.instructionsSource must be 'llm_instructions' or 'missing'.`);
+  }
+
+  return {
+    scope,
+    groupJid: readOptionalTrimmedStringValue(payload.groupJid, `${fieldName}.groupJid`) ?? null,
+    groupLabel: readOptionalTrimmedStringValue(payload.groupLabel, `${fieldName}.groupLabel`) ?? null,
+    instructionsSource: instructionsSource ?? null,
+    instructionsApplied: readOptionalBooleanValue(payload.instructionsApplied, `${fieldName}.instructionsApplied`) ?? false,
+    knowledgeSnippetCount:
+      readOptionalPositiveIntegerValue(payload.knowledgeSnippetCount, `${fieldName}.knowledgeSnippetCount`) ??
+      knowledgeDocuments.length,
+    knowledgeDocuments,
+  };
+}
+
+function readOptionalLlmMemoryDocumentsValue(
+  value: unknown,
+  fieldName: string,
+): NonNullable<NonNullable<LlmChatInput['memoryScope']>['knowledgeDocuments']> | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    throw new ApiError(400, `${fieldName} must be an array.`);
+  }
+
+  return value.map((entry, index) => {
+    const payload = readBodyObject(entry, `${fieldName}[${index}] must be an object.`);
+    const score = typeof payload.score === 'number' && Number.isFinite(payload.score) ? payload.score : undefined;
+    const matchedTerms = readOptionalStringArrayValue(payload.matchedTerms, `${fieldName}[${index}].matchedTerms`);
+
+    return {
+      documentId: readRequiredStringValue(payload.documentId, `${fieldName}[${index}].documentId`),
+      title: readRequiredStringValue(payload.title, `${fieldName}[${index}].title`),
+      filePath: readRequiredStringValue(payload.filePath, `${fieldName}[${index}].filePath`),
+      ...(score !== undefined ? { score } : {}),
+      ...(matchedTerms !== undefined ? { matchedTerms } : {}),
+    };
+  });
 }
 
 function readAssistantScheduleBody(

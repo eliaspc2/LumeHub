@@ -3634,6 +3634,7 @@ function createDemoLlmChatResult(state: DemoState, payload: LlmChatInput): LlmCh
     modelId: result.modelId,
     inputSummary: payload.text.slice(0, 120),
     outputSummary: result.text,
+    memoryScope: payload.memoryScope ?? null,
     createdAt: new Date().toISOString(),
   });
 

@@ -303,9 +303,9 @@ export class AppRouter {
       {
         route: '/assistant',
         label: 'LLM',
-        description: 'Chat, auditoria e scheduling assistido sobre a LLM do produto.',
+        description: 'Chat direto com a LLM, escopo global/grupo e acoes assistidas com preview antes de apply.',
         navigationPlacement: 'primary',
-        legacyRoutes: ['/assistant-console'],
+        legacyRoutes: ['/assistant-console', '/llm'],
         render: async () => {
           const [settings, recentRuns, recentConversationAudit, groups, queue] = await Promise.all([
             this.readQuery('settings', () => this.client.getSettings()),
@@ -318,7 +318,7 @@ export class AppRouter {
           return {
             route: '/assistant',
             title: 'LLM',
-            description: 'Chat, auditoria e scheduling assistido sobre a LLM do produto.',
+            description: 'Chat direto com a LLM, escopo global/grupo e acoes assistidas com preview antes de apply.',
             sections: [
               {
                 title: 'LLM live',
@@ -566,6 +566,7 @@ export class AppRouter {
       ['/dashboard', '/week'],
       ['/week-planner', '/week'],
       ['/assistant-console', '/assistant'],
+      ['/llm', '/assistant'],
       ['/routing-fanout', '/distributions'],
       ['/delivery-monitor', '/deliveries'],
     ]);

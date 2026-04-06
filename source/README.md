@@ -36,13 +36,15 @@ Decisao de storage:
 
 ## Estado
 
-A base do monorepo ja existe e as `Wave 0` a `Wave 58` foram executadas.
+A base do monorepo ja existe e as `Wave 0` a `Wave 59` foram executadas.
 Hoje esta pasta ja contem:
 
 - `apps/lume-hub-backend`, `apps/lume-hub-web` e `apps/lume-hub-host`
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
+  - `validate:wave59`
+  - `validate:wave58`
   - `validate:wave57`
   - `validate:wave56`
   - `validate:wave55`
@@ -94,8 +96,9 @@ A ronda de paridade e migracao do `WA-notify` tambem ficou fechada:
 - a `Wave 56` fechou o roteamento por modo de grupo entre calendario, assistente e distribuicao
 - a `Wave 57` fechou o ownership por grupo e a politica de interacao com o bot, com enforcement real e auditoria de permissao efetiva
 - a `Wave 58` separou a pagina `WhatsApp` da pagina `LumeHub` e empurrou imports legacy para `Migracao`
+- a `Wave 59` fechou a pagina `LLM` como chat direto com escopo global ou de grupo, `memoryScope` auditavel e separacao clara entre conversa segura e `preview/apply`
 - grupos `distribuicao_apenas` saem do scheduling local e passam a fan-out/distribuicao
-- a validacao consolidada mais recente do backlog ativo passou a ser `validate:wave58`
+- a validacao consolidada mais recente do backlog ativo passou a ser `validate:wave59`
 
 Na ronda curta de operacao de migracao, agora ja fechada:
 

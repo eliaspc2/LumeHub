@@ -559,6 +559,7 @@ export class AppShell {
   }> {
     const { contextMode, selectedGroupJid, messages, availableGroups } = this.state.assistantRailChat;
     const currentRoute = this.currentRouter().resolveRoute(this.state.route);
+    const chatIntent = currentRoute.canonicalRoute === '/assistant' ? 'direct_ui_chat' : 'sidebar_ui_chat';
     const recentHistory = messages
       .slice(-6)
       .filter((entry) => entry.role === 'user' || entry.role === 'assistant')
@@ -587,6 +588,7 @@ export class AppShell {
       return {
         contextLabel: buildAssistantRailContextLabel('group', selectedGroupJid, availableGroups, preview),
         input: buildAssistantRailGroupChatInput({
+          intent: chatIntent === 'direct_ui_chat' ? 'direct_group_chat' : 'sidebar_group_chat',
           prompt,
           preview,
           baseContextSummary: contextSummary,
@@ -598,11 +600,20 @@ export class AppShell {
       contextLabel: 'Global',
       input: {
         text: prompt,
-        intent: 'sidebar_ui_chat',
+        intent: chatIntent,
         contextSummary,
         domainFacts: [
           'Contexto global do operador. Nao assumir um grupo WhatsApp especifico, a nao ser que o utilizador o indique explicitamente.',
         ],
+        memoryScope: {
+          scope: 'none',
+          groupJid: null,
+          groupLabel: null,
+          instructionsSource: null,
+          instructionsApplied: false,
+          knowledgeSnippetCount: 0,
+          knowledgeDocuments: [],
+        },
       },
     };
   }
@@ -808,12 +819,23 @@ export class AppShell {
       this.state.assistantSchedulingDraft.groupJid,
       page.data.groups,
     );
+    const railGroups = page.data.groups.length > 0 ? page.data.groups : this.state.assistantRailChat.availableGroups;
+    const selectedRailGroupJid = resolveAssistantRailSelectedGroupJid(
+      this.state.assistantRailChat.selectedGroupJid,
+      railGroups,
+      selectedGroupJid,
+    );
 
     this.state = {
       ...this.state,
       assistantSchedulingDraft: {
         ...this.state.assistantSchedulingDraft,
         groupJid: selectedGroupJid,
+      },
+      assistantRailChat: {
+        ...this.state.assistantRailChat,
+        availableGroups: railGroups,
+        selectedGroupJid: selectedRailGroupJid,
       },
     };
   }
@@ -1031,7 +1053,11 @@ export class AppShell {
   }
 
   private shouldRenderAssistantRail(currentRoute: ResolvedAppRoute): boolean {
-    return currentRoute.canonicalRoute !== '/settings' && currentRoute.canonicalRoute !== '/migration';
+    return (
+      currentRoute.canonicalRoute !== '/assistant' &&
+      currentRoute.canonicalRoute !== '/settings' &&
+      currentRoute.canonicalRoute !== '/migration'
+    );
   }
 
   private renderMainContent(currentRoute: ResolvedAppRoute): string {
@@ -1654,35 +1680,60 @@ export class AppShell {
         ? 'Abrir distribuicoes'
         : 'Abrir calendario semanal';
     const latestAudit = page.data.recentSchedulingAudit[0] ?? null;
+    const chatGroups = page.data.groups.length > 0 ? page.data.groups : this.state.assistantRailChat.availableGroups;
+    const selectedChatGroup =
+      chatGroups.find((group) => group.groupJid === this.state.assistantRailChat.selectedGroupJid) ?? null;
+    const chatContextLabel =
+      this.state.assistantRailChat.contextMode === 'group'
+        ? selectedChatGroup?.preferredSubject ?? 'Escolhe um grupo'
+        : 'Global';
+    const chatCanSend = Boolean(
+      this.state.assistantRailChat.input.trim().length > 0 &&
+      !this.state.assistantRailChat.sending &&
+      (this.state.assistantRailChat.contextMode === 'global' || this.state.assistantRailChat.selectedGroupJid),
+    );
+    const chatScopeSummary =
+      this.state.assistantRailChat.contextMode === 'group'
+        ? selectedChatGroup
+          ? `A conversa usa instrucoes e knowledge de ${selectedChatGroup.preferredSubject}, mas fica so nesta pagina.`
+          : 'Escolhe um grupo para a LLM responder com memoria desse grupo.'
+        : 'A conversa e global: a LLM nao assume um grupo WhatsApp especifico e nao envia mensagens para lado nenhum.';
 
     return `
       <section class="surface hero surface--strong">
         <div>
-          <p class="eyebrow">Assistente live</p>
-          <h2>Pedir uma alteracao em linguagem natural, ver o preview e so depois aplicar na agenda real.</h2>
+          <p class="eyebrow">LLM direta</p>
+          <h2>Conversar com a LLM sem depender do fluxo de grupo, e so preparar acoes quando fizer sentido.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
-              label: draft.previewLoading ? 'A gerar preview...' : 'Gerar preview',
+              label: this.state.assistantRailChat.sending ? 'A responder...' : 'Enviar pergunta',
+              disabled: !chatCanSend,
+              dataAttributes: { 'rail-action': 'send-chat' },
+            })}
+            ${renderUiActionButton({
+              label: draft.previewLoading ? 'A gerar preview...' : 'Preparar acao',
+              variant: 'secondary',
               disabled: draft.previewLoading || draft.applying || !canRunLlmScheduling,
               dataAttributes: { 'assistant-action': 'preview-schedule' },
             })}
             ${renderUiActionButton({
-              label: draft.applying ? 'A aplicar...' : 'Aplicar alteracao',
+              label: 'Abrir calendario',
               variant: 'secondary',
-              disabled: !canRunLlmScheduling || !canApply || draft.previewLoading || draft.applying,
-              dataAttributes: { 'assistant-action': 'apply-schedule' },
-            })}
-            ${renderUiActionButton({
-              label: 'Limpar pedido',
-              variant: 'secondary',
-              dataAttributes: { 'assistant-action': 'clear-schedule' },
+              href: '/week',
+              dataAttributes: { route: '/week' },
             })}
           </div>
         </div>
         <div class="hero-panel">
           ${renderUiPanelCard({
-            title: 'LLM em uso',
+            title: 'Escopo do chat',
+            badgeLabel: chatContextLabel,
+            badgeTone: this.state.assistantRailChat.contextMode === 'group' && !selectedChatGroup ? 'warning' : 'positive',
+            contentHtml: `<p>${escapeHtml(chatScopeSummary)}</p>`,
+          })}
+          ${renderUiPanelCard({
+            title: 'Provider em uso',
             badgeLabel: page.data.settings.llmRuntime.effectiveProviderId,
             badgeTone: page.data.settings.llmRuntime.mode === 'live' ? 'positive' : 'warning',
             contentHtml: `<p>${escapeHtml(
@@ -1690,30 +1741,157 @@ export class AppShell {
             )}</p>`,
           })}
           ${renderUiPanelCard({
-            title: 'Ultima alteracao',
+            title: 'Modo acao',
             badgeLabel: latestAudit ? readableInstructionStatus(latestAudit.status) : 'Sem auditoria',
             badgeTone: latestAudit ? toneForInstructionStatus(latestAudit.status) : 'neutral',
             contentHtml: `<p>${escapeHtml(
               latestAudit
                 ? `${latestAudit.groupLabel ?? latestAudit.groupJid ?? 'Grupo'} • ${latestAudit.previewSummary}`
-                : 'Assim que aplicares um pedido, a ultima alteracao aparece aqui.',
+                : 'Quando quiseres mexer na agenda, usa preview/apply com confirmacao. O chat simples nunca envia nada.',
             )}</p>`,
           })}
-          ${renderUiPanelCard({
-            title: 'Roteamento do grupo',
-            badgeLabel: selectedGroup ? readableGroupMode(selectedGroup.operationalSettings.mode) : 'Sem grupo',
-            badgeTone: canRunLlmScheduling ? 'positive' : 'warning',
-            contentHtml: `<p>${escapeHtml(assistantRoutingNote)}</p>`,
-          })}
         </div>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-7 llm-chat-workbench">
+          <div class="card-header">
+            <div>
+              <h3>Chat direto com a LLM</h3>
+              <p>Este chat responde so aqui na interface. Nao fala no WhatsApp e nao altera agendas por si.</p>
+            </div>
+            ${renderUiBadge({
+              label: this.state.assistantRailChat.sending ? 'A responder' : `Escopo ${chatContextLabel}`,
+              tone: this.state.assistantRailChat.sending ? 'warning' : 'positive',
+            })}
+          </div>
+
+          <div class="rail-chat-stack llm-chat-workbench__stack">
+            <div class="rail-chat-toolbar">
+              <div class="rail-chat-toolbar__group">
+                <span class="eyebrow">Responder com escopo</span>
+                <div class="control-row">
+                  ${renderUiToggleButton({
+                    label: 'Global',
+                    value: 'global',
+                    active: this.state.assistantRailChat.contextMode === 'global',
+                    kind: 'rail-chat-mode',
+                  })}
+                  ${renderUiToggleButton({
+                    label: 'Como grupo',
+                    value: 'group',
+                    active: this.state.assistantRailChat.contextMode === 'group',
+                    kind: 'rail-chat-mode',
+                  })}
+                </div>
+              </div>
+            </div>
+
+            ${
+              this.state.assistantRailChat.contextMode === 'group'
+                ? `
+                  ${
+                    chatGroups.length > 0
+                      ? renderUiSelectField({
+                          label: 'Grupo para contexto',
+                          value: this.state.assistantRailChat.selectedGroupJid ?? '',
+                          dataKey: 'railChat.groupJid',
+                          options: chatGroups.map((group) => ({
+                            value: group.groupJid,
+                            label: `${group.preferredSubject} · ${describeAssistantSchedulingOption(group)}`,
+                          })),
+                          hint: 'A LLM usa instrucoes e documentos deste grupo, mas a resposta fica so aqui.',
+                        })
+                      : `
+                        <div class="rail-chat-inline-note">
+                          <strong>${this.state.assistantRailChat.loadingGroups ? 'A carregar grupos...' : 'Sem grupos disponiveis agora'}</strong>
+                          <p>${
+                            this.state.assistantRailChat.loadingGroups
+                              ? 'O seletor aparece assim que os grupos entrarem no runtime.'
+                              : 'Muda para Global ou volta a carregar quando houver grupos disponiveis.'
+                          }</p>
+                        </div>
+                      `
+                  }
+                `
+                : ''
+            }
+
+            ${this.renderAssistantChatHistory(
+              'Ainda sem conversa direta',
+              'Escolhe global ou grupo, escreve uma pergunta, e a resposta fica aqui sem tocar no WhatsApp.',
+              'llm-chat-history--page',
+            )}
+
+            <div class="rail-chat-composer">
+              <label class="ui-field">
+                <span class="ui-field__label">Mensagem para a LLM</span>
+                <textarea
+                  class="ui-control ui-control--textarea rail-chat-composer__input llm-chat-workbench__input"
+                  rows="7"
+                  data-field-key="railChat.input"
+                  data-rail-chat-input="true"
+                  placeholder="Ex.: Ajuda-me a transformar esta ideia numa mensagem clara, ou explica o que devo configurar neste grupo."
+                >${escapeHtml(this.state.assistantRailChat.input)}</textarea>
+                <span class="ui-field__hint">Enter envia. Shift + Enter cria nova linha. A resposta nao sai da interface.</span>
+              </label>
+
+              <div class="rail-chat-actions">
+                ${renderUiActionButton({
+                  label: this.state.assistantRailChat.sending ? 'A responder...' : 'Enviar pergunta',
+                  disabled: !chatCanSend,
+                  dataAttributes: { 'rail-action': 'send-chat' },
+                })}
+                ${renderUiActionButton({
+                  label: 'Limpar chat',
+                  variant: 'secondary',
+                  dataAttributes: { 'rail-action': 'clear-chat' },
+                })}
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="surface content-card span-5">
+          <div class="card-header">
+            <div>
+              <h3>Chat vs acao</h3>
+              <p>A pagina separa conversa segura de alteracoes reais no calendario.</p>
+            </div>
+            ${renderUiBadge({
+              label: selectedGroup ? readableGroupMode(selectedGroup.operationalSettings.mode) : 'Escolher grupo',
+              tone: selectedGroup ? toneForGroupMode(selectedGroup.operationalSettings.mode) : 'warning',
+            })}
+          </div>
+          <div class="guide-preview">
+            <p><strong>So chat</strong>: responde nesta pagina, nao envia WhatsApp e nao mexe na agenda.</p>
+            <p><strong>Com escopo de grupo</strong>: usa memoria, instrucoes e knowledge do grupo escolhido.</p>
+            <p><strong>Preparar acao</strong>: so acontece no bloco de preview/apply e exige grupo com LLM scheduling ativo.</p>
+            <p><strong>Grupo de acao</strong>: ${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe no bloco de agendamento abaixo.')}</p>
+            <p><strong>Roteamento</strong>: ${escapeHtml(assistantRoutingNote)}</p>
+          </div>
+          <div class="action-row">
+            ${renderUiActionButton({
+              label: draft.previewLoading ? 'A gerar preview...' : 'Gerar preview da acao',
+              disabled: draft.previewLoading || draft.applying || !canRunLlmScheduling,
+              dataAttributes: { 'assistant-action': 'preview-schedule' },
+            })}
+            ${renderUiActionButton({
+              label: draft.applying ? 'A aplicar...' : 'Aplicar com confirmacao',
+              variant: 'secondary',
+              disabled: !canRunLlmScheduling || !canApply || draft.previewLoading || draft.applying,
+              dataAttributes: { 'assistant-action': 'apply-schedule' },
+            })}
+          </div>
+        </article>
       </section>
 
       <section class="content-grid">
         <article class="surface content-card span-7">
           <div class="card-header">
             <div>
-              <h3>Pedir mudanca na agenda</h3>
-              <p>Escreve como escreverias num chat: criar, mudar ou apagar uma aula/evento.</p>
+              <h3>Modo acao: agenda com preview</h3>
+              <p>Quando a conversa virar alteracao real, escreve aqui o pedido e valida o diff antes de aplicar.</p>
             </div>
             ${renderUiBadge({
               label: selectedGroup ? selectedGroup.preferredSubject : 'Escolher grupo',
@@ -1933,6 +2111,11 @@ export class AppShell {
                           <strong>${escapeHtml(entry.providerId)} / ${escapeHtml(entry.modelId)}</strong>
                           <time>${escapeHtml(formatShortDateTime(entry.createdAt))}</time>
                           <p>${escapeHtml(entry.outputSummary)}</p>
+                          ${
+                            entry.memoryScope?.scope === 'group'
+                              ? `<p><strong>Escopo</strong>: ${escapeHtml(entry.memoryScope.groupLabel ?? entry.memoryScope.groupJid ?? 'grupo')}</p>`
+                              : ''
+                          }
                         </article>
                       `,
                     )
@@ -7757,15 +7940,11 @@ export class AppShell {
     return '';
   }
 
-  private renderAssistantRail(currentRoute: ResolvedAppRoute): string {
-    const groups = this.state.assistantRailChat.availableGroups;
-    const selectedGroup =
-      groups.find((group) => group.groupJid === this.state.assistantRailChat.selectedGroupJid) ?? null;
-    const contextLabel =
-      this.state.assistantRailChat.contextMode === 'group'
-        ? selectedGroup?.preferredSubject ?? 'Escolhe um grupo'
-        : 'Global';
-
+  private renderAssistantChatHistory(
+    emptyTitle = 'Sem conversa ainda',
+    emptyDescription = 'Escreve uma pergunta e recebe a resposta aqui, sem tocar no WhatsApp.',
+    extraClass = '',
+  ): string {
     const historyHtml =
       this.state.assistantRailChat.messages.length > 0
         ? this.state.assistantRailChat.messages
@@ -7800,10 +7979,22 @@ export class AppShell {
             .join('')
         : `
           <div class="rail-chat-empty">
-            <strong>Sem conversa ainda</strong>
-            <p>Escreve uma pergunta e recebe a resposta aqui, sem tocar no WhatsApp.</p>
+            <strong>${escapeHtml(emptyTitle)}</strong>
+            <p>${escapeHtml(emptyDescription)}</p>
           </div>
         `;
+
+    return `<div class="rail-chat-history${extraClass ? ` ${escapeHtml(extraClass)}` : ''}" aria-live="polite">${historyHtml}</div>`;
+  }
+
+  private renderAssistantRail(currentRoute: ResolvedAppRoute): string {
+    const groups = this.state.assistantRailChat.availableGroups;
+    const selectedGroup =
+      groups.find((group) => group.groupJid === this.state.assistantRailChat.selectedGroupJid) ?? null;
+    const contextLabel =
+      this.state.assistantRailChat.contextMode === 'group'
+        ? selectedGroup?.preferredSubject ?? 'Escolhe um grupo'
+        : 'Global';
 
     return `
       ${this.renderContextRailCards(currentRoute)}
@@ -7870,9 +8061,7 @@ export class AppShell {
               : ''
           }
 
-          <div class="rail-chat-history" aria-live="polite">
-            ${historyHtml}
-          </div>
+          ${this.renderAssistantChatHistory()}
 
           <div class="rail-chat-composer">
             <label class="ui-field">
@@ -7906,6 +8095,11 @@ export class AppShell {
   }
 
   private async handleRailAction(action: string): Promise<void> {
+    const chatSurfaceLabel =
+      this.currentRouter().resolveRoute(this.state.route).canonicalRoute === '/assistant'
+        ? 'chat direto'
+        : 'chat lateral';
+
     if (action === 'clear-chat') {
       this.state = {
         ...this.state,
@@ -7916,10 +8110,10 @@ export class AppShell {
         },
         flowFeedback: {
           tone: 'neutral',
-          message: 'Chat lateral limpo. Podes recomecar em global ou com contexto de grupo.',
+          message: `${capitalizeFirst(chatSurfaceLabel)} limpo. Podes recomecar em global ou com contexto de grupo.`,
         },
       };
-      this.recordUxEvent('neutral', 'Chat lateral limpo.');
+      this.recordUxEvent('neutral', `${capitalizeFirst(chatSurfaceLabel)} limpo.`);
       this.render();
       return;
     }
@@ -7935,7 +8129,7 @@ export class AppShell {
         ...this.state,
         flowFeedback: {
           tone: 'warning',
-          message: 'Escreve primeiro a pergunta que queres fazer a esta conversa lateral.',
+          message: `Escreve primeiro a pergunta que queres fazer neste ${chatSurfaceLabel}.`,
         },
       };
       this.render();
@@ -7996,16 +8190,16 @@ export class AppShell {
           tone: 'positive',
           message:
             contextLabel === 'Global'
-              ? 'Resposta pronta no chat lateral global.'
-              : `Resposta pronta no chat lateral com contexto de ${contextLabel}.`,
+              ? `Resposta pronta no ${chatSurfaceLabel} global.`
+              : `Resposta pronta no ${chatSurfaceLabel} com contexto de ${contextLabel}.`,
         },
       };
       this.appendAssistantRailMessage('assistant', result.text, contextLabel);
-      this.recordUxEvent('positive', `Chat lateral respondeu em ${contextLabel}.`);
+      this.recordUxEvent('positive', `${capitalizeFirst(chatSurfaceLabel)} respondeu em ${contextLabel}.`);
       this.render();
       return;
     } catch (error) {
-      const message = `Nao foi possivel obter resposta neste chat lateral. ${readErrorMessage(error)}`;
+      const message = `Nao foi possivel obter resposta neste ${chatSurfaceLabel}. ${readErrorMessage(error)}`;
       this.state = {
         ...this.state,
         assistantRailChat: {
@@ -9056,11 +9250,12 @@ function buildAssistantRailContextLabel(
 }
 
 function buildAssistantRailGroupChatInput(input: {
+  readonly intent: 'direct_group_chat' | 'sidebar_group_chat';
   readonly prompt: string;
   readonly preview: GroupContextPreviewSnapshot;
   readonly baseContextSummary: readonly string[];
 }): LlmChatInput {
-  const { prompt, preview, baseContextSummary } = input;
+  const { intent, prompt, preview, baseContextSummary } = input;
   const groupLabel = preview.group?.preferredSubject ?? preview.groupJid ?? 'grupo atual';
   const contextSummary = [
     ...baseContextSummary,
@@ -9077,9 +9272,24 @@ function buildAssistantRailGroupChatInput(input: {
 
   return {
     text: prompt,
-    intent: 'sidebar_group_chat',
+    intent,
     contextSummary,
     domainFacts,
+    memoryScope: {
+      scope: 'group',
+      groupJid: preview.groupJid,
+      groupLabel,
+      instructionsSource: preview.groupInstructionsSource,
+      instructionsApplied: Boolean(preview.groupInstructions),
+      knowledgeSnippetCount: preview.groupKnowledgeSnippets.length,
+      knowledgeDocuments: preview.groupKnowledgeSnippets.slice(0, 6).map((snippet) => ({
+        documentId: snippet.documentId,
+        title: snippet.title,
+        filePath: snippet.filePath,
+        score: snippet.score,
+        matchedTerms: snippet.matchedTerms,
+      })),
+    },
   };
 }
 
@@ -9089,6 +9299,10 @@ function truncateText(value: string, maxLength: number): string {
   }
 
   return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function capitalizeFirst(value: string): string {
+  return value.length > 0 ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : value;
 }
 
 function createPreviewPage(route: ResolvedAppRoute, previewState: PreviewState): UiPage<null> {
