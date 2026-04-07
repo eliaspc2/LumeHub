@@ -5,6 +5,7 @@ import { AudienceRoutingModule } from '@lume-hub/audience-routing';
 import { CodexAuthRouterModule } from '@lume-hub/codex-auth-router';
 import { CommandPolicyModule } from '@lume-hub/command-policy';
 import { ConversationModule } from '@lume-hub/conversation';
+import { DeliveryTrackerModule } from '@lume-hub/delivery-tracker';
 import { DisciplineCatalogModule } from '@lume-hub/discipline-catalog';
 import { GroupDirectoryModule } from '@lume-hub/group-directory';
 import { GroupKnowledgeModule } from '@lume-hub/group-knowledge';
@@ -28,6 +29,7 @@ import { NotificationRulesModule } from '@lume-hub/notification-rules';
 import { OwnerControlModule } from '@lume-hub/owner-control';
 import { PeopleMemoryModule } from '@lume-hub/people-memory';
 import { ScheduleEventsModule } from '@lume-hub/schedule-events';
+import { ScheduleDispatcherModule } from '@lume-hub/schedule-dispatcher';
 import { ScheduleWeeksModule } from '@lume-hub/schedule-weeks';
 import { SystemPowerModule } from '@lume-hub/system-power';
 import { AutomationsModule } from '@lume-hub/automations';
@@ -116,6 +118,16 @@ export class ModuleLoader {
       authRootPath: paths.whatsappAuthRootPath,
       socketFactory: this.config.whatsappSocketFactory,
       versionResolver: this.config.whatsappVersionResolver,
+    });
+    const deliveryTrackerModule = new DeliveryTrackerModule({
+      dataRootPath: paths.dataRootPath,
+      clock: this.config.clock,
+    });
+    const scheduleDispatcherModule = new ScheduleDispatcherModule({
+      dataRootPath: paths.dataRootPath,
+      clock: this.config.clock,
+      gateway: whatsAppGateway,
+      deliveryTrackerService: deliveryTrackerModule.service,
     });
     const mediaLibraryModule = new MediaLibraryModule({
       dataRootPath: paths.dataRootPath,
@@ -318,6 +330,8 @@ export class ModuleLoader {
       scheduleEventsModule,
       notificationRulesModule,
       notificationJobsModule,
+      deliveryTrackerModule,
+      scheduleDispatcherModule,
       weeklyPlannerModule,
       workspaceAgentModule,
       instructionQueueModule,
@@ -347,6 +361,8 @@ export class ModuleLoader {
         scheduleEventsModule,
         notificationRulesModule,
         notificationJobsModule,
+        deliveryTrackerModule,
+        scheduleDispatcherModule,
         weeklyPlannerModule,
         workspaceAgentModule,
         instructionQueueModule,
@@ -379,6 +395,8 @@ export class ModuleLoader {
       scheduleEventsModule,
       notificationRulesModule,
       notificationJobsModule,
+      deliveryTrackerModule,
+      scheduleDispatcherModule,
       weeklyPlannerModule,
       workspaceAgentModule,
       instructionQueueModule,

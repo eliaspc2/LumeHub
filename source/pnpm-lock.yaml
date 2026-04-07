@@ -50,6 +50,9 @@ importers:
       '@lume-hub/conversation':
         specifier: workspace:*
         version: link:../../packages/modules/conversation
+      '@lume-hub/delivery-tracker':
+        specifier: workspace:*
+        version: link:../../packages/modules/delivery-tracker
       '@lume-hub/discipline-catalog':
         specifier: workspace:*
         version: link:../../packages/modules/discipline-catalog
@@ -107,6 +110,9 @@ importers:
       '@lume-hub/persistence-group-files':
         specifier: workspace:*
         version: link:../../packages/adapters/persistence-group-files
+      '@lume-hub/schedule-dispatcher':
+        specifier: workspace:*
+        version: link:../../packages/modules/schedule-dispatcher
       '@lume-hub/schedule-events':
         specifier: workspace:*
         version: link:../../packages/modules/schedule-events

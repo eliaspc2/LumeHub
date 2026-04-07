@@ -5,6 +5,7 @@ import type { AudienceRoutingModule } from '@lume-hub/audience-routing';
 import type { CodexAuthRouterModule } from '@lume-hub/codex-auth-router';
 import type { CommandPolicyModule } from '@lume-hub/command-policy';
 import type { ConversationModule } from '@lume-hub/conversation';
+import type { DeliveryTrackerModule } from '@lume-hub/delivery-tracker';
 import type { DisciplineCatalogModule } from '@lume-hub/discipline-catalog';
 import type { GroupDirectoryModule } from '@lume-hub/group-directory';
 import type { GroupKnowledgeModule } from '@lume-hub/group-knowledge';
@@ -22,6 +23,7 @@ import type { NotificationRulesModule } from '@lume-hub/notification-rules';
 import type { OwnerControlModule } from '@lume-hub/owner-control';
 import type { PeopleMemoryModule } from '@lume-hub/people-memory';
 import type { ScheduleEventsModule } from '@lume-hub/schedule-events';
+import type { ScheduleDispatcherModule } from '@lume-hub/schedule-dispatcher';
 import type { ScheduleWeeksModule } from '@lume-hub/schedule-weeks';
 import type { SystemPowerModule } from '@lume-hub/system-power';
 import type { AutomationsModule } from '@lume-hub/automations';
@@ -51,6 +53,8 @@ export interface BackendRuntimeModules {
   readonly scheduleEventsModule: ScheduleEventsModule;
   readonly notificationRulesModule: NotificationRulesModule;
   readonly notificationJobsModule: NotificationJobsModule;
+  readonly deliveryTrackerModule: DeliveryTrackerModule;
+  readonly scheduleDispatcherModule: ScheduleDispatcherModule;
   readonly weeklyPlannerModule: WeeklyPlannerModule;
   readonly workspaceAgentModule: WorkspaceAgentModule;
   readonly instructionQueueModule: InstructionQueueModule;
@@ -99,6 +103,12 @@ export interface BackendOperationalTickSnapshot {
     readonly executed: number;
     readonly failed: number;
   };
+  readonly scheduleDispatcher: {
+    readonly dueJobsScanned: number;
+    readonly waitingConfirmationReviewed: number;
+    readonly started: number;
+    readonly skipped: number;
+  };
   readonly hostHeartbeatAt: string | null;
 }
 
@@ -124,6 +134,8 @@ export class BackendRuntime {
   private kernelStarted = false;
   private listeningAddress?: HttpListeningAddress;
   private detachWhatsAppDiagnostics?: () => void;
+  private detachDeliveryObservationListener?: () => void;
+  private detachDeliveryConfirmationListener?: () => void;
   private startedAt: string | null = null;
   private listeningAt: string | null = null;
   private stoppedAt: string | null = null;
@@ -180,6 +192,16 @@ export class BackendRuntime {
     await this.options.whatsAppWorkspaceRuntime.start();
     await this.options.messageAlertsRuntime.start();
     await this.options.conversationPipelineRuntime.start();
+    this.detachDeliveryObservationListener = this.options.whatsAppWorkspaceRuntime.gateway.subscribeOutboundObservation((signal) => {
+      void this.options.modules.deliveryTrackerModule
+        .registerObservation(signal, { groupJid: signal.chatJid })
+        .catch(() => undefined);
+    });
+    this.detachDeliveryConfirmationListener = this.options.whatsAppWorkspaceRuntime.gateway.subscribeOutboundConfirmation((signal) => {
+      void this.options.modules.deliveryTrackerModule
+        .registerConfirmation(signal, { groupJid: signal.chatJid })
+        .catch(() => undefined);
+    });
     this.detachWhatsAppDiagnostics = this.options.whatsAppWorkspaceRuntime.gateway.subscribeRuntime(() => {
       void this.writeDiagnostics(this.lastOperationalError ? 'degraded' : 'running', new Date()).catch(() => undefined);
     });
@@ -205,6 +227,10 @@ export class BackendRuntime {
 
     this.detachWhatsAppDiagnostics?.();
     this.detachWhatsAppDiagnostics = undefined;
+    this.detachDeliveryObservationListener?.();
+    this.detachDeliveryObservationListener = undefined;
+    this.detachDeliveryConfirmationListener?.();
+    this.detachDeliveryConfirmationListener = undefined;
 
     await this.options.conversationPipelineRuntime.stop();
     await this.options.messageAlertsRuntime.stop();
@@ -276,6 +302,9 @@ export class BackendRuntime {
     try {
       await this.options.modules.systemPowerModule.evaluatePowerPolicy();
       const instructionQueueTick = await this.options.modules.instructionQueueModule.tickWorker(now);
+      const scheduleDispatcherTick = await this.options.modules.scheduleDispatcherModule.tick({
+        now,
+      });
       const automationTick = await this.options.modules.automationsModule.tick(
         {
           sendText: (input) => this.options.whatsAppWorkspaceRuntime.sendText(input),
@@ -304,6 +333,12 @@ export class BackendRuntime {
         automations: {
           executed: automationTick.executedCount,
           failed: automationTick.failedCount,
+        },
+        scheduleDispatcher: {
+          dueJobsScanned: scheduleDispatcherTick.dueJobsScanned,
+          waitingConfirmationReviewed: scheduleDispatcherTick.waitingConfirmationReviewed,
+          started: scheduleDispatcherTick.results.filter((result) => result.status === 'started').length,
+          skipped: scheduleDispatcherTick.results.filter((result) => result.status === 'skipped').length,
         },
         hostHeartbeatAt: hostStatus.runtime.lastHeartbeatAt,
       };
