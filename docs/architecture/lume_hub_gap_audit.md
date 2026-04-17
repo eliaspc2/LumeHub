@@ -162,19 +162,19 @@ Existem gaps reais e visiveis nesta ronda nova.
 A `Wave 61` ja fechou a base de composicao e densidade desta ronda.
 A `Wave 62` ja fechou a simplificacao estrutural da pagina `LLM`.
 A `Wave 63` ja fechou a linguagem canonica, a divulgacao progressiva e a leitura do `codex auto router` como lista de `3+` tokens.
-Os gaps ativos concentram-se agora sobretudo no resto da shell.
+A `Wave 64` ja fechou a migracao da shell restante para os novos objetos.
+Os gaps ativos concentram-se agora apenas no fecho limpo da ronda.
 
 Os problemas que sobram nesta ronda sao estes:
 
-1. Migracao incompleta do resto da shell para os novos objetos
+1. Limpeza final de classes, helpers e variacoes supersedidas
 
-- a pagina `LLM` ja mudou de patamar, mas outras areas ainda misturam cards antigos, metricas em excesso e densidade desigual
-- `WhatsApp`, `LumeHub`, `Migracao` e algumas vistas de grupo ainda precisam da mesma disciplina estrutural ponta a ponta
+- a shell principal ja fala o mesmo dialeto, mas ainda convem remover restos de classes e helpers antigos que ficaram apenas por compatibilidade
+- a ronda termina melhor se o CSS e o copy nao deixarem duas geracoes de padroes a coexistir sem necessidade
 
-2. Dialeto visual e textual ainda irregular fora das areas ja revistas
+2. Consolidacao final da validacao e da documentacao da serie
 
-- ha zonas que ja falam em linguagem curta de acao e outras que continuam a expor demasiado mecanismo
-- a divulgacao progressiva ainda nao esta aplicada com a mesma consistencia em todas as paginas principais
+- com a shell principal alinhada, o que falta e fechar a serie com um validador final, README enxuto e docs sem linguagem de transicao
 
 O objetivo correto desta ronda nao e inventar novas features.
 E simplificar o que ja existe, torna-lo coerente e fazer com que o utilizador perceba rapidamente:

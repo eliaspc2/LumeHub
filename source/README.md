@@ -43,6 +43,7 @@ Hoje esta pasta ja contem:
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
+  - `validate:wave64`
   - `validate:wave63`
   - `validate:wave62`
   - `validate:wave61`
@@ -58,7 +59,12 @@ Hoje esta pasta ja contem:
 
 A ronda de inteligencia por grupo ficou fechada, o storage canonico de media recebida tambem, o ingest live com biblioteca operacional ficou concluido, a distribuicao multi-grupo de media ja existe no runtime, e o fluxo guiado da pagina `Media` ja esta funcional.
 A ronda de media distribuida tambem ficou fechada com limpeza final de docs, naming e validadores.
-A ronda de simplificacao do GUI ficou fechada com shell minima, paginas principais mais curtas, configuracao avancada sob demanda e limpeza final dos validadores e do copy de transicao.
+A ronda de simplificacao do GUI entrou na reta final:
+- a `Wave 61` fechou a base de composicao e densidade
+- a `Wave 62` simplificou a pagina `LLM`
+- a `Wave 63` alinhou a linguagem da shell e o `codex auto router`
+- a `Wave 64` migrou `WhatsApp`, `LumeHub`, `Migracao` e vistas principais de grupo para os novos objetos compactos
+- falta apenas a limpeza final da serie
 Tambem ja existe o fluxo operacional do agente de projeto:
 
 - modulo `@lume-hub/workspace-agent`
@@ -97,6 +103,7 @@ A ronda de paridade e migracao do `WA-notify` tambem ficou fechada:
 - a ronda `ui-clarity` abriu com a `Wave 61`, dedicada a contratos base de composicao, densidade e consistencia visual da shell
 - a `Wave 62` passa a usar essa base para refazer a pagina `LLM`, separando melhor `perguntar`, `agir` e `auditar`
 - a `Wave 63` simplifica a linguagem da shell, empurra detalhe tecnico para segundo plano e deixa o `codex auto router` pronto para listar `3+` tokens
+- a `Wave 64` migra a shell restante para listas de estado, blocos compactos e estados vazios coerentes nas paginas `WhatsApp`, `LumeHub`, `Migracao` e `Grupos`
 - grupos `distribuicao_apenas` saem do scheduling local e passam a fan-out/distribuicao
 - a validacao consolidada mais recente passou a ser `validate:wave60`
 

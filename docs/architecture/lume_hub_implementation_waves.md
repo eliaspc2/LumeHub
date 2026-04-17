@@ -65,27 +65,13 @@ A `Wave 63` ja fechou a linguagem canonica e a divulgacao progressiva desta rond
 - tratar o `codex auto router` como lista explicita de tokens, e nao apenas como caso `principal + secundario`
 - validar explicitamente a UI e o runtime com `3+` tokens disponiveis
 
-### Wave 64 - Migracao da shell restante para os novos objetos
+A `Wave 64` ja fechou a migracao da shell restante para os novos objetos:
 
-Objetivo:
-- propagar a linguagem visual e estrutural nova para o resto das areas principais sem voltar a criar excecoes
-
-Escopo:
-- migrar `Migracao`, `LumeHub`, `WhatsApp` e vistas principais de grupo para os novos objetos internos
-- reduzir uso excessivo de `metric-card` e grelhas quando a informacao pede listas compactas ou blocos assimetricos
-- alinhar barras laterais, paines secundarias, auditorias e estados vazios com a nova densidade
-- remover padroes que continuem a depender de espaco vazio para parecer organizados
-- propagar a linguagem canonica e a divulgacao progressiva para o que ainda estiver a falar no dialeto antigo da shell
-
-Validacao minima:
-- `cd /home/eliaspc/Documentos/lume-hub/source`
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- smoke das rotas principais tocadas nesta wave
-- confirmar que desktop e mobile mantem leitura clara
-
-Quando vale a pena o utilizador testar:
-- sim; aqui ja se ve a coerencia global da shell e vale a pena validar se a app ficou realmente mais simples
+- `WhatsApp`, `LumeHub`, `Migracao` e vistas principais de grupo passam a ler-se com o mesmo contrato visual base
+- resumos operacionais deixam de depender tanto de `metric-card` e passam a usar listas de estado, colunas curtas e blocos compactos
+- estados vazios, notas inline e caixas de contexto passam a usar o mesmo dialeto visual da pagina `LLM`
+- a shell fica mais densa e previsivel sem precisar de espaco morto para aparentar ordem
+- a validacao da ronda passa a existir em `validate:wave64`
 
 ### Wave 65 - Limpeza final da ronda `ui-clarity`
 
