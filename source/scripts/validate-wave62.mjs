@@ -307,15 +307,15 @@ const appShellSource = await readFile(
 
 assert.match(implementationWavesDoc, /A `Wave 60` fechou a limpeza final da ronda `group-first`/u);
 assert.match(implementationWavesDoc, /## Ronda `ui-clarity`/u);
-assert.match(implementationWavesDoc, /### Wave 62 - Pagina `LLM` mais clara, mais densa e com menos ruido/u);
+assert.match(implementationWavesDoc, /A `Wave 62` ja fechou a simplificacao estrutural da pagina `LLM`/u);
+assert.doesNotMatch(implementationWavesDoc, /### Wave 62 - Pagina `LLM` mais clara, mais densa e com menos ruido/u);
 assert.doesNotMatch(implementationWavesDoc, /### Wave 61 - Contratos de composicao e densidade base/u);
 assert.doesNotMatch(implementationWavesDoc, /Nao ha waves ativas neste momento/u);
 
 assert.match(gapAuditDoc, /## Gaps ativos da ronda `ui-clarity`/u);
 assert.match(gapAuditDoc, /A `Wave 60` ja fechou a limpeza final da ronda `group-first`/u);
 assert.match(gapAuditDoc, /A `Wave 61` ja fechou a base de composicao e densidade desta ronda/u);
-assert.match(gapAuditDoc, /Sobrecarga cognitiva na pagina `LLM`/u);
-assert.match(gapAuditDoc, /Espaco morto residual e densidade irregular/u);
+assert.match(gapAuditDoc, /A `Wave 62` ja fechou a simplificacao estrutural da pagina `LLM`/u);
 
 assert.match(rootReadme, /As `Wave 0` a `Wave 60` ja foram executadas e validadas\./u);
 assert.match(rootReadme, /a validacao consolidada mais recente passou a ser `validate:wave60`/u);

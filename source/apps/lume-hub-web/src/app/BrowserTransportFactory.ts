@@ -573,7 +573,27 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       return this.ok(this.state.settings.authRouterStatus);
     }
 
+    if (request.method === 'PATCH' && pathname === '/api/settings/codex-auth-router') {
+      const body = request.body as { readonly enabled?: boolean };
+
+      if (typeof body?.enabled !== 'boolean') {
+        return this.error(400, 'Demo codex auth router update requires enabled boolean.');
+      }
+
+      const status = setDemoCodexAuthRouterEnabled(this.state, body.enabled);
+      this.emit('settings.codex_auth_router.updated', {
+        mode: 'demo',
+        enabled: status.enabled,
+        accountId: status.currentSelection?.accountId ?? null,
+      });
+      return this.ok(status);
+    }
+
     if (request.method === 'POST' && pathname === '/api/settings/codex-auth-router/prepare') {
+      if (this.state.settings.authRouterStatus && !this.state.settings.authRouterStatus.enabled) {
+        return this.error(409, 'Demo codex auth router switching is disabled.');
+      }
+
       const status = prepareDemoCodexAuthRouter(this.state);
       this.emit('settings.codex_auth_router.updated', {
         mode: 'demo',
@@ -588,6 +608,10 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
 
       if (!accountId) {
         return this.error(400, 'Demo codex auth router switch requires accountId.');
+      }
+
+      if (this.state.settings.authRouterStatus && !this.state.settings.authRouterStatus.enabled) {
+        return this.error(409, 'Demo codex auth router switching is disabled.');
       }
 
       const status = forceDemoCodexAuthRouterSwitch(this.state, accountId);
@@ -1446,13 +1470,14 @@ function createDemoState(): DemoState {
   };
   const demoAuthRouterStatus: SettingsSnapshot['authRouterStatus'] = {
     schemaVersion: 1,
+    enabled: true,
     canonicalAuthFilePath: '/home/eliaspc/.codex/auth.json',
     canonicalExists: true,
     stateFilePath: '/home/eliaspc/.local/state/lume-hub/codex-auth-router.json',
     backupDirectoryPath: '/home/eliaspc/.local/state/lume-hub/codex-auth-backups',
     currentSelection: {
       accountId: 'acct-main',
-      label: 'Conta principal',
+      label: 'Token principal',
       sourceFilePath: '/home/eliaspc/.codex/auth.json',
       canonicalAuthFilePath: '/home/eliaspc/.codex/auth.json',
       selectedAt: iso(-510),
@@ -1464,7 +1489,7 @@ function createDemoState(): DemoState {
     accounts: [
       {
         accountId: 'acct-main',
-        label: 'Conta principal',
+        label: 'Token principal',
         sourceFilePath: '/home/eliaspc/.codex/auth.json',
         priority: 100,
         kind: 'canonical_live',
@@ -1485,8 +1510,8 @@ function createDemoState(): DemoState {
       },
       {
         accountId: 'acct-backup',
-        label: 'Conta secundaria',
-        sourceFilePath: '/home/eliaspc/.codex/auth-secondary.json',
+        label: 'Token reserva A',
+        sourceFilePath: '/home/eliaspc/.codex/auth-reserva-a.json',
         priority: 80,
         kind: 'secondary',
         exists: true,
@@ -1504,12 +1529,33 @@ function createDemoState(): DemoState {
           cooldownUntil: null,
         },
       },
+      {
+        accountId: 'acct-backup-2',
+        label: 'Token reserva B',
+        sourceFilePath: '/home/eliaspc/.codex/auth-reserva-b.json',
+        priority: 60,
+        kind: 'secondary',
+        exists: true,
+        contentHash: 'demo-hash-tertiary',
+        bytes: 1_764,
+        lastModifiedAt: iso(-420),
+        usage: {
+          successCount: 7,
+          failureCount: 2,
+          consecutiveFailures: 1,
+          lastSuccessAt: iso(-860),
+          lastFailureAt: iso(-190),
+          lastFailureKind: 'quota',
+          lastFailureReason: 'Em pausa curta por limite temporario do provider.',
+          cooldownUntil: iso(35),
+        },
+      },
     ],
     switchHistory: [],
     lastPreparedAt: iso(-12),
     lastSwitchAt: iso(-510),
     lastError: null,
-    accountCount: 2,
+    accountCount: 3,
   };
 
   const settings: SettingsSnapshot = {
@@ -3743,6 +3789,26 @@ function prepareDemoCodexAuthRouter(state: DemoState): NonNullable<SettingsSnaps
   });
 }
 
+function setDemoCodexAuthRouterEnabled(
+  state: DemoState,
+  enabled: boolean,
+): NonNullable<SettingsSnapshot['authRouterStatus']> {
+  const currentStatus = state.settings.authRouterStatus ?? failMissingDemoAuthRouter();
+  const nextStatus: NonNullable<SettingsSnapshot['authRouterStatus']> = {
+    ...currentStatus,
+    enabled,
+    accountCount: currentStatus.accounts.filter((account) => account.exists).length,
+  };
+
+  state.settings = {
+    ...state.settings,
+    authRouterStatus: nextStatus,
+    llmRuntime: createDemoLlmRuntimeStatus(state.settings.adminSettings, nextStatus),
+  };
+
+  return nextStatus;
+}
+
 function forceDemoCodexAuthRouterSwitch(
   state: DemoState,
   accountId: string,
@@ -3796,6 +3862,7 @@ function updateDemoCodexAuthRouterState(
     lastPreparedAt: nowIso,
     lastSwitchAt: switchPerformed ? nowIso : currentStatus.lastSwitchAt,
     lastError: null,
+    accountCount: currentStatus.accounts.filter((account) => account.exists).length,
     switchHistory: [
       ...currentStatus.switchHistory,
       {

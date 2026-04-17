@@ -43,6 +43,7 @@ Hoje esta pasta ja contem:
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
+  - `validate:wave63`
   - `validate:wave62`
   - `validate:wave61`
   - `validate:wave60`
@@ -95,6 +96,7 @@ A ronda de paridade e migracao do `WA-notify` tambem ficou fechada:
 - a `Wave 60` fechou a limpeza final da ronda `group-first`, consolidando `validate:wave60` e removendo validadores intermédios `52..59`
 - a ronda `ui-clarity` abriu com a `Wave 61`, dedicada a contratos base de composicao, densidade e consistencia visual da shell
 - a `Wave 62` passa a usar essa base para refazer a pagina `LLM`, separando melhor `perguntar`, `agir` e `auditar`
+- a `Wave 63` simplifica a linguagem da shell, empurra detalhe tecnico para segundo plano e deixa o `codex auto router` pronto para listar `3+` tokens
 - grupos `distribuicao_apenas` saem do scheduling local e passam a fan-out/distribuicao
 - a validacao consolidada mais recente passou a ser `validate:wave60`
 

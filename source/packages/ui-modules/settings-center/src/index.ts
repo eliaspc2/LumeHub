@@ -17,10 +17,11 @@ export class SettingsCenterUiModule {
   render(snapshot: SettingsSnapshot): UiPage<SettingsSnapshot> {
     const authRouterLines = snapshot.authRouterStatus
       ? [
-          `current_account=${snapshot.authRouterStatus.currentSelection?.accountId ?? 'none'}`,
+          `enabled=${snapshot.authRouterStatus.enabled}`,
+          `current_token=${snapshot.authRouterStatus.currentSelection?.accountId ?? 'none'}`,
           `current_source=${snapshot.authRouterStatus.currentSelection?.sourceFilePath ?? '-'}`,
           `canonical=${snapshot.authRouterStatus.canonicalAuthFilePath}`,
-          `accounts=${snapshot.authRouterStatus.accountCount}`,
+          `tokens=${snapshot.authRouterStatus.accountCount}`,
           `last_switch=${snapshot.authRouterStatus.lastSwitchAt ?? 'never'}`,
         ]
       : ['auth_router=not_configured'];

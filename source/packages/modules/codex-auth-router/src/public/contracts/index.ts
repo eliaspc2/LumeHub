@@ -14,5 +14,6 @@ export interface CodexAuthRouterModuleContract {
     accountId: string,
     input?: import('../../domain/entities/CodexAuthRouter.js').ForceCodexAuthSwitchInput,
   ): Promise<import('../../domain/entities/CodexAuthRouter.js').CodexAccountSelection>;
+  setEnabled(enabled: boolean): Promise<import('../../domain/entities/CodexAuthRouter.js').CodexAuthRouterStatus>;
   getStatus(): Promise<import('../../domain/entities/CodexAuthRouter.js').CodexAuthRouterStatus>;
 }

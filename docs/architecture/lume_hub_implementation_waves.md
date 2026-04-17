@@ -48,47 +48,22 @@ A `Wave 61` ja fechou a fundacao visual desta ronda:
 - rever alturas minimas decorativas e paddings duplicados que estejam a gerar espaco morto
 - documentar um conjunto curto de objetos internos reutilizaveis para o frontend
 
-### Wave 62 - Pagina `LLM` mais clara, mais densa e com menos ruido
+A `Wave 62` ja fechou a simplificacao estrutural da pagina `LLM`:
 
-Objetivo:
-- refazer a pagina `/assistant` para separar melhor `perguntar`, `agir` e `auditar`, com hierarquia muito mais obvia
+- separar melhor `perguntar`, `agir` e `auditar` no `/assistant`
+- reduzir redundancia entre hero, rails e preview
+- encolher estados vazios e listas curtas para cortar espaco morto
+- usar melhor a largura no desktop sem piorar mobile
+- manter o fluxo real `chat direto` vs `preview/apply`, mas com fronteiras muito mais claras
 
-Escopo:
-- transformar o topo da pagina num workbench mais simples, com menos blocos equivalentes a competir pela mesma atencao
-- reduzir redundancia entre `hero`, `chat vs acao`, `modo acao` e `preview`
-- encolher estados vazios e listas curtas para eliminar grandes zonas brancas
-- usar melhor a largura disponivel no desktop sem esmagar a leitura em mobile
-- manter o fluxo real `chat direto` vs `preview/apply`, mas com copy e fronteiras muito mais simples
+A `Wave 63` ja fechou a linguagem canonica e a divulgacao progressiva desta ronda:
 
-Validacao minima:
-- `cd /home/eliaspc/Documentos/lume-hub/source`
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- smoke dedicado da rota `/assistant`
-- confirmar que chat, preview e apply continuam acessiveis sem regressao funcional
-
-Quando vale a pena o utilizador testar:
-- sim; esta e a wave certa para testar cedo e ajustar a direcao antes de migrar o resto da shell
-
-### Wave 63 - Linguagem canonica e divulgacao progressiva
-
-Objetivo:
-- simplificar a linguagem da UI e reduzir a mistura entre termos operacionais, tecnicos e internos
-
-Escopo:
 - rever labels, hints, empty states, badges e summaries da experiencia `LLM`
 - trazer primeiro linguagem de acao e resultado; detalhes tecnicos passam para segundo plano
 - alinhar nomes e mensagens curtas entre `LLM`, `Migracao`, `LumeHub` e vistas de grupo
 - garantir que estados como `sem preview`, `bloqueado`, `ligado`, `a rever` e `pronto` aparecem sempre com o mesmo padrao
-
-Validacao minima:
-- `cd /home/eliaspc/Documentos/lume-hub/source`
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- smoke das rotas tocadas com revisao manual do copy principal
-
-Quando vale a pena o utilizador testar:
-- opcional; faz sentido se houver duvidas sobre o tom ou a clareza da nova linguagem
+- tratar o `codex auto router` como lista explicita de tokens, e nao apenas como caso `principal + secundario`
+- validar explicitamente a UI e o runtime com `3+` tokens disponiveis
 
 ### Wave 64 - Migracao da shell restante para os novos objetos
 
@@ -100,6 +75,7 @@ Escopo:
 - reduzir uso excessivo de `metric-card` e grelhas quando a informacao pede listas compactas ou blocos assimetricos
 - alinhar barras laterais, paines secundarias, auditorias e estados vazios com a nova densidade
 - remover padroes que continuem a depender de espaco vazio para parecer organizados
+- propagar a linguagem canonica e a divulgacao progressiva para o que ainda estiver a falar no dialeto antigo da shell
 
 Validacao minima:
 - `cd /home/eliaspc/Documentos/lume-hub/source`

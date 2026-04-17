@@ -63,6 +63,7 @@ export interface CodexAccountState {
 
 export interface CodexAuthRouterState {
   readonly schemaVersion: 1;
+  readonly enabled: boolean;
   readonly currentSelection: CodexAccountSelection | null;
   readonly accountStates: Readonly<Record<string, CodexAccountState>>;
   readonly switchHistory: readonly CodexAuthSwitchRecord[];
@@ -74,6 +75,7 @@ export interface CodexAuthRouterState {
 
 export interface CodexAuthRouterStatus {
   readonly schemaVersion: 1;
+  readonly enabled: boolean;
   readonly canonicalAuthFilePath: string;
   readonly canonicalExists: boolean;
   readonly stateFilePath: string;
@@ -143,6 +145,7 @@ export const DEFAULT_CODEX_ACCOUNT_STATE: CodexAccountState = {
 
 export const DEFAULT_CODEX_AUTH_ROUTER_STATE: CodexAuthRouterState = {
   schemaVersion: 1,
+  enabled: true,
   currentSelection: null,
   accountStates: {},
   switchHistory: [],

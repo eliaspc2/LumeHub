@@ -169,6 +169,7 @@ function mapAccountStateToUsage(state: CodexAccountState | undefined) {
 function normaliseState(input: Partial<CodexAuthRouterState>): CodexAuthRouterState {
   return {
     schemaVersion: 1,
+    enabled: input.enabled !== false,
     currentSelection: input.currentSelection ?? null,
     accountStates: Object.fromEntries(
       Object.entries(input.accountStates ?? {}).map(([accountId, state]) => [accountId, normaliseAccountState(state)]),

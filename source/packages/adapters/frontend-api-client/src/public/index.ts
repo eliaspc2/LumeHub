@@ -1187,6 +1187,18 @@ export class FrontendApiClient {
     );
   }
 
+  async setCodexAuthRouterEnabled(enabled: boolean): Promise<CodexAuthRouterStatus> {
+    return this.expectOk(
+      await this.transport.request<CodexAuthRouterStatus>({
+        method: 'PATCH',
+        path: '/api/settings/codex-auth-router',
+        body: {
+          enabled,
+        },
+      }),
+    );
+  }
+
   async prepareCodexAuthRouter(): Promise<CodexAuthRouterStatus> {
     return this.expectOk(
       await this.transport.request<CodexAuthRouterStatus>({

@@ -80,6 +80,10 @@ export class CodexAuthRouterModule extends BaseModule implements CodexAuthRouter
     return this.service.forceSwitch(accountId, input);
   }
 
+  async setEnabled(enabled: boolean) {
+    return this.service.setEnabled(enabled);
+  }
+
   async getStatus() {
     return this.service.getStatus();
   }
@@ -91,6 +95,7 @@ export class CodexAuthRouterModule extends BaseModule implements CodexAuthRouter
       status: status.canonicalExists ? ('healthy' as const) : ('degraded' as const),
       details: {
         module: this.name,
+        enabled: status.enabled,
         canonicalAuthFilePath: status.canonicalAuthFilePath,
         currentAccountId: status.currentSelection?.accountId ?? null,
         accountCount: status.accountCount,

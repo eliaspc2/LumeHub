@@ -31,6 +31,11 @@ export class CodexAuthRouterService {
     const now = input.now ?? new Date();
     const state = await this.repository.readState();
     const accounts = await this.repository.listAccounts(state);
+
+    if (!state.enabled) {
+      return buildDisabledSelection(state, accounts, this.repository.getCanonicalAuthFilePath(), now, input.reason ?? null);
+    }
+
     const selectedAccount =
       this.switchPolicy.selectAccount(accounts, state, {
         preferredAccountId: input.preferredAccountId,
@@ -73,6 +78,11 @@ export class CodexAuthRouterService {
   async forceSwitch(accountId: string, input: ForceCodexAuthSwitchInput = {}): Promise<CodexAccountSelection> {
     const now = input.now ?? new Date();
     const state = await this.repository.readState();
+
+    if (!state.enabled) {
+      throw new Error('Codex auth router switching is disabled.');
+    }
+
     const accounts = await this.repository.listAccounts(state);
     const selectedAccount =
       this.switchPolicy.selectAccount(accounts, state, {
@@ -112,6 +122,22 @@ export class CodexAuthRouterService {
 
     await this.repository.saveState(nextState);
     return selection;
+  }
+
+  async setEnabled(enabled: boolean): Promise<CodexAuthRouterStatus> {
+    const state = await this.repository.readState();
+
+    if (state.enabled === enabled) {
+      return this.getStatus();
+    }
+
+    await this.repository.saveState({
+      ...state,
+      enabled,
+      updatedAt: new Date().toISOString(),
+    });
+
+    return this.getStatus();
   }
 
   async reportSuccess(input: ReportCodexAuthSuccessInput = {}): Promise<CodexAuthRouterStatus> {
@@ -173,6 +199,7 @@ export class CodexAuthRouterService {
 
     return {
       schemaVersion: 1,
+      enabled: state.enabled,
       canonicalAuthFilePath: this.repository.getCanonicalAuthFilePath(),
       canonicalExists: accounts.some((account) => account.accountId === 'canonical-live' && account.exists),
       stateFilePath: this.repository.getStateFilePath(),
@@ -209,6 +236,39 @@ function buildSelection(
     backupFilePath: writeResult.backupFilePath,
     reason,
     contentHash: writeResult.contentHash,
+  };
+}
+
+function buildDisabledSelection(
+  state: CodexAuthRouterState,
+  accounts: readonly CodexAccount[],
+  canonicalAuthFilePath: string,
+  now: Date,
+  reason: string | null,
+): CodexAccountSelection {
+  if (state.currentSelection) {
+    return {
+      ...state.currentSelection,
+      canonicalAuthFilePath,
+      reason,
+      switchPerformed: false,
+      backupFilePath: null,
+      selectedAt: now.toISOString(),
+    };
+  }
+
+  const canonicalAccount = accounts.find((account) => account.kind === 'canonical_live') ?? accounts[0] ?? failNoAccount(null);
+
+  return {
+    accountId: canonicalAccount.accountId,
+    label: canonicalAccount.label,
+    sourceFilePath: canonicalAccount.sourceFilePath,
+    canonicalAuthFilePath,
+    selectedAt: now.toISOString(),
+    switchPerformed: false,
+    backupFilePath: null,
+    reason,
+    contentHash: canonicalAccount.contentHash,
   };
 }
 
