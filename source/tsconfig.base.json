@@ -99,6 +99,9 @@
       "@lume-hub/codex-auth-router": [
         "packages/modules/codex-auth-router/src/public/index.ts"
       ],
+      "@lume-hub/codex-auth-backup-sync": [
+        "packages/modules/codex-auth-backup-sync/src/public/index.ts"
+      ],
       "@lume-hub/schedule-weeks": [
         "packages/modules/schedule-weeks/src/public/index.ts"
       ],

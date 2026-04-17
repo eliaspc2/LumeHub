@@ -37,7 +37,10 @@ export class CodexAuthRouterService {
         now,
       }) ?? failNoAccount(input.preferredAccountId ?? null);
 
-    const writeResult = await this.canonicalWriter.writeFromSource(selectedAccount.sourceFilePath, now);
+    const writeResult = await this.canonicalWriter.writeFromSource(selectedAccount.sourceFilePath, {
+      now,
+      previousAccountId: state.currentSelection?.accountId ?? 'canonical-live',
+    });
     const selection = buildSelection(selectedAccount, this.repository.getCanonicalAuthFilePath(), now, writeResult, input.reason ?? null);
     const nextState = appendAuditRecord(
       {
@@ -77,7 +80,10 @@ export class CodexAuthRouterService {
         now,
         ignoreCooldown: true,
       }) ?? failMissingAccount(accountId);
-    const writeResult = await this.canonicalWriter.writeFromSource(selectedAccount.sourceFilePath, now);
+    const writeResult = await this.canonicalWriter.writeFromSource(selectedAccount.sourceFilePath, {
+      now,
+      previousAccountId: state.currentSelection?.accountId ?? 'canonical-live',
+    });
     const selection = buildSelection(selectedAccount, this.repository.getCanonicalAuthFilePath(), now, writeResult, input.reason ?? null);
     const recoveredState = this.usageService.recordSuccess(state, selectedAccount.accountId, now);
     const nextState = appendAuditRecord(

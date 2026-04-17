@@ -1,8 +1,10 @@
 import type { Clock } from '@lume-hub/clock';
+import { CodexAuthBackupSyncModule } from '@lume-hub/codex-auth-backup-sync';
 import { CodexAuthRouterModule, type CodexAuthSourceConfig } from '@lume-hub/codex-auth-router';
 import { HostLifecycleModule } from '@lume-hub/host-lifecycle';
 import { SystemPowerModule } from '@lume-hub/system-power';
-import { dirname, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 
 export interface HostModuleLoaderOptions {
   readonly rootPath?: string;
@@ -11,7 +13,14 @@ export interface HostModuleLoaderOptions {
   readonly canonicalCodexAuthFile?: string;
   readonly codexAuthRouterStateFilePath?: string;
   readonly codexAuthRouterBackupDirectoryPath?: string;
+  readonly codexAuthRouterBackupHistoryDirectoryPath?: string;
+  readonly codexAuthRouterBackupHistoryRetentionLimit?: number;
   readonly codexAuthSources?: readonly CodexAuthSourceConfig[];
+  readonly codexAuthBackupSyncEnabled?: boolean;
+  readonly codexAuthBackupSyncRepoPath?: string;
+  readonly codexAuthBackupSyncRemoteName?: string | null;
+  readonly codexAuthBackupSyncBranch?: string;
+  readonly codexAuthBackupSyncMirrorSubdirectory?: string;
   readonly hostStateFilePath?: string;
   readonly backendStateFilePath?: string;
   readonly powerStateFilePath?: string;
@@ -26,8 +35,9 @@ export interface HostModuleLoaderOptions {
 export interface HostLoadedModules {
   readonly codexAuthRouterModule: CodexAuthRouterModule;
   readonly systemPowerModule: SystemPowerModule;
+  readonly codexAuthBackupSyncModule: CodexAuthBackupSyncModule;
   readonly hostLifecycleModule: HostLifecycleModule;
-  readonly modules: readonly [CodexAuthRouterModule, SystemPowerModule, HostLifecycleModule];
+  readonly modules: readonly [CodexAuthRouterModule, SystemPowerModule, CodexAuthBackupSyncModule, HostLifecycleModule];
 }
 
 export class HostModuleLoader {
@@ -37,20 +47,35 @@ export class HostModuleLoader {
     const rootPath = this.options.rootPath ?? resolveProjectRoot();
     const codexAuthFile = this.options.codexAuthFile ?? '/home/eliaspc/.codex/auth.json';
     const canonicalCodexAuthFile = this.options.canonicalCodexAuthFile ?? codexAuthFile;
+    const codexAuthRouterBackupDirectoryPath =
+      this.options.codexAuthRouterBackupDirectoryPath ??
+      resolve(rootPath, 'runtime/host/state/codex-auth-router-backups');
+    const codexAuthRouterBackupHistoryDirectoryPath =
+      this.options.codexAuthRouterBackupHistoryDirectoryPath ?? resolve(codexAuthRouterBackupDirectoryPath, 'history');
     const codexAuthRouterModule = new CodexAuthRouterModule({
       canonicalAuthFilePath: canonicalCodexAuthFile,
       stateFilePath:
         this.options.codexAuthRouterStateFilePath ??
         resolve(rootPath, 'runtime/host/state/codex-auth-router.state.json'),
-      backupDirectoryPath:
-        this.options.codexAuthRouterBackupDirectoryPath ??
-        resolve(rootPath, 'runtime/host/state/codex-auth-router-backups'),
+      backupDirectoryPath: codexAuthRouterBackupDirectoryPath,
+      backupHistoryDirectoryPath: codexAuthRouterBackupHistoryDirectoryPath,
+      backupHistoryRetentionLimit: this.options.codexAuthRouterBackupHistoryRetentionLimit ?? 5,
       sourceAccounts: this.options.codexAuthSources,
     });
     const systemPowerModule = new SystemPowerModule({
       clock: this.options.clock,
       stateFilePath: this.options.powerStateFilePath ?? resolve(rootPath, 'runtime/host/state/power-policy-state.json'),
       inhibitorStatePath: this.options.inhibitorStatePath ?? resolve(rootPath, 'runtime/host/state/sleep-inhibitor.json'),
+    });
+    const codexAuthBackupSyncRepoPath =
+      this.options.codexAuthBackupSyncRepoPath ?? resolveDefaultCodexAuthBackupRepositoryPath();
+    const codexAuthBackupSyncModule = new CodexAuthBackupSyncModule({
+      enabled: this.options.codexAuthBackupSyncEnabled ?? codexAuthBackupSyncRepoPath !== undefined,
+      repositoryPath: codexAuthBackupSyncRepoPath,
+      sourceHistoryDirectoryPath: codexAuthRouterBackupHistoryDirectoryPath,
+      mirrorSubdirectory: this.options.codexAuthBackupSyncMirrorSubdirectory ?? 'history/lume-hub',
+      remoteName: this.options.codexAuthBackupSyncRemoteName ?? 'origin',
+      branch: this.options.codexAuthBackupSyncBranch ?? 'main',
     });
     const hostLifecycleModule = new HostLifecycleModule({
       clock: this.options.clock,
@@ -92,12 +117,19 @@ export class HostModuleLoader {
     return {
       codexAuthRouterModule,
       systemPowerModule,
+      codexAuthBackupSyncModule,
       hostLifecycleModule,
-      modules: [codexAuthRouterModule, systemPowerModule, hostLifecycleModule],
+      modules: [codexAuthRouterModule, systemPowerModule, codexAuthBackupSyncModule, hostLifecycleModule],
     };
   }
 }
 
 function resolveProjectRoot(): string {
   return process.cwd().endsWith('/source') ? dirname(process.cwd()) : process.cwd();
+}
+
+function resolveDefaultCodexAuthBackupRepositoryPath(): string | undefined {
+  const repositoryPath = '/home/eliaspc/Documentos/codex-auth-backups';
+
+  return existsSync(join(repositoryPath, '.git')) ? repositoryPath : undefined;
 }

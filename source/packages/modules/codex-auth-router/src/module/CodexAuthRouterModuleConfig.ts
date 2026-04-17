@@ -18,6 +18,8 @@ export interface CodexAuthRouterModuleConfig {
   readonly canonicalAuthFilePath?: string;
   readonly stateFilePath?: string;
   readonly backupDirectoryPath?: string;
+  readonly backupHistoryDirectoryPath?: string;
+  readonly backupHistoryRetentionLimit?: number;
   readonly sourceAccounts?: readonly CodexAuthSourceConfig[];
   readonly startByPreparingAuth?: boolean;
   readonly repository?: CodexAccountRepository;

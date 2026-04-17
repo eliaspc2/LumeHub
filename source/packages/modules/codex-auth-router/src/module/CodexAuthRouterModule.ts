@@ -36,6 +36,8 @@ export class CodexAuthRouterModule extends BaseModule implements CodexAuthRouter
       new CodexAuthCanonicalWriter({
         canonicalAuthFilePath: repository.getCanonicalAuthFilePath(),
         backupDirectoryPath: repository.getBackupDirectoryPath(),
+        historyDirectoryPath: config.backupHistoryDirectoryPath,
+        historyRetentionLimit: config.backupHistoryRetentionLimit,
       });
 
     this.service =

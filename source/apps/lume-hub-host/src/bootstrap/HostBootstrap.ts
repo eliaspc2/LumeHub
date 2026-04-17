@@ -22,6 +22,7 @@ export class HostBootstrap {
     }
 
     await this.runtime.hostLifecycleModule.publishHeartbeat(input);
+    await this.runtime.codexAuthBackupSyncModule.syncNow();
   }
 
   async stop(): Promise<void> {
