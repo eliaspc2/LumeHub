@@ -236,14 +236,19 @@ export function renderUiTextAreaField(spec: UiTextAreaFieldSpec): string {
 }
 
 export function renderUiMetricCard(spec: UiMetricCardSpec): string {
+  const toneClass = spec.tone ? ` ui-card--tone-${spec.tone}` : '';
+
   return `
-    <article class="surface ui-card ui-card--metric">
+    <article class="surface ui-card ui-card--metric${toneClass}">
       <div class="ui-card__header">
-        <h3 class="ui-card__title">${escapeHtml(spec.title)}</h3>
-        ${renderUiBadge({ label: spec.title, tone: spec.tone ?? 'neutral', style: 'chip' })}
+        <div class="ui-card__copy">
+          <h3 class="ui-card__title">${escapeHtml(spec.title)}</h3>
+        </div>
       </div>
-      <strong class="ui-metric__value">${escapeHtml(spec.value)}</strong>
-      <p class="ui-card__text">${escapeHtml(spec.description)}</p>
+      <div class="ui-card__body ui-card__body--metric">
+        <strong class="ui-metric__value">${escapeHtml(spec.value)}</strong>
+        <p class="ui-card__text">${escapeHtml(spec.description)}</p>
+      </div>
     </article>
   `;
 }
@@ -252,13 +257,15 @@ export function renderUiPanelCard(spec: UiPanelCardSpec): string {
   return `
     <article class="surface ui-card ui-card--panel">
       <div class="ui-card__header">
-        <div>
+        <div class="ui-card__copy">
           ${spec.eyebrow ? `<p class="ui-card__eyebrow">${escapeHtml(spec.eyebrow)}</p>` : ''}
           <h3 class="ui-card__title">${escapeHtml(spec.title)}</h3>
         </div>
         ${spec.badgeLabel ? renderUiBadge({ label: spec.badgeLabel, tone: spec.badgeTone ?? 'neutral' }) : ''}
       </div>
-      <div class="ui-card__content">${spec.contentHtml}</div>
+      <div class="ui-card__body">
+        <div class="ui-card__content">${spec.contentHtml}</div>
+      </div>
     </article>
   `;
 }
@@ -267,28 +274,30 @@ export function renderUiRecordCard(spec: UiRecordCardSpec): string {
   return `
     <article class="surface ui-card ui-card--record">
       <div class="ui-card__header">
-        <div>
+        <div class="ui-card__copy">
           <h3 class="ui-card__title">${escapeHtml(spec.title)}</h3>
           ${spec.subtitle ? `<p class="ui-card__subtitle">${escapeHtml(spec.subtitle)}</p>` : ''}
         </div>
         ${spec.badgeLabel ? renderUiBadge({ label: spec.badgeLabel, tone: spec.badgeTone ?? 'neutral' }) : ''}
       </div>
-      ${
-        spec.chips && spec.chips.length > 0
-          ? `<div class="ui-card__chips">${spec.chips.map((chip) => renderUiBadge({ ...chip, style: 'chip' })).join('')}</div>`
-          : ''
-      }
-      ${spec.bodyHtml ? `<div class="ui-card__content">${spec.bodyHtml}</div>` : ''}
-      ${
-        spec.detailsHtml
-          ? `
-            <details class="ui-details">
-              <summary>${escapeHtml(spec.detailsSummary ?? 'Detalhes')}</summary>
-              <div class="ui-details__content">${spec.detailsHtml}</div>
-            </details>
-          `
-          : ''
-      }
+      <div class="ui-card__body">
+        ${
+          spec.chips && spec.chips.length > 0
+            ? `<div class="ui-card__chips">${spec.chips.map((chip) => renderUiBadge({ ...chip, style: 'chip' })).join('')}</div>`
+            : ''
+        }
+        ${spec.bodyHtml ? `<div class="ui-card__content">${spec.bodyHtml}</div>` : ''}
+        ${
+          spec.detailsHtml
+            ? `
+              <details class="ui-details">
+                <summary>${escapeHtml(spec.detailsSummary ?? 'Detalhes')}</summary>
+                <div class="ui-details__content">${spec.detailsHtml}</div>
+              </details>
+            `
+            : ''
+        }
+      </div>
     </article>
   `;
 }
