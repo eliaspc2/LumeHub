@@ -140,6 +140,9 @@ importers:
 
   apps/lume-hub-host:
     dependencies:
+      '@lume-hub/codex-auth-backup-sync':
+        specifier: workspace:*
+        version: link:../../packages/modules/codex-auth-backup-sync
       '@lume-hub/codex-auth-router':
         specifier: workspace:*
         version: link:../../packages/modules/codex-auth-router
@@ -476,6 +479,12 @@ importers:
       '@lume-hub/persistence-group-files':
         specifier: workspace:*
         version: link:../../adapters/persistence-group-files
+
+  packages/modules/codex-auth-backup-sync:
+    dependencies:
+      '@lume-hub/kernel':
+        specifier: workspace:*
+        version: link:../../foundation/kernel
 
   packages/modules/codex-auth-router:
     dependencies:

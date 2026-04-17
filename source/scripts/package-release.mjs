@@ -126,7 +126,12 @@ APP_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 export CODEX_AUTH_FILE="\${CODEX_AUTH_FILE:-/codex/auth.json}"
 export LUME_HUB_DATA_DIR="\${LUME_HUB_DATA_DIR:-/srv/lume-hub/data}"
 export LUME_HUB_LOG_DIR="\${LUME_HUB_LOG_DIR:-/srv/lume-hub/logs}"
-exec /usr/bin/env node "$APP_ROOT/dist/apps/lume-hub-backend/src/main.js"
+if [[ -x /opt/node-v20-current/bin/node ]]; then
+  NODE_BIN="/opt/node-v20-current/bin/node"
+else
+  NODE_BIN="$(command -v node)"
+fi
+exec "$NODE_BIN" "$APP_ROOT/dist/apps/lume-hub-backend/src/main.js"
 `,
   );
 
@@ -236,6 +241,32 @@ const HEARTBEAT_INTERVAL_MS = 60_000;
 let heartbeatTimer;
 let shuttingDown = false;
 
+const shutdown = async () => {
+  if (shuttingDown) {
+    return;
+  }
+
+  shuttingDown = true;
+
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = undefined;
+  }
+
+  try {
+    await bootstrap.stop();
+  } finally {
+    process.exit(0);
+  }
+};
+
+process.once('SIGINT', () => {
+  void shutdown();
+});
+process.once('SIGTERM', () => {
+  void shutdown();
+});
+
 try {
   await bootstrap.start();
 
@@ -244,39 +275,9 @@ try {
       console.error('Failed to publish host heartbeat.', error);
     });
   }, HEARTBEAT_INTERVAL_MS);
-
-  installShutdownHandlers();
 } catch (error) {
   console.error('Failed to start published lume-hub-host release.', error);
   process.exitCode = 1;
-}
-
-function installShutdownHandlers() {
-  const shutdown = async () => {
-    if (shuttingDown) {
-      return;
-    }
-
-    shuttingDown = true;
-
-    if (heartbeatTimer) {
-      clearInterval(heartbeatTimer);
-      heartbeatTimer = undefined;
-    }
-
-    try {
-      await bootstrap.stop();
-    } finally {
-      process.exit();
-    }
-  };
-
-  process.once('SIGINT', () => {
-    void shutdown();
-  });
-  process.once('SIGTERM', () => {
-    void shutdown();
-  });
 }
 `,
     'utf8',
@@ -288,7 +289,12 @@ function installShutdownHandlers() {
     `#!/usr/bin/env bash
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-exec /usr/bin/env node "$SCRIPT_DIR/lume-hub-host.mjs"
+if [[ -x /opt/node-v20-current/bin/node ]]; then
+  NODE_BIN="/opt/node-v20-current/bin/node"
+else
+  NODE_BIN="$(command -v node)"
+fi
+exec "$NODE_BIN" "$SCRIPT_DIR/lume-hub-host.mjs"
 `,
   );
 

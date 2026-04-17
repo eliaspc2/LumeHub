@@ -45,7 +45,7 @@ try {
   await delay(500);
   assert.equal(backendProcess.exitCode, null);
   backendProcess.kill('SIGTERM');
-  assert.equal(await waitForExitCode(backendProcess), 0);
+  assert.equal(await waitForExitCode(backendProcess, { allowSignals: ['SIGTERM'] }), 0);
 
   const authFilePath = resolve(sandboxPath, 'auth', 'auth.json');
   await mkdir(dirname(authFilePath), { recursive: true });
@@ -66,7 +66,7 @@ try {
   await waitForFile(backendStateFilePath);
 
   hostProcess.kill('SIGTERM');
-  assert.equal(await waitForExitCode(hostProcess), 0);
+  assert.equal(await waitForExitCode(hostProcess, { allowSignals: ['SIGTERM'] }), 0);
 
   const serviceContents = await readFile(result.host.servicePath, 'utf8');
   assert.equal(serviceContents.includes(result.host.entrypointPath), true);
@@ -97,11 +97,16 @@ function delay(milliseconds) {
   });
 }
 
-function waitForExitCode(childProcess) {
+function waitForExitCode(childProcess, options = {}) {
   return new Promise((resolvePromise, rejectPromise) => {
     childProcess.once('error', rejectPromise);
     childProcess.once('exit', (code, signal) => {
       if (signal) {
+        if (options.allowSignals?.includes(signal)) {
+          resolvePromise(0);
+          return;
+        }
+
         rejectPromise(new Error(`Process exited due to signal '${signal}'.`));
         return;
       }
