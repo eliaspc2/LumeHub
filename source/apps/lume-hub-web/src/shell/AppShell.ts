@@ -1698,12 +1698,133 @@ export class AppShell {
           ? `A conversa usa instrucoes e knowledge de ${selectedChatGroup.preferredSubject}, mas fica so nesta pagina.`
           : 'Escolhe um grupo para a LLM responder com memoria desse grupo.'
         : 'A conversa e global: a LLM nao assume um grupo WhatsApp especifico e nao envia mensagens para lado nenhum.';
+    const actionStatusLabel = !selectedGroup
+      ? 'Escolher grupo'
+      : !canRunLlmScheduling
+        ? 'Sem scheduling LLM'
+        : draft.previewLoading
+          ? 'A gerar preview'
+          : preview
+            ? preview.canApply
+              ? 'Preview pronto'
+              : 'Preview bloqueado'
+            : 'Pronto para preview';
+    const actionStatusTone: UiTone = !selectedGroup
+      ? 'warning'
+      : !canRunLlmScheduling
+        ? 'warning'
+        : draft.previewLoading
+          ? 'warning'
+          : preview
+            ? preview.canApply
+              ? 'positive'
+              : 'warning'
+            : 'positive';
+    const actionStatusSummary = !selectedGroup
+      ? 'Escolhe um grupo para preparar uma alteracao real.'
+      : canRunLlmScheduling
+        ? 'Este grupo pode gerar preview e apply com confirmacao.'
+        : assistantRoutingNote;
+    const previewStatusLabel = preview
+      ? preview.canApply
+        ? 'Pronto a aplicar'
+        : 'Bloqueado'
+      : draft.previewLoading
+        ? 'A gerar preview'
+        : 'Sem preview';
+    const previewStatusTone: UiTone = preview
+      ? preview.canApply
+        ? 'positive'
+        : 'warning'
+      : draft.previewLoading
+        ? 'warning'
+        : 'neutral';
+    const previewSummaryText = draft.previewLoading
+      ? 'A gerar preview.'
+      : preview
+        ? preview.summary
+        : canRunLlmScheduling
+          ? 'Ainda sem preview. Escreve o pedido e gera o diff.'
+          : assistantRoutingNote;
+    const recentSchedulingEntries = page.data.recentSchedulingAudit.slice(0, 4);
+    const recentContextSignals = [
+      ...page.data.recentLlmRuns.slice(0, 4).map((entry) => ({
+        sortAt: Date.parse(entry.createdAt),
+        title: `${entry.providerId} / ${entry.modelId}`,
+        recordedAt: formatShortDateTime(entry.createdAt),
+        summary: entry.outputSummary,
+        detail:
+          entry.memoryScope?.scope === 'group'
+            ? `Escopo: ${entry.memoryScope.groupLabel ?? entry.memoryScope.groupJid ?? 'grupo'}`
+            : 'Escopo: global',
+      })),
+      ...page.data.recentConversationAudit.slice(0, 3).map((entry) => ({
+        sortAt: Date.parse(entry.createdAt),
+        title: entry.intent,
+        recordedAt: formatShortDateTime(entry.createdAt),
+        summary: describeAssistantConversationMemory(entry),
+        detail: 'Conversa auditada nesta shell',
+      })),
+    ]
+      .sort((left, right) => right.sortAt - left.sortAt)
+      .slice(0, 5);
+    const schedulingActivityHtml =
+      recentSchedulingEntries.length > 0
+        ? recentSchedulingEntries
+            .map(
+              (entry) => `
+                <article class="timeline-item">
+                  <strong>${escapeHtml(entry.groupLabel ?? entry.groupJid ?? 'Grupo')}</strong>
+                  <time>${escapeHtml(`${readableAssistantOperation(entry.operation)} • ${formatShortDateTime(entry.updatedAt)}`)}</time>
+                  <p>${escapeHtml(entry.previewSummary)}</p>
+                  <p class="llm-detail-line">Pedido: ${escapeHtml(entry.requestedText)}</p>
+                  <p class="llm-detail-line">Estado: ${escapeHtml(readableInstructionStatus(entry.status))}</p>
+                  ${
+                    entry.appliedEventTitle
+                      ? `<p class="llm-detail-line">Evento: ${escapeHtml(entry.appliedEventTitle)}</p>`
+                      : ''
+                  }
+                  ${
+                    entry.resultNote
+                      ? `<p class="llm-detail-line">Nota: ${escapeHtml(entry.resultNote)}</p>`
+                      : ''
+                  }
+                </article>
+              `,
+            )
+            .join('')
+        : `
+          <div class="llm-inline-empty">
+            <strong>Sem alteracoes ainda</strong>
+            <p>Assim que aplicares um pedido de scheduling, ele aparece aqui.</p>
+          </div>
+        `;
+    const contextActivityHtml =
+      recentContextSignals.length > 0
+        ? recentContextSignals
+            .map(
+              (entry) => `
+                <article class="timeline-item">
+                  <strong>${escapeHtml(entry.title)}</strong>
+                  <time>${escapeHtml(entry.recordedAt)}</time>
+                  <p>${escapeHtml(entry.summary)}</p>
+                  <p class="llm-detail-line">${escapeHtml(entry.detail)}</p>
+                </article>
+              `,
+            )
+            .join('')
+        : `
+          <div class="llm-inline-empty">
+            <strong>Sem sinais recentes</strong>
+            <p>Quando houver runs ou conversa auditada, eles aparecem aqui.</p>
+          </div>
+        `;
 
     return `
-      <section class="surface hero surface--strong">
-        <div>
+      <section class="surface hero surface--strong llm-hero">
+        <div class="llm-hero__copy">
           <p class="eyebrow">LLM direta</p>
-          <h2>Conversar com a LLM sem depender do fluxo de grupo, e so preparar acoes quando fizer sentido.</h2>
+          <h2>Pergunta aqui. So mexe na agenda quando escolheres um grupo e pedires preview.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
@@ -1725,40 +1846,34 @@ export class AppShell {
             })}
           </div>
         </div>
-        <div class="hero-panel">
-          ${renderUiPanelCard({
-            title: 'Escopo do chat',
-            badgeLabel: chatContextLabel,
-            badgeTone: this.state.assistantRailChat.contextMode === 'group' && !selectedChatGroup ? 'warning' : 'positive',
-            contentHtml: `<p>${escapeHtml(chatScopeSummary)}</p>`,
-          })}
-          ${renderUiPanelCard({
-            title: 'Provider em uso',
-            badgeLabel: page.data.settings.llmRuntime.effectiveProviderId,
-            badgeTone: page.data.settings.llmRuntime.mode === 'live' ? 'positive' : 'warning',
-            contentHtml: `<p>${escapeHtml(
+        <div class="llm-hero__panel llm-status-list">
+          <article class="llm-status-item">
+            <strong>Escopo atual</strong>
+            <p>${escapeHtml(chatScopeSummary)}</p>
+          </article>
+          <article class="llm-status-item">
+            <strong>Provider live</strong>
+            <p>${escapeHtml(
               `${page.data.settings.llmRuntime.effectiveProviderId} / ${page.data.settings.llmRuntime.effectiveModelId}`,
-            )}</p>`,
-          })}
-          ${renderUiPanelCard({
-            title: 'Modo acao',
-            badgeLabel: latestAudit ? readableInstructionStatus(latestAudit.status) : 'Sem auditoria',
-            badgeTone: latestAudit ? toneForInstructionStatus(latestAudit.status) : 'neutral',
-            contentHtml: `<p>${escapeHtml(
+            )}</p>
+          </article>
+          <article class="llm-status-item llm-status-item--${actionStatusTone}">
+            <strong>${escapeHtml(actionStatusLabel)}</strong>
+            <p>${escapeHtml(
               latestAudit
                 ? `${latestAudit.groupLabel ?? latestAudit.groupJid ?? 'Grupo'} • ${latestAudit.previewSummary}`
-                : 'Quando quiseres mexer na agenda, usa preview/apply com confirmacao. O chat simples nunca envia nada.',
-            )}</p>`,
-          })}
+                : actionStatusSummary,
+            )}</p>
+          </article>
         </div>
       </section>
 
-      <section class="content-grid">
-        <article class="surface content-card span-7 llm-chat-workbench">
+      <section class="content-grid llm-assistant-grid">
+        <article class="surface content-card span-8 llm-chat-workbench">
           <div class="card-header">
             <div>
-              <h3>Chat direto com a LLM</h3>
-              <p>Este chat responde so aqui na interface. Nao fala no WhatsApp e nao altera agendas por si.</p>
+              <h3>Perguntar</h3>
+              <p>Este chat responde so aqui. Nao envia WhatsApp e nao mexe na agenda.</p>
             </div>
             ${renderUiBadge({
               label: this.state.assistantRailChat.sending ? 'A responder' : `Escopo ${chatContextLabel}`,
@@ -1828,7 +1943,7 @@ export class AppShell {
                 <span class="ui-field__label">Mensagem para a LLM</span>
                 <textarea
                   class="ui-control ui-control--textarea rail-chat-composer__input llm-chat-workbench__input"
-                  rows="7"
+                  rows="6"
                   data-field-key="railChat.input"
                   data-rail-chat-input="true"
                   placeholder="Ex.: Ajuda-me a transformar esta ideia numa mensagem clara, ou explica o que devo configurar neste grupo."
@@ -1852,46 +1967,90 @@ export class AppShell {
           </div>
         </article>
 
-        <article class="surface content-card span-5">
+        <article class="surface content-card span-4 llm-action-rail">
           <div class="card-header">
             <div>
-              <h3>Chat vs acao</h3>
-              <p>A pagina separa conversa segura de alteracoes reais no calendario.</p>
+              <h3>Agir no calendario</h3>
+              <p>Primeiro confirma se estas no grupo certo. Depois gera preview e so no fim aplicas.</p>
             </div>
             ${renderUiBadge({
-              label: selectedGroup ? readableGroupMode(selectedGroup.operationalSettings.mode) : 'Escolher grupo',
-              tone: selectedGroup ? toneForGroupMode(selectedGroup.operationalSettings.mode) : 'warning',
+              label: actionStatusLabel,
+              tone: actionStatusTone,
             })}
           </div>
+          <div class="llm-status-list">
+            <article class="llm-status-item">
+              <strong>Grupo em foco</strong>
+              <p>${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe no bloco abaixo.')}</p>
+            </article>
+            <article class="llm-status-item">
+              <strong>Roteamento</strong>
+              <p>${escapeHtml(assistantRoutingNote)}</p>
+            </article>
+            <article class="llm-status-item llm-status-item--${previewStatusTone}">
+              <strong>${escapeHtml(previewStatusLabel)}</strong>
+              <p>${escapeHtml(previewSummaryText)}</p>
+            </article>
+          </div>
           <div class="guide-preview">
-            <p><strong>So chat</strong>: responde nesta pagina, nao envia WhatsApp e nao mexe na agenda.</p>
-            <p><strong>Com escopo de grupo</strong>: usa memoria, instrucoes e knowledge do grupo escolhido.</p>
-            <p><strong>Preparar acao</strong>: so acontece no bloco de preview/apply e exige grupo com LLM scheduling ativo.</p>
-            <p><strong>Grupo de acao</strong>: ${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe no bloco de agendamento abaixo.')}</p>
-            <p><strong>Roteamento</strong>: ${escapeHtml(assistantRoutingNote)}</p>
+            <p><strong>So chat</strong>: responde nesta pagina e fica so aqui.</p>
+            <p><strong>Com grupo</strong>: usa memoria desse grupo, mas continua sem tocar no WhatsApp.</p>
+            <p><strong>Preview/apply</strong>: so corre em grupos com scheduling LLM ativo.</p>
           </div>
           <div class="action-row">
             ${renderUiActionButton({
-              label: draft.previewLoading ? 'A gerar preview...' : 'Gerar preview da acao',
+              label: draft.previewLoading ? 'A gerar preview...' : 'Gerar preview',
               disabled: draft.previewLoading || draft.applying || !canRunLlmScheduling,
               dataAttributes: { 'assistant-action': 'preview-schedule' },
             })}
             ${renderUiActionButton({
-              label: draft.applying ? 'A aplicar...' : 'Aplicar com confirmacao',
+              label: draft.applying ? 'A aplicar...' : 'Aplicar',
               variant: 'secondary',
               disabled: !canRunLlmScheduling || !canApply || draft.previewLoading || draft.applying,
               dataAttributes: { 'assistant-action': 'apply-schedule' },
             })}
           </div>
+          ${
+            draft.lastApplied
+              ? `
+                <div class="guide-preview">
+                  <p><strong>Ultimo apply</strong>: ${escapeHtml(draft.lastApplied.instruction.instructionId)}</p>
+                  <p>${escapeHtml(
+                    draft.lastApplied.appliedEvent
+                      ? `${draft.lastApplied.appliedEvent.title} atualizado na agenda.`
+                      : draft.lastApplied.appliedInstruction?.status ?? 'Sem estado final.',
+                  )}</p>
+                </div>
+              `
+              : ''
+          }
+          ${
+            selectedGroup && !canRunLlmScheduling
+              ? `
+                <div class="llm-inline-empty llm-inline-empty--warning">
+                  <strong>Este grupo nao usa scheduling pela LLM</strong>
+                  <p>${escapeHtml(assistantRoutingNote)}</p>
+                  <div class="action-row">
+                    ${renderUiActionButton({
+                      label: assistantFallbackLabel,
+                      href: assistantFallbackHref,
+                      variant: 'secondary',
+                      dataAttributes: { route: assistantFallbackHref },
+                    })}
+                  </div>
+                </div>
+              `
+              : ''
+          }
         </article>
       </section>
 
-      <section class="content-grid">
-        <article class="surface content-card span-7">
+      <section class="content-grid llm-assistant-grid">
+        <article class="surface content-card span-7 llm-action-editor">
           <div class="card-header">
             <div>
-              <h3>Modo acao: agenda com preview</h3>
-              <p>Quando a conversa virar alteracao real, escreve aqui o pedido e valida o diff antes de aplicar.</p>
+              <h3>Pedido para a agenda</h3>
+              <p>Escreve a alteracao em linguagem natural. Primeiro sai um diff, depois decides se aplicas.</p>
             </div>
             ${renderUiBadge({
               label: selectedGroup ? selectedGroup.preferredSubject : 'Escolher grupo',
@@ -1919,46 +2078,22 @@ export class AppShell {
             })}
           </div>
           <div class="guide-preview">
-            <p><strong>Grupo em foco</strong>: ${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe primeiro um grupo.')}</p>
+            <p><strong>Grupo</strong>: ${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe primeiro um grupo.')}</p>
             <p><strong>Acesso pedido</strong>: Ver e editar calendario</p>
             <p><strong>Roteamento</strong>: ${escapeHtml(assistantRoutingNote)}</p>
-            <p><strong>Estado do preview</strong>: ${escapeHtml(
-              draft.previewLoading ? 'a gerar preview' : preview ? preview.summary : 'sem preview ainda',
-            )}</p>
+            <p><strong>Estado</strong>: ${escapeHtml(previewSummaryText)}</p>
           </div>
-          ${
-            selectedGroup && !canRunLlmScheduling
-              ? `
-                <div class="timeline-item timeline-item--warning">
-                  <strong>Este grupo nao usa scheduling pela LLM</strong>
-                  <p>${escapeHtml(assistantRoutingNote)}</p>
-                  <div class="action-row">
-                    ${renderUiActionButton({
-                      label: assistantFallbackLabel,
-                      href: assistantFallbackHref,
-                      variant: 'secondary',
-                      dataAttributes: { route: assistantFallbackHref },
-                    })}
-                  </div>
-                </div>
-              `
-              : ''
-          }
         </article>
 
-        <article class="surface content-card span-5">
+        <article class="surface content-card span-5 llm-preview-card">
           <div class="card-header">
             <div>
-              <h3>Preview antes de aplicar</h3>
-              <p>Confirma a operacao, o alvo e as diferencas antes de mexer na agenda real.</p>
+              <h3>Preview</h3>
+              <p>Ves o grupo, o resumo e as diferencas antes de mexer na agenda real.</p>
             </div>
             ${renderUiBadge({
-              label: preview
-                ? preview.canApply
-                  ? 'Pronto a aplicar'
-                  : 'Bloqueado'
-                : 'Sem preview',
-              tone: preview ? (preview.canApply ? 'positive' : 'warning') : 'neutral',
+              label: previewStatusLabel,
+              tone: previewStatusTone,
             })}
           </div>
           ${
@@ -1975,174 +2110,76 @@ export class AppShell {
                       : ''
                   }
                 </div>
-                ${
-                  preview.diff.length > 0
-                    ? `
-                      <div class="timeline">
+                  ${
+                    preview.diff.length > 0
+                      ? `
+                      <div class="timeline timeline--compact">
                         ${preview.diff
                           .map(
                             (entry) => `
                               <article class="timeline-item">
                                 <strong>${escapeHtml(entry.label)}</strong>
-                                <p>Antes: ${escapeHtml(entry.before ?? 'vazio')}</p>
-                                <p>Depois: ${escapeHtml(entry.after ?? 'vazio')}</p>
+                                <p class="llm-detail-line">Antes: ${escapeHtml(entry.before ?? 'vazio')}</p>
+                                <p class="llm-detail-line">Depois: ${escapeHtml(entry.after ?? 'vazio')}</p>
                               </article>
                             `,
                           )
                           .join('')}
                       </div>
                     `
-                    : '<p>Este preview ainda nao mostrou diferencas concretas.</p>'
-                }
-              `
-              : `
-                <div class="timeline-item${canRunLlmScheduling ? '' : ' timeline-item--warning'}">
-                  <strong>${escapeHtml(canRunLlmScheduling ? 'Sem preview ainda' : 'Scheduling LLM indisponivel neste grupo')}</strong>
-                  <time>${escapeHtml(
-                    canRunLlmScheduling
-                      ? 'Escreve o pedido e carrega em "Gerar preview" para ver a alteracao antes de aplicar.'
-                      : assistantRoutingNote,
-                  )}</time>
-                </div>
-                ${
-                  canRunLlmScheduling
-                    ? ''
                     : `
-                      <div class="action-row">
-                        ${renderUiActionButton({
-                          label: assistantFallbackLabel,
-                          href: assistantFallbackHref,
-                          variant: 'secondary',
-                          dataAttributes: { route: assistantFallbackHref },
-                        })}
+                      <div class="llm-inline-empty">
+                        <strong>Sem diferencas concretas</strong>
+                        <p>Este preview ainda nao mostrou mudancas detalhadas.</p>
                       </div>
                     `
                 }
               `
-          }
-          ${
-            draft.lastApplied
-              ? `
-                <details class="ui-details" open>
-                  <summary>Ultimo apply desta sessao</summary>
-                  <div class="ui-details__content">
-                    <p><strong>Instruction</strong>: ${escapeHtml(draft.lastApplied.instruction.instructionId)}</p>
-                    <p><strong>Resultado</strong>: ${escapeHtml(
-                      draft.lastApplied.appliedEvent
-                        ? `${draft.lastApplied.appliedEvent.title} atualizado na agenda.`
-                        : draft.lastApplied.appliedInstruction?.status ?? 'sem estado',
-                    )}</p>
-                  </div>
-                </details>
+              : `
+                <div class="llm-inline-empty${canRunLlmScheduling ? '' : ' llm-inline-empty--warning'}">
+                  <strong>${escapeHtml(canRunLlmScheduling ? 'Sem preview ainda' : 'Scheduling LLM indisponivel neste grupo')}</strong>
+                  <p>${escapeHtml(
+                    canRunLlmScheduling
+                      ? 'Escreve o pedido e carrega em "Gerar preview" para ver a alteracao antes de aplicar.'
+                      : assistantRoutingNote,
+                  )}</p>
+                </div>
               `
-              : ''
           }
         </article>
       </section>
 
-      <section class="content-grid">
-        <article class="surface content-card span-7">
+      <section class="content-grid llm-assistant-grid">
+        <article class="surface content-card span-12 llm-activity-card">
           <div class="card-header">
             <div>
-              <h3>Auditoria recente do scheduling</h3>
-              <p>Fila e alteracoes mais recentes aplicadas a partir do assistente.</p>
+              <h3>Atividade recente</h3>
+              <p>Agenda e contexto LLM mais recentes desta pagina.</p>
             </div>
             ${renderUiBadge({
-              label: `${page.data.recentSchedulingAudit.length} entrada${page.data.recentSchedulingAudit.length === 1 ? '' : 's'}`,
-              tone: page.data.recentSchedulingAudit.length > 0 ? 'positive' : 'neutral',
+              label: recentSchedulingEntries.length > 0 || recentContextSignals.length > 0 ? 'Com atividade' : 'Sem atividade',
+              tone: recentSchedulingEntries.length > 0 || recentContextSignals.length > 0 ? 'positive' : 'neutral',
             })}
           </div>
-          ${
-            page.data.recentSchedulingAudit.length > 0
-              ? `
-                <div class="timeline">
-                  ${page.data.recentSchedulingAudit
-                    .map(
-                      (entry) => `
-                        <article class="timeline-item">
-                          <strong>${escapeHtml(entry.groupLabel ?? entry.groupJid ?? 'Grupo')}</strong>
-                          <time>${escapeHtml(`${readableAssistantOperation(entry.operation)} • ${formatShortDateTime(entry.updatedAt)}`)}</time>
-                          <p>${escapeHtml(entry.previewSummary)}</p>
-                          <ul>
-                            <li>Pedido: ${escapeHtml(entry.requestedText)}</li>
-                            <li>Estado: ${escapeHtml(readableInstructionStatus(entry.status))}</li>
-                            ${
-                              entry.appliedEventTitle
-                                ? `<li>Evento aplicado: ${escapeHtml(entry.appliedEventTitle)}</li>`
-                                : ''
-                            }
-                            ${
-                              entry.resultNote
-                                ? `<li>Nota: ${escapeHtml(entry.resultNote)}</li>`
-                                : ''
-                            }
-                          </ul>
-                        </article>
-                      `,
-                    )
-                    .join('')}
-                </div>
-              `
-              : `
-                <div class="timeline-item">
-                  <strong>Sem alteracoes ainda</strong>
-                  <time>Assim que aplicares um pedido de scheduling, ele aparece aqui com auditoria.</time>
-                </div>
-              `
-          }
-        </article>
-
-        <article class="surface content-card span-5">
-          <div class="card-header">
-            <div>
-              <h3>Contexto e runs recentes</h3>
-              <p>Sinais curtos para perceber se a LLM e a memoria de grupo estao a ser usadas como esperado.</p>
-            </div>
-            ${renderUiBadge({ label: 'Live', tone: 'positive' })}
-          </div>
-          <div class="timeline">
-            ${
-              page.data.recentLlmRuns.length > 0
-                ? page.data.recentLlmRuns
-                    .slice(0, 3)
-                    .map(
-                      (entry) => `
-                        <article class="timeline-item">
-                          <strong>${escapeHtml(entry.providerId)} / ${escapeHtml(entry.modelId)}</strong>
-                          <time>${escapeHtml(formatShortDateTime(entry.createdAt))}</time>
-                          <p>${escapeHtml(entry.outputSummary)}</p>
-                          ${
-                            entry.memoryScope?.scope === 'group'
-                              ? `<p><strong>Escopo</strong>: ${escapeHtml(entry.memoryScope.groupLabel ?? entry.memoryScope.groupJid ?? 'grupo')}</p>`
-                              : ''
-                          }
-                        </article>
-                      `,
-                    )
-                    .join('')
-                : `
-                    <article class="timeline-item">
-                      <strong>Sem runs LLM recentes</strong>
-                      <time>Quando houver parsing ou respostas live, elas aparecem aqui.</time>
-                    </article>
-                  `
-            }
-            ${
-              page.data.recentConversationAudit.length > 0
-                ? page.data.recentConversationAudit
-                    .slice(0, 2)
-                    .map(
-                      (entry) => `
-                        <article class="timeline-item">
-                          <strong>${escapeHtml(entry.intent)}</strong>
-                          <time>${escapeHtml(formatShortDateTime(entry.createdAt))}</time>
-                          <p>${escapeHtml(describeAssistantConversationMemory(entry))}</p>
-                        </article>
-                      `,
-                    )
-                    .join('')
-                : ''
-            }
+          <div class="llm-activity-grid">
+            <section class="llm-activity-column">
+              <div class="llm-activity-column__header">
+                <h4>Agenda</h4>
+                <p>Ultimas alteracoes que passaram por preview ou apply.</p>
+              </div>
+              <div class="timeline timeline--compact">
+                ${schedulingActivityHtml}
+              </div>
+            </section>
+            <section class="llm-activity-column">
+              <div class="llm-activity-column__header">
+                <h4>Contexto da LLM</h4>
+                <p>Runs e conversa auditada para confirmar o escopo que esteve ativo.</p>
+              </div>
+              <div class="timeline timeline--compact">
+                ${contextActivityHtml}
+              </div>
+            </section>
           </div>
         </article>
       </section>

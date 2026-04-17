@@ -40,27 +40,13 @@ Objetivo da ronda:
 - cortar copy tecnica, redundante ou pouco guiada
 - remover espaco morto sem perder legibilidade nem separar demais os fluxos reais
 
-### Wave 61 - Contratos de composicao e densidade base
+A `Wave 61` ja fechou a fundacao visual desta ronda:
 
-Objetivo:
-- criar a base visual e estrutural para a migracao sem depender de ajustes avulsos por pagina
-
-Escopo:
 - fechar tokens e regras de densidade para `hero`, `content-card`, `metric-card`, `empty-state`, `action-row` e blocos de auditoria
 - separar claramente container externo, header e body interno de cada caixa
 - garantir que botoes, toolbars e grupos de acoes ficam alinhados pelo proprio objeto e nao por compensacoes externas
 - rever alturas minimas decorativas e paddings duplicados que estejam a gerar espaco morto
 - documentar um conjunto curto de objetos internos reutilizaveis para o frontend
-
-Validacao minima:
-- `cd /home/eliaspc/Documentos/lume-hub/source`
-- `corepack pnpm run typecheck`
-- `corepack pnpm run build`
-- smoke das rotas `/assistant`, `/migration` e `/groups`
-- confirmar que a UI monta sem ecra branco e sem erro relevante de runtime
-
-Quando vale a pena o utilizador testar:
-- ainda nao; esta wave prepara a base para a primeira mudanca visivel grande
 
 ### Wave 62 - Pagina `LLM` mais clara, mais densa e com menos ruido
 

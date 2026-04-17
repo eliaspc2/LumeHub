@@ -34,16 +34,16 @@ async function fileExists(path) {
 }
 
 async function withLiveRuntime(run) {
-  const sandboxPath = await createLiveSandboxPath('lume-hub-wave61-');
+  const sandboxPath = await createLiveSandboxPath('lume-hub-wave62-');
   const httpPort = await reservePort();
   const baseUrl = `http://127.0.0.1:${httpPort}`;
   const fetchMock = createLiveFetchMock();
   const groupJid = '120363406000000060@g.us';
   const socketCoordinator = new FakeSocketCoordinator({
     groupJid,
-    groupLabel: 'Wave 61 Grupo Final',
+    groupLabel: 'Wave 62 Grupo Final',
     privateChatJid: '351920000060@s.whatsapp.net',
-    privateChatLabel: 'Validator Wave61',
+    privateChatLabel: 'Validator Wave62',
   });
   const runtimeConfig = await seedLiveRuntimeSandbox({
     sandboxPath,
@@ -58,9 +58,9 @@ async function withLiveRuntime(run) {
     groups: [
       {
         groupJid,
-        preferredSubject: 'Wave 61 Grupo Final',
-        aliases: ['Wave61'],
-        courseId: 'wave61-course',
+        preferredSubject: 'Wave 62 Grupo Final',
+        aliases: ['Wave62'],
+        courseId: 'wave62-course',
         groupOwners: [
           {
             personId: 'person-app-owner',
@@ -102,7 +102,7 @@ async function withLiveRuntime(run) {
       },
       {
         personId: 'person-private',
-        displayName: 'Contacto Wave61',
+        displayName: 'Contacto Wave62',
         identifiers: [
           {
             kind: 'whatsapp_jid',
@@ -170,7 +170,7 @@ async function withLiveRuntime(run) {
     await bootstrap.start();
     await waitUntilReady(`${baseUrl}/api/settings`);
     await waitUntil(() => socketCoordinator.latestSocket !== null);
-    socketCoordinator.latestSocket.publishQr('wave61-live-qr');
+    socketCoordinator.latestSocket.publishQr('wave62-live-qr');
     socketCoordinator.latestSocket.openSession();
     await waitUntil(async () => {
       const workspace = await readJson(`${baseUrl}/api/whatsapp/workspace`);
@@ -223,14 +223,14 @@ await withLiveRuntime(async ({ baseUrl, groupJid, fetchMock }) => {
     'LumeHub',
     'LLM',
     'Migracao',
-    'Wave 61 Grupo Final',
+    'Wave 62 Grupo Final',
   ]);
   assert.match(shellDom, /data-route="\/assistant"/u);
 
-  await assertHeadlessRoute(`${baseUrl}/week?mode=live`, ['Calendario semanal', 'Wave 61 Grupo Final']);
+  await assertHeadlessRoute(`${baseUrl}/week?mode=live`, ['Calendario semanal', 'Wave 62 Grupo Final']);
   await assertHeadlessRoute(`${baseUrl}/groups/${encodeURIComponent(groupJid)}?mode=live`, [
     'Configuracao operacional',
-    'Wave 61 Grupo Final',
+    'Wave 62 Grupo Final',
     'Com agendamento',
   ]);
   await assertHeadlessRoute(`${baseUrl}/assistant?mode=live`, [
@@ -254,14 +254,14 @@ await withLiveRuntime(async ({ baseUrl, groupJid, fetchMock }) => {
   const groupChat = await requestJson(baseUrl, '/api/llm/chat', {
     method: 'POST',
     body: {
-      text: 'Aplica a base da Wave 61 para reforcar composicao e densidade.',
+      text: 'Refaz a pagina LLM para separar melhor perguntar, agir e auditar.',
       intent: 'direct_group_chat',
       contextSummary: ['Resposta local da pagina LLM. Nao enviar nada para WhatsApp.'],
-      domainFacts: ['Grupo ativo: Wave 61 Grupo Final.'],
+      domainFacts: ['Grupo ativo: Wave 62 Grupo Final.'],
       memoryScope: {
         scope: 'group',
         groupJid,
-        groupLabel: 'Wave 61 Grupo Final',
+        groupLabel: 'Wave 62 Grupo Final',
         instructionsSource: 'missing',
         instructionsApplied: false,
         knowledgeDocuments: [],
@@ -273,7 +273,7 @@ await withLiveRuntime(async ({ baseUrl, groupJid, fetchMock }) => {
   const logs = await requestJson(baseUrl, '/api/logs/llm?limit=5');
   const groupLog = logs.find((entry) => entry.runId === groupChat.runId);
   assert.equal(groupLog?.memoryScope?.scope, 'group');
-  assert.equal(groupLog?.memoryScope?.groupLabel, 'Wave 61 Grupo Final');
+  assert.equal(groupLog?.memoryScope?.groupLabel, 'Wave 62 Grupo Final');
   assert.ok(fetchMock.state.codexChatCalls.length >= 1);
 
   const webBundle = await readBuiltWebBundle();
@@ -307,7 +307,8 @@ const appShellSource = await readFile(
 
 assert.match(implementationWavesDoc, /A `Wave 60` fechou a limpeza final da ronda `group-first`/u);
 assert.match(implementationWavesDoc, /## Ronda `ui-clarity`/u);
-assert.match(implementationWavesDoc, /A `Wave 61` ja fechou a fundacao visual desta ronda/u);
+assert.match(implementationWavesDoc, /### Wave 62 - Pagina `LLM` mais clara, mais densa e com menos ruido/u);
+assert.doesNotMatch(implementationWavesDoc, /### Wave 61 - Contratos de composicao e densidade base/u);
 assert.doesNotMatch(implementationWavesDoc, /Nao ha waves ativas neste momento/u);
 
 assert.match(gapAuditDoc, /## Gaps ativos da ronda `ui-clarity`/u);
@@ -321,11 +322,12 @@ assert.match(rootReadme, /a validacao consolidada mais recente passou a ser `val
 assert.match(rootReadme, /a composicao visual deve assentar em poucos objetos internos, claros e repetiveis/u);
 assert.match(sourceReadme, /as `Wave 0` a `Wave 60` foram executadas/u);
 assert.match(sourceReadme, /a validacao consolidada mais recente passou a ser `validate:wave60`/u);
-assert.match(sourceReadme, /`validate:wave61`/u);
+assert.match(sourceReadme, /`validate:wave62`/u);
+assert.match(sourceReadme, /a `Wave 62` passa a usar essa base para refazer a pagina `LLM`/u);
 
 assert.equal(
-  packageJson.scripts['validate:wave61'],
-  'corepack pnpm run typecheck && corepack pnpm run build && node --test ./tests/unit/group-repository-owner-override.test.mjs ./tests/integration/wave56-group-mode-routing.test.mjs ./tests/integration/wave57-group-ownership-policy.test.mjs && node --experimental-global-webcrypto ./scripts/validate-wave61.mjs',
+  packageJson.scripts['validate:wave62'],
+  'corepack pnpm run typecheck && corepack pnpm run build && node --test ./tests/unit/group-repository-owner-override.test.mjs ./tests/integration/wave56-group-mode-routing.test.mjs ./tests/integration/wave57-group-ownership-policy.test.mjs && node --experimental-global-webcrypto ./scripts/validate-wave62.mjs',
 );
 assert.equal(
   packageJson.scripts['validate:wave60'],
@@ -345,5 +347,6 @@ assert.doesNotMatch(appRouterSource, /\/llm/u);
 assert.doesNotMatch(appShellSource, /chat lateral/u);
 assert.match(appShellSource, /Agir no calendario/u);
 assert.match(appShellSource, /Atividade recente/u);
+assert.doesNotMatch(appShellSource, /Chat vs acao/u);
 
-console.log('validate-wave61: ok');
+console.log('validate-wave62: ok');

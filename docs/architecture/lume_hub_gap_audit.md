@@ -159,27 +159,24 @@ O estado canonico desta ronda fica:
 ## Gaps ativos da ronda `ui-clarity`
 
 Existem gaps reais e visiveis nesta ronda nova.
-Os screenshots da pagina `LLM` e o estado atual do frontend mostram quatro problemas de base:
+A `Wave 61` ja fechou a base de composicao e densidade desta ronda.
+Os gaps ativos concentram-se agora sobretudo na propria pagina `LLM` e na migracao do resto da shell.
 
-1. Falta de contratos internos fortes de composicao
+Os screenshots da pagina `LLM` e o estado atual do frontend mostram tres problemas de base:
 
-- o frontend ja tem `shared-ui`, mas continua a montar demasiadas vistas a partir de `card-grid`, `content-grid` e cards genericos
-- isto deixa padding, altura, alinhamento de acoes e espaco livre demasiado dependentes da pagina concreta
-- o resultado e uma shell em que caixas e botoes parecem "encaixados" por contexto exterior em vez de serem objetos robustos por si
-
-2. Sobrecarga cognitiva na pagina `LLM`
+1. Sobrecarga cognitiva na pagina `LLM`
 
 - a rota `/assistant` mistura chat direto, escopo, preview/apply, auditoria e runs recentes quase ao mesmo nivel de destaque
 - ha copy redundante entre `hero`, cards explicativos, hints e summaries
 - a separacao entre "perguntar" e "agir" existe funcionalmente, mas ainda nao esta clara o suficiente na hierarquia visual
 
-3. Espaco morto excessivo e densidade irregular
+2. Espaco morto residual e densidade irregular
 
-- certos cards e estados vazios continuam altos demais para a quantidade real de conteudo
-- `metric-card` com altura minima e timelines muito abertas criam zonas brancas grandes que nao acrescentam leitura
-- em varias areas o layout gasta largura e altura em blocos equivalentes quando devia compactar ou assimetrizar
+- a `Wave 61` fechou a base, mas a pagina `LLM` ainda precisa de aproveitar melhor essa fundacao
+- continuam a existir cards, estados vazios e listas curtas demasiado abertas para a quantidade real de conteudo
+- em varias areas o layout ainda gasta largura e altura em blocos equivalentes quando devia compactar ou assimetrizar
 
-4. Linguagem pouco humana e demasiado tecnica
+3. Linguagem pouco humana e demasiado tecnica
 
 - a UI ainda usa termos internos ou operacionais demais para o alvo principal
 - varias etiquetas explicam o mecanismo em vez de priorizar a acao e o resultado esperado

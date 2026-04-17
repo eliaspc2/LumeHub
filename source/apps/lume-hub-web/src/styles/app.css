@@ -562,17 +562,134 @@ textarea {
     var(--surface);
 }
 
+.llm-hero__panel {
+  display: grid;
+  gap: 10px;
+}
+
+.llm-status-list {
+  display: grid;
+  gap: 10px;
+}
+
+.llm-status-item {
+  display: grid;
+  gap: 4px;
+  padding: var(--surface-pad-block);
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+  background: var(--surface-subtle);
+}
+
+.llm-status-item strong {
+  color: var(--ink-strong);
+}
+
+.llm-status-item p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.52;
+}
+
+.llm-status-item--positive {
+  border-color: rgba(105, 138, 87, 0.22);
+  background: linear-gradient(180deg, #ffffff 0%, #f6fbf3 100%);
+}
+
+.llm-status-item--warning {
+  border-color: rgba(211, 154, 69, 0.18);
+  background: linear-gradient(180deg, #ffffff 0%, #fff8ec 100%);
+}
+
+.llm-status-item--danger {
+  border-color: rgba(201, 107, 99, 0.18);
+  background: linear-gradient(180deg, #ffffff 0%, #fff4f1 100%);
+}
+
 .llm-chat-workbench__stack {
-  gap: 18px;
+  gap: 16px;
 }
 
 .llm-chat-history--page {
-  max-height: 44vh;
+  max-height: min(36vh, 420px);
   padding: 2px 6px 2px 0;
 }
 
 .llm-chat-workbench__input {
-  min-height: 180px;
+  min-height: 156px;
+}
+
+.llm-action-rail {
+  align-content: start;
+}
+
+.llm-inline-empty {
+  display: grid;
+  gap: 8px;
+  padding: var(--surface-pad-block);
+  border: 1px dashed var(--line-strong);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.llm-inline-empty strong {
+  color: var(--ink-strong);
+}
+
+.llm-inline-empty p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+.llm-inline-empty--warning {
+  border-style: solid;
+  border-color: rgba(211, 154, 69, 0.18);
+  background: var(--warning-soft);
+}
+
+.llm-detail-line {
+  color: var(--ink-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.llm-activity-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 18px;
+}
+
+.llm-activity-column {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.llm-activity-column__header {
+  display: grid;
+  gap: 4px;
+}
+
+.llm-activity-column__header h4 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.32;
+}
+
+.llm-activity-column__header p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.timeline--compact {
+  gap: 10px;
+}
+
+.timeline--compact .timeline-item {
+  gap: 6px;
 }
 
 .hero {
@@ -2140,6 +2257,10 @@ textarea {
   }
 
   .week-event-card__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .llm-activity-grid {
     grid-template-columns: 1fr;
   }
 }
