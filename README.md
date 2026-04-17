@@ -151,6 +151,22 @@ O runtime em `runtime/` deve ser tratado como destino de build/publicacao, nao c
 - o frontend deve usar divulgacao progressiva:
   - por defeito mostra o essencial
   - detalhes tecnicos ficam atras de vistas secundarias, drawers ou modo avancado
+- a composicao visual deve assentar em poucos objetos internos, claros e repetiveis:
+  - caixa com header e body
+  - bloco compacto de estado
+  - grupo de acoes
+  - empty state
+  - lista curta de atividade
+- caixas, paineis e botoes devem trazer padding interno canonico:
+  - o layout exterior organiza
+  - o proprio componente protege o seu conteudo
+  - nao se deve depender de margens ad hoc para um botao ou texto "parecer encaixado"
+- espaco vazio so e aceitavel quando melhora leitura ou hierarquia:
+  - cards, auditorias e estados vazios devem encolher quando ha pouco conteudo
+  - alturas minimas decorativas nao devem ser a forma principal de "equilibrar" a pagina
+- a linguagem primaria deve ser humana e direta:
+  - primeiro a acao e o resultado esperado
+  - depois, se preciso, o detalhe tecnico em segundo plano
 - o ecran inicial deve responder de forma rapida a:
   - o WhatsApp esta ligado?
   - ha algo para fazer agora?

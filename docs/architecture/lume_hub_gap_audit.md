@@ -1,6 +1,6 @@
 # Lume Hub Gap Audit
 
-Data: `2026-04-06`
+Data: `2026-04-17`
 
 Objetivo:
 - descrever apenas gaps reais ainda ativos para o produto scoped atual
@@ -53,6 +53,10 @@ Conclusao curta:
   - checklist de shadow mode
   - comparacao curta `WA-notify` vs `LumeHub`
   - GUI do `codex auto router`
+- em `2026-04-17`, abriu uma nova ronda de UX/UI para:
+  - reforcar contratos internos de composicao
+  - simplificar a pagina `LLM`
+  - cortar copy tecnica e espaco morto na shell operacional
 
 Em particular, ja nao faz sentido falar de:
 
@@ -151,6 +155,43 @@ O estado canonico desta ronda fica:
 - modos `com_agendamento` e `distribuicao_apenas` fechados ponta a ponta
 - ownership por grupo e politica de tag ao bot com enforcement real
 - `WhatsApp`, `LumeHub`, `Migracao` e `LLM` como areas separadas
+
+## Gaps ativos da ronda `ui-clarity`
+
+Existem gaps reais e visiveis nesta ronda nova.
+Os screenshots da pagina `LLM` e o estado atual do frontend mostram quatro problemas de base:
+
+1. Falta de contratos internos fortes de composicao
+
+- o frontend ja tem `shared-ui`, mas continua a montar demasiadas vistas a partir de `card-grid`, `content-grid` e cards genericos
+- isto deixa padding, altura, alinhamento de acoes e espaco livre demasiado dependentes da pagina concreta
+- o resultado e uma shell em que caixas e botoes parecem "encaixados" por contexto exterior em vez de serem objetos robustos por si
+
+2. Sobrecarga cognitiva na pagina `LLM`
+
+- a rota `/assistant` mistura chat direto, escopo, preview/apply, auditoria e runs recentes quase ao mesmo nivel de destaque
+- ha copy redundante entre `hero`, cards explicativos, hints e summaries
+- a separacao entre "perguntar" e "agir" existe funcionalmente, mas ainda nao esta clara o suficiente na hierarquia visual
+
+3. Espaco morto excessivo e densidade irregular
+
+- certos cards e estados vazios continuam altos demais para a quantidade real de conteudo
+- `metric-card` com altura minima e timelines muito abertas criam zonas brancas grandes que nao acrescentam leitura
+- em varias areas o layout gasta largura e altura em blocos equivalentes quando devia compactar ou assimetrizar
+
+4. Linguagem pouco humana e demasiado tecnica
+
+- a UI ainda usa termos internos ou operacionais demais para o alvo principal
+- varias etiquetas explicam o mecanismo em vez de priorizar a acao e o resultado esperado
+- faltam padroes canonicos curtos para estados como ligado, bloqueado, sem preview, pronto e a rever
+
+O objetivo correto desta ronda nao e inventar novas features.
+E simplificar o que ja existe, torna-lo coerente e fazer com que o utilizador perceba rapidamente:
+
+- onde perguntar
+- onde preparar uma alteracao real
+- o que esta bloqueado
+- e qual e o proximo passo util
 
 ## Trabalho futuro fora do scope atual
 
