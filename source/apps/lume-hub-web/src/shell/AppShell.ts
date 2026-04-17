@@ -1777,16 +1777,16 @@ export class AppShell {
                   <strong>${escapeHtml(entry.groupLabel ?? entry.groupJid ?? 'Grupo')}</strong>
                   <time>${escapeHtml(`${readableAssistantOperation(entry.operation)} • ${formatShortDateTime(entry.updatedAt)}`)}</time>
                   <p>${escapeHtml(entry.previewSummary)}</p>
-                  <p class="llm-detail-line">Pedido: ${escapeHtml(entry.requestedText)}</p>
-                  <p class="llm-detail-line">Estado: ${escapeHtml(readableInstructionStatus(entry.status))}</p>
+                  <p class="detail-line">Pedido: ${escapeHtml(entry.requestedText)}</p>
+                  <p class="detail-line">Estado: ${escapeHtml(readableInstructionStatus(entry.status))}</p>
                   ${
                     entry.appliedEventTitle
-                      ? `<p class="llm-detail-line">Evento: ${escapeHtml(entry.appliedEventTitle)}</p>`
+                      ? `<p class="detail-line">Evento: ${escapeHtml(entry.appliedEventTitle)}</p>`
                       : ''
                   }
                   ${
                     entry.resultNote
-                      ? `<p class="llm-detail-line">Nota: ${escapeHtml(entry.resultNote)}</p>`
+                      ? `<p class="detail-line">Nota: ${escapeHtml(entry.resultNote)}</p>`
                       : ''
                   }
                 </article>
@@ -1794,7 +1794,7 @@ export class AppShell {
             )
             .join('')
         : `
-          <div class="llm-inline-empty">
+          <div class="inline-empty">
             <strong>Sem alteracoes ainda</strong>
             <p>Assim que aplicares um pedido de scheduling, ele aparece aqui.</p>
           </div>
@@ -1808,13 +1808,13 @@ export class AppShell {
                   <strong>${escapeHtml(entry.title)}</strong>
                   <time>${escapeHtml(entry.recordedAt)}</time>
                   <p>${escapeHtml(entry.summary)}</p>
-                  <p class="llm-detail-line">${escapeHtml(entry.detail)}</p>
+                  <p class="detail-line">${escapeHtml(entry.detail)}</p>
                 </article>
               `,
             )
             .join('')
         : `
-          <div class="llm-inline-empty">
+          <div class="inline-empty">
             <strong>Sem sinais recentes</strong>
             <p>Quando houver runs ou conversa auditada, eles aparecem aqui.</p>
           </div>
@@ -1846,16 +1846,16 @@ export class AppShell {
             })}
           </div>
         </div>
-        <div class="llm-hero__panel llm-status-list">
-          <article class="llm-status-item">
+        <div class="hero-panel status-list">
+          <article class="status-item">
             <strong>Como responde</strong>
             <p>${escapeHtml(chatScopeSummary)}</p>
           </article>
-          <article class="llm-status-item">
+          <article class="status-item">
             <strong>Proximo passo</strong>
             <p>${escapeHtml(actionStatusSummary)}</p>
           </article>
-          <article class="llm-status-item llm-status-item--${actionStatusTone}">
+          <article class="status-item status-item--${actionStatusTone}">
             <strong>${escapeHtml(actionStatusLabel)}</strong>
             <p>${escapeHtml(
               latestAudit
@@ -1987,16 +1987,16 @@ export class AppShell {
               tone: actionStatusTone,
             })}
           </div>
-          <div class="llm-status-list">
-            <article class="llm-status-item">
+          <div class="status-list">
+            <article class="status-item">
               <strong>Grupo em foco</strong>
               <p>${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe no bloco abaixo.')}</p>
             </article>
-            <article class="llm-status-item">
+            <article class="status-item">
               <strong>Se precisares de agir</strong>
               <p>${escapeHtml(assistantRoutingNote)}</p>
             </article>
-            <article class="llm-status-item llm-status-item--${previewStatusTone}">
+            <article class="status-item status-item--${previewStatusTone}">
               <strong>${escapeHtml(previewStatusLabel)}</strong>
               <p>${escapeHtml(previewSummaryText)}</p>
             </article>
@@ -2036,7 +2036,7 @@ export class AppShell {
           ${
             selectedGroup && !canRunLlmScheduling
               ? `
-                <div class="llm-inline-empty llm-inline-empty--warning">
+                <div class="inline-empty inline-empty--warning">
                   <strong>Este grupo nao usa scheduling pela LLM</strong>
                   <p>${escapeHtml(assistantRoutingNote)}</p>
                   <div class="action-row">
@@ -2128,8 +2128,8 @@ export class AppShell {
                             (entry) => `
                               <article class="timeline-item">
                                 <strong>${escapeHtml(entry.label)}</strong>
-                                <p class="llm-detail-line">Antes: ${escapeHtml(entry.before ?? 'vazio')}</p>
-                                <p class="llm-detail-line">Depois: ${escapeHtml(entry.after ?? 'vazio')}</p>
+                                <p class="detail-line">Antes: ${escapeHtml(entry.before ?? 'vazio')}</p>
+                                <p class="detail-line">Depois: ${escapeHtml(entry.after ?? 'vazio')}</p>
                               </article>
                             `,
                           )
@@ -2137,7 +2137,7 @@ export class AppShell {
                       </div>
                     `
                     : `
-                      <div class="llm-inline-empty">
+                      <div class="inline-empty">
                         <strong>Sem diferencas concretas</strong>
                         <p>Este preview ainda nao mostrou mudancas detalhadas.</p>
                       </div>
@@ -2145,7 +2145,7 @@ export class AppShell {
                 }
               `
               : `
-                <div class="llm-inline-empty${canRunLlmScheduling ? '' : ' llm-inline-empty--warning'}">
+                <div class="inline-empty${canRunLlmScheduling ? '' : ' inline-empty--warning'}">
                   <strong>${escapeHtml(canRunLlmScheduling ? 'Sem preview ainda' : 'Scheduling LLM indisponivel neste grupo')}</strong>
                   <p>${escapeHtml(
                     canRunLlmScheduling
@@ -2170,9 +2170,9 @@ export class AppShell {
               tone: recentSchedulingEntries.length > 0 || recentContextSignals.length > 0 ? 'positive' : 'neutral',
             })}
           </div>
-          <div class="llm-activity-grid">
-            <section class="llm-activity-column">
-              <div class="llm-activity-column__header">
+          <div class="summary-grid">
+            <section class="summary-column">
+              <div class="summary-column__header">
                 <h4>Agenda</h4>
                 <p>Ultimas alteracoes que passaram por preview ou apply.</p>
               </div>
@@ -2180,8 +2180,8 @@ export class AppShell {
                 ${schedulingActivityHtml}
               </div>
             </section>
-            <section class="llm-activity-column">
-              <div class="llm-activity-column__header">
+            <section class="summary-column">
+              <div class="summary-column__header">
                 <h4>Como respondeu</h4>
                 <p>Runs e conversa auditada para perceber o contexto que esteve ativo.</p>
               </div>

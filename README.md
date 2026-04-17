@@ -277,7 +277,8 @@ Em `2026-04-06`, a leitura canonica passa a ser esta:
   - ou migracao parcial por areas
   - nao cutover total imediato
 - a ronda curta de operacao de migracao tambem ficou fechada com a `Wave 51`
-- a validacao consolidada mais recente passou a ser `validate:wave60`
+- a ronda `ui-clarity` tambem ficou fechada com a `Wave 65`
+- a validacao consolidada mais recente passou a ser `validate:wave65`
 - a `Wave 52` ja fechou a fundacao do modelo `group-first`
 - a `Wave 53` ja fechou a shell `group-first`, com switcher global de grupo e navegacao principal curta
 - a `Wave 54` ja fechou a pagina operacional de grupo, com owner, modos e politicas locais persistentes

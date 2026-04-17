@@ -158,23 +158,18 @@ O estado canonico desta ronda fica:
 
 ## Gaps ativos da ronda `ui-clarity`
 
-Existem gaps reais e visiveis nesta ronda nova.
+Nao restam gaps funcionais ativos nesta ronda.
 A `Wave 61` ja fechou a base de composicao e densidade desta ronda.
 A `Wave 62` ja fechou a simplificacao estrutural da pagina `LLM`.
 A `Wave 63` ja fechou a linguagem canonica, a divulgacao progressiva e a leitura do `codex auto router` como lista de `3+` tokens.
 A `Wave 64` ja fechou a migracao da shell restante para os novos objetos.
-Os gaps ativos concentram-se agora apenas no fecho limpo da ronda.
+A `Wave 65` ja fechou a limpeza final desta ronda:
 
-Os problemas que sobram nesta ronda sao estes:
-
-1. Limpeza final de classes, helpers e variacoes supersedidas
-
-- a shell principal ja fala o mesmo dialeto, mas ainda convem remover restos de classes e helpers antigos que ficaram apenas por compatibilidade
-- a ronda termina melhor se o CSS e o copy nao deixarem duas geracoes de padroes a coexistir sem necessidade
-
-2. Consolidacao final da validacao e da documentacao da serie
-
-- com a shell principal alinhada, o que falta e fechar a serie com um validador final, README enxuto e docs sem linguagem de transicao
+- a pagina `LLM` deixou de manter aliases de transicao quando os objetos genericos ja estavam canonicos
+- a serie ficou consolidada em `validate:wave65`
+- os validadores intermédios `61..64` foram removidos
+- docs e README ficaram alinhados ao estado final da shell
+- o fecho da ronda inclui relancamento do `LumeHub` live e verificacao de saude
 
 O objetivo correto desta ronda nao e inventar novas features.
 E simplificar o que ja existe, torna-lo coerente e fazer com que o utilizador perceba rapidamente:

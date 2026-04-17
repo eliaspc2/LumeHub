@@ -43,10 +43,7 @@ Hoje esta pasta ja contem:
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
-  - `validate:wave64`
-  - `validate:wave63`
-  - `validate:wave62`
-  - `validate:wave61`
+  - `validate:wave65`
   - `validate:wave60`
   - `validate:wave51`
   - `validate:wave49`
@@ -59,12 +56,12 @@ Hoje esta pasta ja contem:
 
 A ronda de inteligencia por grupo ficou fechada, o storage canonico de media recebida tambem, o ingest live com biblioteca operacional ficou concluido, a distribuicao multi-grupo de media ja existe no runtime, e o fluxo guiado da pagina `Media` ja esta funcional.
 A ronda de media distribuida tambem ficou fechada com limpeza final de docs, naming e validadores.
-A ronda de simplificacao do GUI entrou na reta final:
+A ronda de simplificacao do GUI ficou fechada:
 - a `Wave 61` fechou a base de composicao e densidade
 - a `Wave 62` simplificou a pagina `LLM`
 - a `Wave 63` alinhou a linguagem da shell e o `codex auto router`
 - a `Wave 64` migrou `WhatsApp`, `LumeHub`, `Migracao` e vistas principais de grupo para os novos objetos compactos
-- falta apenas a limpeza final da serie
+- a `Wave 65` removeu restos de transicao, consolidou `validate:wave65` e fechou a ronda
 Tambem ja existe o fluxo operacional do agente de projeto:
 
 - modulo `@lume-hub/workspace-agent`
@@ -104,8 +101,9 @@ A ronda de paridade e migracao do `WA-notify` tambem ficou fechada:
 - a `Wave 62` passa a usar essa base para refazer a pagina `LLM`, separando melhor `perguntar`, `agir` e `auditar`
 - a `Wave 63` simplifica a linguagem da shell, empurra detalhe tecnico para segundo plano e deixa o `codex auto router` pronto para listar `3+` tokens
 - a `Wave 64` migra a shell restante para listas de estado, blocos compactos e estados vazios coerentes nas paginas `WhatsApp`, `LumeHub`, `Migracao` e `Grupos`
+- a `Wave 65` fecha a ronda `ui-clarity`, remove validadores intermédios `61..64` e deixa `validate:wave65` como entrada canonica da serie
 - grupos `distribuicao_apenas` saem do scheduling local e passam a fan-out/distribuicao
-- a validacao consolidada mais recente passou a ser `validate:wave60`
+- a validacao consolidada mais recente passou a ser `validate:wave65`
 
 Na ronda curta de operacao de migracao, agora ja fechada:
 

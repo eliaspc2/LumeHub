@@ -28,7 +28,7 @@ Estado canonico deixado pela ronda `group-first`:
 Validacao consolidada atual:
 
 - `cd /home/eliaspc/Documentos/lume-hub/source`
-- `corepack pnpm run validate:wave60`
+- `corepack pnpm run validate:wave65`
 
 ## Ronda `ui-clarity`
 
@@ -73,27 +73,21 @@ A `Wave 64` ja fechou a migracao da shell restante para os novos objetos:
 - a shell fica mais densa e previsivel sem precisar de espaco morto para aparentar ordem
 - a validacao da ronda passa a existir em `validate:wave64`
 
-### Wave 65 - Limpeza final da ronda `ui-clarity`
+A `Wave 65` ja fechou a limpeza final da ronda `ui-clarity`:
 
-Objetivo:
-- fechar a ronda mais limpo do que abriu, sem helpers, classes ou copy que tenham ficado obsoletos
+- a pagina `LLM` deixou de manter aliases de transicao quando ja existiam objetos genericos equivalentes
+- os validadores intermédios `61..64` sairam da serie e a validacao consolidada passou a ser `validate:wave65`
+- docs e README ficaram alinhados ao estado final da ronda, sem linguagem de transicao nem backlog falso
+- o fecho da limpeza passa a incluir relancamento do `LumeHub` live e verificacao de saude no fim
 
-Escopo:
-- remover CSS, helpers e variacoes de componentes supersedidas pela ronda
-- consolidar validacao final da serie
-- alinhar README e docs ao estado final
-- garantir que a shell nao fica com dois dialetos visuais a conviver
-
-Validacao minima:
-- `cd /home/eliaspc/Documentos/lume-hub/source`
-- `corepack pnpm run validate:wave65`
-
-Fecho esperado da ronda:
+Fecho deixado por esta ronda:
 
 - pagina `LLM` muito mais clara e com menos espaco morto
 - objetos internos repetiveis e reconheciveis em vez de excecoes visuais por pagina
 - linguagem mais simples para utilizadores nao tecnicos
 - shell mais coesa sem sacrificar fluxo real nem observabilidade
+
+Nao ha waves ativas neste momento.
 
 ## Como reabrir uma ronda
 
@@ -122,6 +116,7 @@ Se surgir uma nova wave:
 - se for aberta uma nova ronda:
   - reservar desde logo a ultima wave dessa ronda para limpeza final
   - essa wave deve remover lixo tecnico e documental criado ou tornado obsoleto pela propria ronda
+  - se essa limpeza tocar o `LumeHub` live, deve terminar com relancamento real do produto e verificacao de saude
 
 Rebuild minimo esperado:
 
@@ -132,6 +127,16 @@ Se tocar backend, HTTP, WS ou runtime:
 
 - smoke test dedicado da wave
 - validar que a UI continua a abrir e a consumir a API esperada
+
+Se a wave for a limpeza final de uma ronda com impacto no live:
+
+- relancar no fim:
+  - `bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh restart`
+  - se for a partir de sessao automatizada, destacar com:
+    - `setsid bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh restart >/tmp/lumehub-wave-restart.log 2>&1 < /dev/null &`
+- validar a seguir:
+  - `bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh status`
+  - `curl -fsS http://127.0.0.1:18420/api/runtime/diagnostics`
 
 ## Fora de scope por defeito
 
