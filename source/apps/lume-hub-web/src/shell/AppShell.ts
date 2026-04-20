@@ -277,6 +277,16 @@ interface ScrollSnapshot {
   readonly top: number;
 }
 
+interface FocusedFieldSnapshot {
+  readonly fieldKey: string;
+  readonly fieldIndex: number;
+  readonly selectionStart: number | null;
+  readonly selectionEnd: number | null;
+  readonly selectionDirection: 'forward' | 'backward' | 'none' | null;
+  readonly scrollTop: number;
+  readonly scrollLeft: number;
+}
+
 interface ShellGroupSwitcherState {
   readonly groups: readonly {
     readonly groupJid: string;
@@ -895,6 +905,7 @@ export class AppShell {
     }
 
     const scrollSnapshot = options.preserveScroll === false ? null : this.captureScrollSnapshot();
+    const focusedFieldSnapshot = this.captureFocusedFieldSnapshot();
 
     const bootstrap = this.getBootstrap(this.state.mode);
     const router = bootstrap.router;
@@ -1023,6 +1034,7 @@ export class AppShell {
 
     this.bindInteractions();
     this.restoreScrollSnapshot(scrollSnapshot);
+    this.restoreFocusedFieldSnapshot(focusedFieldSnapshot);
   }
 
   private renderPendingConfirmationCard(): string {
@@ -9550,6 +9562,103 @@ export class AppShell {
         behavior: 'auto',
       });
     });
+  }
+
+  private captureFocusedFieldSnapshot(): FocusedFieldSnapshot | null {
+    if (!this.root) {
+      return null;
+    }
+
+    const activeElement = document.activeElement;
+    if (
+      !(activeElement instanceof HTMLInputElement) &&
+      !(activeElement instanceof HTMLTextAreaElement) &&
+      !(activeElement instanceof HTMLSelectElement)
+    ) {
+      return null;
+    }
+
+    if (!this.root.contains(activeElement)) {
+      return null;
+    }
+
+    const fieldKey = activeElement.dataset.fieldKey;
+    if (!fieldKey) {
+      return null;
+    }
+
+    const matchingFields = this.findFieldsByKey(fieldKey);
+    const fieldIndex = matchingFields.indexOf(activeElement);
+    if (fieldIndex < 0) {
+      return null;
+    }
+
+    const selectionCapable =
+      activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement;
+
+    return {
+      fieldKey,
+      fieldIndex,
+      selectionStart: selectionCapable ? activeElement.selectionStart : null,
+      selectionEnd: selectionCapable ? activeElement.selectionEnd : null,
+      selectionDirection: selectionCapable ? activeElement.selectionDirection : null,
+      scrollTop: activeElement.scrollTop,
+      scrollLeft: activeElement.scrollLeft,
+    };
+  }
+
+  private restoreFocusedFieldSnapshot(snapshot: FocusedFieldSnapshot | null): void {
+    if (!snapshot) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      if (!this.root) {
+        return;
+      }
+
+      const matchingFields = this.findFieldsByKey(snapshot.fieldKey);
+      const field = matchingFields.at(snapshot.fieldIndex) ?? matchingFields[0];
+      if (!field || field.disabled) {
+        return;
+      }
+
+      try {
+        field.focus({ preventScroll: true });
+      } catch {
+        field.focus();
+      }
+
+      field.scrollTop = snapshot.scrollTop;
+      field.scrollLeft = snapshot.scrollLeft;
+
+      if (!(field instanceof HTMLInputElement) && !(field instanceof HTMLTextAreaElement)) {
+        return;
+      }
+
+      if (snapshot.selectionStart === null || snapshot.selectionEnd === null) {
+        return;
+      }
+
+      const selectionStart = Math.min(snapshot.selectionStart, field.value.length);
+      const selectionEnd = Math.min(snapshot.selectionEnd, field.value.length);
+
+      try {
+        field.setSelectionRange(selectionStart, selectionEnd, snapshot.selectionDirection ?? 'none');
+      } catch {
+        field.setSelectionRange(selectionStart, selectionEnd);
+      }
+    });
+  }
+
+  private findFieldsByKey(fieldKey: string): Array<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement> {
+    if (!this.root) {
+      return [];
+    }
+
+    return Array.from(
+      this.root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-field-key]'),
+    ).filter((field) => field.dataset.fieldKey === fieldKey);
   }
 
   private readMode(search: string): FrontendTransportMode {
