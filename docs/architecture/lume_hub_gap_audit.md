@@ -190,7 +190,7 @@ A partir de `2026-04-20`, voltaram a existir gaps reais de produto, nao por falt
 
 Os gaps ativos desta ronda sao:
 
-- `Calendario`, `LLM`, `Grupos` e `WhatsApp` ainda misturam leitura operacional com ruido ou detalhe cedo demais
+- `Grupos` e `WhatsApp` ainda precisam de fluxos mais guiados e mais comerciais para operador pouco tecnico
 - lembretes por grupo ainda nao estao productizados como regras multiplas legiveis para `antes`, hora fixa e `depois`
 - falta uma camada canonica de prompt por lembrete para a LLM e uma leitura clara do crescimento da `instruction-queue`
 - `LumeHub`, `Codex Router` e `Migracao` ainda precisam de fronteiras mais claras por papel
@@ -199,6 +199,7 @@ Os gaps ativos desta ronda sao:
 Baseline importante:
 
 - a `Wave 66` ja promoveu `Hoje` a homepage real e fechou a linguagem humana para loading, erro, vazio e recuperacao
+- a `Wave 67` ja tornou `Calendario` summary-first e `LLM` chat-first, consolidando `validate:wave67`
 - o runtime base ja tem modulos reais de notificacao e fila; o gap agora e de produto, configuracao por grupo e UX da fila
 - a pagina `Codex Router` ja ficou extraida de `Migracao` e passou a existir em `/codex-router`
 - a ronda nova parte dessa base e nao de uma shell antiga ou textual

@@ -28,7 +28,7 @@ Estado canonico deixado pela ronda `group-first`:
 Validacao consolidada atual:
 
 - `cd /home/eliaspc/Documentos/lume-hub/source`
-- `corepack pnpm run validate:wave66`
+- `corepack pnpm run validate:wave67`
 
 ## Ronda `ui-clarity`
 
@@ -100,7 +100,7 @@ Objetivo da ronda:
 
 Base deixada antes desta ronda:
 
-- `validate:wave66` passa a ser a validacao consolidada do estado atual desta ronda
+- a validacao consolidada atual desta ronda passou a ser `validate:wave67`
 - o `Codex Router` ja ficou exposto como pagina propria em `/codex-router`
 - a shell ja tem contratos visuais mais fortes; agora falta torná-los mais comerciais e mais autoexplicativos
 
@@ -112,29 +112,12 @@ A `Wave 66` ja fechou a homepage comercial e os estados de carga humanos desta r
 - a shell cortou jargao transversal na navegacao, na homepage e nos estados de suporte
 - a validacao dedicada ficou registada em `validate:wave66`
 
-### Wave 67 - Calendario e LLM com foco operacional
+A `Wave 67` ja fechou `Calendario` e `LLM` com foco operacional:
 
-Objetivo:
-- tornar `Calendario` e `LLM` mais diretos, mais densos e menos intrusivos
-
-Entrega esperada:
-
-- `Calendario`:
-  - mostrar primeiro um resumo simples da semana
-  - empurrar a grelha detalhada para segundo nivel
-  - trocar estados internos `pending`, `waiting_confirmation`, `sent` por linguagem humana
-  - abrir detalhe de dia/evento em painel lateral, drawer ou padrao equivalente
-- `LLM`:
-  - manter o chat como tarefa principal
-  - esconder o bloco de scheduling ate existir intencao clara de alterar agenda
-  - recolher ou fechar por defeito a rail lateral fora de `/assistant`
-  - cortar ruido e espaco morto nas listas curtas, preview e auditoria
-
-Vale a pena o utilizador testar no fim:
-
-- leitura rapida do `Calendario`
-- fluxo `perguntar` vs `agir` no `LLM`
-- comportamento da rail lateral
+- `Calendario` passou a abrir com leitura rapida da semana, detalhe em foco e grelha completa em segundo nivel
+- estados internos como `pending`, `waiting_confirmation` e `sent` deixaram de aparecer como linguagem principal
+- `LLM` ficou `chat-first`, com scheduling recolhido por defeito e auditoria curta sob divulgacao progressiva
+- a validacao consolidada atual passou a ser `validate:wave67`
 
 ### Wave 68 - Lembretes por grupo, janelas temporais e copy assistida pela LLM
 

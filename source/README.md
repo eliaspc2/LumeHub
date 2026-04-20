@@ -43,7 +43,7 @@ Hoje esta pasta ja contem:
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
-  - `validate:wave65`
+  - `validate:wave67`
   - `validate:wave60`
   - `validate:wave51`
   - `validate:wave49`
@@ -62,6 +62,7 @@ A ronda de simplificacao do GUI ficou fechada:
 - a `Wave 63` alinhou a linguagem da shell e o `codex auto router`
 - a `Wave 64` migrou `WhatsApp`, `LumeHub`, `Migracao` e vistas principais de grupo para os novos objetos compactos
 - a `Wave 65` removeu restos de transicao, consolidou `validate:wave65` e fechou a ronda
+- a ronda `commercial-readiness` ja fechou a `Wave 66` com homepage e estados humanos e a `Wave 67` com `Calendario` summary-first e `LLM` chat-first
 Tambem ja existe o fluxo operacional do agente de projeto:
 
 - modulo `@lume-hub/workspace-agent`
@@ -102,8 +103,10 @@ A ronda de paridade e migracao do `WA-notify` tambem ficou fechada:
 - a `Wave 63` simplifica a linguagem da shell, empurra detalhe tecnico para segundo plano e deixa o `codex auto router` pronto para listar `3+` tokens
 - a `Wave 64` migra a shell restante para listas de estado, blocos compactos e estados vazios coerentes nas paginas `WhatsApp`, `LumeHub`, `Migracao` e `Grupos`
 - a `Wave 65` fecha a ronda `ui-clarity`, remove validadores intermédios `61..64` e deixa `validate:wave65` como entrada canonica da serie
+- a `Wave 66` abre a ronda `commercial-readiness` com homepage real e estados de carga mais humanos
+- a `Wave 67` fecha `Calendario` e `LLM` como fluxos mais operacionais e deixa `validate:wave67` como entrada canonica atual
 - grupos `distribuicao_apenas` saem do scheduling local e passam a fan-out/distribuicao
-- a validacao consolidada mais recente passou a ser `validate:wave65`
+- a validacao consolidada mais recente passou a ser `validate:wave67`
 
 Na ronda curta de operacao de migracao, agora ja fechada:
 
@@ -118,7 +121,7 @@ Na ronda `group-first`, agora ja fechada:
 
 Nota operacional:
 
-- neste host, a validacao foi feita com `Node 20` local em `/opt/node-v20-current`
+- neste host, a validacao foi feita com `Node 20` local em `/opt/node-v20.20.1-linux-x64/bin`
 - o `node` global do sistema continua separado desta workspace
 
 ## Build target

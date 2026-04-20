@@ -618,6 +618,54 @@ textarea {
   align-content: start;
 }
 
+.llm-action-card,
+.llm-activity-card {
+  background:
+    radial-gradient(circle at 94% 8%, rgba(105, 138, 87, 0.07), transparent 24%),
+    var(--surface);
+}
+
+.llm-disclosure {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.llm-disclosure summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.llm-disclosure__content {
+  display: grid;
+  gap: 18px;
+}
+
+.llm-action-card .content-grid {
+  align-items: start;
+}
+
+.llm-action-editor,
+.llm-preview-card {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.week-calendar-details {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.week-calendar-details .week-calendar {
+  margin-top: 16px;
+}
+
 .inline-empty {
   display: grid;
   gap: 8px;

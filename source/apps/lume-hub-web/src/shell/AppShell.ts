@@ -874,6 +874,10 @@ export class AppShell {
     const page = this.state.page;
     const currentRoute = this.currentRouter().resolveRoute(this.state.route);
 
+    if (currentRoute.canonicalRoute === '/week' || currentRoute.canonicalRoute === '/assistant') {
+      return null;
+    }
+
     const groups = readRouteGroupOptions(page, this.state.assistantRailChat.availableGroups);
 
     if (groups.length === 0) {
@@ -1065,13 +1069,8 @@ export class AppShell {
     `;
   }
 
-  private shouldRenderAssistantRail(currentRoute: ResolvedAppRoute): boolean {
-    return (
-      currentRoute.canonicalRoute !== '/today' &&
-      currentRoute.canonicalRoute !== '/assistant' &&
-      currentRoute.canonicalRoute !== '/settings' &&
-      currentRoute.canonicalRoute !== '/migration'
-    );
+  private shouldRenderAssistantRail(_currentRoute: ResolvedAppRoute): boolean {
+    return false;
   }
 
   private renderMainContent(currentRoute: ResolvedAppRoute): string {
@@ -1271,6 +1270,31 @@ export class AppShell {
       (best, day) => (!best || day.events.length > best.events.length ? day : best),
       null,
     );
+    const sortedEvents = page.data.events
+      .slice()
+      .sort(
+        (left, right) =>
+          left.localDate.localeCompare(right.localDate) ||
+          left.startTime.localeCompare(right.startTime) ||
+          left.title.localeCompare(right.title) ||
+          left.eventId.localeCompare(right.eventId),
+      );
+    const nextEvent = sortedEvents[0] ?? null;
+    const focusedDay =
+      weekDays.find((day) => day.dayLabel === (editingEvent?.dayLabel ?? draft.dayLabel)) ??
+      (nextEvent ? weekDays.find((day) => day.events.some((event) => event.eventId === nextEvent.eventId)) : null) ??
+      weekDays.find((day) => day.events.length > 0) ??
+      weekDays[0] ??
+      null;
+    const focusedEvent = editingEvent ?? focusedDay?.events[0] ?? nextEvent ?? null;
+    const summaryDays = weekDays
+      .filter(
+        (day) =>
+          day.events.length > 0 ||
+          day.notifications.pendingNotifications > 0 ||
+          day.notifications.waitingConfirmationNotifications > 0,
+      )
+      .slice(0, 4);
     const canSaveSchedule = Boolean(selectedGroup && canGroupUseManualScheduling(selectedGroup));
     const weekSecondaryActionHref =
       selectedGroup && canGroupUseLlmScheduling(selectedGroup)
@@ -1287,6 +1311,17 @@ export class AppShell {
     const notificationLabels = page.data.defaultNotificationRuleLabels.length > 0
       ? page.data.defaultNotificationRuleLabels
       : ['24h antes', '30 min antes'];
+    const weekHeadline = nextEvent
+      ? `Proximo evento: ${nextEvent.title} em ${formatWeekEventMoment(nextEvent)}.`
+      : 'Ainda nao ha eventos planeados nesta semana.';
+    const nextStepSummary =
+      page.data.diagnostics.eventCount === 0
+        ? 'Escolhe um grupo com agenda ativa e cria o primeiro evento desta semana.'
+        : page.data.diagnostics.waitingConfirmationNotifications > 0
+          ? 'Confirma primeiro o que ainda esta a aguardar validacao antes de criares mais.'
+          : llmDisabledGroups.length > 0
+            ? `${llmDisabledGroups.length} grupo(s) continuam com agenda manual sem ajuda da LLM.`
+            : 'A leitura rapida ja chega para decidir o proximo passo. Abre a grelha completa so quando precisares de comparar dias.';
     const examples = schedulableGroups.slice(0, 3).map((group, index) => ({
       key: group.groupJid,
       title: index === 0 ? 'Aula regular' : index === 1 ? 'Reposicao' : 'Sessao especial',
@@ -1302,12 +1337,12 @@ export class AppShell {
     return `
       <section class="surface hero surface--strong">
         <div>
-          <p class="eyebrow">Calendario semanal</p>
-          <h2>A semana mostra agora quem vive em calendario e quem vive so em distribuicao.</h2>
+          <p class="eyebrow">Calendario operacional</p>
+          <h2>Primeiro ves a semana em resumo. A grelha completa fica abaixo so para quando precisares de detalhe.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
-              label: editingEvent ? 'Guardar alteracoes' : 'Criar notificacao',
+              label: editingEvent ? 'Guardar alteracoes' : 'Criar evento',
               disabled: !canSaveSchedule,
               dataAttributes: { 'flow-action': 'schedule-save' },
             })}
@@ -1321,155 +1356,236 @@ export class AppShell {
         <div class="hero-panel">
           ${renderUiPanelCard({
             title: 'Semana em foco',
-            badgeLabel: `${schedulableGroups.length} grupo(s) com calendario`,
+            badgeLabel: `${schedulableGroups.length} grupo(s) com agenda`,
             badgeTone: 'neutral',
             contentHtml: `<p>${escapeHtml(
-              `${page.data.focusWeekRangeLabel}. Timezone ${page.data.timezone}. ${distributionGroups.length} grupo(s) desta ronda seguem apenas para distribuicao.`,
+              `${page.data.focusWeekRangeLabel}. Timezone ${page.data.timezone}. ${distributionGroups.length} grupo(s) desta ronda seguem apenas em distribuicao.`,
             )}</p>`,
           })}
           ${renderUiPanelCard({
-            title: 'Leitura rapida por modo',
-            badgeLabel: `${page.data.focusWeekLabel} operativo`,
+            title: 'Proximo passo',
+            badgeLabel: occupiedDays > 0 ? `${occupiedDays} dia(s) com agenda` : 'Semana vazia',
             badgeTone: page.data.diagnostics.eventCount > 0 ? 'positive' : 'neutral',
             contentHtml: `<p>${escapeHtml(
-              occupiedDays > 0
-                ? `${occupiedDays} dia(s) ocupados. Pico em ${busiestDay?.label ?? 'sem dia dominante'} com ${busiestDay?.events.length ?? 0} notificacao(oes). ${llmDisabledGroups.length} grupo(s) ficam em calendario manual sem LLM scheduling.`
-                : `Ainda nao ha notificacoes planeadas nesta semana. ${distributionGroups.length} grupo(s) seguem apenas em fan-out/distribuicao.`,
+              `${weekHeadline} ${
+                occupiedDays > 0
+                  ? `O dia mais cheio e ${busiestDay?.label ?? 'sem dia dominante'} com ${busiestDay?.events.length ?? 0} evento(s).`
+                  : 'Ainda nao ha nenhum dia ocupado.'
+              }`,
             )}</p>`,
           })}
         </div>
       </section>
 
-      <section class="card-grid">
-        ${renderUiMetricCard({
-          title: 'pending',
-          value: String(page.data.diagnostics.pendingNotifications),
-          tone: page.data.diagnostics.pendingNotifications > 0 ? 'neutral' : 'positive',
-          description: 'Notificacoes materializadas e ainda por enviar.',
-        })}
-        ${renderUiMetricCard({
-          title: 'waiting_confirmation',
-          value: String(page.data.diagnostics.waitingConfirmationNotifications),
-          tone: page.data.diagnostics.waitingConfirmationNotifications > 0 ? 'warning' : 'positive',
-          description: 'Tentativas que ainda esperam confirmacao forte.',
-        })}
-        ${renderUiMetricCard({
-          title: 'sent',
-          value: String(page.data.diagnostics.sentNotifications),
-          tone: page.data.diagnostics.sentNotifications > 0 ? 'positive' : 'neutral',
-          description: 'Notificacoes ja observadas como fechadas.',
-        })}
-        ${renderUiMetricCard({
-          title: 'Dias ocupados',
-          value: `${occupiedDays}/7`,
-          tone: occupiedDays > 0 ? 'positive' : 'neutral',
-          description: 'Dias com pelo menos uma notificacao nesta semana.',
-        })}
-        ${renderUiMetricCard({
-          title: 'Fan-out only',
-          value: String(distributionGroups.length),
-          tone: distributionGroups.length > 0 ? 'warning' : 'positive',
-          description: 'Grupos que saem do calendario local e entram so em distribuicao.',
-        })}
-      </section>
-
-      <section class="surface content-card">
-        <div class="card-header">
-          <div>
-            <h3>Semana operacional</h3>
-            <p class="week-section-note">Cada coluna representa um dia real da semana ISO em foco. So os grupos com agendamento ativo podem abrir ou editar notificacoes nesta grelha.</p>
+      <section class="content-grid">
+        <article class="surface content-card span-8">
+          <div class="card-header">
+            <div>
+              <h3>Leitura rapida da semana</h3>
+              <p class="week-section-note">Resumo curto para perceber o estado da agenda sem abrir logo a grelha completa.</p>
+            </div>
+            ${renderUiBadge({
+              label: occupiedDays > 0 ? `${occupiedDays} dia(s) com agenda` : 'Semana vazia',
+              tone: occupiedDays > 0 ? 'positive' : 'neutral',
+            })}
           </div>
-          ${renderUiBadge({
-            label:
-              schedulableGroups.length > 0
-                ? `${schedulableGroups.length} grupo(s) com calendario`
-                : 'Sem grupos com calendario',
-            tone: schedulableGroups.length > 0 ? 'positive' : 'warning',
-          })}
-        </div>
-        ${
-          distributionGroups.length > 0
-            ? `
-              <div class="week-mode-strip" data-week-mode-strip>
-                <strong>Distribuicao/fan-out</strong>
-                <span>${escapeHtml(
-                  distributionGroups.map((group) => group.preferredSubject).join(', '),
-                )}</span>
-                <span>Estes grupos nao aceitam scheduling local nesta wave.</span>
-              </div>
-            `
-            : ''
-        }
-        <div class="week-calendar" data-week-calendar>
-          ${weekDays
-            .map(
-              (day) => `
-                <section class="week-calendar__day${day.isToday ? ' week-calendar__day--today' : ''}" data-week-day="${day.dayLabel}">
-                  <div class="week-calendar__day-header">
-                    <div>
-                      <p class="week-calendar__eyebrow">${escapeHtml(`${day.shortLabel} · ${day.dateLabel}`)}</p>
-                      <h4>${escapeHtml(day.label)}</h4>
-                    </div>
-                    ${renderUiBadge({
-                      label: day.events.length > 0 ? `${day.events.length} evento(s)` : 'Livre',
-                      tone: day.events.length > 0 ? 'positive' : 'neutral',
-                    })}
+          <div class="card-grid">
+            ${renderUiRecordCard({
+              title: 'Semana em foco',
+              subtitle: weekHeadline,
+              badgeLabel: page.data.focusWeekLabel,
+              badgeTone: page.data.diagnostics.eventCount > 0 ? 'positive' : 'neutral',
+              bodyHtml: `<p>${escapeHtml(
+                `${schedulableGroups.length} grupo(s) com agenda local. ${distributionGroups.length} grupo(s) fora da agenda local. ${describeWeekNotificationMix({
+                  pending: page.data.diagnostics.pendingNotifications,
+                  waitingConfirmation: page.data.diagnostics.waitingConfirmationNotifications,
+                  sent: page.data.diagnostics.sentNotifications,
+                })}`,
+              )}</p>`,
+            })}
+            ${renderUiRecordCard({
+              title: 'Proximo passo',
+              subtitle: nextStepSummary,
+              badgeLabel: canSaveSchedule ? 'Pode agir' : 'A rever',
+              badgeTone: canSaveSchedule ? 'positive' : 'warning',
+              bodyHtml: `<div class="action-row">${renderUiActionButton({
+                label: selectedGroup ? 'Continuar no editor' : 'Escolher grupo',
+                variant: 'secondary',
+                dataAttributes: { 'flow-action': focusedDay ? 'schedule-compose-day' : 'schedule-clear', 'flow-value': focusedDay?.dayLabel },
+              })}</div>`,
+            })}
+            ${renderUiRecordCard({
+              title: nextEvent ? nextEvent.title : 'Semana ainda vazia',
+              subtitle: nextEvent ? `${nextEvent.groupLabel} · ${formatWeekEventMoment(nextEvent)}` : 'Ainda nao existe um evento de referencia nesta semana.',
+              badgeLabel: nextEvent ? 'Proximo evento' : 'Sem evento',
+              badgeTone: nextEvent ? 'positive' : 'neutral',
+              bodyHtml: `<p>${escapeHtml(
+                nextEvent
+                  ? `${describeWeekNotificationMix({
+                      pending: nextEvent.notifications.pending,
+                      waitingConfirmation: nextEvent.notifications.waitingConfirmation,
+                      sent: nextEvent.notifications.sent,
+                    })}.`
+                  : 'Quando criares o primeiro evento, ele passa a aparecer aqui como referencia rapida.',
+              )}</p>`,
+            })}
+            ${renderUiRecordCard({
+              title: distributionGroups.length > 0 ? 'Grupos fora da agenda' : 'Todos na agenda local',
+              subtitle:
+                distributionGroups.length > 0
+                  ? distributionGroups.map((group) => group.preferredSubject).join(', ')
+                  : 'Todos os grupos desta vista continuam a aceitar agenda local.',
+              badgeLabel: distributionGroups.length > 0 ? `${distributionGroups.length} grupo(s)` : 'Sem desvios',
+              badgeTone: distributionGroups.length > 0 ? 'warning' : 'positive',
+              bodyHtml: `<p>${escapeHtml(
+                distributionGroups.length > 0
+                  ? 'Estes grupos seguem so por distribuicao. Nao aparecem como editaveis no editor semanal.'
+                  : 'Podes trabalhar a semana inteira sem sair desta pagina.',
+              )}</p>`,
+            })}
+          </div>
+          <div class="week-editor__section">
+            <div class="summary-column__header">
+              <h4>Dias para rever</h4>
+              <p>Abre um dia ou um evento em foco antes de entrares na grelha completa.</p>
+            </div>
+            ${
+              summaryDays.length > 0
+                ? `
+                  <div class="compact-record-list">
+                    ${summaryDays
+                      .map(
+                        (day) =>
+                          renderUiRecordCard({
+                            title: day.label,
+                            subtitle: describeWeekDaySummary(day),
+                            badgeLabel: day.events.length > 0 ? `${day.events.length} evento(s)` : 'Sem evento',
+                            badgeTone: day.events.length > 0 ? 'positive' : 'neutral',
+                            bodyHtml: `
+                              <p>${escapeHtml(
+                                day.events[0]
+                                  ? `Primeiro evento: ${day.events[0].title} em ${day.events[0].startTime}.`
+                                  : 'Ainda nao existe um evento de referencia neste dia.',
+                              )}</p>
+                              <div class="action-row">
+                                ${renderUiActionButton({
+                                  label: 'Abrir este dia',
+                                  variant: 'secondary',
+                                  dataAttributes: {
+                                    'flow-action': 'schedule-compose-day',
+                                    'flow-value': day.dayLabel,
+                                  },
+                                })}
+                                ${
+                                  day.events[0]
+                                    ? renderUiActionButton({
+                                        label: 'Abrir primeiro evento',
+                                        variant: 'secondary',
+                                        dataAttributes: {
+                                          'flow-action': 'schedule-load-event',
+                                          'flow-value': day.events[0].eventId,
+                                        },
+                                      })
+                                    : ''
+                                }
+                              </div>
+                            `,
+                          }),
+                      )
+                      .join('')}
                   </div>
-                  <div class="week-calendar__day-meta">
-                    ${renderUiBadge({ label: `pending ${day.notifications.pendingNotifications}`, tone: day.notifications.pendingNotifications > 0 ? 'neutral' : 'positive', style: 'chip' })}
-                    ${renderUiBadge({
-                      label: `waiting_confirmation ${day.notifications.waitingConfirmationNotifications}`,
-                      tone: day.notifications.waitingConfirmationNotifications > 0 ? 'warning' : 'neutral',
-                      style: 'chip',
-                    })}
-                    ${renderUiBadge({ label: `sent ${day.notifications.sentNotifications}`, tone: day.notifications.sentNotifications > 0 ? 'positive' : 'neutral', style: 'chip' })}
+                `
+                : `
+                  <div class="inline-empty">
+                    <strong>Sem dias a pedir atencao</strong>
+                    <p>A semana ainda nao tem eventos. Usa o editor abaixo para criar o primeiro.</p>
                   </div>
-                  <div class="action-row week-calendar__day-actions">
+                `
+            }
+          </div>
+        </article>
+
+        <article class="surface content-card span-4">
+          <div class="card-header">
+            <div>
+              <h3>Dia ou evento em foco</h3>
+              <p class="week-section-note">Painel lateral para abrir o detalhe que interessa agora.</p>
+            </div>
+            ${renderUiBadge({
+              label: focusedDay?.label ?? 'Sem foco',
+              tone: focusedEvent ? 'positive' : 'neutral',
+            })}
+          </div>
+          ${
+            focusedEvent
+              ? `
+                <div class="guide-preview">
+                  <p><strong>Evento</strong>: ${escapeHtml(focusedEvent.title)}</p>
+                  <p><strong>Quando</strong>: ${escapeHtml(formatWeekEventMoment(focusedEvent))}</p>
+                  <p><strong>Grupo</strong>: ${escapeHtml(focusedEvent.groupLabel)}</p>
+                  <p><strong>Estado</strong>: ${escapeHtml(
+                    describeWeekNotificationMix({
+                      pending: focusedEvent.notifications.pending,
+                      waitingConfirmation: focusedEvent.notifications.waitingConfirmation,
+                      sent: focusedEvent.notifications.sent,
+                    }),
+                  )}</p>
+                  <p><strong>Notas</strong>: ${escapeHtml(focusedEvent.notes || 'Sem nota interna.')}</p>
+                </div>
+                <div class="action-row">
+                  ${renderUiActionButton({
+                    label: 'Abrir no editor',
+                    variant: 'secondary',
+                    dataAttributes: {
+                      'flow-action': 'schedule-load-event',
+                      'flow-value': focusedEvent.eventId,
+                    },
+                  })}
+                  ${renderUiActionButton({
+                    label: 'Abrir grupo',
+                    href: `/groups/${encodeURIComponent(focusedEvent.groupJid)}`,
+                    variant: 'secondary',
+                    dataAttributes: { route: `/groups/${encodeURIComponent(focusedEvent.groupJid)}` },
+                  })}
+                </div>
+              `
+              : focusedDay
+                ? `
+                  <div class="guide-preview">
+                    <p><strong>Dia</strong>: ${escapeHtml(focusedDay.label)}</p>
+                    <p><strong>Resumo</strong>: ${escapeHtml(describeWeekDaySummary(focusedDay))}</p>
+                    <p><strong>Proximo passo</strong>: ${
+                      schedulableGroups.length > 0
+                        ? 'Abrir o editor ja neste dia e preencher os detalhes.'
+                        : 'Primeiro reativa um grupo com agenda local.'
+                    }</p>
+                  </div>
+                  <div class="action-row">
                     ${renderUiActionButton({
-                      label: 'Novo neste dia',
+                      label: 'Criar neste dia',
                       variant: 'secondary',
                       disabled: schedulableGroups.length === 0,
                       dataAttributes: {
                         'flow-action': 'schedule-compose-day',
-                        'flow-value': day.dayLabel,
+                        'flow-value': focusedDay.dayLabel,
                       },
                     })}
                   </div>
-                  <div class="week-calendar__events">
-                    ${
-                      day.events.length > 0
-                        ? day.events
-                            .map((event) =>
-                              renderWeekCalendarEventCard(
-                                event,
-                                draft.eventId === event.eventId,
-                                groupsByJid.get(event.groupJid) ?? null,
-                              ),
-                            )
-                            .join('')
-                        : `
-                          <div class="week-calendar__empty">
-                            <p>Sem notificacoes planeadas neste dia.</p>
-                            <p>${
-                              schedulableGroups.length > 0
-                                ? 'Usa o botao acima para abrir o editor ja neste dia.'
-                                : 'Quando um grupo voltar a modo de agendamento, esta grelha volta a aceitar criacao local.'
-                            }</p>
-                          </div>
-                        `
-                    }
+                `
+                : `
+                  <div class="inline-empty">
+                    <strong>Sem detalhe em foco</strong>
+                    <p>Assim que houver um dia ou evento relevante, ele aparece aqui.</p>
                   </div>
-                </section>
-              `,
-            )
-            .join('')}
-        </div>
+                `
+          }
+        </article>
       </section>
 
       <section class="content-grid">
         <article class="surface content-card span-7">
           <div class="card-header">
-            <h3>${editingEvent ? 'Editar notificacao' : 'Nova notificacao'}</h3>
+            <h3>${editingEvent ? 'Editar evento' : 'Criar ou ajustar'}</h3>
             ${renderUiBadge({
               label:
                 editingEvent
@@ -1535,14 +1651,14 @@ export class AppShell {
                       dataKey: 'schedule.notes',
                       rows: 4,
                       placeholder: 'Ex.: levar material de ensaio e confirmar sala 2.',
-                      hint: 'Esta nota aparece no calendario para reveres rapidamente a intencao.',
+                      hint: 'Serve para rever rapidamente a intencao no detalhe do evento.',
                     })}
                   </div>
                 `
                 : `
                   <div class="timeline-item timeline-item--warning">
                     <strong>Sem grupos com agendamento ativo</strong>
-                    <p>Todos os grupos desta ronda estao em distribuicao/fan-out ou com scheduling local desligado. Reativa um grupo na pagina de grupo para voltar a usar o calendario semanal.</p>
+                    <p>Todos os grupos desta ronda estao fora da agenda local ou com scheduling desligado. Reativa um grupo na pagina de grupo para voltar a usar o calendario semanal.</p>
                   </div>
                 `
             }
@@ -1586,20 +1702,12 @@ export class AppShell {
 
         <article class="surface content-card span-5">
           <div class="card-header">
-            <h3>Apoio rapido</h3>
-            ${renderUiBadge({ label: 'Operacao diaria', tone: 'positive' })}
+            <h3>Criar mais depressa</h3>
+            ${renderUiBadge({ label: 'Apoio curto', tone: 'positive' })}
           </div>
           <div class="week-editor">
             <div class="week-editor__section">
-              <p class="week-section-note">Estados canonicos visiveis no calendario.</p>
-              <ul class="week-state-legend">
-                <li><strong>pending</strong>: notificacao preparada e ainda sem envio fechado.</li>
-                <li><strong>waiting_confirmation</strong>: houve tentativa e o sistema esta a aguardar confirmacao forte.</li>
-                <li><strong>sent</strong>: o envio ja foi observado como concluido.</li>
-              </ul>
-            </div>
-            <div class="week-editor__section">
-              <p class="week-section-note">Bases rapidas para preencher o editor num clique.</p>
+              <p class="week-section-note">Bases rapidas para preencher o editor sem escrever tudo de raiz.</p>
               ${
                 examples.length > 0
                   ? `
@@ -1636,29 +1744,123 @@ export class AppShell {
                   : `
                     <div class="timeline-item timeline-item--warning">
                       <strong>Sem base de calendario disponivel</strong>
-                      <p>Nesta fase so ha grupos em distribuicao/fan-out ou com scheduling local desligado.</p>
+                      <p>Nesta fase so ha grupos fora da agenda local ou com scheduling desligado.</p>
                     </div>
                   `
               }
             </div>
             <div class="week-editor__section">
-              <p class="week-section-note">Como ler os modos desta ronda.</p>
-              <ul>
-                <li><strong>Com agendamento</strong>: o grupo aparece no editor semanal e pode usar o calendario local.</li>
-                <li><strong>Distribuicao apenas</strong>: o grupo sai do calendario e passa para fan-out/distribuicao.</li>
-                <li><strong>LLM scheduling desligado</strong>: continuas com calendario manual, mas a LLM nao decide alteracoes.</li>
+              <p class="week-section-note">Como ler os estados da semana.</p>
+              <ul class="week-state-legend">
+                <li><strong>Por enviar</strong>: o lembrete ja existe e ainda nao fechou envio.</li>
+                <li><strong>A confirmar</strong>: houve tentativa e o sistema esta a aguardar validacao forte.</li>
+                <li><strong>Fechados</strong>: o envio ja foi observado como concluido.</li>
               </ul>
             </div>
             <div class="week-editor__section">
-              <p class="week-section-note">Como operar esta vista sem te perderes.</p>
+              <p class="week-section-note">Como usar esta pagina sem te perderes.</p>
               <ul>
-                <li>Clica em Novo neste dia para abrir o editor logo no dia certo.</li>
-                <li>Os cartoes da semana deixam-te editar ou desativar conforme o modo real do grupo.</li>
-                <li>O storage continua mensal por grupo; aqui so vemos a projection semanal live.</li>
+                <li>Comeca pela leitura rapida e pelo painel lateral antes de abrires a grelha completa.</li>
+                <li>Usa "Criar neste dia" ou "Abrir no editor" para focar logo o que interessa.</li>
+                <li>Abre a grelha completa apenas quando precisares de comparar varios dias ao mesmo tempo.</li>
               </ul>
             </div>
           </div>
         </article>
+      </section>
+
+      <section class="surface content-card">
+        <details class="ui-details week-calendar-details">
+          <summary>Ver grelha completa da semana</summary>
+          <div class="ui-details__content">
+            <p class="week-section-note">Vista detalhada dia a dia para quando precisares mesmo de comparar a semana toda.</p>
+            ${
+              distributionGroups.length > 0
+                ? `
+                  <div class="week-mode-strip" data-week-mode-strip>
+                    <strong>So distribuicao</strong>
+                    <span>${escapeHtml(
+                      distributionGroups.map((group) => group.preferredSubject).join(', '),
+                    )}</span>
+                    <span>Estes grupos nao aceitam edicao local nesta agenda.</span>
+                  </div>
+                `
+                : ''
+            }
+            <div class="week-calendar" data-week-calendar>
+              ${weekDays
+                .map(
+                  (day) => `
+                    <section class="week-calendar__day${day.isToday ? ' week-calendar__day--today' : ''}" data-week-day="${day.dayLabel}">
+                      <div class="week-calendar__day-header">
+                        <div>
+                          <p class="week-calendar__eyebrow">${escapeHtml(`${day.shortLabel} · ${day.dateLabel}`)}</p>
+                          <h4>${escapeHtml(day.label)}</h4>
+                        </div>
+                        ${renderUiBadge({
+                          label: day.events.length > 0 ? `${day.events.length} evento(s)` : 'Sem agenda',
+                          tone: day.events.length > 0 ? 'positive' : 'neutral',
+                        })}
+                      </div>
+                      <div class="week-calendar__day-meta">
+                        ${renderUiBadge({
+                          label: `Por enviar ${day.notifications.pendingNotifications}`,
+                          tone: day.notifications.pendingNotifications > 0 ? 'neutral' : 'positive',
+                          style: 'chip',
+                        })}
+                        ${renderUiBadge({
+                          label: `A confirmar ${day.notifications.waitingConfirmationNotifications}`,
+                          tone: day.notifications.waitingConfirmationNotifications > 0 ? 'warning' : 'neutral',
+                          style: 'chip',
+                        })}
+                        ${renderUiBadge({
+                          label: `Fechados ${day.notifications.sentNotifications}`,
+                          tone: day.notifications.sentNotifications > 0 ? 'positive' : 'neutral',
+                          style: 'chip',
+                        })}
+                      </div>
+                      <div class="action-row week-calendar__day-actions">
+                        ${renderUiActionButton({
+                          label: 'Criar neste dia',
+                          variant: 'secondary',
+                          disabled: schedulableGroups.length === 0,
+                          dataAttributes: {
+                            'flow-action': 'schedule-compose-day',
+                            'flow-value': day.dayLabel,
+                          },
+                        })}
+                      </div>
+                      <div class="week-calendar__events">
+                        ${
+                          day.events.length > 0
+                            ? day.events
+                                .map((event) =>
+                                  renderWeekCalendarEventCard(
+                                    event,
+                                    draft.eventId === event.eventId,
+                                    groupsByJid.get(event.groupJid) ?? null,
+                                  ),
+                                )
+                                .join('')
+                            : `
+                              <div class="week-calendar__empty">
+                                <p>Sem eventos planeados neste dia.</p>
+                                <p>${
+                                  schedulableGroups.length > 0
+                                    ? 'Usa o botao acima para abrir o editor logo neste dia.'
+                                    : 'Quando um grupo voltar a agenda local, esta grelha volta a aceitar criacao.'
+                                }</p>
+                              </div>
+                            `
+                        }
+                      </div>
+                    </section>
+                  `,
+                )
+                .join('')}
+            </div>
+          </div>
+        </details>
       </section>
     `;
   }
@@ -1671,7 +1873,7 @@ export class AppShell {
     const canRunLlmScheduling = Boolean(selectedGroup && canGroupUseLlmScheduling(selectedGroup));
     const assistantRoutingNote = selectedGroup
       ? describeAssistantSchedulingState(selectedGroup)
-      : 'Escolhe primeiro um grupo para perceberes se esta rota segue para scheduling ou para distribuicao.';
+      : 'Quando quiseres mexer na agenda, escolhe primeiro um grupo.';
     const assistantFallbackHref = !selectedGroup
       ? '/groups'
       : selectedGroup.operationalSettings.mode === 'distribuicao_apenas'
@@ -1701,17 +1903,20 @@ export class AppShell {
           ? `A conversa usa instrucoes e knowledge de ${selectedChatGroup.preferredSubject}, mas fica so nesta pagina.`
           : 'Escolhe um grupo para a LLM responder com memoria desse grupo.'
         : 'A conversa e global: a LLM nao assume um grupo WhatsApp especifico e nao envia mensagens para lado nenhum.';
+    const hasSchedulingIntent = Boolean(
+      draft.text.trim().length > 0 || draft.previewLoading || draft.applying || preview || draft.lastApplied,
+    );
     const actionStatusLabel = !selectedGroup
-      ? 'Escolher grupo'
+      ? 'Sem grupo pronto'
       : !canRunLlmScheduling
-        ? 'A rever'
+        ? 'Indisponivel aqui'
         : draft.previewLoading
           ? 'A gerar preview'
           : preview
             ? preview.canApply
-              ? 'Pronto'
-              : 'A rever'
-            : 'Pronto';
+              ? 'Preview pronto'
+              : 'Rever pedido'
+            : 'Pronto quando quiseres';
     const actionStatusTone: UiTone = !selectedGroup
       ? 'warning'
       : !canRunLlmScheduling
@@ -1724,14 +1929,16 @@ export class AppShell {
               : 'warning'
             : 'positive';
     const actionStatusSummary = !selectedGroup
-      ? 'Escolhe um grupo para preparar uma alteracao real.'
+      ? 'O bloco da agenda so aparece quando houver um grupo disponivel e uma intencao clara de mexer no calendario.'
       : canRunLlmScheduling
-        ? 'Este grupo pode gerar preview e apply com confirmacao.'
+        ? preview
+          ? preview.summary
+          : 'Quando precisares de alterar a agenda, abres o bloco abaixo, pedes preview e so depois confirmas.'
         : assistantRoutingNote;
     const previewStatusLabel = preview
       ? preview.canApply
-        ? 'Pronto'
-        : 'A rever'
+        ? 'Preview pronto'
+        : 'Rever pedido'
       : draft.previewLoading
         ? 'A gerar preview'
         : 'Sem preview';
@@ -1747,30 +1954,48 @@ export class AppShell {
       : preview
         ? preview.summary
         : canRunLlmScheduling
-          ? 'Ainda sem preview. Escreve o pedido e gera o diff.'
+          ? 'Ainda sem preview. Escreve o pedido e gera a confirmacao antes de aplicar.'
           : assistantRoutingNote;
-    const recentSchedulingEntries = page.data.recentSchedulingAudit.slice(0, 4);
+    const recentSchedulingEntries = page.data.recentSchedulingAudit.slice(0, 3);
     const recentContextSignals = [
-      ...page.data.recentLlmRuns.slice(0, 4).map((entry) => ({
+      ...page.data.recentLlmRuns.slice(0, 3).map((entry) => ({
         sortAt: Date.parse(entry.createdAt),
-        title: `${entry.providerId} / ${entry.modelId}`,
-        recordedAt: formatShortDateTime(entry.createdAt),
+        title: 'Resposta da LLM',
+        recordedAt: `${formatShortDateTime(entry.createdAt)} • ${entry.modelId}`,
         summary: entry.outputSummary,
         detail:
           entry.memoryScope?.scope === 'group'
             ? `Escopo: ${entry.memoryScope.groupLabel ?? entry.memoryScope.groupJid ?? 'grupo'}`
             : 'Escopo: global',
       })),
-      ...page.data.recentConversationAudit.slice(0, 3).map((entry) => ({
+      ...page.data.recentConversationAudit.slice(0, 2).map((entry) => ({
         sortAt: Date.parse(entry.createdAt),
-        title: entry.intent,
+        title: 'Conversa auditada',
         recordedAt: formatShortDateTime(entry.createdAt),
         summary: describeAssistantConversationMemory(entry),
-        detail: 'Conversa auditada nesta shell',
+        detail: `Intencao lida: ${entry.intent}`,
       })),
     ]
       .sort((left, right) => right.sortAt - left.sortAt)
-      .slice(0, 5);
+      .slice(0, 3);
+    const hasRecentActivity = recentSchedulingEntries.length > 0 || recentContextSignals.length > 0;
+    const shouldOpenScheduling = hasSchedulingIntent;
+    const shouldOpenActivity = Boolean(draft.lastApplied);
+    const schedulingDisclosureLabel = draft.applying
+      ? 'A aplicar a mudanca na agenda'
+      : draft.previewLoading
+        ? 'A gerar preview da agenda'
+        : preview
+          ? preview.canApply
+            ? 'Preview pronto para confirmar'
+            : 'Preview gerado, mas precisa de ajuste'
+          : !selectedGroup
+            ? 'Quero mudar a agenda com a LLM'
+            : !canRunLlmScheduling
+              ? 'Mudar a agenda com a LLM (indisponivel neste grupo)'
+              : hasSchedulingIntent
+                ? 'Continuar mudanca da agenda'
+                : 'Quero mudar a agenda com a LLM';
     const schedulingActivityHtml =
       recentSchedulingEntries.length > 0
         ? recentSchedulingEntries
@@ -1826,45 +2051,36 @@ export class AppShell {
     return `
       <section class="surface hero surface--strong llm-hero">
         <div class="llm-hero__copy">
-          <p class="eyebrow">LLM direta</p>
-          <h2>Pergunta aqui. Se quiseres mudar a agenda, escolhe um grupo e pede preview primeiro.</h2>
+          <p class="eyebrow">Assistente LLM</p>
+          <h2>Pergunta aqui sem sair da pagina. A parte da agenda so abre quando quiseres preparar uma mudanca real.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
-            ${renderUiActionButton({
-              label: this.state.assistantRailChat.sending ? 'A responder...' : 'Enviar pergunta',
-              disabled: !chatCanSend,
-              dataAttributes: { 'rail-action': 'send-chat' },
-            })}
-            ${renderUiActionButton({
-              label: draft.previewLoading ? 'A gerar preview...' : 'Preparar acao',
-              variant: 'secondary',
-              disabled: draft.previewLoading || draft.applying || !canRunLlmScheduling,
-              dataAttributes: { 'assistant-action': 'preview-schedule' },
-            })}
             ${renderUiActionButton({
               label: 'Abrir calendario',
               variant: 'secondary',
               href: '/week',
               dataAttributes: { route: '/week' },
             })}
+            ${renderUiActionButton({
+              label: 'Ver grupos',
+              variant: 'secondary',
+              href: '/groups',
+              dataAttributes: { route: '/groups' },
+            })}
           </div>
         </div>
         <div class="hero-panel status-list">
           <article class="status-item">
-            <strong>Como responde</strong>
+            <strong>Como responde agora</strong>
             <p>${escapeHtml(chatScopeSummary)}</p>
           </article>
           <article class="status-item">
-            <strong>Proximo passo</strong>
-            <p>${escapeHtml(actionStatusSummary)}</p>
+            <strong>Se so queres perguntar</strong>
+            <p>Escreve no chat abaixo e le a resposta aqui. Nada segue para o WhatsApp.</p>
           </article>
           <article class="status-item status-item--${actionStatusTone}">
             <strong>${escapeHtml(actionStatusLabel)}</strong>
-            <p>${escapeHtml(
-              latestAudit
-                ? `${latestAudit.groupLabel ?? latestAudit.groupJid ?? 'Grupo'} • ${latestAudit.previewSummary}`
-                : actionStatusSummary,
-            )}</p>
+            <p>${escapeHtml(actionStatusSummary)}</p>
           </article>
           <details class="ui-details">
             <summary>Ver detalhe tecnico</summary>
@@ -1881,14 +2097,14 @@ export class AppShell {
       </section>
 
       <section class="content-grid llm-assistant-grid">
-        <article class="surface content-card span-8 llm-chat-workbench">
+        <article class="surface content-card span-12 llm-chat-workbench">
           <div class="card-header">
             <div>
-              <h3>Perguntar</h3>
-              <p>Este chat responde so aqui. Nao fala no WhatsApp e nao muda a agenda.</p>
+              <h3>Perguntar sem sair da pagina</h3>
+              <p>Usa o chat para pensar em global ou com contexto de um grupo. A resposta fica sempre aqui na interface.</p>
             </div>
             ${renderUiBadge({
-              label: this.state.assistantRailChat.sending ? 'A responder' : `Escopo ${chatContextLabel}`,
+              label: this.state.assistantRailChat.sending ? 'A responder' : `Contexto ${chatContextLabel}`,
               tone: this.state.assistantRailChat.sending ? 'warning' : 'positive',
             })}
           </div>
@@ -1896,7 +2112,7 @@ export class AppShell {
           <div class="rail-chat-stack llm-chat-workbench__stack">
             <div class="rail-chat-toolbar">
               <div class="rail-chat-toolbar__group">
-                <span class="eyebrow">Responder com escopo</span>
+                <span class="eyebrow">Responder como</span>
                 <div class="control-row">
                   ${renderUiToggleButton({
                     label: 'Global',
@@ -1927,7 +2143,7 @@ export class AppShell {
                             value: group.groupJid,
                             label: `${group.preferredSubject} · ${describeAssistantSchedulingOption(group)}`,
                           })),
-                          hint: 'A LLM usa instrucoes e documentos deste grupo, mas a resposta fica so aqui.',
+                          hint: 'A resposta usa memoria deste grupo, mas continua sem enviar nada.',
                         })
                       : `
                         <div class="rail-chat-inline-note">
@@ -1945,8 +2161,8 @@ export class AppShell {
             }
 
             ${this.renderAssistantChatHistory(
-              'Ainda sem conversa direta',
-              'Escolhe global ou grupo, escreve uma pergunta, e a resposta fica aqui sem tocar no WhatsApp.',
+              'Ainda sem conversa aqui',
+              'Escolhe global ou grupo, escreve a pergunta, e a resposta fica aqui sem tocar no WhatsApp.',
               'llm-chat-history--page',
             )}
 
@@ -1958,7 +2174,7 @@ export class AppShell {
                   rows="6"
                   data-field-key="railChat.input"
                   data-rail-chat-input="true"
-                  placeholder="Ex.: Ajuda-me a transformar esta ideia numa mensagem clara, ou explica o que devo configurar neste grupo."
+                  placeholder="Ex.: Resume o que mudou na Aula 1, ou ajuda-me a responder como se eu estivesse no grupo de Anatomia."
                 >${escapeHtml(this.state.assistantRailChat.input)}</textarea>
                 <span class="ui-field__hint">Enter envia. Shift + Enter cria nova linha. A resposta nao sai da interface.</span>
               </label>
@@ -1978,221 +2194,177 @@ export class AppShell {
             </div>
           </div>
         </article>
-
-        <article class="surface content-card span-4 llm-action-rail">
-          <div class="card-header">
-            <div>
-              <h3>Agir no calendario</h3>
-              <p>Confirma o grupo, gera preview e so depois aplicas.</p>
-            </div>
-            ${renderUiBadge({
-              label: actionStatusLabel,
-              tone: actionStatusTone,
-            })}
-          </div>
-          <div class="status-list">
-            <article class="status-item">
-              <strong>Grupo em foco</strong>
-              <p>${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe no bloco abaixo.')}</p>
-            </article>
-            <article class="status-item">
-              <strong>Se precisares de agir</strong>
-              <p>${escapeHtml(assistantRoutingNote)}</p>
-            </article>
-            <article class="status-item status-item--${previewStatusTone}">
-              <strong>${escapeHtml(previewStatusLabel)}</strong>
-              <p>${escapeHtml(previewSummaryText)}</p>
-            </article>
-          </div>
-          <div class="guide-preview">
-            <p><strong>Perguntar</strong>: a resposta fica nesta pagina.</p>
-            <p><strong>Usar grupo</strong>: a LLM le a memoria do grupo escolhido.</p>
-            <p><strong>Aplicar</strong>: so acontece depois de preview confirmado.</p>
-          </div>
-          <div class="action-row">
-            ${renderUiActionButton({
-              label: draft.previewLoading ? 'A gerar preview...' : 'Gerar preview',
-              disabled: draft.previewLoading || draft.applying || !canRunLlmScheduling,
-              dataAttributes: { 'assistant-action': 'preview-schedule' },
-            })}
-            ${renderUiActionButton({
-              label: draft.applying ? 'A aplicar...' : 'Aplicar',
-              variant: 'secondary',
-              disabled: !canRunLlmScheduling || !canApply || draft.previewLoading || draft.applying,
-              dataAttributes: { 'assistant-action': 'apply-schedule' },
-            })}
-          </div>
-          ${
-            draft.lastApplied
-              ? `
-                <div class="guide-preview">
-                  <p><strong>Ultimo apply</strong>: ${escapeHtml(draft.lastApplied.instruction.instructionId)}</p>
-                  <p>${escapeHtml(
-                    draft.lastApplied.appliedEvent
-                      ? `${draft.lastApplied.appliedEvent.title} atualizado na agenda.`
-                      : draft.lastApplied.appliedInstruction?.status ?? 'Sem estado final.',
-                  )}</p>
-                </div>
-              `
-              : ''
-          }
-          ${
-            selectedGroup && !canRunLlmScheduling
-              ? `
-                <div class="inline-empty inline-empty--warning">
-                  <strong>Este grupo nao usa scheduling pela LLM</strong>
-                  <p>${escapeHtml(assistantRoutingNote)}</p>
-                  <div class="action-row">
-                    ${renderUiActionButton({
-                      label: assistantFallbackLabel,
-                      href: assistantFallbackHref,
-                      variant: 'secondary',
-                      dataAttributes: { route: assistantFallbackHref },
-                    })}
-                  </div>
-                </div>
-              `
-              : ''
-          }
-        </article>
       </section>
 
       <section class="content-grid llm-assistant-grid">
-        <article class="surface content-card span-7 llm-action-editor">
-          <div class="card-header">
-            <div>
-              <h3>Pedir mudanca</h3>
-              <p>Descreve a mudanca em linguagem natural. Primeiro ves o diff. So depois decides se aplicas.</p>
-            </div>
-            ${renderUiBadge({
-              label: selectedGroup ? selectedGroup.preferredSubject : 'Escolher grupo',
-              tone: selectedGroup ? 'positive' : 'warning',
-            })}
-          </div>
-          <div class="ui-form-grid">
-            ${renderUiSelectField({
-              label: 'Grupo',
-              value: draft.groupJid,
-              dataKey: 'assistant.groupJid',
-              options: page.data.groups.map((group) => ({
-                value: group.groupJid,
-                label: `${group.preferredSubject} · ${describeAssistantSchedulingOption(group)}`,
-              })),
-              hint: 'So grupos com LLM scheduling ativo podem gerar preview/apply. Os restantes explicam o roteamento certo.',
-            })}
-            ${renderUiTextAreaField({
-              label: 'Pedido em linguagem natural',
-              value: draft.text,
-              dataKey: 'assistant.text',
-              rows: 8,
-              placeholder: 'Ex.: Move a Aula 1 de sexta para sabado as 10:00 e deixa nota para levar figurinos.',
-              hint: 'Primeiro sai um preview com diff e resumo. O apply real pede confirmacao.',
-            })}
-          </div>
-          <div class="guide-preview">
-            <p><strong>Grupo</strong>: ${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe primeiro um grupo.')}</p>
-            <p><strong>Acesso pedido</strong>: Ver e editar calendario</p>
-            <p><strong>Roteamento</strong>: ${escapeHtml(assistantRoutingNote)}</p>
-            <p><strong>Estado</strong>: ${escapeHtml(previewSummaryText)}</p>
-          </div>
-        </article>
-
-        <article class="surface content-card span-5 llm-preview-card">
-          <div class="card-header">
-            <div>
-              <h3>Preview</h3>
-              <p>Antes de aplicar, confirmas o grupo, o resumo e o que vai mudar.</p>
-            </div>
-            ${renderUiBadge({
-              label: previewStatusLabel,
-              tone: previewStatusTone,
-            })}
-          </div>
-          ${
-            preview
-              ? `
-                <div class="guide-preview">
-                  <p><strong>Operacao</strong>: ${escapeHtml(readableAssistantOperation(preview.operation))}</p>
-                  <p><strong>Grupo</strong>: ${escapeHtml(preview.groupLabel ?? preview.groupJid ?? 'Sem grupo')}</p>
-                  <p><strong>Semana</strong>: ${escapeHtml(preview.weekId ?? 'Sem semana')}</p>
-                  <p><strong>Resumo</strong>: ${escapeHtml(preview.summary)}</p>
-                  ${
-                    preview.blockingReason
-                      ? `<p><strong>Bloqueio</strong>: ${escapeHtml(preview.blockingReason)}</p>`
-                      : ''
-                  }
+        <article class="surface content-card span-12 llm-action-card">
+          <details class="ui-details llm-disclosure"${shouldOpenScheduling ? ' open' : ''}>
+            <summary>${escapeHtml(schedulingDisclosureLabel)}</summary>
+            <div class="ui-details__content llm-disclosure__content">
+              <div class="card-header">
+                <div>
+                  <h3>Mudar a agenda com a LLM</h3>
+                  <p>So abres este bloco quando queres uma alteracao real. Primeiro ves o preview. So depois decides se aplicas.</p>
                 </div>
-                  ${
-                    preview.diff.length > 0
-                      ? `
-                      <div class="timeline timeline--compact">
-                        ${preview.diff
-                          .map(
-                            (entry) => `
-                              <article class="timeline-item">
-                                <strong>${escapeHtml(entry.label)}</strong>
-                                <p class="detail-line">Antes: ${escapeHtml(entry.before ?? 'vazio')}</p>
-                                <p class="detail-line">Depois: ${escapeHtml(entry.after ?? 'vazio')}</p>
-                              </article>
-                            `,
-                          )
-                          .join('')}
-                      </div>
-                    `
-                    : `
-                      <div class="inline-empty">
-                        <strong>Sem diferencas concretas</strong>
-                        <p>Este preview ainda nao mostrou mudancas detalhadas.</p>
-                      </div>
-                    `
+                ${renderUiBadge({
+                  label: previewStatusLabel,
+                  tone: previewStatusTone,
+                })}
+              </div>
+              <div class="guide-preview">
+                <p><strong>Grupo atual</strong>: ${escapeHtml(selectedGroup?.preferredSubject ?? 'Escolhe primeiro um grupo.')}</p>
+                <p><strong>Como funciona</strong>: ${escapeHtml(assistantRoutingNote)}</p>
+                <p><strong>Estado</strong>: ${escapeHtml(previewSummaryText)}</p>
+                ${
+                  draft.lastApplied
+                    ? `<p><strong>Ultima alteracao</strong>: ${escapeHtml(
+                        draft.lastApplied.appliedEvent
+                          ? `${draft.lastApplied.appliedEvent.title} atualizado na agenda.`
+                          : draft.lastApplied.appliedInstruction?.status ?? 'Sem estado final.',
+                      )}</p>`
+                    : ''
                 }
-              `
-              : `
-                <div class="inline-empty${canRunLlmScheduling ? '' : ' inline-empty--warning'}">
-                  <strong>${escapeHtml(canRunLlmScheduling ? 'Sem preview ainda' : 'Scheduling LLM indisponivel neste grupo')}</strong>
-                  <p>${escapeHtml(
-                    canRunLlmScheduling
-                      ? 'Escreve o pedido e carrega em "Gerar preview" para ver a alteracao antes de aplicar.'
-                      : assistantRoutingNote,
-                  )}</p>
-                </div>
-              `
-          }
+              </div>
+              <div class="content-grid">
+                <section class="span-7 llm-action-editor">
+                  <div class="summary-column__header">
+                    <h4>Pedido</h4>
+                    <p>Escolhe o grupo e descreve a mudanca em linguagem natural.</p>
+                  </div>
+                  <div class="ui-form-grid">
+                    ${renderUiSelectField({
+                      label: 'Grupo',
+                      value: draft.groupJid,
+                      dataKey: 'assistant.groupJid',
+                      options: page.data.groups.map((group) => ({
+                        value: group.groupJid,
+                        label: `${group.preferredSubject} · ${describeAssistantSchedulingOption(group)}`,
+                      })),
+                      hint: 'Se este grupo nao aceitar mudancas por LLM, mostramos logo a pagina certa para continuar.',
+                    })}
+                    ${renderUiTextAreaField({
+                      label: 'Pedido em linguagem natural',
+                      value: draft.text,
+                      dataKey: 'assistant.text',
+                      rows: 8,
+                      placeholder: 'Ex.: Move a Aula 1 de sexta para sabado as 10:00 e deixa nota para levar figurinos.',
+                      hint: 'Primeiro sai um preview com resumo e diferencas. A mudanca real so acontece depois da tua confirmacao.',
+                    })}
+                  </div>
+                </section>
+
+                <section class="span-5 llm-preview-card">
+                  <div class="summary-column__header">
+                    <h4>Preview e confirmacao</h4>
+                    <p>Antes de aplicar, confirmas o grupo, o resumo e o que vai mudar.</p>
+                  </div>
+                  ${
+                    preview
+                      ? `
+                        <div class="guide-preview">
+                          <p><strong>Operacao</strong>: ${escapeHtml(readableAssistantOperation(preview.operation))}</p>
+                          <p><strong>Grupo</strong>: ${escapeHtml(preview.groupLabel ?? preview.groupJid ?? 'Sem grupo')}</p>
+                          <p><strong>Semana</strong>: ${escapeHtml(preview.weekId ?? 'Sem semana')}</p>
+                          <p><strong>Resumo</strong>: ${escapeHtml(preview.summary)}</p>
+                          ${
+                            preview.blockingReason
+                              ? `<p><strong>Bloqueio</strong>: ${escapeHtml(preview.blockingReason)}</p>`
+                              : ''
+                          }
+                        </div>
+                        ${
+                          preview.diff.length > 0
+                            ? `
+                              <div class="timeline timeline--compact">
+                                ${preview.diff
+                                  .map(
+                                    (entry) => `
+                                      <article class="timeline-item">
+                                        <strong>${escapeHtml(entry.label)}</strong>
+                                        <p class="detail-line">Antes: ${escapeHtml(entry.before ?? 'vazio')}</p>
+                                        <p class="detail-line">Depois: ${escapeHtml(entry.after ?? 'vazio')}</p>
+                                      </article>
+                                    `,
+                                  )
+                                  .join('')}
+                              </div>
+                            `
+                            : `
+                              <div class="inline-empty">
+                                <strong>Sem diferencas concretas</strong>
+                                <p>Este preview ainda nao mostrou mudancas detalhadas.</p>
+                              </div>
+                            `
+                        }
+                      `
+                      : `
+                        <div class="inline-empty${canRunLlmScheduling ? '' : ' inline-empty--warning'}">
+                          <strong>${escapeHtml(canRunLlmScheduling ? 'Ainda sem preview' : 'Mudanca indisponivel neste grupo')}</strong>
+                          <p>${escapeHtml(
+                            canRunLlmScheduling
+                              ? 'Escreve o pedido e gera o preview antes de aplicar.'
+                              : assistantRoutingNote,
+                          )}</p>
+                        </div>
+                      `
+                  }
+                  <div class="action-row">
+                    ${renderUiActionButton({
+                      label: draft.previewLoading ? 'A gerar preview...' : 'Gerar preview',
+                      disabled: draft.previewLoading || draft.applying || !canRunLlmScheduling,
+                      dataAttributes: { 'assistant-action': 'preview-schedule' },
+                    })}
+                    ${renderUiActionButton({
+                      label: draft.applying ? 'A aplicar...' : 'Aplicar com confirmacao',
+                      variant: 'secondary',
+                      disabled: !canRunLlmScheduling || !canApply || draft.previewLoading || draft.applying,
+                      dataAttributes: { 'assistant-action': 'apply-schedule' },
+                    })}
+                    ${
+                      selectedGroup && !canRunLlmScheduling
+                        ? renderUiActionButton({
+                            label: assistantFallbackLabel,
+                            href: assistantFallbackHref,
+                            variant: 'secondary',
+                            dataAttributes: { route: assistantFallbackHref },
+                          })
+                        : ''
+                    }
+                  </div>
+                </section>
+              </div>
+            </div>
+          </details>
         </article>
       </section>
 
       <section class="content-grid llm-assistant-grid">
         <article class="surface content-card span-12 llm-activity-card">
-          <div class="card-header">
-            <div>
-              <h3>Atividade recente</h3>
-              <p>O que acabou de acontecer nesta pagina.</p>
+          <details class="ui-details llm-disclosure"${shouldOpenActivity ? ' open' : ''}>
+            <summary>Ver atividade recente e auditoria</summary>
+            <div class="ui-details__content llm-disclosure__content">
+              <div class="summary-grid">
+                <section class="summary-column">
+                  <div class="summary-column__header">
+                    <h4>Agenda</h4>
+                    <p>Ultimas alteracoes que passaram por preview ou apply.</p>
+                  </div>
+                  <div class="timeline timeline--compact">
+                    ${schedulingActivityHtml}
+                  </div>
+                </section>
+                <section class="summary-column">
+                  <div class="summary-column__header">
+                    <h4>Como respondeu</h4>
+                    <p>Sinais curtos para perceber se o contexto usado foi o esperado.</p>
+                  </div>
+                  <div class="timeline timeline--compact">
+                    ${contextActivityHtml}
+                  </div>
+                </section>
+              </div>
             </div>
-            ${renderUiBadge({
-              label: recentSchedulingEntries.length > 0 || recentContextSignals.length > 0 ? 'Com atividade' : 'Sem atividade',
-              tone: recentSchedulingEntries.length > 0 || recentContextSignals.length > 0 ? 'positive' : 'neutral',
-            })}
-          </div>
-          <div class="summary-grid">
-            <section class="summary-column">
-              <div class="summary-column__header">
-                <h4>Agenda</h4>
-                <p>Ultimas alteracoes que passaram por preview ou apply.</p>
-              </div>
-              <div class="timeline timeline--compact">
-                ${schedulingActivityHtml}
-              </div>
-            </section>
-            <section class="summary-column">
-              <div class="summary-column__header">
-                <h4>Como respondeu</h4>
-                <p>Runs e conversa auditada para perceber o contexto que esteve ativo.</p>
-              </div>
-              <div class="timeline timeline--compact">
-                ${contextActivityHtml}
-              </div>
-            </section>
-          </div>
+          </details>
         </article>
       </section>
     `;
@@ -10127,6 +10299,47 @@ function describeAssistantConversationMemory(
   return segments.join(' | ');
 }
 
+function describeWeekNotificationMix(input: {
+  readonly pending: number;
+  readonly waitingConfirmation: number;
+  readonly sent: number;
+}): string {
+  const segments: string[] = [];
+
+  if (input.pending > 0) {
+    segments.push(`${input.pending} por enviar`);
+  }
+
+  if (input.waitingConfirmation > 0) {
+    segments.push(`${input.waitingConfirmation} a confirmar`);
+  }
+
+  if (input.sent > 0) {
+    segments.push(`${input.sent} ja fechados`);
+  }
+
+  return segments.length > 0 ? segments.join(', ') : 'Sem lembretes abertos nesta leitura.';
+}
+
+function describeWeekDaySummary(day: WeekCalendarDayView): string {
+  if (day.events.length === 0) {
+    return 'Sem eventos planeados neste dia.';
+  }
+
+  return `${day.events.length} evento(s). ${describeWeekNotificationMix({
+    pending: day.notifications.pendingNotifications,
+    waitingConfirmation: day.notifications.waitingConfirmationNotifications,
+    sent: day.notifications.sentNotifications,
+  })}`;
+}
+
+function formatWeekEventMoment(
+  event: Pick<WeekPlannerSnapshot['events'][number], 'localDate' | 'dayLabel' | 'startTime'>,
+): string {
+  const dateLabel = event.localDate ? formatWeekDayDateLabel(event.localDate) : readableWeekDayLabel(event.dayLabel);
+  return `${dateLabel} as ${event.startTime}`;
+}
+
 function readableInstructionStatus(status: Instruction['status']): string {
   switch (status) {
     case 'queued':
@@ -10258,6 +10471,10 @@ function renderWeekCalendarEventCard(
 ): string {
   const status = describeWeekCalendarEventStatus(event);
   const canEdit = group ? canGroupUseManualScheduling(group) : true;
+  const ruleCountLabel =
+    event.notificationRuleLabels.length === 1
+      ? '1 lembrete ativo'
+      : `${event.notificationRuleLabels.length} lembretes ativos`;
 
   return `
     <article class="week-event-card week-event-card--${status.tone}${active ? ' week-event-card--active' : ''}" data-week-event-id="${escapeHtml(event.eventId)}">
@@ -10269,20 +10486,28 @@ function renderWeekCalendarEventCard(
         ${renderUiBadge({ label: status.label, tone: status.tone })}
       </div>
       <p class="week-event-card__group">${escapeHtml(event.groupLabel)}</p>
-      <p class="week-event-card__notes">${escapeHtml(event.notes || 'Sem nota interna.')}</p>
+      <p class="week-event-card__notes">${escapeHtml(event.notes || 'Sem nota interna para ja.')}</p>
       <div class="ui-card__chips">
-        ${renderUiBadge({ label: `${event.notificationRuleLabels.length} aviso(s)`, tone: 'positive', style: 'chip' })}
-        ${renderUiBadge({ label: `pending ${event.notifications.pending}`, tone: event.notifications.pending > 0 ? 'neutral' : 'positive', style: 'chip' })}
+        ${renderUiBadge({ label: ruleCountLabel, tone: 'positive', style: 'chip' })}
         ${renderUiBadge({
-          label: `waiting_confirmation ${event.notifications.waitingConfirmation}`,
+          label: `Por enviar ${event.notifications.pending}`,
+          tone: event.notifications.pending > 0 ? 'neutral' : 'positive',
+          style: 'chip',
+        })}
+        ${renderUiBadge({
+          label: `A confirmar ${event.notifications.waitingConfirmation}`,
           tone: event.notifications.waitingConfirmation > 0 ? 'warning' : 'neutral',
           style: 'chip',
         })}
-        ${renderUiBadge({ label: `sent ${event.notifications.sent}`, tone: event.notifications.sent > 0 ? 'positive' : 'neutral', style: 'chip' })}
+        ${renderUiBadge({
+          label: `Fechados ${event.notifications.sent}`,
+          tone: event.notifications.sent > 0 ? 'positive' : 'neutral',
+          style: 'chip',
+        })}
         ${
           group
             ? renderUiBadge({
-                label: canEdit ? 'Agendamento local ativo' : 'Distribuicao / manual bloqueado',
+                label: canEdit ? 'Agenda local ativa' : 'Grupo fora da agenda local',
                 tone: canEdit ? 'positive' : 'warning',
                 style: 'chip',
               })
@@ -10305,7 +10530,7 @@ function renderWeekCalendarEventCard(
       </dl>
       <div class="action-row">
         ${renderUiActionButton({
-          label: 'Editar',
+          label: 'Abrir no editor',
           variant: 'secondary',
           disabled: !canEdit,
           dataAttributes: {
@@ -10314,7 +10539,7 @@ function renderWeekCalendarEventCard(
           },
         })}
         ${renderUiActionButton({
-          label: 'Desativar',
+          label: 'Retirar da agenda',
           variant: 'secondary',
           dataAttributes: {
             'flow-action': 'schedule-delete',
@@ -10332,27 +10557,27 @@ function describeWeekCalendarEventStatus(event: WeekPlannerSnapshot['events'][nu
 } {
   if (event.notifications.waitingConfirmation > 0) {
     return {
-      label: `${event.notifications.waitingConfirmation} a aguardar`,
+      label: `${event.notifications.waitingConfirmation} a confirmar`,
       tone: 'warning',
     };
   }
 
   if (event.notifications.pending > 0) {
     return {
-      label: `${event.notifications.pending} pendentes`,
+      label: `${event.notifications.pending} por enviar`,
       tone: 'neutral',
     };
   }
 
   if (event.notifications.sent > 0) {
     return {
-      label: 'Enviado',
+      label: event.notifications.sent === 1 ? '1 lembrete enviado' : `${event.notifications.sent} lembretes enviados`,
       tone: 'positive',
     };
   }
 
   return {
-    label: 'Sem avisos',
+    label: 'Sem lembretes ativos',
     tone: 'neutral',
   };
 }
@@ -10458,34 +10683,34 @@ function describeManualSchedulingState(group: OperationalGroupLike): string {
 
 function describeAssistantSchedulingState(group: OperationalGroupLike): string {
   if (group.operationalSettings.mode === 'distribuicao_apenas') {
-    return 'Este grupo esta em distribuicao apenas. Mensagens elegiveis seguem para fan-out/distribuicao e nao para scheduling.';
+    return 'Este grupo nao usa agenda local. Aqui serves para distribuir mensagens, nao para mexer no calendario.';
   }
 
   if (!group.operationalSettings.schedulingEnabled) {
-    return 'O calendario local esta desligado neste grupo. Reativa-o na pagina do grupo antes de pedir alteracoes.';
+    return 'A agenda deste grupo esta desligada. Liga-a na pagina do grupo antes de pedires alteracoes.';
   }
 
   if (!group.operationalSettings.allowLlmScheduling) {
-    return 'Este grupo continua com calendario manual, mas a LLM nao pode decidir scheduling aqui.';
+    return 'A agenda deste grupo existe, mas as mudancas continuam manuais.';
   }
 
-  return 'A LLM pode gerar preview e apply neste grupo.';
+  return 'Podes pedir preview aqui e so depois confirmar a mudanca.';
 }
 
 function describeAssistantSchedulingOption(group: OperationalGroupLike): string {
   if (canGroupUseLlmScheduling(group)) {
-    return 'LLM scheduling ativo';
+    return 'Pode mudar agenda aqui';
   }
 
   if (group.operationalSettings.mode === 'distribuicao_apenas') {
-    return 'Distribuicao apenas';
+    return 'So distribuicao';
   }
 
   if (!group.operationalSettings.schedulingEnabled) {
-    return 'Agendamento local desligado';
+    return 'Agenda desligada';
   }
 
-  return 'Calendario manual';
+  return 'Agenda manual';
 }
 
 function readableWeekDayLabel(dayLabel: string): string {
