@@ -87,7 +87,174 @@ Fecho deixado por esta ronda:
 - linguagem mais simples para utilizadores nao tecnicos
 - shell mais coesa sem sacrificar fluxo real nem observabilidade
 
-Nao ha waves ativas neste momento.
+A partir de `2026-04-20` abre a ronda `commercial-readiness`.
+Esta ronda nasce da auditoria `headless` comercial feita sobre as paginas principais e existe para transformar a shell atual numa experiencia mais vendavel, mais guiada e mais honesta para utilizadores pouco tecnicos.
+
+Objetivo da ronda:
+
+- promover uma homepage comercial clara em vez de uma primeira impressao demasiado operacional
+- tornar estados de loading, erro e proximo passo mais explicitos
+- simplificar cada pagina principal por papel e por tarefa, em vez de misturar demasiados conceitos no mesmo ecran
+- separar melhor o que e produto base, o que e consola de operador e o que e detalhe tecnico
+- preparar um kit de entrega comercial honesto para `backend containerizado + host companion`
+
+Base deixada antes desta ronda:
+
+- `validate:wave65` continua a ser a validacao consolidada do estado atual
+- o `Codex Router` ja ficou exposto como pagina propria em `/codex-router`
+- a shell ja tem contratos visuais mais fortes; agora falta torná-los mais comerciais e mais autoexplicativos
+
+### Wave 66 - Homepage comercial e estados de carga humanos
+
+Objetivo:
+- fazer a primeira entrada no produto parecer uma homepage comercial clara, nao uma consola tecnica
+
+Entrega esperada:
+
+- promover `Hoje` a homepage real e primeira rota de entrada para utilizador pouco tecnico
+- manter `Calendario` como vista operacional, mas nao como primeira impressao do produto
+- substituir loading silencioso por estados explicitos com:
+  - o que esta a carregar
+  - porque pode estar a demorar
+  - acao de repetir ou recuperar
+- cortar jargao transversal na shell:
+  - `runtime`
+  - `discovery`
+  - `preview/apply`
+  - `ACL`
+  - `owner`
+  - `provider`
+  - `streaming`
+  - `fan-out`
+  - `shadow mode`
+
+Vale a pena o utilizador testar no fim:
+
+- primeira impressao do produto
+- homepage
+- mudanca entre `Hoje` e `Calendario`
+- mensagens de loading/erro
+
+### Wave 67 - Calendario e LLM com foco operacional
+
+Objetivo:
+- tornar `Calendario` e `LLM` mais diretos, mais densos e menos intrusivos
+
+Entrega esperada:
+
+- `Calendario`:
+  - mostrar primeiro um resumo simples da semana
+  - empurrar a grelha detalhada para segundo nivel
+  - trocar estados internos `pending`, `waiting_confirmation`, `sent` por linguagem humana
+  - abrir detalhe de dia/evento em painel lateral, drawer ou padrao equivalente
+- `LLM`:
+  - manter o chat como tarefa principal
+  - esconder o bloco de scheduling ate existir intencao clara de alterar agenda
+  - recolher ou fechar por defeito a rail lateral fora de `/assistant`
+  - cortar ruido e espaco morto nas listas curtas, preview e auditoria
+
+Vale a pena o utilizador testar no fim:
+
+- leitura rapida do `Calendario`
+- fluxo `perguntar` vs `agir` no `LLM`
+- comportamento da rail lateral
+
+### Wave 68 - Grupos e WhatsApp como fluxos guiados
+
+Objetivo:
+- tornar a operacao diaria em `Grupos` e `WhatsApp` compreensivel para pessoa pouco tecnica
+
+Entrega esperada:
+
+- `Grupos`:
+  - fluxo claro `escolher grupo -> ver estado atual -> alterar`
+  - reduzir repeticao de switches e texto longo na lista de grupos
+  - mostrar estado sintetico e CTA principal por grupo
+- `Grupo detalhado`:
+  - separar `Resumo`, `Permissoes`, `Automacao` e `Conhecimento`
+  - evitar misturar selects, ajuda longa e switches na mesma linha ou grelha apertada
+  - manter largura legivel e blocos informativos curtos
+- `WhatsApp`:
+  - responder primeiro a:
+    - `esta ligado?`
+    - `o que falta?`
+    - `qual o proximo botao?`
+  - empurrar `identidades conhecidas`, listas grandes e detalhe tecnico para segundo nivel
+  - tratar reparacao/sessao como wizard de estado, nao como consola crua
+
+Vale a pena o utilizador testar no fim:
+
+- escolher e gerir um grupo
+- perceber o estado do canal WhatsApp sem ajuda externa
+
+### Wave 69 - LumeHub, Codex Router e Migracao por papel
+
+Objetivo:
+- separar melhor produto base, gestao de tokens e consola de operador
+
+Entrega esperada:
+
+- `LumeHub`:
+  - dividir em `Basico` e `Avancado`
+  - manter na vista base apenas controlos de produto e saude operacional
+  - esconder detalhes de provider, tokens e energia atras de `details` ou modo expert
+- `Codex Router`:
+  - manter a pagina propria ja aberta nesta baseline
+  - alinhar copy e divulgacao progressiva da pagina para linguagem mais humana
+  - esconder diagnostico tecnico pesado por defeito
+- `Migracao`:
+  - converter a leitura atual num wizard de operador com `3-5` passos
+  - esconder comparativos internos, `shadow mode` e detalhe tecnico por defeito
+  - reforcar que esta pagina nao e a homepage normal do produto
+
+Vale a pena o utilizador testar no fim:
+
+- diferenca entre `LumeHub`, `Codex Router` e `Migracao`
+- leitura da pagina `Migracao` sem conhecimento tecnico previo
+
+### Wave 70 - Kit de entrega comercial e packaging honesto
+
+Objetivo:
+- transformar a conclusao operacional da auditoria num pacote de entrega comercial realista
+
+Entrega esperada:
+
+- bundle ou imagem do backend containerizado
+- pacote do `host companion` fora do container
+- mounts canonicos para:
+  - `data`
+  - `logs`
+  - `auth`
+- guias curtos de:
+  - install
+  - update
+  - health check
+  - recovery de token/auth
+- explicitar na documentacao de entrega o limite atual:
+  - nao vender isto como `um container unico` se o `host companion` continuar obrigatorio
+
+Vale a pena o utilizador testar no fim:
+
+- instalacao guiada num ambiente limpo ou equivalente
+- checklist de health check e recovery
+
+### Wave 71 - Limpeza final da ronda `commercial-readiness`
+
+Objetivo:
+- fechar a ronda mais limpa e mais coerente do que abriu
+
+Entrega esperada:
+
+- consolidar a ronda em `validate:wave71`
+- remover copy de transicao, backlog duplicado e helpers/documentacao obsoletos da serie `66..70`
+- alinhar:
+  - `README`
+  - `gap_audit`
+  - `implementation_waves`
+  - referencias no backlog externo
+- se a ronda tocar o `LumeHub` live, terminar com:
+  - relancamento real do produto
+  - verificacao de saude no fim
 
 ## Como reabrir uma ronda
 

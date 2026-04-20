@@ -57,6 +57,11 @@ Conclusao curta:
   - reforcar contratos internos de composicao
   - simplificar a pagina `LLM`
   - cortar copy tecnica e espaco morto na shell operacional
+- em `2026-04-20`, uma auditoria `headless` comercial abriu uma nova ronda de produto para:
+  - homepage comercial e estados de carga mais humanos
+  - simplificacao por pagina para utilizador pouco tecnico
+  - separacao entre produto base, consola de operador e detalhe tecnico
+  - kit de entrega comercial para `backend containerizado + host companion`
 
 Em particular, ja nao faz sentido falar de:
 
@@ -179,6 +184,23 @@ E simplificar o que ja existe, torna-lo coerente e fazer com que o utilizador pe
 - o que esta bloqueado
 - e qual e o proximo passo util
 
+## Gaps ativos da ronda `commercial-readiness`
+
+A partir de `2026-04-20`, voltaram a existir gaps reais de produto, nao por falta de arquitetura base, mas porque a shell ainda nao esta suficientemente afinada para parecer uma solucao comercial pronta para utilizador pouco tecnico.
+
+Os gaps ativos desta ronda sao:
+
+- `Hoje` ainda nao e a homepage comercial real do produto
+- loading, erro e recuperacao ainda nao falam de forma suficientemente humana
+- `Calendario`, `LLM`, `Grupos` e `WhatsApp` ainda misturam leitura operacional com ruido ou detalhe cedo demais
+- `LumeHub`, `Codex Router` e `Migracao` ainda precisam de fronteiras mais claras por papel
+- o kit de entrega comercial ainda nao esta fechado como pacote honesto de `backend containerizado + host companion`
+
+Baseline importante:
+
+- a pagina `Codex Router` ja ficou extraida de `Migracao` e passou a existir em `/codex-router`
+- a ronda nova parte dessa base e nao de uma shell antiga ou textual
+
 ## Trabalho futuro fora do scope atual
 
 ### 1. `alerts` e `automations`
@@ -198,9 +220,11 @@ Regra daqui para a frente:
 ## Nota final
 
 Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
-- sim
-- para a ronda anterior, sim
-- e a ronda de inteligencia por grupo tambem ficou fechada
+- as rondas anteriores, sim
+- a ronda de inteligencia por grupo, sim
+- a ronda `ui-clarity`, sim
+- a partir de `2026-04-20`, existe uma nova ronda aberta:
+  - `commercial-readiness`
 
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
 - para o runtime operacional base, a base existe e esta bastante forte
