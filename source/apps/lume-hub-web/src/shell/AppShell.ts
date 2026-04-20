@@ -3231,7 +3231,7 @@ export class AppShell {
                   <p>As mudancas abaixo mexem so neste grupo. Sessao WhatsApp, discovery e regras globais continuam noutras paginas.</p>
                 </div>
 
-                <div class="ui-form-grid ui-form-grid--double">
+                <div class="ui-form-grid ui-form-grid--equal">
                   <label class="ui-field">
                     <span class="ui-field__label">Responsavel do grupo</span>
                     <select
@@ -3266,7 +3266,7 @@ export class AppShell {
                     <span class="ui-field__hint">Define se este grupo usa scheduling assistido ou apenas distribuicao.</span>
                   </label>
                 </div>
-                <div class="ui-form-grid ui-form-grid--double">
+                <div class="ui-form-grid ui-form-grid--equal">
                   <label class="ui-field">
                     <span class="ui-field__label">Quem pode tagar o bot</span>
                     <select
