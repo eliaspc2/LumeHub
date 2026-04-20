@@ -135,3 +135,20 @@ export interface ScheduleApplyEnqueueInput {
   readonly mode: InstructionMode;
   readonly dedupeKey?: string | null;
 }
+
+export interface ReminderDeliveryActionPayload {
+  readonly kind: 'reminder_delivery';
+  readonly jobId: string;
+  readonly eventId: string;
+  readonly ruleId: string;
+  readonly ruleLabel: string | null;
+  readonly groupJid: string;
+  readonly groupLabel: string;
+  readonly eventTitle: string;
+  readonly eventAt: string;
+  readonly sendAt: string;
+  readonly timeZone: string;
+  readonly summaryLabel: string;
+  readonly messageTemplate: string | null;
+  readonly llmPromptTemplate: string | null;
+}

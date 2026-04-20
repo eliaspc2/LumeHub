@@ -14,7 +14,7 @@ export interface WeeklyPlannerModuleConfig {
   readonly defaultTimeZone?: string;
   readonly legacyScheduleRootPath?: string;
   readonly adminConfig?: Pick<AdminConfigModuleContract, 'getSettings'>;
-  readonly groupDirectory?: Pick<GroupDirectoryModuleContract, 'listGroups'>;
+  readonly groupDirectory?: Pick<GroupDirectoryModuleContract, 'listGroups' | 'getGroupPolicy'>;
   readonly notificationJobs?: Pick<NotificationJobsModuleContract, 'materializeForEvent'>;
   readonly notificationRules?: Pick<NotificationRulesModuleContract, 'replaceRulesForEvent'>;
   readonly scheduleEvents?: Pick<

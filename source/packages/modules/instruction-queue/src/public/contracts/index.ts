@@ -11,6 +11,7 @@ export type {
   ScheduleApplyActionPayload,
   ScheduleApplyDiffEntry,
   ScheduleApplyOperation,
+  ReminderDeliveryActionPayload,
   InstructionStatus,
   InstructionTickResult,
 } from '../../domain/entities/InstructionQueue.js';

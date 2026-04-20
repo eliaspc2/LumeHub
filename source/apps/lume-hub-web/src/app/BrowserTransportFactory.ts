@@ -22,6 +22,7 @@ import type {
   GroupKnowledgeDocumentSnapshot,
   GroupOperationalSettings,
   GroupOwnerAssignmentInput,
+  GroupReminderPolicySnapshot,
   Instruction,
   LegacyAlertImportReportSnapshot,
   LegacyAutomationImportReportSnapshot,
@@ -440,6 +441,7 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
     }
 
     const groupIntelligenceMatch = matchParameterizedPath(pathname, '/api/groups/:groupJid/intelligence');
+    const groupReminderPolicyMatch = matchParameterizedPath(pathname, '/api/groups/:groupJid/reminder-policy');
     const groupInstructionsMatch = matchParameterizedPath(pathname, '/api/groups/:groupJid/llm-instructions');
     const groupKnowledgeUpsertMatch = matchParameterizedPath(pathname, '/api/groups/:groupJid/knowledge/documents');
     const groupKnowledgeDeleteMatch = matchParameterizedPath(
@@ -450,6 +452,36 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
 
     if (request.method === 'GET' && groupIntelligenceMatch) {
       return this.ok(buildDemoGroupIntelligenceSnapshot(this.state, groupIntelligenceMatch.groupJid));
+    }
+
+    if (request.method === 'GET' && groupReminderPolicyMatch) {
+      const entry = this.state.groupIntelligenceByGroupJid[groupReminderPolicyMatch.groupJid];
+      return this.ok(entry?.reminderPolicy ?? createDemoReminderPolicy(groupReminderPolicyMatch.groupJid));
+    }
+
+    if (request.method === 'PUT' && groupReminderPolicyMatch) {
+      const entry = this.state.groupIntelligenceByGroupJid[groupReminderPolicyMatch.groupJid];
+
+      if (!entry) {
+        return this.error(404, `Demo group intelligence for ${groupReminderPolicyMatch.groupJid} not found.`);
+      }
+
+      const body = request.body as Partial<GroupReminderPolicySnapshot>;
+      const nextPolicy: GroupReminderPolicySnapshot = {
+        ...entry.reminderPolicy,
+        enabled: typeof body.enabled === 'boolean' ? body.enabled : entry.reminderPolicy.enabled,
+        reminders: Array.isArray(body.reminders) ? (body.reminders as GroupReminderPolicySnapshot['reminders']) : entry.reminderPolicy.reminders,
+      };
+      this.state.groupIntelligenceByGroupJid[groupReminderPolicyMatch.groupJid] = {
+        ...entry,
+        reminderPolicy: nextPolicy,
+      };
+      this.emit('groups.reminders.updated', {
+        groupJid: groupReminderPolicyMatch.groupJid,
+        enabled: nextPolicy.enabled,
+        reminderCount: nextPolicy.reminders.length,
+      });
+      return this.ok(nextPolicy);
     }
 
     if (request.method === 'PUT' && groupInstructionsMatch) {
@@ -1129,6 +1161,7 @@ interface DemoState {
 interface DemoGroupIntelligenceEntry {
   readonly instructions: string;
   readonly knowledgeDocuments: GroupKnowledgeDocumentSnapshot[];
+  readonly reminderPolicy: GroupReminderPolicySnapshot;
 }
 
 function createDemoState(): DemoState {
@@ -1644,6 +1677,13 @@ function createDemoState(): DemoState {
         sent: 0,
         total: 2,
       },
+      nextReminderAt: iso(0),
+      nextReminderLabel: '24h antes',
+      reminderLifecycle: {
+        generated: 2,
+        prepared: 1,
+        sent: 0,
+      },
     },
     {
       eventId: 'event-pilates-001',
@@ -1663,6 +1703,13 @@ function createDemoState(): DemoState {
         waitingConfirmation: 0,
         sent: 1,
         total: 2,
+      },
+      nextReminderAt: iso(60 * 24),
+      nextReminderLabel: '24h antes',
+      reminderLifecycle: {
+        generated: 1,
+        prepared: 0,
+        sent: 1,
       },
     },
   ];
@@ -2150,10 +2197,107 @@ function createDemoGroupIntelligence(groups: readonly Group[]): Record<string, D
     byGroupJid[group.groupJid] = {
       instructions: buildDemoInstructionsText(group),
       knowledgeDocuments: buildDemoKnowledgeDocuments(group),
+      reminderPolicy: createDemoReminderPolicy(group.groupJid),
     };
   }
 
   return byGroupJid;
+}
+
+function createDemoReminderPolicy(groupJid: string): GroupReminderPolicySnapshot {
+  return {
+    filePath: `${buildDemoGroupRootPath(groupJid)}/policy.json`,
+    exists: true,
+    enabled: true,
+    reminders: [
+      {
+        reminderId: 'group-reminder-24h',
+        enabled: true,
+        label: '24h antes',
+        kind: 'relative_before_event',
+        daysBeforeEvent: 1,
+        offsetMinutesBeforeEvent: 0,
+        offsetMinutesAfterEvent: null,
+        localTime: null,
+        summaryLabel: '24h antes',
+        messageTemplate:
+          'Daqui a {{hours_until_event}} horas temos {{event_title}} no grupo {{group_label}}.',
+        llmPromptTemplate:
+          'Reescreve este lembrete para WhatsApp, em portugues de Portugal, curto e caloroso. Mantem o facto de que faltam {{hours_until_event}} horas para {{event_title}} no grupo {{group_label}}.',
+        llmAssisted: true,
+      },
+      {
+        reminderId: 'group-reminder-eve-18',
+        enabled: true,
+        label: 'Dia anterior as 18:00',
+        kind: 'fixed_local_time',
+        daysBeforeEvent: 1,
+        offsetMinutesBeforeEvent: null,
+        offsetMinutesAfterEvent: null,
+        localTime: '18:00',
+        summaryLabel: 'Dia anterior as 18:00',
+        messageTemplate:
+          'Amanhã temos {{event_title}}. Confirma se precisas de alguma coisa antes da aula.',
+        llmPromptTemplate:
+          'Transforma este lembrete num aviso simples para o dia anterior, em portugues de Portugal, sem jargao tecnico. Evento: {{event_title}}. Grupo: {{group_label}}.',
+        llmAssisted: true,
+      },
+      {
+        reminderId: 'group-reminder-30m',
+        enabled: true,
+        label: '30 min antes',
+        kind: 'relative_before_event',
+        daysBeforeEvent: 0,
+        offsetMinutesBeforeEvent: 30,
+        offsetMinutesAfterEvent: null,
+        localTime: null,
+        summaryLabel: '30 min antes',
+        messageTemplate:
+          'Daqui a {{minutes_until_event}} minutos começa {{event_title}}. Última chamada para te preparares.',
+        llmPromptTemplate:
+          'Escreve um lembrete curto e direto, pronto para WhatsApp, a dizer que faltam {{minutes_until_event}} minutos para {{event_title}} no grupo {{group_label}}.',
+        llmAssisted: true,
+      },
+    ],
+    canonicalVariables: [
+      {
+        key: 'group_label',
+        label: 'Nome do grupo',
+        description: 'Nome canonico do grupo em que o lembrete vai ser enviado.',
+        example: 'Ballet Iniciacao',
+      },
+      {
+        key: 'event_title',
+        label: 'Titulo do evento',
+        description: 'Nome do evento ou da aula.',
+        example: 'VC4 - Programacao avancada com Python',
+      },
+      {
+        key: 'event_date',
+        label: 'Data do evento',
+        description: 'Data local do evento em formato humano.',
+        example: '20/04/2026',
+      },
+      {
+        key: 'event_time',
+        label: 'Hora do evento',
+        description: 'Hora local do evento.',
+        example: '12:00',
+      },
+      {
+        key: 'hours_until_event',
+        label: 'Horas ate ao evento',
+        description: 'Numero redondo de horas restantes ate ao evento.',
+        example: '24',
+      },
+      {
+        key: 'minutes_until_event',
+        label: 'Minutos ate ao evento',
+        description: 'Numero de minutos restantes ate ao evento.',
+        example: '30',
+      },
+    ],
+  };
 }
 
 function createDemoWorkspaceFile(relativePath: string, content: string): WorkspaceFileContentSnapshot {
@@ -2398,6 +2542,7 @@ function buildDemoGroupIntelligenceSnapshot(state: DemoState, groupJid: string):
   const entry = state.groupIntelligenceByGroupJid[groupJid] ?? {
     instructions: '',
     knowledgeDocuments: [],
+    reminderPolicy: createDemoReminderPolicy(groupJid),
   };
   const instructions = entry.instructions.trim();
   const primaryFilePath = buildDemoGroupInstructionsPath(groupJid);
@@ -2411,6 +2556,7 @@ function buildDemoGroupIntelligenceSnapshot(state: DemoState, groupJid: string):
       source: instructions.length > 0 ? 'llm_instructions' : 'missing',
       content: instructions.length > 0 ? entry.instructions : null,
     },
+    policy: entry.reminderPolicy,
     knowledge: {
       indexFilePath: buildDemoGroupKnowledgeIndexPath(groupJid),
       exists: entry.knowledgeDocuments.length > 0,
@@ -2427,6 +2573,7 @@ function upsertDemoGroupKnowledgeDocument(
   const entry = state.groupIntelligenceByGroupJid[groupJid] ?? {
     instructions: '',
     knowledgeDocuments: [],
+    reminderPolicy: createDemoReminderPolicy(groupJid),
   };
   const documentId = readDemoRequiredString(body.documentId, 'documentId');
   const filePath = readDemoRequiredString(body.filePath, 'filePath');
@@ -2466,6 +2613,7 @@ function deleteDemoGroupKnowledgeDocument(
   const entry = state.groupIntelligenceByGroupJid[groupJid] ?? {
     instructions: '',
     knowledgeDocuments: [],
+    reminderPolicy: createDemoReminderPolicy(groupJid),
   };
   const target = entry.knowledgeDocuments.find((document) => document.documentId === documentId) ?? null;
 
@@ -3063,6 +3211,7 @@ function upsertDemoSchedule(state: DemoState, payload: Record<string, unknown>):
         .filter((label) => label.length > 0)
     : state.settings.adminSettings.ui.defaultNotificationRules.map((rule) => rule.label ?? rule.kind);
   const eventAt = `${localDate}T${startTime}:00.000Z`;
+  const reminderPreview = buildDemoReminderPreviewState(eventAt, notificationRuleLabels);
   const nextEvent: WeeklyPlannerEventSummary = {
     eventId,
     weekId: '2026-W13',
@@ -3082,6 +3231,9 @@ function upsertDemoSchedule(state: DemoState, payload: Record<string, unknown>):
       sent: 0,
       total: notificationRuleLabels.length,
     },
+    nextReminderAt: reminderPreview.nextReminderAt,
+    nextReminderLabel: reminderPreview.nextReminderLabel,
+    reminderLifecycle: reminderPreview.reminderLifecycle,
   };
   const existingIndex = state.scheduleEvents.findIndex((event) => event.eventId === eventId);
 
@@ -3092,6 +3244,56 @@ function upsertDemoSchedule(state: DemoState, payload: Record<string, unknown>):
   }
 
   return nextEvent;
+}
+
+function buildDemoReminderPreviewState(
+  eventAt: string,
+  notificationRuleLabels: readonly string[],
+): Pick<WeeklyPlannerEventSummary, 'nextReminderAt' | 'nextReminderLabel' | 'reminderLifecycle'> {
+  const nextReminderLabel = notificationRuleLabels[0] ?? null;
+
+  return {
+    nextReminderAt: nextReminderLabel ? resolveDemoReminderAt(eventAt, nextReminderLabel) : null,
+    nextReminderLabel,
+    reminderLifecycle: {
+      generated: notificationRuleLabels.length,
+      prepared: 0,
+      sent: 0,
+    },
+  };
+}
+
+function resolveDemoReminderAt(eventAt: string, label: string): string {
+  const eventDate = new Date(eventAt);
+
+  if (Number.isNaN(eventDate.getTime())) {
+    return eventAt;
+  }
+
+  const normalized = label.trim().toLowerCase();
+
+  if (normalized.includes('24h')) {
+    return new Date(eventDate.getTime() - 24 * 60 * 60_000).toISOString();
+  }
+
+  if (normalized.includes('30 min')) {
+    return new Date(eventDate.getTime() - 30 * 60_000).toISOString();
+  }
+
+  if (normalized.includes('dia anterior') && normalized.includes('18:00')) {
+    const reminderDate = new Date(eventDate.getTime() - 24 * 60 * 60_000);
+    reminderDate.setUTCHours(18, 0, 0, 0);
+    return reminderDate.toISOString();
+  }
+
+  const afterMinutesMatch = normalized.match(/(\d+)\s*min.*depois/u);
+
+  if (afterMinutesMatch) {
+    const minutes = Number.parseInt(afterMinutesMatch[1] ?? '0', 10);
+    return new Date(eventDate.getTime() + minutes * 60_000).toISOString();
+  }
+
+  return eventAt;
 }
 
 function readDemoScheduleRouteBlockingReason(

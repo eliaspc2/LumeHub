@@ -9,17 +9,19 @@ import type {
   Group,
   GroupContextPreviewSnapshot,
   GroupIntelligenceSnapshot,
+  GroupReminderPolicySnapshot,
   Instruction,
   LegacyAlertImportReportSnapshot,
   LegacyAutomationImportReportSnapshot,
   LegacyScheduleImportFileSnapshot,
   LegacyScheduleImportReportSnapshot,
   LlmChatInput,
-    MediaAssetSnapshot,
-    MessageAlertMatchSnapshot,
-    Person,
-    PersonRole,
-    SettingsSnapshot,
+  MediaAssetSnapshot,
+  MessageAlertMatchSnapshot,
+  Person,
+  PersonRole,
+  SettingsSnapshot,
+  WeeklyPlannerSnapshot as WeekPlannerSnapshot,
   WhatsAppWorkspaceSnapshot,
   WatchdogIssue,
   WorkspaceAgentRunSnapshot,
@@ -42,8 +44,6 @@ import {
   type UiPage,
   type UiTone,
 } from '@lume-hub/shared-ui';
-import type { WeekPlannerSnapshot } from '@lume-hub/week-planner';
-
 import type { FrontendTransportMode } from '../app/BrowserTransportFactory.js';
 import type {
   AssistantPageData,
@@ -111,10 +111,29 @@ interface GroupKnowledgeDraft {
   readonly content: string;
 }
 
+type ReminderTimingMode = 'relative_before_event' | 'fixed_previous_day' | 'fixed_same_day' | 'relative_after_event';
+
+interface GroupReminderDraft {
+  readonly reminderId: string;
+  readonly enabled: boolean;
+  readonly label: string;
+  readonly timingMode: ReminderTimingMode;
+  readonly offsetMinutes: string;
+  readonly localTime: string;
+  readonly messageTemplate: string;
+  readonly llmPromptTemplate: string;
+}
+
+interface GroupReminderPolicyDraft {
+  readonly enabled: boolean;
+  readonly reminders: readonly GroupReminderDraft[];
+}
+
 interface GroupManagementDraft {
   readonly selectedGroupJid: string | null;
   readonly instructions: string;
   readonly previewText: string;
+  readonly reminderPolicy: GroupReminderPolicyDraft;
   readonly selectedDocumentId: string | null;
   readonly knowledgeDocument: GroupKnowledgeDraft;
 }
@@ -817,6 +836,7 @@ export class AppShell {
         selectedGroupJid,
         instructions: intelligence?.instructions.content ?? '',
         previewText,
+        reminderPolicy: mapReminderPolicySnapshotToDraft(intelligence?.policy ?? null),
         selectedDocumentId: selectedDocument?.documentId ?? null,
         knowledgeDocument: selectedDocument
           ? mapGroupKnowledgeDocumentToDraft(selectedDocument)
@@ -1529,6 +1549,11 @@ export class AppShell {
                       waitingConfirmation: focusedEvent.notifications.waitingConfirmation,
                       sent: focusedEvent.notifications.sent,
                     }),
+                  )}</p>
+                  <p><strong>Proximo lembrete</strong>: ${escapeHtml(
+                    focusedEvent.nextReminderAt
+                      ? `${focusedEvent.nextReminderLabel ?? 'sem etiqueta'} em ${formatShortDateTime(focusedEvent.nextReminderAt)}`
+                      : 'Sem disparo futuro planeado.',
                   )}</p>
                   <p><strong>Notas</strong>: ${escapeHtml(focusedEvent.notes || 'Sem nota interna.')}</p>
                 </div>
@@ -3152,6 +3177,12 @@ export class AppShell {
       selectedGroup && selectedGroup.operationalSettings.allowLlmScheduling ? 'LLM pode agendar' : 'LLM sem scheduling';
     const ownerOptions = selectedGroup ? buildGroupOwnerOptions(selectedGroup, people) : [{ value: '', label: 'Sem pessoas conhecidas' }];
     const ownerOverflowCount = Math.max((selectedGroup?.groupOwners.length ?? 0) - (primaryOwnerPersonId ? 1 : 0), 0);
+    const reminderPolicy = this.state.groupManagementDraft.reminderPolicy;
+    const reminderPreviewContext = buildReminderPreviewContext(selectedGroup, page.data.reminderPreviewEvent);
+    const reminderVariables = intelligence?.policy.canonicalVariables ?? [];
+    const reminderNextEventLabel = page.data.reminderPreviewEvent
+      ? `${page.data.reminderPreviewEvent.title} em ${formatWeekEventMoment(page.data.reminderPreviewEvent)}`
+      : 'Sem evento real ainda; preview com um exemplo guiado.';
 
     return `
       <section class="surface hero surface--strong">
@@ -3501,6 +3532,255 @@ export class AppShell {
                     <p>Assim que escolheres um grupo, esta area passa a mostrar owner, modo local, regras de tag e permissao real do assistente.</p>
                   </div>
                 `
+          }
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-7">
+          <div class="card-header card-header--with-switch">
+            <div>
+              <h3>Lembretes deste grupo</h3>
+              <p>Podes ter varios lembretes por grupo, cada um com a sua janela temporal e com copy propria.</p>
+            </div>
+            ${
+              selectedGroup
+                ? renderUiSwitch({
+                    label: 'Lembretes ativos',
+                    checked: reminderPolicy.enabled,
+                    description: reminderPolicy.enabled
+                      ? `${reminderPolicy.reminders.length} regra(s) prontas neste grupo.`
+                      : 'Os novos eventos deste grupo passam a nascer sem lembretes.',
+                    dataAttributes: {
+                      'group-action': 'toggle-reminder-policy-enabled',
+                    },
+                  })
+                : renderUiBadge({ label: 'Escolher grupo', tone: 'warning' })
+            }
+          </div>
+          ${
+            selectedGroup
+              ? `
+                <div class="guide-preview">
+                  <p><strong>Evento de exemplo</strong>: ${escapeHtml(reminderNextEventLabel)}</p>
+                  <p><strong>O que acontece ao guardar</strong>: os novos eventos deste grupo passam a herdar estes lembretes. Se mudares um evento, a fila acompanha a mudanca.</p>
+                </div>
+                <div class="action-row">
+                  ${renderUiActionButton({
+                    label: 'Adicionar lembrete',
+                    dataAttributes: { 'group-action': 'add-reminder' },
+                  })}
+                  ${renderUiActionButton({
+                    label: 'Repor defaults',
+                    variant: 'secondary',
+                    dataAttributes: { 'group-action': 'reset-reminder-policy' },
+                  })}
+                  ${renderUiActionButton({
+                    label: 'Guardar lembretes',
+                    variant: 'secondary',
+                    dataAttributes: { 'group-action': 'save-reminder-policy' },
+                  })}
+                </div>
+                ${
+                  reminderPolicy.reminders.length > 0
+                    ? `
+                      <div class="group-reminder-list">
+                        ${reminderPolicy.reminders
+                          .map(
+                            (reminder, index) => `
+                              <article class="group-reminder-card">
+                                <div class="group-reminder-card__header">
+                                  <div>
+                                    <h4>${escapeHtml(readableReminderSummary(reminder))}</h4>
+                                    <p>${escapeHtml(
+                                      reminder.enabled
+                                        ? 'Este lembrete entra na fila quando chegar a hora.'
+                                        : 'Fica guardado, mas nao entra na fila enquanto estiver desligado.',
+                                    )}</p>
+                                  </div>
+                                  <div class="card-header__actions">
+                                    ${renderUiSwitch({
+                                      label: 'Ativo',
+                                      checked: reminder.enabled,
+                                      description: reminder.enabled ? 'Pronto a usar.' : 'Guardado, mas parado.',
+                                      dataAttributes: {
+                                        'group-action': 'toggle-reminder-enabled',
+                                        'reminder-index': String(index),
+                                      },
+                                    })}
+                                    ${renderUiActionButton({
+                                      label: 'Retirar',
+                                      variant: 'secondary',
+                                      dataAttributes: {
+                                        'group-action': 'remove-reminder',
+                                        'reminder-index': String(index),
+                                      },
+                                    })}
+                                  </div>
+                                </div>
+                                <div class="ui-form-grid ui-form-grid--equal">
+                                  ${renderUiInputField({
+                                    label: 'Nome curto',
+                                    value: reminder.label,
+                                    dataKey: `group.reminder.${index}.label`,
+                                    placeholder: 'Ex.: Ultima chamada',
+                                    hint: 'Opcional. Se deixares vazio, usamos o resumo automatico.',
+                                  })}
+                                  ${renderUiSelectField({
+                                    label: 'Quando enviar',
+                                    value: reminder.timingMode,
+                                    dataKey: `group.reminder.${index}.timingMode`,
+                                    options: [
+                                      { value: 'relative_before_event', label: 'X tempo antes' },
+                                      { value: 'fixed_previous_day', label: 'Hora fixa no dia anterior' },
+                                      { value: 'fixed_same_day', label: 'Hora fixa no proprio dia' },
+                                      { value: 'relative_after_event', label: 'X tempo depois' },
+                                    ],
+                                  })}
+                                </div>
+                                <div class="ui-form-grid ui-form-grid--equal">
+                                  ${
+                                    reminder.timingMode === 'fixed_previous_day' || reminder.timingMode === 'fixed_same_day'
+                                      ? renderUiInputField({
+                                          label: 'Hora local',
+                                          value: reminder.localTime,
+                                          dataKey: `group.reminder.${index}.localTime`,
+                                          type: 'time',
+                                          hint:
+                                            reminder.timingMode === 'fixed_previous_day'
+                                              ? 'Ex.: 18:00 no dia anterior.'
+                                              : 'Ex.: 08:30 no proprio dia.',
+                                        })
+                                      : renderUiInputField({
+                                          label: 'Janela em minutos',
+                                          value: reminder.offsetMinutes,
+                                          dataKey: `group.reminder.${index}.offsetMinutes`,
+                                          type: 'number',
+                                          placeholder: reminder.timingMode === 'relative_after_event' ? '30' : '60',
+                                          hint:
+                                            reminder.timingMode === 'relative_after_event'
+                                              ? 'Quantos minutos depois do evento queres este follow-up.'
+                                              : 'Quantos minutos antes do evento queres este aviso.',
+                                        })
+                                  }
+                                  <div class="inline-empty">
+                                    <strong>Resumo humano</strong>
+                                    <p>${escapeHtml(readableReminderSummary(reminder))}</p>
+                                  </div>
+                                </div>
+                                <div class="ui-form-grid">
+                                  ${renderUiTextAreaField({
+                                    label: 'Mensagem base',
+                                    value: reminder.messageTemplate,
+                                    dataKey: `group.reminder.${index}.messageTemplate`,
+                                    rows: 4,
+                                    placeholder: 'Ex.: Daqui a {{hours_until_event}} horas temos {{event_title}}.',
+                                    hint: 'Se a LLM falhar ou estiver vazia, esta mensagem e usada diretamente.',
+                                  })}
+                                  ${renderUiTextAreaField({
+                                    label: 'Prompt para a LLM',
+                                    value: reminder.llmPromptTemplate,
+                                    dataKey: `group.reminder.${index}.llmPromptTemplate`,
+                                    rows: 4,
+                                    placeholder: 'Ex.: Escreve um lembrete curto para WhatsApp com o contexto abaixo...',
+                                    hint: 'Se preenchido, a LLM personaliza o texto final antes do envio.',
+                                  })}
+                                </div>
+                              </article>
+                            `,
+                          )
+                          .join('')}
+                      </div>
+                    `
+                    : `
+                      <div class="inline-empty">
+                        <strong>Ainda sem lembretes</strong>
+                        <p>Adiciona o primeiro para este grupo. Podes misturar antes, hora fixa e depois.</p>
+                      </div>
+                    `
+                }
+              `
+              : `
+                <div class="inline-empty">
+                  <strong>Escolhe um grupo</strong>
+                  <p>Quando escolheres um grupo, esta area passa a mostrar a grelha de lembretes e a copy associada.</p>
+                </div>
+              `
+          }
+        </article>
+
+        <article class="surface content-card span-5">
+          <div class="card-header">
+            <div>
+              <h3>Preview da copy</h3>
+              <p>Variaveis canonicas e preview do texto base antes de ativares estes lembretes.</p>
+            </div>
+            ${renderUiBadge({
+              label: selectedGroup ? `${reminderPolicy.reminders.length} regra(s)` : 'Sem grupo',
+              tone: selectedGroup ? 'positive' : 'warning',
+            })}
+          </div>
+          ${
+            selectedGroup
+              ? `
+                <div class="guide-preview">
+                  <p><strong>Evento em preview</strong>: ${escapeHtml(reminderNextEventLabel)}</p>
+                  <p><strong>Grupo</strong>: ${escapeHtml(reminderPreviewContext.groupLabel)}</p>
+                </div>
+                <div class="ui-card__chips">
+                  ${reminderVariables
+                    .slice(0, 8)
+                    .map((variable) =>
+                      renderUiBadge({
+                        label: `{{${variable.key}}}`,
+                        tone: 'neutral',
+                        style: 'chip',
+                      }),
+                    )
+                    .join('')}
+                </div>
+                <div class="group-reminder-preview-list">
+                  ${reminderPolicy.reminders
+                    .slice(0, 3)
+                    .map((reminder) => {
+                      const preview = buildReminderPreview(reminder, reminderPreviewContext);
+
+                      return `
+                        <article class="timeline-item">
+                          <strong>${escapeHtml(readableReminderSummary(reminder))}</strong>
+                          <time>${escapeHtml(preview.sendLabel)}</time>
+                          <p><strong>Mensagem base</strong>: ${escapeHtml(preview.messagePreview)}</p>
+                          <p><strong>Prompt LLM</strong>: ${escapeHtml(preview.promptPreview)}</p>
+                        </article>
+                      `;
+                    })
+                    .join('')}
+                </div>
+                <details class="ui-details">
+                  <summary>Ver catalogo de variaveis</summary>
+                  <div class="ui-details__content">
+                    <div class="timeline">
+                      ${reminderVariables
+                        .map(
+                          (variable) => `
+                            <article class="timeline-item">
+                              <strong>{{${escapeHtml(variable.key)}}}</strong>
+                              <p>${escapeHtml(variable.description)}</p>
+                              <time>${escapeHtml(variable.example)}</time>
+                            </article>
+                          `,
+                        )
+                        .join('')}
+                    </div>
+                  </div>
+                </details>
+              `
+              : `
+                <div class="inline-empty">
+                  <strong>Preview indisponivel</strong>
+                  <p>Escolhe primeiro um grupo para veres a linguagem base e as variaveis dos lembretes.</p>
+                </div>
+              `
           }
         </article>
       </section>
@@ -5704,6 +5984,36 @@ export class AppShell {
   }
 
   private updateGuidedField(fieldKey: string, value: string): void {
+    const reminderMatch = /^group\.reminder\.(\d+)\.(label|timingMode|offsetMinutes|localTime|messageTemplate|llmPromptTemplate)$/u.exec(
+      fieldKey,
+    );
+
+    if (reminderMatch) {
+      const reminderIndex = Number.parseInt(reminderMatch[1] ?? '', 10);
+      const reminderField = reminderMatch[2] as keyof GroupReminderDraft;
+
+      this.state = {
+        ...this.state,
+        flowFeedback: null,
+        groupManagementDraft: {
+          ...this.state.groupManagementDraft,
+          reminderPolicy: {
+            ...this.state.groupManagementDraft.reminderPolicy,
+            reminders: this.state.groupManagementDraft.reminderPolicy.reminders.map((reminder, index) =>
+              index === reminderIndex
+                ? {
+                    ...reminder,
+                    [reminderField]: value,
+                  }
+                : reminder,
+            ),
+          },
+        },
+      };
+      this.render();
+      return;
+    }
+
     switch (fieldKey) {
       case 'schedule.groupJid':
       case 'schedule.title':
@@ -8314,6 +8624,161 @@ export class AppShell {
       return;
     }
 
+    if (action === 'toggle-reminder-policy-enabled') {
+      this.state = {
+        ...this.state,
+        flowFeedback: null,
+        groupManagementDraft: {
+          ...this.state.groupManagementDraft,
+          reminderPolicy: {
+            ...this.state.groupManagementDraft.reminderPolicy,
+            enabled: !this.state.groupManagementDraft.reminderPolicy.enabled,
+          },
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'toggle-reminder-enabled') {
+      const reminderIndex = Number.parseInt(dataset.reminderIndex ?? '', 10);
+
+      if (!Number.isInteger(reminderIndex)) {
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        flowFeedback: null,
+        groupManagementDraft: {
+          ...this.state.groupManagementDraft,
+          reminderPolicy: {
+            ...this.state.groupManagementDraft.reminderPolicy,
+            reminders: this.state.groupManagementDraft.reminderPolicy.reminders.map((reminder, index) =>
+              index === reminderIndex
+                ? {
+                    ...reminder,
+                    enabled: !reminder.enabled,
+                  }
+                : reminder,
+            ),
+          },
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'add-reminder') {
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'Novo lembrete adicionado ao rascunho deste grupo.',
+        },
+        groupManagementDraft: {
+          ...this.state.groupManagementDraft,
+          reminderPolicy: {
+            ...this.state.groupManagementDraft.reminderPolicy,
+            reminders: [
+              ...this.state.groupManagementDraft.reminderPolicy.reminders,
+              createNextReminderDraft(this.state.groupManagementDraft.reminderPolicy.reminders.length),
+            ],
+          },
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'remove-reminder') {
+      const reminderIndex = Number.parseInt(dataset.reminderIndex ?? '', 10);
+
+      if (!Number.isInteger(reminderIndex)) {
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'Lembrete retirado deste rascunho.',
+        },
+        groupManagementDraft: {
+          ...this.state.groupManagementDraft,
+          reminderPolicy: {
+            ...this.state.groupManagementDraft.reminderPolicy,
+            reminders: this.state.groupManagementDraft.reminderPolicy.reminders.filter(
+              (_reminder, index) => index !== reminderIndex,
+            ),
+          },
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'reset-reminder-policy') {
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'Os lembretes voltaram ao conjunto canonico desta ronda.',
+        },
+        groupManagementDraft: {
+          ...this.state.groupManagementDraft,
+          reminderPolicy: mapReminderPolicySnapshotToDraft(null),
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'save-reminder-policy') {
+      const selectedGroupJid = this.state.groupManagementDraft.selectedGroupJid;
+
+      if (!selectedGroupJid) {
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A guardar a politica de lembretes deste grupo.',
+        },
+      };
+      this.render();
+
+      try {
+        await this.currentClient().updateGroupReminderPolicy(
+          selectedGroupJid,
+          mapReminderPolicyDraftToPayload(this.state.groupManagementDraft.reminderPolicy),
+        );
+        this.recordUxEvent('positive', `Lembretes do grupo ${selectedGroupJid} guardados.`);
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'positive',
+            message: 'Lembretes guardados. Os novos eventos deste grupo passam a herdar estas regras.',
+          },
+        };
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel guardar os lembretes. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
     if (action === 'save-instructions') {
       const selectedGroupJid = this.state.groupManagementDraft.selectedGroupJid;
 
@@ -10487,11 +10952,26 @@ function renderWeekCalendarEventCard(
       </div>
       <p class="week-event-card__group">${escapeHtml(event.groupLabel)}</p>
       <p class="week-event-card__notes">${escapeHtml(event.notes || 'Sem nota interna para ja.')}</p>
+      <p class="week-event-card__notes">${escapeHtml(
+        event.nextReminderAt
+          ? `Proximo lembrete: ${event.nextReminderLabel ?? 'sem etiqueta'} em ${formatShortDateTime(event.nextReminderAt)}.`
+          : 'Ainda nao existe um proximo disparo planeado para este evento.',
+      )}</p>
       <div class="ui-card__chips">
         ${renderUiBadge({ label: ruleCountLabel, tone: 'positive', style: 'chip' })}
         ${renderUiBadge({
-          label: `Por enviar ${event.notifications.pending}`,
-          tone: event.notifications.pending > 0 ? 'neutral' : 'positive',
+          label: `Gerados ${event.reminderLifecycle.generated}`,
+          tone: event.reminderLifecycle.generated > 0 ? 'neutral' : 'positive',
+          style: 'chip',
+        })}
+        ${renderUiBadge({
+          label: `Preparados ${event.reminderLifecycle.prepared}`,
+          tone: event.reminderLifecycle.prepared > 0 ? 'warning' : 'neutral',
+          style: 'chip',
+        })}
+        ${renderUiBadge({
+          label: `Enviados ${event.reminderLifecycle.sent}`,
+          tone: event.reminderLifecycle.sent > 0 ? 'positive' : 'neutral',
           style: 'chip',
         })}
         ${renderUiBadge({
@@ -10555,6 +11035,13 @@ function describeWeekCalendarEventStatus(event: WeekPlannerSnapshot['events'][nu
   readonly label: string;
   readonly tone: UiTone;
 } {
+  if (event.reminderLifecycle.prepared > 0) {
+    return {
+      label: event.reminderLifecycle.prepared === 1 ? '1 lembrete preparado' : `${event.reminderLifecycle.prepared} preparados`,
+      tone: 'warning',
+    };
+  }
+
   if (event.notifications.waitingConfirmation > 0) {
     return {
       label: `${event.notifications.waitingConfirmation} a confirmar`,
@@ -10562,9 +11049,12 @@ function describeWeekCalendarEventStatus(event: WeekPlannerSnapshot['events'][nu
     };
   }
 
-  if (event.notifications.pending > 0) {
+  if (event.notifications.pending > 0 || event.reminderLifecycle.generated > 0) {
     return {
-      label: `${event.notifications.pending} por enviar`,
+      label:
+        event.reminderLifecycle.generated === 1
+          ? '1 lembrete por preparar'
+          : `${event.reminderLifecycle.generated} por preparar`,
       tone: 'neutral',
     };
   }
@@ -11091,9 +11581,334 @@ function createEmptyGroupManagementDraft(): GroupManagementDraft {
     selectedGroupJid: null,
     instructions: '',
     previewText: 'A Aula 1 mudou?',
+    reminderPolicy: mapReminderPolicySnapshotToDraft(null),
     selectedDocumentId: null,
     knowledgeDocument: createEmptyGroupKnowledgeDraft(),
   };
+}
+
+function mapReminderPolicySnapshotToDraft(policy: GroupReminderPolicySnapshot | null): GroupReminderPolicyDraft {
+  if (!policy) {
+    return {
+      enabled: true,
+      reminders: createDefaultReminderDrafts(),
+    };
+  }
+
+  const reminders = policy.reminders.map((reminder) => mapReminderSnapshotToDraft(reminder));
+
+  return {
+    enabled: policy.enabled,
+    reminders: reminders.length > 0 || policy.exists ? reminders : createDefaultReminderDrafts(),
+  };
+}
+
+function mapReminderSnapshotToDraft(reminder: GroupReminderPolicySnapshot['reminders'][number]): GroupReminderDraft {
+  const timingMode =
+    reminder.kind === 'relative_before_event'
+      ? 'relative_before_event'
+      : reminder.kind === 'relative_after_event'
+        ? 'relative_after_event'
+        : (reminder.daysBeforeEvent ?? 0) > 0
+          ? 'fixed_previous_day'
+          : 'fixed_same_day';
+
+  return {
+    reminderId: reminder.reminderId,
+    enabled: reminder.enabled,
+    label: reminder.label ?? '',
+    timingMode,
+    offsetMinutes: String(
+      timingMode === 'relative_after_event'
+        ? reminder.offsetMinutesAfterEvent ?? 30
+        : reminder.offsetMinutesBeforeEvent ?? 30,
+    ),
+    localTime: reminder.localTime ?? '18:00',
+    messageTemplate: reminder.messageTemplate ?? defaultMessageTemplateForTimingMode(timingMode),
+    llmPromptTemplate: reminder.llmPromptTemplate ?? defaultLlmPromptTemplateForTimingMode(timingMode),
+  };
+}
+
+function mapReminderPolicyDraftToPayload(draft: GroupReminderPolicyDraft): {
+  readonly enabled: boolean;
+  readonly reminders: readonly {
+    readonly ruleId?: string;
+    readonly kind: 'relative_before_event' | 'fixed_local_time' | 'relative_after_event';
+    readonly enabled?: boolean;
+    readonly label?: string | null;
+    readonly daysBeforeEvent?: number | null;
+    readonly offsetMinutesBeforeEvent?: number | null;
+    readonly offsetMinutesAfterEvent?: number | null;
+    readonly localTime?: string | null;
+    readonly messageTemplate?: string | null;
+    readonly llmPromptTemplate?: string | null;
+  }[];
+} {
+  return {
+    enabled: draft.enabled,
+    reminders: draft.reminders.map((reminder) => ({
+      ruleId: reminder.reminderId.startsWith('draft-') ? undefined : reminder.reminderId,
+      kind:
+        reminder.timingMode === 'fixed_previous_day' || reminder.timingMode === 'fixed_same_day'
+          ? 'fixed_local_time'
+          : reminder.timingMode,
+      enabled: reminder.enabled,
+      label: reminder.label.trim() || null,
+      daysBeforeEvent:
+        reminder.timingMode === 'fixed_previous_day'
+          ? 1
+          : reminder.timingMode === 'fixed_same_day'
+            ? 0
+            : null,
+      offsetMinutesBeforeEvent:
+        reminder.timingMode === 'relative_before_event'
+          ? sanitizeReminderOffset(reminder.offsetMinutes)
+          : null,
+      offsetMinutesAfterEvent:
+        reminder.timingMode === 'relative_after_event'
+          ? sanitizeReminderOffset(reminder.offsetMinutes)
+          : null,
+      localTime:
+        reminder.timingMode === 'fixed_previous_day' || reminder.timingMode === 'fixed_same_day'
+          ? (reminder.localTime.trim() || '18:00')
+          : null,
+      messageTemplate: reminder.messageTemplate.trim() || null,
+      llmPromptTemplate: reminder.llmPromptTemplate.trim() || null,
+    })),
+  };
+}
+
+function sanitizeReminderOffset(value: string): number {
+  const parsed = Number.parseInt(value.trim(), 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 30;
+}
+
+function createDefaultReminderDrafts(): readonly GroupReminderDraft[] {
+  return [
+    createReminderDraft({
+      reminderId: 'draft-reminder-24h',
+      timingMode: 'relative_before_event',
+      label: '24h antes',
+      offsetMinutes: '1440',
+    }),
+    createReminderDraft({
+      reminderId: 'draft-reminder-30m',
+      timingMode: 'relative_before_event',
+      label: '30 min antes',
+      offsetMinutes: '30',
+    }),
+  ];
+}
+
+function createNextReminderDraft(index: number): GroupReminderDraft {
+  const presets: readonly Partial<GroupReminderDraft>[] = [
+    {
+      reminderId: 'draft-reminder-24h',
+      timingMode: 'relative_before_event',
+      label: '24h antes',
+      offsetMinutes: '1440',
+    },
+    {
+      reminderId: 'draft-reminder-30m',
+      timingMode: 'relative_before_event',
+      label: '30 min antes',
+      offsetMinutes: '30',
+    },
+    {
+      reminderId: 'draft-reminder-prev-day',
+      timingMode: 'fixed_previous_day',
+      label: 'Dia anterior as 18:00',
+      localTime: '18:00',
+    },
+    {
+      reminderId: 'draft-reminder-after',
+      timingMode: 'relative_after_event',
+      label: '30 min depois',
+      offsetMinutes: '30',
+    },
+  ];
+
+  return createReminderDraft({
+    reminderId: `draft-reminder-${index + 1}`,
+    ...(presets[index] ?? {
+      timingMode: 'relative_before_event',
+      label: `Lembrete ${index + 1}`,
+      offsetMinutes: '60',
+    }),
+  });
+}
+
+function createReminderDraft(input: Partial<GroupReminderDraft> = {}): GroupReminderDraft {
+  const timingMode = input.timingMode ?? 'relative_before_event';
+
+  return {
+    reminderId: input.reminderId ?? `draft-reminder-${Math.random().toString(36).slice(2, 8)}`,
+    enabled: input.enabled ?? true,
+    label: input.label ?? '',
+    timingMode,
+    offsetMinutes: input.offsetMinutes ?? '30',
+    localTime: input.localTime ?? '18:00',
+    messageTemplate: input.messageTemplate ?? defaultMessageTemplateForTimingMode(timingMode),
+    llmPromptTemplate: input.llmPromptTemplate ?? defaultLlmPromptTemplateForTimingMode(timingMode),
+  };
+}
+
+function defaultMessageTemplateForTimingMode(timingMode: ReminderTimingMode): string {
+  switch (timingMode) {
+    case 'fixed_previous_day':
+      return 'Amanha temos {{event_title}} as {{event_time}}.';
+    case 'fixed_same_day':
+      return 'Hoje temos {{event_title}} as {{event_time}}.';
+    case 'relative_after_event':
+      return 'Ja passou {{minutes_since_event}} min desde {{event_title}}.';
+    case 'relative_before_event':
+    default:
+      return 'Daqui a {{minutes_until_event}} min temos {{event_title}}.';
+  }
+}
+
+function defaultLlmPromptTemplateForTimingMode(timingMode: ReminderTimingMode): string {
+  switch (timingMode) {
+    case 'fixed_previous_day':
+      return 'Escreve um lembrete curto em portugues europeu para WhatsApp. Contexto: amanha o grupo {{group_label}} tem {{event_title}} as {{event_time}}.';
+    case 'fixed_same_day':
+      return 'Escreve um lembrete curto em portugues europeu para WhatsApp. Contexto: hoje o grupo {{group_label}} tem {{event_title}} as {{event_time}}.';
+    case 'relative_after_event':
+      return 'Escreve um follow-up curto em portugues europeu para WhatsApp. Contexto: ja passaram {{minutes_since_event}} minutos desde {{event_title}} em {{event_datetime}}.';
+    case 'relative_before_event':
+    default:
+      return 'Escreve um lembrete curto em portugues europeu para WhatsApp. Contexto: faltam {{minutes_until_event}} minutos para {{event_title}} em {{event_datetime}} no grupo {{group_label}}.';
+  }
+}
+
+function readableReminderSummary(reminder: GroupReminderDraft): string {
+  if (reminder.label.trim()) {
+    return reminder.label.trim();
+  }
+
+  if (reminder.timingMode === 'fixed_previous_day') {
+    return `Dia anterior as ${reminder.localTime || '18:00'}`;
+  }
+
+  if (reminder.timingMode === 'fixed_same_day') {
+    return `No proprio dia as ${reminder.localTime || '08:00'}`;
+  }
+
+  const minutes = sanitizeReminderOffset(reminder.offsetMinutes);
+
+  if (minutes % 1_440 === 0) {
+    return `${minutes / 1_440} dia(s) ${reminder.timingMode === 'relative_after_event' ? 'depois' : 'antes'}`;
+  }
+
+  if (minutes >= 60 && minutes % 60 === 0) {
+    return `${minutes / 60}h ${reminder.timingMode === 'relative_after_event' ? 'depois' : 'antes'}`;
+  }
+
+  return `${minutes} min ${reminder.timingMode === 'relative_after_event' ? 'depois' : 'antes'}`;
+}
+
+function buildReminderPreviewContext(
+  group: Group | null,
+  event: GroupManagementPageData['reminderPreviewEvent'],
+): {
+  readonly groupLabel: string;
+  readonly eventTitle: string;
+  readonly eventAt: string;
+  readonly eventDateLabel: string;
+  readonly eventTimeLabel: string;
+  readonly reminderLabel: string;
+} {
+  const eventAt = event?.eventAt ?? '2026-04-21T18:00:00.000Z';
+
+  return {
+    groupLabel: group?.preferredSubject ?? 'Grupo exemplo',
+    eventTitle: event?.title ?? 'Aula exemplo',
+    eventAt,
+    eventDateLabel: event ? formatWeekDayDateLabel(event.localDate) : '21/04/2026',
+    eventTimeLabel: event?.startTime ?? '18:00',
+    reminderLabel: event ? `Proximo evento: ${event.title}` : 'Preview com evento exemplo',
+  };
+}
+
+function buildReminderPreview(
+  reminder: GroupReminderDraft,
+  context: ReturnType<typeof buildReminderPreviewContext>,
+): {
+  readonly sendLabel: string;
+  readonly messagePreview: string;
+  readonly promptPreview: string;
+} {
+  const eventAt = new Date(context.eventAt);
+  const sendAt = resolveReminderPreviewSendAt(reminder, eventAt);
+  const variables = buildReminderPreviewVariables(reminder, context, eventAt, sendAt);
+
+  return {
+    sendLabel: `${readableReminderSummary(reminder)} · ${formatShortDateTime(sendAt.toISOString())}`,
+    messagePreview: renderPreviewTemplate(reminder.messageTemplate, variables),
+    promptPreview: renderPreviewTemplate(reminder.llmPromptTemplate, variables),
+  };
+}
+
+function resolveReminderPreviewSendAt(reminder: GroupReminderDraft, eventAt: Date): Date {
+  const sendAt = new Date(eventAt);
+
+  if (reminder.timingMode === 'relative_before_event') {
+    sendAt.setTime(eventAt.getTime() - (sanitizeReminderOffset(reminder.offsetMinutes) * 60_000));
+    return sendAt;
+  }
+
+  if (reminder.timingMode === 'relative_after_event') {
+    sendAt.setTime(eventAt.getTime() + (sanitizeReminderOffset(reminder.offsetMinutes) * 60_000));
+    return sendAt;
+  }
+
+  const [hours, minutes] = (reminder.localTime || '18:00').split(':').map((value) => Number.parseInt(value, 10));
+  sendAt.setHours(Number.isInteger(hours) ? hours : 18, Number.isInteger(minutes) ? minutes : 0, 0, 0);
+
+  if (reminder.timingMode === 'fixed_previous_day') {
+    sendAt.setDate(sendAt.getDate() - 1);
+  }
+
+  return sendAt;
+}
+
+function buildReminderPreviewVariables(
+  reminder: GroupReminderDraft,
+  context: ReturnType<typeof buildReminderPreviewContext>,
+  eventAt: Date,
+  sendAt: Date,
+): Record<string, string | number> {
+  const diffMinutes = Math.round((eventAt.getTime() - sendAt.getTime()) / 60_000);
+  const minutesUntilEvent = Math.max(diffMinutes, 0);
+  const minutesSinceEvent = Math.max(-diffMinutes, 0);
+
+  return {
+    group_label: context.groupLabel,
+    event_title: context.eventTitle,
+    event_date: context.eventDateLabel,
+    event_time: context.eventTimeLabel,
+    event_datetime: `${context.eventDateLabel}, ${context.eventTimeLabel}`,
+    send_datetime: formatShortDateTime(sendAt.toISOString()),
+    reminder_label: readableReminderSummary(reminder),
+    minutes_until_event: minutesUntilEvent,
+    hours_until_event: formatReminderHours(minutesUntilEvent),
+    minutes_since_event: minutesSinceEvent,
+    hours_since_event: formatReminderHours(minutesSinceEvent),
+  };
+}
+
+function renderPreviewTemplate(template: string, variables: Record<string, string | number>): string {
+  const resolved = template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/gu, (_match, key) => String(variables[key] ?? ''));
+  return resolved.trim() || 'Sem texto ainda.';
+}
+
+function formatReminderHours(minutes: number): string {
+  if (minutes <= 0) {
+    return '0';
+  }
+
+  const hours = minutes / 60;
+  return Number.isInteger(hours) ? String(hours) : hours.toFixed(1);
 }
 
 function createEmptyGroupKnowledgeDraft(): GroupKnowledgeDraft {

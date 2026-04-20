@@ -15,6 +15,12 @@ export interface WeeklyPlannerNotificationSummary {
   readonly total: number;
 }
 
+export interface WeeklyPlannerReminderLifecycleSummary {
+  readonly generated: number;
+  readonly prepared: number;
+  readonly sent: number;
+}
+
 export interface WeeklyPlannerGroupSummary {
   readonly groupJid: string;
   readonly preferredSubject: string;
@@ -37,6 +43,9 @@ export interface WeeklyPlannerEventSummary {
   readonly notes: string;
   readonly notificationRuleLabels: readonly string[];
   readonly notifications: WeeklyPlannerNotificationSummary;
+  readonly nextReminderAt: string | null;
+  readonly nextReminderLabel: string | null;
+  readonly reminderLifecycle: WeeklyPlannerReminderLifecycleSummary;
 }
 
 export interface WeeklyPlannerSnapshot {

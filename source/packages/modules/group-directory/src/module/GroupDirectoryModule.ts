@@ -111,6 +111,13 @@ export class GroupDirectoryModule extends BaseModule implements GroupDirectoryMo
     return this.service.getGroupPolicy(groupJid);
   }
 
+  async updateGroupPolicy(
+    groupJid: string,
+    input: Parameters<GroupDirectoryService['updateGroupPolicy']>[1],
+  ) {
+    return this.service.updateGroupPolicy(groupJid, input);
+  }
+
   async isGroupOwner(groupJid: string, personId: string) {
     return this.service.isGroupOwner(groupJid, personId);
   }

@@ -28,6 +28,7 @@
     "@lume-hub/llm-orchestrator": "workspace:*",
     "@lume-hub/media-library": "workspace:*",
     "@lume-hub/message-alerts": "workspace:*",
+    "@lume-hub/notification-rules": "workspace:*",
     "@lume-hub/people-memory": "workspace:*",
     "@lume-hub/system-power": "workspace:*",
     "@lume-hub/watchdog": "workspace:*",

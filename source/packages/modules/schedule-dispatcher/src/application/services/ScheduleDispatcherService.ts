@@ -1,10 +1,8 @@
 import { SystemClock, type Clock } from '@lume-hub/clock';
 import type { DeliveryTrackerService } from '@lume-hub/delivery-tracker';
+import type { InstructionQueueModuleContract } from '@lume-hub/instruction-queue';
 import type { NotificationJob, NotificationJobRepository } from '@lume-hub/notification-jobs';
-import type { IWhatsAppGateway } from '@lume-hub/whatsapp-baileys';
-
 import type { DispatchJobResult, DispatchTickResult } from '../../domain/entities/DispatchTickResult.js';
-import { DispatchMessageFormatter } from '../../domain/services/DispatchMessageFormatter.js';
 import { TickSerialiser } from '../../domain/services/TickSerialiser.js';
 
 export interface ScheduleDispatcherTickInput {
@@ -20,9 +18,9 @@ function sortJobs(left: NotificationJob, right: NotificationJob): number {
 export class ScheduleDispatcherService {
   constructor(
     private readonly notificationJobRepository: NotificationJobRepository,
+    private readonly notificationJobs: Pick<import('@lume-hub/notification-jobs').NotificationJobsModuleContract, 'markPrepared' | 'listJobs'>,
     private readonly deliveryTrackerService: DeliveryTrackerService,
-    private readonly gateway: IWhatsAppGateway,
-    private readonly formatter = new DispatchMessageFormatter(),
+    private readonly instructionQueue: Pick<InstructionQueueModuleContract, 'enqueueInstruction'>,
     private readonly clock: Clock = new SystemClock(),
     private readonly tickSerialiser = new TickSerialiser(),
   ) {}
@@ -51,6 +49,7 @@ export class ScheduleDispatcherService {
         .filter(
           (job) =>
             job.status === 'pending' &&
+            !job.preparedAt &&
             !job.suppressedAt &&
             !job.disabledAt &&
             Date.parse(job.sendAt) <= now.getTime(),
@@ -83,7 +82,13 @@ export class ScheduleDispatcherService {
   private async dispatchJob(job: NotificationJob): Promise<DispatchJobResult> {
     const currentJob = await this.readJob(job.jobId, job.groupJid);
 
-    if (!currentJob || currentJob.status !== 'pending' || currentJob.disabledAt || currentJob.suppressedAt) {
+    if (
+      !currentJob ||
+      currentJob.status !== 'pending' ||
+      currentJob.preparedAt ||
+      currentJob.disabledAt ||
+      currentJob.suppressedAt
+    ) {
       return {
         jobId: job.jobId,
         status: 'skipped',
@@ -91,31 +96,47 @@ export class ScheduleDispatcherService {
       };
     }
 
-    if (currentJob.attempts > 0 || currentJob.lastOutboundObservationAt) {
-      await this.deliveryTrackerService.resolvePendingAttempt(currentJob.jobId, {
-        groupJid: currentJob.groupJid,
-      });
-      const resolvedJob = await this.readJob(currentJob.jobId, currentJob.groupJid);
-
-      if (!resolvedJob || resolvedJob.status !== 'pending') {
-        return {
-          jobId: currentJob.jobId,
-          status: 'skipped',
-          reason: 'job-already-in-flight',
-        };
-      }
-    }
-
-    const sendResult = await this.gateway.sendText({
-      chatJid: currentJob.groupJid,
-      text: this.formatter.format(currentJob),
-      idempotencyKey: currentJob.jobId,
-    });
-
-    await this.deliveryTrackerService.registerAttemptStarted(
-      {
+    const instruction = await this.instructionQueue.enqueueInstruction({
+      sourceType: 'notification_reminder',
+      sourceMessageId: `${currentJob.jobId}:${currentJob.sendAt}`,
+      mode: 'confirmed',
+      metadata: {
+        queueLabel: currentJob.ruleLabel ?? currentJob.ruleType,
+        queueSummary: `${currentJob.groupLabel} · ${currentJob.title} · ${currentJob.ruleLabel ?? currentJob.ruleType}`,
         jobId: currentJob.jobId,
-        messageId: sendResult.messageId,
+        groupJid: currentJob.groupJid,
+      },
+      actions: [
+        {
+          type: 'notification_reminder_delivery',
+          dedupeKey: `${currentJob.jobId}:${currentJob.sendAt}`,
+          targetGroupJid: currentJob.groupJid,
+          payload: {
+            kind: 'reminder_delivery',
+            jobId: currentJob.jobId,
+            eventId: currentJob.eventId,
+            ruleId: currentJob.ruleId,
+            ruleLabel: currentJob.ruleLabel,
+            groupJid: currentJob.groupJid,
+            groupLabel: currentJob.groupLabel,
+            eventTitle: currentJob.title,
+            eventAt: currentJob.eventAt,
+            sendAt: currentJob.sendAt,
+            timeZone: currentJob.timeZone,
+            summaryLabel: currentJob.ruleLabel ?? currentJob.ruleType,
+            messageTemplate: currentJob.messageTemplate,
+            llmPromptTemplate: currentJob.llmPromptTemplate,
+          },
+        },
+      ],
+    });
+    const preparedAction = instruction.actions[0] ?? null;
+    await this.notificationJobs.markPrepared(
+      currentJob.jobId,
+      {
+        preparedAt: this.clock.now().toISOString(),
+        preparedInstructionId: instruction.instructionId,
+        preparedActionId: preparedAction?.actionId ?? null,
       },
       {
         groupJid: currentJob.groupJid,
@@ -124,8 +145,8 @@ export class ScheduleDispatcherService {
 
     return {
       jobId: currentJob.jobId,
-      status: 'started',
-      messageId: sendResult.messageId,
+      status: 'prepared',
+      instructionId: instruction.instructionId,
     };
   }
 

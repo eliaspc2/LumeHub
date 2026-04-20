@@ -9,6 +9,7 @@ import { ScheduleWeeksModule } from '@lume-hub/schedule-weeks';
 import { WaNotifyScheduleImportService } from '../application/services/WaNotifyScheduleImportService.js';
 import { WeeklyPlannerService } from '../application/services/WeeklyPlannerService.js';
 import type { WeeklyPlannerModuleContract } from '../public/contracts/index.js';
+import type { WeeklyPlannerQuery, WeeklyPlannerSnapshot, WeeklyPlannerUpsertInput } from '../domain/entities/WeeklyPlanner.js';
 import type { WeeklyPlannerModuleConfig } from './WeeklyPlannerModuleConfig.js';
 
 export class WeeklyPlannerModule extends BaseModule implements WeeklyPlannerModuleContract {
@@ -75,11 +76,11 @@ export class WeeklyPlannerModule extends BaseModule implements WeeklyPlannerModu
       });
   }
 
-  async getWeekSnapshot(query = {}) {
+  async getWeekSnapshot(query: WeeklyPlannerQuery = {}): Promise<WeeklyPlannerSnapshot> {
     return this.service.getWeekSnapshot(query);
   }
 
-  async saveSchedule(input: import('../public/contracts/index.js').WeeklyPlannerUpsertInput) {
+  async saveSchedule(input: WeeklyPlannerUpsertInput) {
     return this.service.saveSchedule(input);
   }
 

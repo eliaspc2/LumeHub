@@ -123,12 +123,6 @@ export class ModuleLoader {
       dataRootPath: paths.dataRootPath,
       clock: this.config.clock,
     });
-    const scheduleDispatcherModule = new ScheduleDispatcherModule({
-      dataRootPath: paths.dataRootPath,
-      clock: this.config.clock,
-      gateway: whatsAppGateway,
-      deliveryTrackerService: deliveryTrackerModule.service,
-    });
     const mediaLibraryModule = new MediaLibraryModule({
       dataRootPath: paths.dataRootPath,
     });
@@ -168,17 +162,6 @@ export class ModuleLoader {
       notificationRules: notificationRulesModule,
       scheduleEvents: scheduleEventsModule,
       scheduleWeeks: scheduleWeeksModule,
-    });
-    const instructionQueueExecutor = new InstructionQueueExecutionRuntime({
-      whatsAppRuntime: whatsAppWorkspaceRuntime,
-      mediaLibrary: mediaLibraryModule,
-      weeklyPlanner: weeklyPlannerModule,
-      uiEventPublisher: webSocketGateway.publisher,
-    });
-    const instructionQueueModule = new InstructionQueueModule({
-      dataRootPath: paths.dataRootPath,
-      queueFilePath: paths.queueFilePath,
-      actionExecutor: new InstructionActionExecutor(instructionQueueExecutor.createHandler()),
     });
     const systemPowerModule = new SystemPowerModule({
       clock: this.config.clock,
@@ -271,6 +254,27 @@ export class ModuleLoader {
       dataRootPath: paths.dataRootPath,
       providerRegistry: llmProviderRegistry,
       providerResolver: async () => (await getLlmRuntimeStatus()).effectiveProviderId,
+    });
+    const instructionQueueExecutor = new InstructionQueueExecutionRuntime({
+      whatsAppRuntime: whatsAppWorkspaceRuntime,
+      deliveryTracker: deliveryTrackerModule,
+      notificationJobs: notificationJobsModule,
+      llmOrchestrator: llmOrchestratorModule,
+      mediaLibrary: mediaLibraryModule,
+      weeklyPlanner: weeklyPlannerModule,
+      uiEventPublisher: webSocketGateway.publisher,
+    });
+    const instructionQueueModule = new InstructionQueueModule({
+      dataRootPath: paths.dataRootPath,
+      queueFilePath: paths.queueFilePath,
+      actionExecutor: new InstructionActionExecutor(instructionQueueExecutor.createHandler()),
+    });
+    const scheduleDispatcherModule = new ScheduleDispatcherModule({
+      dataRootPath: paths.dataRootPath,
+      clock: this.config.clock,
+      notificationJobs: notificationJobsModule,
+      deliveryTrackerService: deliveryTrackerModule.service,
+      instructionQueue: instructionQueueModule,
     });
     const ownerControlModule = new OwnerControlModule({
       commandPolicy: commandPolicyModule,

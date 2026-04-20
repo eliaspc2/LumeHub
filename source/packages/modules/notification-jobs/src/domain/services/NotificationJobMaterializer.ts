@@ -26,8 +26,14 @@ export class NotificationJobMaterializer {
         eventAt: event.eventAt,
         timeZone: event.timeZone,
         ruleType: rule.kind,
+        ruleLabel: rule.label ?? rule.kind,
+        messageTemplate: rule.messageTemplate ?? null,
+        llmPromptTemplate: rule.llmPromptTemplate ?? null,
         sendAt: this.resolveSendAt(event, rule),
         status: 'pending' as const,
+        preparedAt: null,
+        preparedInstructionId: null,
+        preparedActionId: null,
         attempts: 0,
         lastError: null,
         lastOutboundObservationAt: null,
@@ -42,6 +48,11 @@ export class NotificationJobMaterializer {
     if (rule.kind === 'relative_before_event') {
       const eventAt = new Date(event.eventAt);
       return new Date(eventAt.getTime() - ((rule.offsetMinutesBeforeEvent ?? 0) * 60_000)).toISOString();
+    }
+
+    if (rule.kind === 'relative_after_event') {
+      const eventAt = new Date(event.eventAt);
+      return new Date(eventAt.getTime() + ((rule.offsetMinutesAfterEvent ?? 0) * 60_000)).toISOString();
     }
 
     const eventLocalDate = this.weekCalculator.getLocalDateParts(event.eventAt, event.timeZone);

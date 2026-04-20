@@ -28,7 +28,7 @@ Estado canonico deixado pela ronda `group-first`:
 Validacao consolidada atual:
 
 - `cd /home/eliaspc/Documentos/lume-hub/source`
-- `corepack pnpm run validate:wave67`
+- `corepack pnpm run validate:wave68`
 
 ## Ronda `ui-clarity`
 
@@ -100,7 +100,7 @@ Objetivo da ronda:
 
 Base deixada antes desta ronda:
 
-- a validacao consolidada atual desta ronda passou a ser `validate:wave67`
+- a validacao consolidada atual desta ronda passou a ser `validate:wave68`
 - o `Codex Router` ja ficou exposto como pagina propria em `/codex-router`
 - a shell ja tem contratos visuais mais fortes; agora falta torná-los mais comerciais e mais autoexplicativos
 
@@ -119,45 +119,13 @@ A `Wave 67` ja fechou `Calendario` e `LLM` com foco operacional:
 - `LLM` ficou `chat-first`, com scheduling recolhido por defeito e auditoria curta sob divulgacao progressiva
 - a validacao consolidada atual passou a ser `validate:wave67`
 
-### Wave 68 - Lembretes por grupo, janelas temporais e copy assistida pela LLM
+A `Wave 68` ja fechou lembretes por grupo, janelas temporais e copy assistida pela LLM:
 
-Objetivo:
-- transformar lembretes por grupo numa funcionalidade configuravel, legivel e comercial, sem empurrar o operador para uma consola de regras crua
-
-Entrega esperada:
-
-- `Grupos` e `Grupo detalhado`:
-  - permitir configurar `1..N` lembretes por grupo
-  - permitir regras diferentes por lembrete, incluindo:
-    - `x tempo antes`
-    - hora fixa no dia anterior
-    - hora fixa no proprio dia
-    - `x tempo depois`
-  - resumir cada lembrete em linguagem humana:
-    - `24h antes`
-    - `dia anterior as 18:00`
-    - `30 min depois`
-- `Calendario`:
-  - mostrar quantos lembretes ativos existem por evento/grupo
-  - mostrar o proximo disparo previsto sem obrigar a abrir detalhe tecnico cedo demais
-- `LLM` e configuracao de copy:
-  - permitir definir o texto base enviado para a LLM por lembrete
-  - suportar prompts orientados ao momento do lembrete, por exemplo:
-    - `daqui a X horas temos o evento Y`
-    - `ultima oportunidade para fazer o teste X`
-    - `ja passou X tempo desde o evento Y`
-  - expor variaveis canonicas e preview do resultado antes de ativar
-- `Queue` e runtime:
-  - assumir explicitamente que a `instruction-queue` vai crescer com `1..N` lembretes por evento/grupo
-  - garantir dedupe, cancelacao quando o evento muda e auditoria clara de `gerado -> preparado -> enviado`
-  - manter a fila legivel para operador pouco tecnico, com resumos e prioridade em vez de IDs por defeito
-
-Vale a pena o utilizador testar no fim:
-
-- criar varios lembretes no mesmo grupo
-- misturar `antes`, `hora fixa` e `depois`
-- rever preview do texto que vai para a LLM
-- alterar um evento e confirmar que a fila e os lembretes acompanham a mudanca
+- `Grupos` e `Grupo detalhado` passaram a permitir `1..N` lembretes por grupo, com regras `antes`, hora fixa e `depois`
+- `Calendario` passou a mostrar o proximo lembrete e o ciclo `gerados -> preparados -> enviados` por evento
+- a configuracao de copy passou a expor variaveis canonicas, preview da mensagem base e prompt opcional para a LLM
+- a `instruction-queue` passou a tratar lembretes como trabalho auditavel e deduplicado, com cancelacao quando o evento muda
+- a validacao consolidada atual passou a ser `validate:wave68`
 
 ### Wave 69 - Grupos e WhatsApp como fluxos guiados
 

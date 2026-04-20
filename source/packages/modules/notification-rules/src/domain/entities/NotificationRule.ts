@@ -1,4 +1,4 @@
-export type NotificationRuleKind = 'relative_before_event' | 'fixed_local_time';
+export type NotificationRuleKind = 'relative_before_event' | 'fixed_local_time' | 'relative_after_event';
 
 export interface NotificationRule {
   readonly ruleId: string;
@@ -8,8 +8,11 @@ export interface NotificationRule {
   readonly enabled: boolean;
   readonly label: string | null;
   readonly offsetMinutesBeforeEvent?: number | null;
+  readonly offsetMinutesAfterEvent?: number | null;
   readonly daysBeforeEvent?: number | null;
   readonly localTime?: string | null;
+  readonly messageTemplate?: string | null;
+  readonly llmPromptTemplate?: string | null;
 }
 
 export interface NotificationRuleDefinitionInput {
@@ -18,6 +21,9 @@ export interface NotificationRuleDefinitionInput {
   readonly enabled?: boolean;
   readonly label?: string | null;
   readonly offsetMinutesBeforeEvent?: number | null;
+  readonly offsetMinutesAfterEvent?: number | null;
   readonly daysBeforeEvent?: number | null;
   readonly localTime?: string | null;
+  readonly messageTemplate?: string | null;
+  readonly llmPromptTemplate?: string | null;
 }

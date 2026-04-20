@@ -16,6 +16,7 @@ import type {
   MigrationReadinessSnapshot,
   SettingsSnapshot,
   AutomationRunSnapshot,
+  WeeklyPlannerSnapshot,
   WorkspaceAgentStatusSnapshot,
   WorkspaceAgentRunSnapshot,
   WorkspaceFileSnapshot,
@@ -63,6 +64,7 @@ export interface GroupManagementPageData {
   readonly previewText: string;
   readonly intelligence: GroupIntelligenceSnapshot | null;
   readonly contextPreview: GroupContextPreviewSnapshot | null;
+  readonly reminderPreviewEvent: WeeklyPlannerSnapshot['events'][number] | null;
   readonly loadWarning: string | null;
 }
 
@@ -244,6 +246,7 @@ export class AppRouter {
           const basePage = this.groupDirectory.render(groups);
           let intelligence: GroupIntelligenceSnapshot | null = null;
           let contextPreview: GroupContextPreviewSnapshot | null = null;
+          let reminderPreviewEvent: WeeklyPlannerSnapshot['events'][number] | null = null;
           let loadWarning: string | null = null;
 
           if (selectedGroupJid) {
@@ -263,6 +266,16 @@ export class AppRouter {
                   `O preview contextual deste grupo ainda nao ficou disponivel live. ${readErrorMessage(error)}`;
               }
             }
+
+            try {
+              const groupWeek = await this.client.getWeeklyPlanner({
+                groupJid: selectedGroupJid,
+              });
+              reminderPreviewEvent = groupWeek.events[0] ?? null;
+            } catch (error) {
+              loadWarning ??=
+                `Ainda nao foi possivel ler um evento de exemplo deste grupo para os lembretes. ${readErrorMessage(error)}`;
+            }
           }
 
           return {
@@ -275,6 +288,7 @@ export class AppRouter {
               previewText: this.groupManagementSelection.previewText,
               intelligence,
               contextPreview,
+              reminderPreviewEvent,
               loadWarning,
             } satisfies GroupManagementPageData,
           };

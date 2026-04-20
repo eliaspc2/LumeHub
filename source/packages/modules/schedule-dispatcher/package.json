@@ -19,6 +19,7 @@
   "dependencies": {
     "@lume-hub/clock": "workspace:*",
     "@lume-hub/delivery-tracker": "workspace:*",
+    "@lume-hub/instruction-queue": "workspace:*",
     "@lume-hub/kernel": "workspace:*",
     "@lume-hub/notification-jobs": "workspace:*",
     "@lume-hub/persistence-group-files": "workspace:*",

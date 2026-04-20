@@ -45,12 +45,15 @@ const notificationRuleSchema = z
     ruleId: z.string().trim().min(1),
     eventId: z.string().trim().min(1),
     weekId: weekIdSchema,
-    kind: z.enum(['relative_before_event', 'fixed_local_time']),
+    kind: z.enum(['relative_before_event', 'fixed_local_time', 'relative_after_event']),
     enabled: z.boolean().default(true),
     label: z.string().trim().min(1).nullable().default(null),
     offsetMinutesBeforeEvent: z.number().int().positive().nullable().optional(),
+    offsetMinutesAfterEvent: z.number().int().positive().nullable().optional(),
     daysBeforeEvent: z.number().int().nonnegative().nullable().optional(),
     localTime: localTimeSchema.nullable().optional(),
+    messageTemplate: z.string().trim().min(1).nullable().optional(),
+    llmPromptTemplate: z.string().trim().min(1).nullable().optional(),
   })
   .superRefine((value, context) => {
     if (value.kind === 'relative_before_event' && !value.offsetMinutesBeforeEvent) {
@@ -78,6 +81,14 @@ const notificationRuleSchema = z
         });
       }
     }
+
+    if (value.kind === 'relative_after_event' && !value.offsetMinutesAfterEvent) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['offsetMinutesAfterEvent'],
+        message: 'relative_after_event rules require offsetMinutesAfterEvent.',
+      });
+    }
   });
 
 const notificationSchema = z.object({
@@ -87,11 +98,18 @@ const notificationSchema = z.object({
   ruleType: z.union([
     z.literal('relative_before_event'),
     z.literal('fixed_local_time'),
+    z.literal('relative_after_event'),
     z.literal('relative_offset'),
     z.string().trim().min(1),
   ]),
+  ruleLabel: z.string().trim().min(1).nullable().default(null),
+  messageTemplate: z.string().trim().min(1).nullable().optional(),
+  llmPromptTemplate: z.string().trim().min(1).nullable().optional(),
   sendAt: isoDateTimeStringSchema,
   status: z.enum(['pending', 'waiting_confirmation', 'sent']),
+  preparedAt: isoDateTimeStringSchema.nullable().optional(),
+  preparedInstructionId: z.string().trim().min(1).nullable().optional(),
+  preparedActionId: z.string().trim().min(1).nullable().optional(),
   attempts: z.number().int().nonnegative(),
   lastError: z.string().nullable(),
   lastOutboundObservationAt: isoDateTimeStringSchema.nullable(),

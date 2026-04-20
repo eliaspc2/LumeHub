@@ -106,7 +106,7 @@ export interface BackendOperationalTickSnapshot {
   readonly scheduleDispatcher: {
     readonly dueJobsScanned: number;
     readonly waitingConfirmationReviewed: number;
-    readonly started: number;
+    readonly prepared: number;
     readonly skipped: number;
   };
   readonly hostHeartbeatAt: string | null;
@@ -301,10 +301,10 @@ export class BackendRuntime {
   async performOperationalTick(now = new Date()): Promise<BackendOperationalTickSnapshot> {
     try {
       await this.options.modules.systemPowerModule.evaluatePowerPolicy();
-      const instructionQueueTick = await this.options.modules.instructionQueueModule.tickWorker(now);
       const scheduleDispatcherTick = await this.options.modules.scheduleDispatcherModule.tick({
         now,
       });
+      const instructionQueueTick = await this.options.modules.instructionQueueModule.tickWorker(now);
       const automationTick = await this.options.modules.automationsModule.tick(
         {
           sendText: (input) => this.options.whatsAppWorkspaceRuntime.sendText(input),
@@ -337,7 +337,7 @@ export class BackendRuntime {
         scheduleDispatcher: {
           dueJobsScanned: scheduleDispatcherTick.dueJobsScanned,
           waitingConfirmationReviewed: scheduleDispatcherTick.waitingConfirmationReviewed,
-          started: scheduleDispatcherTick.results.filter((result) => result.status === 'started').length,
+          prepared: scheduleDispatcherTick.results.filter((result) => result.status === 'prepared').length,
           skipped: scheduleDispatcherTick.results.filter((result) => result.status === 'skipped').length,
         },
         hostHeartbeatAt: hostStatus.runtime.lastHeartbeatAt,

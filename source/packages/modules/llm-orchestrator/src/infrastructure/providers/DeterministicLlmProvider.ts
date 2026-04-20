@@ -136,6 +136,21 @@ function buildChatReply(input: LlmChatInput): string {
       .trim() || 'Consigo interpretar o pedido e cruzar com o contexto recente.';
   }
 
+  if (input.intent === 'reminder_copy_request') {
+    const titleFact = input.contextSummary?.find((entry) => entry.startsWith('Evento: ')) ?? null;
+    const timeFact = input.domainFacts?.find((entry) => entry.startsWith('event_datetime=')) ?? null;
+    const momentFact = input.contextSummary?.find((entry) => entry.startsWith('Momento do lembrete: ')) ?? null;
+
+    return [
+      momentFact?.replace('Momento do lembrete: ', '') ?? 'Lembrete',
+      titleFact?.replace('Evento: ', '') ?? 'evento',
+      timeFact?.replace('event_datetime=', '') ?? '',
+    ]
+      .filter(Boolean)
+      .join(' · ')
+      .trim();
+  }
+
   return [
     primaryFact ? `Contexto operacional: ${primaryFact}` : null,
     contextLine ? `Contexto recente: ${contextLine}` : null,

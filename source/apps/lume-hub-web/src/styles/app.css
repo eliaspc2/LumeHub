@@ -901,6 +901,14 @@ textarea {
   border-bottom: 1px solid var(--line-soft);
 }
 
+.card-header--with-switch {
+  align-items: flex-start;
+}
+
+.card-header--with-switch .ui-switch {
+  width: min(100%, 320px);
+}
+
 .card-header > :first-child {
   min-width: 0;
   display: grid;
@@ -987,6 +995,41 @@ textarea {
 
 .group-settings-switches .ui-switch {
   height: 100%;
+}
+
+.group-reminder-list,
+.group-reminder-preview-list {
+  display: grid;
+  gap: 14px;
+}
+
+.group-reminder-card {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: 20px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbf6 100%);
+}
+
+.group-reminder-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.group-reminder-card__header h4 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.group-reminder-card__header p {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  line-height: 1.55;
 }
 
 .settings-switch-grid {

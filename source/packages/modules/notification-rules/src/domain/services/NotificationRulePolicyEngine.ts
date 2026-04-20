@@ -5,35 +5,25 @@ import type {
   NotificationRuleDefinitionInput,
   NotificationRuleKind,
 } from '../entities/NotificationRule.js';
+import {
+  defaultLlmPromptTemplateForRule,
+  defaultMessageTemplateForRule,
+  describeNotificationRuleDefinition,
+} from './ReminderPolicyToolkit.js';
 
 function defaultLabelForRule(kind: NotificationRuleKind, input: NotificationRuleDefinitionInput): string | null {
   if (input.label !== undefined) {
     return input.label;
   }
 
-  if (kind === 'relative_before_event') {
-    const totalOffsetMinutes = resolveRelativeOffsetMinutes(input, false);
-
-    if (!totalOffsetMinutes) {
-      return null;
-    }
-
-    if (totalOffsetMinutes === 1_440) {
-      return '24h before';
-    }
-
-    if (totalOffsetMinutes === 30) {
-      return '30m before';
-    }
-
-    return `${totalOffsetMinutes}m before`;
-  }
-
-  if (kind === 'fixed_local_time' && input.daysBeforeEvent !== undefined && input.localTime) {
-    return `${input.daysBeforeEvent}d before at ${input.localTime}`;
-  }
-
-  return null;
+  return describeNotificationRuleDefinition({
+    kind,
+    daysBeforeEvent: input.daysBeforeEvent,
+    offsetMinutesBeforeEvent: input.offsetMinutesBeforeEvent,
+    offsetMinutesAfterEvent: input.offsetMinutesAfterEvent,
+    localTime: input.localTime,
+    label: input.label,
+  });
 }
 
 function defaultRuleId(eventId: string, input: NotificationRuleDefinitionInput, index: number): string {
@@ -45,6 +35,10 @@ function defaultRuleId(eventId: string, input: NotificationRuleDefinitionInput, 
     return `rule-${eventId}-before-${resolveRelativeOffsetMinutes(input, false) ?? index}`;
   }
 
+  if (input.kind === 'relative_after_event') {
+    return `rule-${eventId}-after-${resolveRelativeAfterOffsetMinutes(input, false) ?? index}`;
+  }
+
   return `rule-${eventId}-fixed-${input.daysBeforeEvent ?? 0}-${input.localTime ?? index}`;
 }
 
@@ -54,10 +48,12 @@ export class NotificationRulePolicyEngine {
       {
         kind: 'relative_before_event',
         offsetMinutesBeforeEvent: 1_440,
+        label: '24h antes',
       },
       {
         kind: 'relative_before_event',
         offsetMinutesBeforeEvent: 30,
+        label: '30 min antes',
       },
     ]);
   }
@@ -88,14 +84,54 @@ export class NotificationRulePolicyEngine {
         weekId: event.weekId,
         kind: definition.kind,
         enabled: definition.enabled ?? true,
-        label: defaultLabelForRule(definition.kind, definition),
+        label:
+          definition.label
+          ?? describeNotificationRuleDefinition({
+            kind: definition.kind,
+            offsetMinutesBeforeEvent: totalOffsetMinutes,
+          }),
         offsetMinutesBeforeEvent: totalOffsetMinutes,
+        offsetMinutesAfterEvent: null,
         daysBeforeEvent: null,
         localTime: null,
+        messageTemplate: definition.messageTemplate ?? defaultMessageTemplateForRule(definition),
+        llmPromptTemplate: definition.llmPromptTemplate ?? defaultLlmPromptTemplateForRule(definition),
       };
     }
 
-    if (definition.daysBeforeEvent === undefined || definition.daysBeforeEvent === null || definition.daysBeforeEvent < 0) {
+    if (definition.kind === 'relative_after_event') {
+      const totalOffsetMinutes = resolveRelativeAfterOffsetMinutes(definition, true);
+
+      if (!totalOffsetMinutes || totalOffsetMinutes <= 0) {
+        throw new Error('relative_after_event rules require a positive offset.');
+      }
+
+      return {
+        ruleId: defaultRuleId(event.eventId, definition, index),
+        eventId: event.eventId,
+        weekId: event.weekId,
+        kind: definition.kind,
+        enabled: definition.enabled ?? true,
+        label:
+          definition.label
+          ?? describeNotificationRuleDefinition({
+            kind: definition.kind,
+            offsetMinutesAfterEvent: totalOffsetMinutes,
+          }),
+        offsetMinutesBeforeEvent: null,
+        offsetMinutesAfterEvent: totalOffsetMinutes,
+        daysBeforeEvent: null,
+        localTime: null,
+        messageTemplate: definition.messageTemplate ?? defaultMessageTemplateForRule(definition),
+        llmPromptTemplate: definition.llmPromptTemplate ?? defaultLlmPromptTemplateForRule(definition),
+      };
+    }
+
+    if (
+      definition.daysBeforeEvent === undefined ||
+      definition.daysBeforeEvent === null ||
+      definition.daysBeforeEvent < 0
+    ) {
       throw new Error('fixed_local_time rules require daysBeforeEvent >= 0.');
     }
 
@@ -111,8 +147,11 @@ export class NotificationRulePolicyEngine {
       enabled: definition.enabled ?? true,
       label: defaultLabelForRule(definition.kind, definition),
       offsetMinutesBeforeEvent: null,
+      offsetMinutesAfterEvent: null,
       daysBeforeEvent: definition.daysBeforeEvent,
       localTime: definition.localTime,
+      messageTemplate: definition.messageTemplate ?? defaultMessageTemplateForRule(definition),
+      llmPromptTemplate: definition.llmPromptTemplate ?? defaultLlmPromptTemplateForRule(definition),
     };
   }
 }
@@ -141,4 +180,21 @@ function resolveRelativeOffsetMinutes(
   }
 
   return (daysBeforeEvent * 1_440) + offsetMinutesBeforeEvent;
+}
+
+function resolveRelativeAfterOffsetMinutes(
+  input: NotificationRuleDefinitionInput,
+  validate = true,
+): number | null {
+  const offsetMinutesAfterEvent = input.offsetMinutesAfterEvent ?? 0;
+
+  if (!validate) {
+    return offsetMinutesAfterEvent >= 0 ? offsetMinutesAfterEvent : null;
+  }
+
+  if (!Number.isInteger(offsetMinutesAfterEvent) || offsetMinutesAfterEvent < 0) {
+    throw new Error('relative_after_event rules require offsetMinutesAfterEvent >= 0 when provided.');
+  }
+
+  return offsetMinutesAfterEvent;
 }

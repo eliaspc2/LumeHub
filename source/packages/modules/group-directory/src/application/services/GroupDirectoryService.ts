@@ -224,6 +224,20 @@ export class GroupDirectoryService {
     }
   }
 
+  async updateGroupPolicy(
+    groupJid: string,
+    input: { readonly value: Record<string, unknown> },
+  ): Promise<GroupPolicyDocument> {
+    const workspace = await this.getGroupWorkspace(groupJid);
+    await mkdir(dirname(workspace.policyPath), { recursive: true });
+    await writeFile(
+      workspace.policyPath,
+      ensureTrailingNewline(JSON.stringify(input.value, null, 2)),
+      'utf8',
+    );
+    return this.getGroupPolicy(groupJid);
+  }
+
   private async findRequiredGroup(groupJid: string): Promise<Group> {
     const group = await this.findByJid(groupJid);
 

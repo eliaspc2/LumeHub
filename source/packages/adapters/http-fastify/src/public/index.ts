@@ -33,6 +33,13 @@ import type { DistributionContentInput, Instruction, InstructionQueueModuleContr
 import type { LlmChatInput, LlmOrchestratorModuleContract, LlmRunLogEntry } from '@lume-hub/llm-orchestrator';
 import type { MediaLibraryModuleContract } from '@lume-hub/media-library';
 import type { MessageAlertsModuleContract } from '@lume-hub/message-alerts';
+import {
+  applyGroupReminderPolicyToDocument,
+  buildReminderTemplateVariableCatalog,
+  describeNotificationRuleDefinition,
+  extractGroupReminderPolicy,
+  type GroupReminderPolicy,
+} from '@lume-hub/notification-rules';
 import type { PeopleMemoryModuleContract, Person, PersonRole, PersonUpsertInput } from '@lume-hub/people-memory';
 import type { SystemPowerModuleContract } from '@lume-hub/system-power';
 import type { AutomationsModuleContract } from '@lume-hub/automations';
@@ -120,6 +127,8 @@ export interface HttpApiModules {
     | 'updateOperationalSettings'
     | 'getGroupLlmInstructions'
     | 'updateGroupLlmInstructions'
+    | 'getGroupPolicy'
+    | 'updateGroupPolicy'
   >;
   readonly groupKnowledge?: Pick<GroupKnowledgeModuleContract, 'getIndex' | 'upsertDocument' | 'deleteDocument'>;
   readonly healthMonitor: Pick<HealthMonitorModuleContract, 'getHealthSnapshot' | 'getReadiness'>;
@@ -785,6 +794,11 @@ export class RouteRegistrar {
     });
     server.registerRoute({
       method: 'GET',
+      path: '/api/groups/:groupJid/reminder-policy',
+      handler: async (context) => this.getGroupReminderPolicySnapshot(context.params.groupJid),
+    });
+    server.registerRoute({
+      method: 'GET',
       path: '/api/media/assets',
       handler: async () => {
         if (!this.modules.mediaLibrary) {
@@ -894,6 +908,24 @@ export class RouteRegistrar {
           resolvedFilePath: instructions.resolvedFilePath,
         });
         return instructions;
+      },
+    });
+    server.registerRoute({
+      method: 'PUT',
+      path: '/api/groups/:groupJid/reminder-policy',
+      handler: async (context) => {
+        const nextPolicy = readGroupReminderPolicyBody(context.body);
+        const currentDocument = await this.modules.groupDirectory.getGroupPolicy(context.params.groupJid);
+        const savedDocument = await this.modules.groupDirectory.updateGroupPolicy(context.params.groupJid, {
+          value: applyGroupReminderPolicyToDocument(currentDocument.value, nextPolicy),
+        });
+        const snapshot = mapGroupReminderPolicySnapshot(savedDocument.filePath, savedDocument.exists, nextPolicy);
+        this.publish('groups.reminders.updated', {
+          groupJid: context.params.groupJid,
+          enabled: snapshot.enabled,
+          reminderCount: snapshot.reminders.length,
+        });
+        return snapshot;
       },
     });
     server.registerRoute({
@@ -1647,20 +1679,35 @@ export class RouteRegistrar {
       throw new ApiError(404, 'Group knowledge is not configured.');
     }
 
-    const [instructions, knowledge] = await Promise.all([
+    const [instructions, knowledge, policy] = await Promise.all([
       this.modules.groupDirectory.getGroupLlmInstructions(groupJid),
       this.modules.groupKnowledge.getIndex(groupJid),
+      this.modules.groupDirectory.getGroupPolicy(groupJid),
     ]);
 
     return {
       groupJid,
       instructions,
+      policy: mapGroupReminderPolicySnapshot(
+        policy.filePath,
+        policy.exists,
+        extractGroupReminderPolicy(policy.value),
+      ),
       knowledge: {
         indexFilePath: knowledge.indexFilePath,
         exists: knowledge.exists,
         documents: knowledge.documents,
       },
     };
+  }
+
+  private async getGroupReminderPolicySnapshot(groupJid: string) {
+    const document = await this.modules.groupDirectory.getGroupPolicy(groupJid);
+    return mapGroupReminderPolicySnapshot(
+      document.filePath,
+      document.exists,
+      extractGroupReminderPolicy(document.value),
+    );
   }
 
   private async getGroupContextPreview(groupJid: string, body: unknown) {
@@ -2337,6 +2384,61 @@ function readGroupContextPreviewBody(
   };
 }
 
+function readGroupReminderPolicyBody(body: unknown): GroupReminderPolicy {
+  const payload = readBodyObject(body, 'Group reminder policy payload must be an object.');
+
+  if (!Array.isArray(payload.reminders)) {
+    throw new ApiError(400, 'reminders must be an array.');
+  }
+
+  return {
+    schemaVersion: 1,
+    enabled: readOptionalBooleanValue(payload.enabled, 'enabled') ?? true,
+    reminders: payload.reminders.map((entry, index) => readReminderDefinitionBody(entry, `reminders[${index}]`)),
+  };
+}
+
+function readReminderDefinitionBody(entry: unknown, fieldName: string): GroupReminderPolicy['reminders'][number] {
+  const payload = readBodyObject(entry, `${fieldName} must be an object.`);
+  const kind = readRequiredStringValue(payload.kind, `${fieldName}.kind`);
+
+  if (
+    kind !== 'relative_before_event' &&
+    kind !== 'fixed_local_time' &&
+    kind !== 'relative_after_event'
+  ) {
+    throw new ApiError(400, `${fieldName}.kind is not supported.`);
+  }
+
+  return {
+    ruleId: readOptionalTrimmedStringValue(payload.ruleId, `${fieldName}.ruleId`) ?? undefined,
+    kind,
+    enabled: readOptionalBooleanValue(payload.enabled, `${fieldName}.enabled`) ?? true,
+    label: payload.label === null ? null : readOptionalTrimmedStringValue(payload.label, `${fieldName}.label`) ?? null,
+    daysBeforeEvent:
+      payload.daysBeforeEvent === null
+        ? null
+        : readOptionalNonNegativeIntegerValue(payload.daysBeforeEvent, `${fieldName}.daysBeforeEvent`) ?? null,
+    offsetMinutesBeforeEvent:
+      payload.offsetMinutesBeforeEvent === null
+        ? null
+        : readOptionalPositiveIntegerValue(payload.offsetMinutesBeforeEvent, `${fieldName}.offsetMinutesBeforeEvent`) ?? null,
+    offsetMinutesAfterEvent:
+      payload.offsetMinutesAfterEvent === null
+        ? null
+        : readOptionalPositiveIntegerValue(payload.offsetMinutesAfterEvent, `${fieldName}.offsetMinutesAfterEvent`) ?? null,
+    localTime: payload.localTime === null ? null : readOptionalTrimmedStringValue(payload.localTime, `${fieldName}.localTime`) ?? null,
+    messageTemplate:
+      payload.messageTemplate === null
+        ? null
+        : readOptionalTrimmedStringValue(payload.messageTemplate, `${fieldName}.messageTemplate`) ?? null,
+    llmPromptTemplate:
+      payload.llmPromptTemplate === null
+        ? null
+        : readOptionalTrimmedStringValue(payload.llmPromptTemplate, `${fieldName}.llmPromptTemplate`) ?? null,
+  };
+}
+
 function readCommandsSettingsBody(body: unknown): Partial<CommandsPolicySettings> {
   const payload = readBodyObject(body, 'Command settings payload must be an object.');
 
@@ -2867,6 +2969,18 @@ function readOptionalPositiveIntegerValue(value: unknown, fieldName: string): nu
   return readRequiredPositiveIntegerValue(value, fieldName);
 }
 
+function readOptionalNonNegativeIntegerValue(value: unknown, fieldName: string): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    throw new ApiError(400, `${fieldName} must be a non-negative integer.`);
+  }
+
+  return value;
+}
+
 function readOptionalIdentifiers(
   value: unknown,
   fieldName: string,
@@ -2917,6 +3031,42 @@ function normaliseStringArray(values: readonly string[]): readonly string[] {
 
 function isPersonRole(value: unknown): value is PersonRole {
   return value === 'member' || value === 'app_owner';
+}
+
+function mapGroupReminderPolicySnapshot(
+  filePath: string,
+  exists: boolean,
+  policy: GroupReminderPolicy,
+) {
+  const previewContext = {
+    groupLabel: 'Grupo exemplo',
+    eventTitle: 'Aula exemplo',
+    eventAt: '2026-04-21T18:00:00.000Z',
+    sendAt: '2026-04-21T16:00:00.000Z',
+    timeZone: 'Europe/Lisbon',
+    reminderLabel: '2h antes',
+  } as const;
+
+  return {
+    filePath,
+    exists,
+    enabled: policy.enabled,
+    reminders: policy.reminders.map((reminder, index) => ({
+      reminderId: reminder.ruleId ?? `group-reminder-${index + 1}`,
+      enabled: reminder.enabled ?? true,
+      label: reminder.label ?? null,
+      kind: reminder.kind,
+      daysBeforeEvent: reminder.daysBeforeEvent ?? null,
+      offsetMinutesBeforeEvent: reminder.offsetMinutesBeforeEvent ?? null,
+      offsetMinutesAfterEvent: reminder.offsetMinutesAfterEvent ?? null,
+      localTime: reminder.localTime ?? null,
+      summaryLabel: describeNotificationRuleDefinition(reminder),
+      messageTemplate: reminder.messageTemplate ?? null,
+      llmPromptTemplate: reminder.llmPromptTemplate ?? null,
+      llmAssisted: Boolean(reminder.llmPromptTemplate),
+    })),
+    canonicalVariables: buildReminderTemplateVariableCatalog(previewContext),
+  };
 }
 
 function mapInstruction(instruction: Instruction) {

@@ -355,6 +355,52 @@ export interface GroupKnowledgeDocumentSnapshot {
   readonly content: string | null;
 }
 
+export interface GroupReminderVariableSnapshot {
+  readonly key: string;
+  readonly label: string;
+  readonly description: string;
+  readonly example: string;
+}
+
+export interface GroupReminderSnapshot {
+  readonly reminderId: string;
+  readonly enabled: boolean;
+  readonly label: string | null;
+  readonly kind: 'relative_before_event' | 'fixed_local_time' | 'relative_after_event';
+  readonly daysBeforeEvent: number | null;
+  readonly offsetMinutesBeforeEvent: number | null;
+  readonly offsetMinutesAfterEvent: number | null;
+  readonly localTime: string | null;
+  readonly summaryLabel: string;
+  readonly messageTemplate: string | null;
+  readonly llmPromptTemplate: string | null;
+  readonly llmAssisted: boolean;
+}
+
+export interface GroupReminderPolicySnapshot {
+  readonly filePath: string;
+  readonly exists: boolean;
+  readonly enabled: boolean;
+  readonly reminders: readonly GroupReminderSnapshot[];
+  readonly canonicalVariables: readonly GroupReminderVariableSnapshot[];
+}
+
+export interface GroupReminderPolicyUpdateInput {
+  readonly enabled: boolean;
+  readonly reminders: readonly {
+    readonly ruleId?: string;
+    readonly kind: GroupReminderSnapshot['kind'];
+    readonly enabled?: boolean;
+    readonly label?: string | null;
+    readonly daysBeforeEvent?: number | null;
+    readonly offsetMinutesBeforeEvent?: number | null;
+    readonly offsetMinutesAfterEvent?: number | null;
+    readonly localTime?: string | null;
+    readonly messageTemplate?: string | null;
+    readonly llmPromptTemplate?: string | null;
+  }[];
+}
+
 export interface GroupIntelligenceSnapshot {
   readonly groupJid: string;
   readonly instructions: {
@@ -364,6 +410,7 @@ export interface GroupIntelligenceSnapshot {
     readonly source: 'llm_instructions' | 'missing';
     readonly content: string | null;
   };
+  readonly policy: GroupReminderPolicySnapshot;
   readonly knowledge: {
     readonly indexFilePath: string;
     readonly exists: boolean;
@@ -783,6 +830,28 @@ export class FrontendApiClient {
       await this.transport.request<GroupIntelligenceSnapshot>({
         method: 'GET',
         path: `/api/groups/${encodeURIComponent(groupJid)}/intelligence`,
+      }),
+    );
+  }
+
+  async getGroupReminderPolicy(groupJid: string): Promise<GroupReminderPolicySnapshot> {
+    return this.expectOk(
+      await this.transport.request<GroupReminderPolicySnapshot>({
+        method: 'GET',
+        path: `/api/groups/${encodeURIComponent(groupJid)}/reminder-policy`,
+      }),
+    );
+  }
+
+  async updateGroupReminderPolicy(
+    groupJid: string,
+    input: GroupReminderPolicyUpdateInput,
+  ): Promise<GroupReminderPolicySnapshot> {
+    return this.expectOk(
+      await this.transport.request<GroupReminderPolicySnapshot>({
+        method: 'PUT',
+        path: `/api/groups/${encodeURIComponent(groupJid)}/reminder-policy`,
+        body: input,
       }),
     );
   }

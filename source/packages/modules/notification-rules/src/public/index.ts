@@ -3,6 +3,7 @@ export * from '../application/services/NotificationRuleService.js';
 export * from '../domain/entities/NotificationRule.js';
 export * from '../domain/repositories/NotificationRuleRepository.js';
 export * from '../domain/services/NotificationRulePolicyEngine.js';
+export * from '../domain/services/ReminderPolicyToolkit.js';
 export * from '../infrastructure/persistence/CalendarBackedNotificationRuleRepository.js';
 export * from '../module/NotificationRulesModule.js';
 export * from '../module/NotificationRulesModuleFactory.js';

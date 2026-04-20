@@ -54,6 +54,33 @@ export class NotificationJobService {
       .sort(sortJobs);
   }
 
+  async listJobs(query: NotificationJobQuery = {}): Promise<readonly NotificationJob[]> {
+    return [...(await this.repository.listJobs(query))].sort(sortJobs);
+  }
+
+  async markPrepared(
+    jobId: string,
+    input: {
+      readonly preparedAt?: string;
+      readonly preparedInstructionId?: string | null;
+      readonly preparedActionId?: string | null;
+    },
+    query: NotificationJobLookupQuery = {},
+  ): Promise<NotificationJob | undefined> {
+    const preparedAt = input.preparedAt ?? this.clock.now().toISOString();
+
+    return this.repository.updateJob(
+      jobId,
+      (job) => ({
+        ...job,
+        preparedAt,
+        preparedInstructionId: input.preparedInstructionId ?? null,
+        preparedActionId: input.preparedActionId ?? null,
+      }),
+      query,
+    );
+  }
+
   async markSuppressed(
     jobId: string,
     query: NotificationJobLookupQuery = {},

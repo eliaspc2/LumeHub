@@ -279,8 +279,9 @@ Em `2026-04-06`, a leitura canonica passa a ser esta:
 - a ronda curta de operacao de migracao tambem ficou fechada com a `Wave 51`
 - a ronda `ui-clarity` tambem ficou fechada com a `Wave 65`
 - a ronda `commercial-readiness` ja fechou a `Wave 66` com homepage real e estados humanos
-- a `Wave 67` ja fechou `Calendario` summary-first e `LLM` chat-first, com `validate:wave67`
-- a validacao consolidada mais recente passou a ser `validate:wave67`
+- a `Wave 67` ja fechou `Calendario` summary-first e `LLM` chat-first
+- a `Wave 68` ja fechou lembretes por grupo, janelas temporais e copy assistida pela LLM, com `validate:wave68`
+- a validacao consolidada mais recente passou a ser `validate:wave68`
 - a `Wave 52` ja fechou a fundacao do modelo `group-first`
 - a `Wave 53` ja fechou a shell `group-first`, com switcher global de grupo e navegacao principal curta
 - a `Wave 54` ja fechou a pagina operacional de grupo, com owner, modos e politicas locais persistentes

@@ -35,5 +35,11 @@ export interface GroupDirectoryModuleContract {
   getGroupLlmInstructions(groupJid: string): Promise<GroupLlmInstructionsDocument>;
   updateGroupLlmInstructions(groupJid: string, input: GroupLlmInstructionsUpdateInput): Promise<GroupLlmInstructionsDocument>;
   getGroupPolicy(groupJid: string): Promise<GroupPolicyDocument>;
+  updateGroupPolicy(
+    groupJid: string,
+    input: {
+      readonly value: Record<string, unknown>;
+    },
+  ): Promise<GroupPolicyDocument>;
   isGroupOwner(groupJid: string, personId: string): Promise<boolean>;
 }

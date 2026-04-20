@@ -1,7 +1,12 @@
 import type { AdminConfigModuleContract } from '@lume-hub/admin-config';
 import type { GroupDirectoryModuleContract } from '@lume-hub/group-directory';
 import type { NotificationJobsModuleContract } from '@lume-hub/notification-jobs';
-import type { NotificationRulesModuleContract } from '@lume-hub/notification-rules';
+import {
+  extractGroupReminderPolicy,
+  hasStoredGroupReminderPolicy,
+  groupReminderPolicyToNotificationRules,
+  type NotificationRulesModuleContract,
+} from '@lume-hub/notification-rules';
 import type { ScheduleEventsModuleContract, ScheduleEvent } from '@lume-hub/schedule-events';
 import { WeekCalculator, type ScheduleWeeksModuleContract } from '@lume-hub/schedule-weeks';
 
@@ -29,7 +34,7 @@ const DAY_INDEX_BY_LABEL = new Map<string, number>([
 
 export interface WeeklyPlannerServiceConfig {
   readonly adminConfig: Pick<AdminConfigModuleContract, 'getSettings'>;
-  readonly groupDirectory: Pick<GroupDirectoryModuleContract, 'listGroups'>;
+  readonly groupDirectory: Pick<GroupDirectoryModuleContract, 'listGroups' | 'getGroupPolicy'>;
   readonly notificationJobs: Pick<NotificationJobsModuleContract, 'materializeForEvent'>;
   readonly notificationRules: Pick<NotificationRulesModuleContract, 'replaceRulesForEvent'>;
   readonly scheduleEvents: Pick<
@@ -132,8 +137,19 @@ export class WeeklyPlannerService {
       startTime: input.startTime,
       timeZone,
     });
+    const existingEvent = input.eventId
+      ? await this.config.scheduleEvents.findEventById(input.eventId, {
+          groupJid: input.groupJid,
+        })
+      : null;
+    const groupPolicyDocument = await this.config.groupDirectory.getGroupPolicy(input.groupJid);
+    const groupReminderPolicy = extractGroupReminderPolicy(groupPolicyDocument.value);
     const notificationRules =
       input.notificationRules ??
+      existingEvent?.notificationRules ??
+      (hasStoredGroupReminderPolicy(groupPolicyDocument.value)
+        ? groupReminderPolicyToNotificationRules(groupReminderPolicy)
+        : undefined) ??
       (await this.config.adminConfig.getSettings()).ui.defaultNotificationRules;
     const metadata = {
       durationMinutes: input.durationMinutes,
@@ -247,6 +263,34 @@ export class WeeklyPlannerService {
         total: 0,
       },
     );
+    const activeNotifications = event.notifications
+      .filter((notification) => !notification.suppressedAt && !notification.disabledAt)
+      .slice()
+      .sort((left, right) => left.sendAt.localeCompare(right.sendAt) || left.jobId.localeCompare(right.jobId));
+    const nextReminder = activeNotifications.find((notification) => notification.status === 'pending') ?? null;
+    const reminderLifecycle = activeNotifications.reduce(
+      (summary, notification) => {
+        if (notification.status === 'pending') {
+          if (notification.preparedAt) {
+            summary.prepared += 1;
+          } else {
+            summary.generated += 1;
+          }
+        } else {
+          summary.sent += 1;
+        }
+
+        return summary;
+      },
+      {
+        generated: 0,
+        prepared: 0,
+        sent: 0,
+      },
+    );
+    const nextReminderRule = nextReminder
+      ? event.notificationRules.find((rule) => rule.ruleId === nextReminder.ruleId) ?? null
+      : null;
 
     return {
       eventId: event.eventId,
@@ -262,6 +306,9 @@ export class WeeklyPlannerService {
       notes: readStringMetadata(event.metadata, 'notes'),
       notificationRuleLabels: event.notificationRules.map((rule) => rule.label ?? rule.kind),
       notifications,
+      nextReminderAt: nextReminder?.sendAt ?? null,
+      nextReminderLabel: nextReminderRule?.label ?? null,
+      reminderLifecycle,
     };
   }
 }

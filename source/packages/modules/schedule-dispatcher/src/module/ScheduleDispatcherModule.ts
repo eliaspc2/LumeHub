@@ -7,6 +7,7 @@ import {
 } from '@lume-hub/delivery-tracker';
 import {
   CalendarBackedNotificationJobRepository,
+  NotificationJobsModule,
 } from '@lume-hub/notification-jobs';
 import {
   CalendarBackedScheduleEventRepository,
@@ -15,11 +16,10 @@ import {
   ScheduleEventService,
 } from '@lume-hub/schedule-events';
 import { WeekCalculator } from '@lume-hub/schedule-weeks';
-import { BaileysWhatsAppGateway } from '@lume-hub/whatsapp-baileys';
 import { GroupCalendarFileRepository, GroupPathResolver } from '@lume-hub/persistence-group-files';
+import { InstructionQueueModule } from '@lume-hub/instruction-queue';
 
 import { ScheduleDispatcherService } from '../application/services/ScheduleDispatcherService.js';
-import { DispatchMessageFormatter } from '../domain/services/DispatchMessageFormatter.js';
 import { TickSerialiser } from '../domain/services/TickSerialiser.js';
 import type { ScheduleDispatcherModuleContract } from '../public/contracts/index.js';
 import type { ScheduleDispatcherModuleConfig } from './ScheduleDispatcherModuleConfig.js';
@@ -60,15 +60,24 @@ export class ScheduleDispatcherModule extends BaseModule implements ScheduleDisp
         new DeliveryResolutionPolicy(),
         config.clock,
       );
-    const gateway = config.gateway ?? new BaileysWhatsAppGateway();
+    const notificationJobs =
+      config.notificationJobs ??
+      new NotificationJobsModule({
+        dataRootPath: config.dataRootPath,
+      });
+    const instructionQueue =
+      config.instructionQueue ??
+      new InstructionQueueModule({
+        dataRootPath: config.dataRootPath,
+      });
 
     this.service =
       config.service ??
       new ScheduleDispatcherService(
         notificationJobRepository,
+        notificationJobs,
         deliveryTrackerService,
-        gateway,
-        config.formatter ?? new DispatchMessageFormatter(),
+        instructionQueue,
         config.clock,
         config.tickSerialiser ?? new TickSerialiser(),
       );

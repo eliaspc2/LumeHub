@@ -1,8 +1,8 @@
 export interface DispatchJobResult {
   readonly jobId: string;
-  readonly status: 'started' | 'skipped' | 'waiting_confirmation_reviewed';
+  readonly status: 'prepared' | 'skipped' | 'waiting_confirmation_reviewed';
   readonly reason?: string;
-  readonly messageId?: string;
+  readonly instructionId?: string;
 }
 
 export interface DispatchTickResult {

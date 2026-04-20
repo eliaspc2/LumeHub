@@ -282,6 +282,9 @@ importers:
       '@lume-hub/message-alerts':
         specifier: workspace:*
         version: link:../../modules/message-alerts
+      '@lume-hub/notification-rules':
+        specifier: workspace:*
+        version: link:../../modules/notification-rules
       '@lume-hub/people-memory':
         specifier: workspace:*
         version: link:../../modules/people-memory
@@ -737,6 +740,9 @@ importers:
       '@lume-hub/delivery-tracker':
         specifier: workspace:*
         version: link:../delivery-tracker
+      '@lume-hub/instruction-queue':
+        specifier: workspace:*
+        version: link:../instruction-queue
       '@lume-hub/kernel':
         specifier: workspace:*
         version: link:../../foundation/kernel

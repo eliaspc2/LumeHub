@@ -4,9 +4,14 @@ import type {
   InstructionAction,
   InstructionActionExecutionResult,
   InstructionActionExecutorHandler,
+  ReminderDeliveryActionPayload,
   ScheduleApplyActionPayload,
 } from '@lume-hub/instruction-queue';
+import type { DeliveryTrackerModuleContract } from '@lume-hub/delivery-tracker';
+import type { LlmOrchestratorModuleContract } from '@lume-hub/llm-orchestrator';
 import type { MediaAsset, MediaLibraryModuleContract } from '@lume-hub/media-library';
+import type { NotificationJobsModuleContract } from '@lume-hub/notification-jobs';
+import { buildReminderTemplateVariables, renderReminderTemplate } from '@lume-hub/notification-rules';
 import type { WeeklyPlannerEventSummary, WeeklyPlannerModuleContract } from '@lume-hub/weekly-planner';
 import type { WhatsAppSendMediaInput } from '@lume-hub/whatsapp-baileys';
 
@@ -41,6 +46,9 @@ interface WhatsAppDistributionRuntimeLike {
 
 export interface InstructionQueueExecutionRuntimeConfig {
   readonly whatsAppRuntime: WhatsAppDistributionRuntimeLike;
+  readonly deliveryTracker: Pick<DeliveryTrackerModuleContract, 'registerAttemptStarted'>;
+  readonly notificationJobs: Pick<NotificationJobsModuleContract, 'listJobs'>;
+  readonly llmOrchestrator?: Pick<LlmOrchestratorModuleContract, 'chat'>;
   readonly mediaLibrary: Pick<MediaLibraryModuleContract, 'getAsset' | 'readBinary'>;
   readonly weeklyPlanner: Pick<WeeklyPlannerModuleContract, 'deleteSchedule' | 'saveSchedule'>;
   readonly uiEventPublisher?: UiEventPublisherLike;
@@ -69,6 +77,10 @@ export class InstructionQueueExecutionRuntime {
       }
 
       return this.executeTextDistribution(action, instruction, payload);
+    }
+
+    if (action.type === 'notification_reminder_delivery') {
+      return this.executeReminderDelivery(action, instruction);
     }
 
     return {
@@ -232,6 +244,112 @@ export class InstructionQueueExecutionRuntime {
     return result;
   }
 
+  private async executeReminderDelivery(
+    action: InstructionAction,
+    instruction: Instruction,
+  ): Promise<InstructionActionExecutionResult> {
+    const payload = readReminderDeliveryPayload(action);
+    const currentJob = (
+      await this.config.notificationJobs.listJobs({
+        groupJid: payload.groupJid,
+      })
+    ).find((candidate) => candidate.jobId === payload.jobId);
+
+    if (
+      !currentJob ||
+      currentJob.status !== 'pending' ||
+      currentJob.disabledAt ||
+      currentJob.suppressedAt ||
+      currentJob.sendAt !== payload.sendAt
+    ) {
+      return {
+        note: 'reminder_cancelled_or_stale',
+        metadata: {
+          contentKind: 'reminder_delivery',
+          jobId: payload.jobId,
+          groupJid: payload.groupJid,
+          sendAt: payload.sendAt,
+        },
+      };
+    }
+
+    const variables = buildReminderTemplateVariables({
+      groupLabel: payload.groupLabel,
+      eventTitle: payload.eventTitle,
+      eventAt: payload.eventAt,
+      sendAt: payload.sendAt,
+      timeZone: payload.timeZone,
+      reminderLabel: payload.summaryLabel,
+    });
+    const fallbackText = renderReminderTemplate(payload.messageTemplate, variables);
+    const promptText = renderReminderTemplate(payload.llmPromptTemplate, variables);
+    let llmText = '';
+
+    if (promptText.length > 0 && this.config.llmOrchestrator) {
+      try {
+        llmText = (
+          await this.config.llmOrchestrator.chat({
+            text: promptText,
+            intent: 'reminder_copy_request',
+            contextSummary: [
+              `Grupo: ${payload.groupLabel}`,
+              `Evento: ${payload.eventTitle}`,
+              `Momento do lembrete: ${payload.summaryLabel}`,
+            ],
+            domainFacts: [
+              `event_datetime=${variables.event_datetime}`,
+              `send_datetime=${variables.send_datetime}`,
+              `minutes_until_event=${variables.minutes_until_event}`,
+              `minutes_since_event=${variables.minutes_since_event}`,
+            ],
+          })
+        ).text.trim();
+      } catch {
+        llmText = '';
+      }
+    }
+    const finalText = llmText || fallbackText || `${payload.summaryLabel}: ${payload.eventTitle}`;
+    const sendResult = await this.config.whatsAppRuntime.sendText({
+      chatJid: payload.groupJid,
+      text: finalText,
+      idempotencyKey: buildIdempotencyKey(instruction, action),
+    });
+
+    await this.config.deliveryTracker.registerAttemptStarted(
+      {
+        jobId: payload.jobId,
+        messageId: sendResult.messageId,
+      },
+      {
+        groupJid: payload.groupJid,
+      },
+    );
+
+    const result = {
+      externalMessageId: sendResult.messageId,
+      note: 'reminder_delivery_accepted',
+      metadata: {
+        contentKind: 'reminder_delivery',
+        jobId: payload.jobId,
+        groupJid: payload.groupJid,
+        groupLabel: payload.groupLabel,
+        eventId: payload.eventId,
+        eventTitle: payload.eventTitle,
+        summaryLabel: payload.summaryLabel,
+        acceptedAt: sendResult.acceptedAt,
+        finalText,
+      },
+    } satisfies InstructionActionExecutionResult;
+
+    this.publish('instruction.reminder.accepted', {
+      instructionId: instruction.instructionId,
+      actionId: action.actionId,
+      ...result.metadata,
+      externalMessageId: sendResult.messageId,
+    });
+    return result;
+  }
+
   private async readRequiredMediaAsset(assetId: string): Promise<MediaAsset> {
     const asset = await this.config.mediaLibrary.getAsset(assetId);
 
@@ -347,6 +465,53 @@ function readScheduleApplyPayload(action: InstructionAction): ScheduleApplyActio
   };
 }
 
+function readReminderDeliveryPayload(action: InstructionAction): ReminderDeliveryActionPayload {
+  const payload = action.payload as Partial<ReminderDeliveryActionPayload>;
+
+  if (
+    payload.kind !== 'reminder_delivery' ||
+    typeof payload.jobId !== 'string' ||
+    !payload.jobId.trim() ||
+    typeof payload.eventId !== 'string' ||
+    !payload.eventId.trim() ||
+    typeof payload.ruleId !== 'string' ||
+    !payload.ruleId.trim() ||
+    typeof payload.groupJid !== 'string' ||
+    !payload.groupJid.trim() ||
+    typeof payload.groupLabel !== 'string' ||
+    !payload.groupLabel.trim() ||
+    typeof payload.eventTitle !== 'string' ||
+    !payload.eventTitle.trim() ||
+    typeof payload.eventAt !== 'string' ||
+    !payload.eventAt.trim() ||
+    typeof payload.sendAt !== 'string' ||
+    !payload.sendAt.trim() ||
+    typeof payload.timeZone !== 'string' ||
+    !payload.timeZone.trim() ||
+    typeof payload.summaryLabel !== 'string' ||
+    !payload.summaryLabel.trim()
+  ) {
+    throw new Error(`Unsupported reminder delivery payload for action '${action.actionId}'.`);
+  }
+
+  return {
+    kind: 'reminder_delivery',
+    jobId: payload.jobId.trim(),
+    eventId: payload.eventId.trim(),
+    ruleId: payload.ruleId.trim(),
+    ruleLabel: normaliseOptionalString(payload.ruleLabel),
+    groupJid: payload.groupJid.trim(),
+    groupLabel: payload.groupLabel.trim(),
+    eventTitle: payload.eventTitle.trim(),
+    eventAt: payload.eventAt.trim(),
+    sendAt: payload.sendAt.trim(),
+    timeZone: payload.timeZone.trim(),
+    summaryLabel: payload.summaryLabel.trim(),
+    messageTemplate: normaliseOptionalString(payload.messageTemplate),
+    llmPromptTemplate: normaliseOptionalString(payload.llmPromptTemplate),
+  };
+}
+
 function normaliseOptionalString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
@@ -412,6 +577,20 @@ function normaliseOptionalWeeklyPlannerEvent(value: unknown): WeeklyPlannerEvent
             waitingConfirmation: 0,
             sent: 0,
             total: 0,
+          },
+    nextReminderAt: typeof event.nextReminderAt === 'string' ? event.nextReminderAt : null,
+    nextReminderLabel: typeof event.nextReminderLabel === 'string' ? event.nextReminderLabel : null,
+    reminderLifecycle:
+      event.reminderLifecycle && typeof event.reminderLifecycle === 'object'
+        ? {
+            generated: Number(event.reminderLifecycle.generated ?? 0),
+            prepared: Number(event.reminderLifecycle.prepared ?? 0),
+            sent: Number(event.reminderLifecycle.sent ?? 0),
+          }
+        : {
+            generated: 0,
+            prepared: 0,
+            sent: 0,
           },
   };
 }

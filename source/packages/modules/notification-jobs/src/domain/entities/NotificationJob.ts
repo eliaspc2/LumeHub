@@ -12,8 +12,14 @@ export interface NotificationJob {
   readonly eventAt: string;
   readonly timeZone: string;
   readonly ruleType: string;
+  readonly ruleLabel: string | null;
+  readonly messageTemplate: string | null;
+  readonly llmPromptTemplate: string | null;
   readonly sendAt: string;
   readonly status: NotificationJobStatus;
+  readonly preparedAt: string | null;
+  readonly preparedInstructionId: string | null;
+  readonly preparedActionId: string | null;
   readonly attempts: number;
   readonly lastError: string | null;
   readonly lastOutboundObservationAt: string | null;

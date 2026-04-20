@@ -1261,5 +1261,19 @@ function readAppliedEventFromInstruction(instruction: Instruction | null): Weekl
             sent: 0,
             total: 0,
           },
+    nextReminderAt: typeof event.nextReminderAt === 'string' ? event.nextReminderAt : null,
+    nextReminderLabel: typeof event.nextReminderLabel === 'string' ? event.nextReminderLabel : null,
+    reminderLifecycle:
+      event.reminderLifecycle && typeof event.reminderLifecycle === 'object'
+        ? {
+            generated: Number(event.reminderLifecycle.generated ?? 0),
+            prepared: Number(event.reminderLifecycle.prepared ?? 0),
+            sent: Number(event.reminderLifecycle.sent ?? 0),
+          }
+        : {
+            generated: 0,
+            prepared: 0,
+            sent: 0,
+          },
   };
 }

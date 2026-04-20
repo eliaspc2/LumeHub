@@ -100,6 +100,14 @@ export class NotificationJobsModule extends BaseModule implements NotificationJo
     return this.service.listPendingJobs(query);
   }
 
+  async listJobs(query = {}) {
+    return this.service.listJobs(query);
+  }
+
+  async markPrepared(jobId: string, input = {}, query = {}) {
+    return this.service.markPrepared(jobId, input, query);
+  }
+
   async markSuppressed(jobId: string, query = {}) {
     return this.service.markSuppressed(jobId, query);
   }
