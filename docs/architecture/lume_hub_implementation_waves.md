@@ -28,7 +28,7 @@ Estado canonico deixado pela ronda `group-first`:
 Validacao consolidada atual:
 
 - `cd /home/eliaspc/Documentos/lume-hub/source`
-- `corepack pnpm run validate:wave65`
+- `corepack pnpm run validate:wave66`
 
 ## Ronda `ui-clarity`
 
@@ -100,40 +100,17 @@ Objetivo da ronda:
 
 Base deixada antes desta ronda:
 
-- `validate:wave65` continua a ser a validacao consolidada do estado atual
+- `validate:wave66` passa a ser a validacao consolidada do estado atual desta ronda
 - o `Codex Router` ja ficou exposto como pagina propria em `/codex-router`
 - a shell ja tem contratos visuais mais fortes; agora falta torná-los mais comerciais e mais autoexplicativos
 
-### Wave 66 - Homepage comercial e estados de carga humanos
+A `Wave 66` ja fechou a homepage comercial e os estados de carga humanos desta ronda:
 
-Objetivo:
-- fazer a primeira entrada no produto parecer uma homepage comercial clara, nao uma consola tecnica
-
-Entrega esperada:
-
-- promover `Hoje` a homepage real e primeira rota de entrada para utilizador pouco tecnico
-- manter `Calendario` como vista operacional, mas nao como primeira impressao do produto
-- substituir loading silencioso por estados explicitos com:
-  - o que esta a carregar
-  - porque pode estar a demorar
-  - acao de repetir ou recuperar
-- cortar jargao transversal na shell:
-  - `runtime`
-  - `discovery`
-  - `preview/apply`
-  - `ACL`
-  - `owner`
-  - `provider`
-  - `streaming`
-  - `fan-out`
-  - `shadow mode`
-
-Vale a pena o utilizador testar no fim:
-
-- primeira impressao do produto
-- homepage
-- mudanca entre `Hoje` e `Calendario`
-- mensagens de loading/erro
+- `Hoje` passou a homepage real do produto e primeira rota de entrada
+- `Calendario` continua operacional, mas deixou de ser a primeira impressao do produto
+- loading, offline, erro e vazio passaram a explicar o estado em linguagem humana e com acoes de recuperacao
+- a shell cortou jargao transversal na navegacao, na homepage e nos estados de suporte
+- a validacao dedicada ficou registada em `validate:wave66`
 
 ### Wave 67 - Calendario e LLM com foco operacional
 

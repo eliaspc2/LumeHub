@@ -190,14 +190,13 @@ A partir de `2026-04-20`, voltaram a existir gaps reais de produto, nao por falt
 
 Os gaps ativos desta ronda sao:
 
-- `Hoje` ainda nao e a homepage comercial real do produto
-- loading, erro e recuperacao ainda nao falam de forma suficientemente humana
 - `Calendario`, `LLM`, `Grupos` e `WhatsApp` ainda misturam leitura operacional com ruido ou detalhe cedo demais
 - `LumeHub`, `Codex Router` e `Migracao` ainda precisam de fronteiras mais claras por papel
 - o kit de entrega comercial ainda nao esta fechado como pacote honesto de `backend containerizado + host companion`
 
 Baseline importante:
 
+- a `Wave 66` ja promoveu `Hoje` a homepage real e fechou a linguagem humana para loading, erro, vazio e recuperacao
 - a pagina `Codex Router` ja ficou extraida de `Migracao` e passou a existir em `/codex-router`
 - a ronda nova parte dessa base e nao de uma shell antiga ou textual
 

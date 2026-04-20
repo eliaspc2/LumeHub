@@ -211,17 +211,25 @@ export class AppRouter {
   routes(): readonly AppRouteDefinition[] {
     return [
       {
+        route: this.dashboard.config.route,
+        label: this.dashboard.config.label,
+        description: 'Entrada principal com o que esta bem, o que pede atencao e o proximo passo recomendado.',
+        navigationPlacement: 'primary',
+        legacyRoutes: ['/', '/dashboard'],
+        render: async () => this.dashboard.render(await this.readQuery('dashboard', () => this.client.getDashboard())),
+      },
+      {
         route: this.weekPlanner.config.route,
         label: 'Calendario',
-        description: 'Vista principal semanal para navegar grupos e preparar a operacao da semana.',
+        description: 'Agenda semanal para rever o que esta marcado e abrir o detalhe de cada grupo.',
         navigationPlacement: 'primary',
-        legacyRoutes: ['/', '/dashboard', '/week-planner'],
+        legacyRoutes: ['/week-planner'],
         render: async () => this.weekPlanner.render(await this.readQuery('weekly-planner', () => this.client.getWeeklyPlanner())),
       },
       {
         route: this.groupDirectory.config.route,
         label: this.groupDirectory.config.label,
-        description: 'Workspace por grupo com contexto isolado, owners e politicas locais.',
+        description: 'Espaco de cada grupo para estado atual, regras locais e contexto guardado.',
         navigationPlacement: 'primary',
         render: async () => {
           const [groups, settings, people] = await Promise.all([
@@ -275,7 +283,7 @@ export class AppRouter {
       {
         route: this.whatsapp.config.route,
         label: this.whatsapp.config.label,
-        description: 'Sessao, auth, discovery e grupos/conversas conhecidos do canal WhatsApp.',
+        description: 'Ligacao do WhatsApp, grupos conhecidos e o que pode precisar de reparacao.',
         navigationPlacement: 'primary',
         render: async () => {
           const workspace = await this.readQuery('whatsapp-workspace', () => this.client.getWhatsAppWorkspace());
@@ -294,12 +302,12 @@ export class AppRouter {
       {
         route: this.settings.config.route,
         label: this.settings.config.label,
-        description: 'Comportamento global do produto, runtime LLM, energia e host companion do LumeHub.',
+        description: 'Regras gerais da app, assistente, energia e arranque do LumeHub.',
         navigationPlacement: 'primary',
         render: async () => ({
           route: '/settings',
           title: 'LumeHub',
-          description: 'Comportamento global do produto, runtime LLM, energia e host companion do LumeHub.',
+          description: 'Regras gerais da app, assistente, energia e arranque do LumeHub.',
           sections: [],
           data: await this.readSettingsPageData(),
         }),
@@ -307,7 +315,7 @@ export class AppRouter {
       {
         route: '/assistant',
         label: 'LLM',
-        description: 'Chat direto com a LLM, escopo global/grupo e acoes assistidas com preview antes de apply.',
+        description: 'Faz uma pergunta ao assistente, em global ou num grupo, sem sair da interface.',
         navigationPlacement: 'primary',
         render: async () => {
           const [settings, recentRuns, recentConversationAudit, groups, queue] = await Promise.all([
@@ -321,7 +329,7 @@ export class AppRouter {
           return {
             route: '/assistant',
             title: 'LLM',
-            description: 'Chat direto com a LLM, escopo global/grupo e acoes assistidas com preview antes de apply.',
+            description: 'Faz uma pergunta ao assistente, em global ou num grupo, sem sair da interface.',
             sections: [
               {
                 title: 'LLM live',
@@ -353,13 +361,13 @@ export class AppRouter {
       {
         route: '/codex-router',
         label: 'Codex Router',
-        description: 'Troca de tokens do Codex/OpenAI, auth canonica live e escolha manual ou automatica do token.',
+        description: 'Escolhe o token em uso e decide se a troca pode ser automatica.',
         navigationPlacement: 'secondary',
         legacyRoutes: ['/codex-auth-router', '/oauth-router'],
         render: async () => ({
           route: '/codex-router',
           title: 'Codex Router',
-          description: 'Troca de tokens do Codex/OpenAI, auth canonica live e escolha manual ou automatica do token.',
+          description: 'Escolhe o token em uso e decide se a troca pode ser automatica.',
           sections: [],
           data: {
             settings: await this.readQuery('settings', () => this.client.getSettings()),
@@ -406,14 +414,6 @@ export class AppRouter {
         navigationPlacement: 'hidden',
         render: async () =>
           this.watchdog.render(await this.readQuery('watchdog-issues', () => this.client.getWatchdogIssues())),
-      },
-      {
-        route: this.dashboard.config.route,
-        label: this.dashboard.config.label,
-        description: 'Resumo claro do estado atual, do WhatsApp e do que merece atencao primeiro.',
-        navigationPlacement: 'hidden',
-        legacyRoutes: ['/dashboard'],
-        render: async () => this.dashboard.render(await this.readQuery('dashboard', () => this.client.getDashboard())),
       },
       {
         route: '/workspace',
@@ -487,12 +487,12 @@ export class AppRouter {
       {
         route: '/migration',
         label: 'Migracao',
-        description: 'Semana paralela real, readiness de cutover, imports legacy e consola do Codex auto router.',
+        description: 'Passagem do sistema antigo para o novo, checks de prontidao e ferramentas de migracao.',
         navigationPlacement: 'secondary',
         render: async () => ({
           route: '/migration',
           title: 'Migracao',
-          description: 'Semana paralela real, readiness de cutover, imports legacy e consola do Codex auto router.',
+          description: 'Passagem do sistema antigo para o novo, checks de prontidao e ferramentas de migracao.',
           sections: [],
           data: await this.readMigrationPageData(),
         }),
@@ -581,8 +581,8 @@ export class AppRouter {
 
   private legacyRouteAliases(): ReadonlyMap<string, string> {
     return new Map<string, string>([
-      ['/', '/week'],
-      ['/dashboard', '/week'],
+      ['/', '/today'],
+      ['/dashboard', '/today'],
       ['/week-planner', '/week'],
       ['/routing-fanout', '/distributions'],
       ['/delivery-monitor', '/deliveries'],

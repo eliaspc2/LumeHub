@@ -1067,6 +1067,7 @@ export class AppShell {
 
   private shouldRenderAssistantRail(currentRoute: ResolvedAppRoute): boolean {
     return (
+      currentRoute.canonicalRoute !== '/today' &&
       currentRoute.canonicalRoute !== '/assistant' &&
       currentRoute.canonicalRoute !== '/settings' &&
       currentRoute.canonicalRoute !== '/migration'
@@ -1075,60 +1076,46 @@ export class AppShell {
 
   private renderMainContent(currentRoute: ResolvedAppRoute): string {
     if (this.state.screenState === 'loading') {
-      return `
-        <section class="surface state-card">
-          <div class="skeleton">
-            <div class="skeleton-line"></div>
-            <div class="skeleton-line"></div>
-            <div class="card-grid">
-              <div class="skeleton-block"></div>
-              <div class="skeleton-block"></div>
-              <div class="skeleton-block"></div>
-            </div>
-          </div>
-        </section>
-      `;
+      return this.renderLoadingStateCard(currentRoute);
     }
 
     if (this.state.screenState === 'offline') {
       return this.renderStateCard(
-        'Sem ligacao ao backend',
-        this.state.errorMessage ??
-          'A app nao conseguiu falar com a API. Podes testar a shell em modo demo enquanto ligamos o backend real.',
+        'Nao conseguimos ligar a esta instalacao do LumeHub',
+        'Tentamos abrir os dados live desta pagina, mas a ligacao ao backend nao respondeu. Podes tentar outra vez ou abrir o demo enquanto a ligacao volta.',
         [
-          { label: 'Voltar ao demo', value: 'demo', kind: 'mode' },
-          { label: 'Mostrar estado normal', value: 'none', kind: 'preview' },
+          { label: 'Tentar outra vez', value: 'none', kind: 'preview' },
+          { label: 'Abrir demo', value: 'demo', kind: 'mode' },
         ],
+        'Ligacao',
       );
     }
 
     if (this.state.screenState === 'error') {
       return this.renderStateCard(
-        'Algo falhou ao carregar esta pagina',
-        this.state.errorMessage ?? 'Falha nao identificada.',
+        'Esta pagina nao abriu como era suposto',
+        `A pagina ${currentRoute.label} respondeu com erro nesta carga. Podes tentar novamente ou voltar a Hoje para seguir por outro caminho.`,
         [
-          { label: 'Tentar de novo', value: 'none', kind: 'preview' },
-          { label: 'Usar demo', value: 'demo', kind: 'mode' },
+          { label: 'Tentar outra vez', value: 'none', kind: 'preview' },
+          { label: 'Voltar a Hoje', value: '/today', kind: 'route' },
         ],
+        'Recuperacao',
       );
     }
 
     if (this.state.screenState === 'empty') {
-      return `
-        <section class="surface placeholder-card">
-          <div>
-            <p class="eyebrow">${escapeHtml(currentRoute.label)}</p>
-            <h3>Nada para mostrar ainda</h3>
-            <p>
-              Este estado existe para validar como a shell comunica ausencia de dados sem parecer quebrada ou tecnica demais.
-            </p>
-          </div>
-        </section>
-      `;
+      return this.renderStateCard(
+        currentRoute.canonicalRoute === '/today' ? 'Ainda nao ha nada urgente para mostrar' : `${currentRoute.label} ainda nao tem dados para mostrar`,
+        currentRoute.canonicalRoute === '/today'
+          ? 'A homepage abriu bem, mas esta instalacao ainda nao gerou atividade suficiente para preencher este resumo.'
+          : `A pagina ${currentRoute.label} abriu bem, mas ainda nao recebeu dados suficientes desta instalacao.`,
+        currentRoute.canonicalRoute === '/today' ? [] : [{ label: 'Voltar a Hoje', value: '/today', kind: 'route' }],
+        'Sem dados',
+      );
     }
 
     if (!this.state.page) {
-      return this.renderStateCard('A carregar', 'Ainda estamos a preparar a pagina.', []);
+      return this.renderLoadingStateCard(currentRoute);
     }
 
     switch (this.state.page.route) {
@@ -1166,22 +1153,23 @@ export class AppShell {
     const readyTone = snapshot.readiness.ready ? 'positive' : 'warning';
     const nextStep =
       snapshot.watchdog.openIssues > 0
-        ? 'Comeca por rever as issues abertas do watchdog.'
+        ? 'Comeca pelos problemas que o sistema encontrou e confirmou.'
         : snapshot.whatsapp.phase !== 'open'
-          ? 'Abre o WhatsApp e confirma a ligacao da sessao.'
+          ? 'Abre o WhatsApp e confirma a ligacao antes de continuares.'
           : snapshot.distributions.running + snapshot.distributions.queued > 0
-            ? 'Confirma as distribuicoes em curso antes de criares novas.'
-            : 'Segue para a semana e cria o proximo agendamento.';
+            ? 'Confirma os envios em curso antes de preparares novos.'
+            : 'Abre a agenda da semana e prepara o proximo agendamento.';
 
     return `
       <section class="surface hero surface--strong">
         <div>
-          <p class="eyebrow">Visao de hoje</p>
-          <h2>O que esta bem, o que pede atencao e qual e o proximo passo.</h2>
+          <p class="eyebrow">Entrada principal</p>
+          <h2>Ves em poucos segundos se esta tudo bem e o que fazer a seguir.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
-            ${renderUiActionButton({ label: 'Ver WhatsApp', href: '/whatsapp', dataAttributes: { route: '/whatsapp' } })}
-            ${renderUiActionButton({ label: 'Abrir semana', href: '/week', variant: 'secondary', dataAttributes: { route: '/week' } })}
+            ${renderUiActionButton({ label: 'Ver agenda', href: '/week', dataAttributes: { route: '/week' } })}
+            ${renderUiActionButton({ label: 'Ver WhatsApp', href: '/whatsapp', variant: 'secondary', dataAttributes: { route: '/whatsapp' } })}
+            ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', variant: 'secondary', dataAttributes: { route: '/groups' } })}
           </div>
         </div>
         <div class="hero-panel">
@@ -1191,8 +1179,8 @@ export class AppShell {
             badgeTone: readyTone,
             contentHtml: `<p>${escapeHtml(
               snapshot.readiness.ready
-                ? 'O sistema parece utilizavel e o host companion esta vivo.'
-                : 'Ainda ha sinais a rever antes de confiar plenamente na operacao.',
+                ? 'O sistema parece utilizavel e a ligacao local responde bem.'
+                : 'Ainda ha sinais a rever antes de confiares plenamente na operacao.',
             )}</p>`,
           })}
           ${renderUiPanelCard({
@@ -1203,10 +1191,10 @@ export class AppShell {
       </section>
 
       <section class="card-grid">
-        ${renderUiMetricCard({ title: 'WhatsApp pronto', value: readableSessionPhase(snapshot.whatsapp.phase), tone: toneForSessionPhase(snapshot.whatsapp.phase), description: 'Estado live da sessao WhatsApp.' })}
-        ${renderUiMetricCard({ title: 'Problemas ativos', value: String(snapshot.watchdog.openIssues), tone: snapshot.watchdog.openIssues > 0 ? 'warning' : 'positive', description: 'Issues que merecem acao agora.' })}
-        ${renderUiMetricCard({ title: 'Distribuicoes em curso', value: String(snapshot.distributions.running + snapshot.distributions.queued), tone: snapshot.distributions.running > 0 ? 'warning' : 'neutral', description: 'Campanhas a correr ou em espera.' })}
-        ${renderUiMetricCard({ title: 'Grupos prontos', value: `${snapshot.groups.withOwners}/${snapshot.groups.total}`, tone: 'neutral', description: 'Grupos com owner definido e prontos para operar.' })}
+        ${renderUiMetricCard({ title: 'WhatsApp pronto', value: readableSessionPhase(snapshot.whatsapp.phase), tone: toneForSessionPhase(snapshot.whatsapp.phase), description: 'Ligacao atual do WhatsApp.' })}
+        ${renderUiMetricCard({ title: 'Problemas ativos', value: String(snapshot.watchdog.openIssues), tone: snapshot.watchdog.openIssues > 0 ? 'warning' : 'positive', description: 'Pontos que merecem atencao agora.' })}
+        ${renderUiMetricCard({ title: 'Envios em curso', value: String(snapshot.distributions.running + snapshot.distributions.queued), tone: snapshot.distributions.running > 0 ? 'warning' : 'neutral', description: 'Envios a decorrer ou a aguardar.' })}
+        ${renderUiMetricCard({ title: 'Grupos prontos', value: `${snapshot.groups.withOwners}/${snapshot.groups.total}`, tone: 'neutral', description: 'Grupos com responsavel definido.' })}
       </section>
 
       <section class="content-grid">
@@ -1228,10 +1216,10 @@ export class AppShell {
                         `<li><strong>${escapeHtml(issue.groupLabel)}</strong>: ${escapeHtml(issue.summary)}</li>`,
                     )
                     .join('')
-                : '<li>Sem issues abertas neste momento.</li>'
+                : '<li>Sem problemas abertos neste momento.</li>'
             }
-            <li>${snapshot.distributions.queued} distribuicoes em fila e ${snapshot.distributions.running} a correr.</li>
-            <li>${snapshot.distributions.partialFailed} com falha parcial e ${snapshot.distributions.failed} falhadas.</li>
+            <li>${snapshot.distributions.queued} envios em fila e ${snapshot.distributions.running} a decorrer.</li>
+            <li>${snapshot.distributions.partialFailed} com falha parcial e ${snapshot.distributions.failed} falhados.</li>
           </ul>
         </article>
 
@@ -1246,7 +1234,7 @@ export class AppShell {
               subtitle: 'Abrir a semana e preparar a proxima aula.',
               badgeLabel: 'Semana',
               badgeTone: 'positive',
-              bodyHtml: `<div class="action-row">${renderUiActionButton({ label: 'Abrir semana', href: '/week', dataAttributes: { route: '/week' } })}</div>`,
+              bodyHtml: `<div class="action-row">${renderUiActionButton({ label: 'Ver agenda', href: '/week', dataAttributes: { route: '/week' } })}</div>`,
             })}
             ${renderUiRecordCard({
               title: 'Distribuir mensagem',
@@ -5465,13 +5453,14 @@ export class AppShell {
     actions: readonly {
       readonly label: string;
       readonly value: string;
-      readonly kind: 'mode' | 'preview';
+      readonly kind: 'mode' | 'preview' | 'route';
     }[],
+    eyebrow = 'Estado global',
   ): string {
     return `
       <section class="surface state-card">
         <div>
-          <p class="eyebrow">Estado global</p>
+          <p class="eyebrow">${escapeHtml(eyebrow)}</p>
           <h3>${escapeHtml(title)}</h3>
           <p>${escapeHtml(description)}</p>
           <div class="action-row">
@@ -5483,6 +5472,13 @@ export class AppShell {
                       variant: action.value === 'demo' ? 'primary' : 'secondary',
                       dataAttributes: { mode: action.value },
                     })
+                  : action.kind === 'route'
+                    ? renderUiActionButton({
+                        label: action.label,
+                        variant: 'secondary',
+                        href: action.value,
+                        dataAttributes: { route: action.value },
+                      })
                   : renderUiActionButton({
                       label: action.label,
                       variant: 'secondary',
@@ -5490,6 +5486,45 @@ export class AppShell {
                     }),
               )
               .join('')}
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  private renderLoadingStateCard(currentRoute: ResolvedAppRoute): string {
+    const title =
+      currentRoute.canonicalRoute === '/today' ? 'A abrir a homepage do LumeHub' : `A abrir ${currentRoute.label}`;
+    const description =
+      currentRoute.canonicalRoute === '/today'
+        ? 'Estamos a carregar o estado mais recente do produto para te mostrar o que esta bem, o que pede atencao e o proximo passo.'
+        : `Estamos a carregar ${currentRoute.label} com os dados mais recentes desta instalacao. Se isto demorar demais, tenta outra vez ou abre o demo para continuares a navegar.`;
+
+    return `
+      <section class="surface state-card">
+        <div>
+          <p class="eyebrow">A preparar</p>
+          <h3>${escapeHtml(title)}</h3>
+          <p>${escapeHtml(description)}</p>
+          <div class="action-row">
+            ${renderUiActionButton({
+              label: 'Tentar outra vez',
+              variant: 'secondary',
+              dataAttributes: { preview: 'none' },
+            })}
+            ${renderUiActionButton({
+              label: 'Abrir demo',
+              dataAttributes: { mode: 'demo' },
+            })}
+          </div>
+        </div>
+        <div class="skeleton" aria-hidden="true">
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="card-grid">
+            <div class="skeleton-block"></div>
+            <div class="skeleton-block"></div>
+            <div class="skeleton-block"></div>
           </div>
         </div>
       </section>
@@ -10912,35 +10947,35 @@ function readRouteGroupOptions(
   page: UiPage | null,
   assistantRailGroups: readonly Group[],
 ): ShellGroupSwitcherState['groups'] {
-  if (page && page.route === '/groups') {
+  if (page && page.data && page.route === '/groups') {
     return (page as UiPage<GroupManagementPageData>).data.groups.map((group) => ({
       groupJid: group.groupJid,
       preferredSubject: group.preferredSubject,
     }));
   }
 
-  if (page && page.route === '/assistant') {
+  if (page && page.data && page.route === '/assistant') {
     return (page as UiPage<AssistantPageData>).data.groups.map((group) => ({
       groupJid: group.groupJid,
       preferredSubject: group.preferredSubject,
     }));
   }
 
-  if (page && page.route === '/media') {
+  if (page && page.data && page.route === '/media') {
     return (page as UiPage<MediaLibraryPageData>).data.groups.map((group) => ({
       groupJid: group.groupJid,
       preferredSubject: group.preferredSubject,
     }));
   }
 
-  if (page && page.route === '/week') {
+  if (page && page.data && page.route === '/week') {
     return (page as UiPage<WeekPlannerSnapshot>).data.groups.map((group) => ({
       groupJid: group.groupJid,
       preferredSubject: group.preferredSubject,
     }));
   }
 
-  if (page && page.route === '/whatsapp') {
+  if (page && page.data && page.route === '/whatsapp') {
     return (page as UiPage<WhatsAppManagementPageData>).data.workspace.groups.map((group) => ({
       groupJid: group.groupJid,
       preferredSubject: group.preferredSubject,
