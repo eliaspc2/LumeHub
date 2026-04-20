@@ -48,6 +48,7 @@ import type { FrontendTransportMode } from '../app/BrowserTransportFactory.js';
 import type {
   AssistantPageData,
   AppRouter,
+  CodexRouterPageData,
   ResolvedAppRoute,
   GroupManagementPageData,
   MediaLibraryPageData,
@@ -1145,6 +1146,8 @@ export class AppShell {
         return this.renderGroupsPage(this.state.page as UiPage<GroupManagementPageData>);
       case '/whatsapp':
         return this.renderWhatsAppPage(this.state.page as UiPage<WhatsAppManagementPageData>);
+      case '/codex-router':
+        return this.renderCodexRouterPage(this.state.page as UiPage<CodexRouterPageData>);
       case '/migration':
         return this.renderMigrationPage(this.state.page as UiPage<MigrationPageData>);
       case '/settings':
@@ -4300,7 +4303,6 @@ export class AppShell {
   private renderMigrationPage(page: UiPage<MigrationPageData>): string {
     const snapshot = page.data.settings;
     const migrationReadiness = page.data.migrationReadiness;
-    const authRouterStatus = snapshot.authRouterStatus;
     const migrationRecommendationTone =
       migrationReadiness.recommendedPhase === 'blocked'
         ? 'danger'
@@ -4313,12 +4315,9 @@ export class AppShell {
         : migrationReadiness.cutoverDecisionReady
           ? 'Semana paralela pronta a arrancar'
           : 'Entrar em shadow mode';
-    const activeAccount = authRouterStatus?.currentSelection?.accountId ?? null;
-    const visibleTokenCount = authRouterStatus?.accountCount ?? 0;
-    const visibleTokenLabel = readCodexTokenCountLabel(visibleTokenCount);
-    const routerEnabledLabel = authRouterStatus ? readCodexRouterEnabledLabel(authRouterStatus.enabled) : 'Indisponivel';
+    const authRouterStatus = snapshot.authRouterStatus;
     const activeTokenLabel = authRouterStatus?.currentSelection?.label ?? 'A rever';
-    const routerTone: UiTone = authRouterStatus ? (authRouterStatus.enabled ? 'positive' : 'warning') : 'warning';
+    const visibleTokenLabel = readCodexTokenCountLabel(authRouterStatus?.accountCount ?? 0);
 
     return `
       <section class="surface hero surface--strong">
@@ -4330,6 +4329,7 @@ export class AppShell {
             ${renderUiActionButton({ label: 'Ver WhatsApp', href: '/whatsapp', dataAttributes: { route: '/whatsapp' } })}
             ${renderUiActionButton({ label: 'Abrir assistente', href: '/assistant', variant: 'secondary', dataAttributes: { route: '/assistant' } })}
             ${renderUiActionButton({ label: 'Abrir configuracao base', href: '/settings', variant: 'secondary', dataAttributes: { route: '/settings' } })}
+            ${renderUiActionButton({ label: 'Abrir Codex Router', href: '/codex-router', variant: 'secondary', dataAttributes: { route: '/codex-router' } })}
           </div>
         </div>
         <div class="hero-panel">
@@ -4512,6 +4512,71 @@ export class AppShell {
         </article>
       </section>
 
+      ${this.renderCodexRouterSurface(snapshot)}
+
+      ${this.renderLegacyMigrationTools(page.data)}
+    `;
+  }
+
+  private renderCodexRouterPage(page: UiPage<CodexRouterPageData>): string {
+    const snapshot = page.data.settings;
+    const authRouterStatus = snapshot.authRouterStatus;
+    const routerEnabledLabel = authRouterStatus ? readCodexRouterEnabledLabel(authRouterStatus.enabled) : 'Indisponivel';
+    const activeTokenLabel = authRouterStatus?.currentSelection?.label ?? 'A rever';
+    const visibleTokenLabel = readCodexTokenCountLabel(authRouterStatus?.accountCount ?? 0);
+    const routerTone: UiTone = authRouterStatus ? (authRouterStatus.enabled ? 'positive' : 'warning') : 'warning';
+    const llmStatusLabel = readCodexAuthLabel(snapshot);
+
+    return `
+      <section class="surface hero surface--strong">
+        <div>
+          <p class="eyebrow">Codex Router</p>
+          <h2>Gere aqui a troca de tokens do Codex sem teres de entrar na pagina de migracao.</h2>
+          <p>${escapeHtml(page.description)}</p>
+          <div class="action-row">
+            ${renderUiActionButton({ label: 'Abrir LumeHub', href: '/settings', dataAttributes: { route: '/settings' } })}
+            ${renderUiActionButton({ label: 'Abrir LLM', href: '/assistant', variant: 'secondary', dataAttributes: { route: '/assistant' } })}
+            ${renderUiActionButton({ label: 'Abrir migracao', href: '/migration', variant: 'secondary', dataAttributes: { route: '/migration' } })}
+          </div>
+        </div>
+        <div class="hero-panel">
+          <div class="status-list">
+            <article class="status-item status-item--${routerTone}">
+              <strong>Troca automatica</strong>
+              <p>${escapeHtml(
+                authRouterStatus
+                  ? authRouterStatus.enabled
+                    ? 'Ligada para o Codex poder escolher sozinho o melhor token.'
+                    : 'Desligada para manter o token atual fixo.'
+                  : 'A gestao de tokens nao esta disponivel neste runtime.',
+              )}</p>
+            </article>
+            <article class="status-item status-item--${authRouterStatus?.currentSelection ? 'positive' : 'warning'}">
+              <strong>Token em uso</strong>
+              <p>${escapeHtml(activeTokenLabel)}</p>
+            </article>
+            <article class="status-item status-item--${snapshot.llmRuntime.mode === 'live' ? 'positive' : 'warning'}">
+              <strong>LLM live</strong>
+              <p>${escapeHtml(`${llmStatusLabel} · ${visibleTokenLabel} conhecidos`)}</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      ${this.renderCodexRouterSurface(snapshot)}
+    `;
+  }
+
+  private renderCodexRouterSurface(snapshot: SettingsSnapshot): string {
+    const authRouterStatus = snapshot.authRouterStatus;
+    const activeAccount = authRouterStatus?.currentSelection?.accountId ?? null;
+    const visibleTokenCount = authRouterStatus?.accountCount ?? 0;
+    const visibleTokenLabel = readCodexTokenCountLabel(visibleTokenCount);
+    const routerEnabledLabel = authRouterStatus ? readCodexRouterEnabledLabel(authRouterStatus.enabled) : 'Indisponivel';
+    const activeTokenLabel = authRouterStatus?.currentSelection?.label ?? 'A rever';
+    const routerTone: UiTone = authRouterStatus ? (authRouterStatus.enabled ? 'positive' : 'warning') : 'warning';
+
+    return `
       <section class="content-grid">
         <article class="surface content-card span-4">
           <div class="card-header">
@@ -4535,9 +4600,9 @@ export class AppShell {
                   </div>
                   <div class="action-row">
                     ${renderUiActionButton({
-                      label: 'Atualizar',
+                      label: 'Atualizar estado',
                       variant: 'secondary',
-                      dataAttributes: { 'settings-action': 'refresh-migration' },
+                      dataAttributes: { 'settings-action': 'refresh-settings-surface' },
                     })}
                     ${renderUiActionButton({
                       label: authRouterStatus.enabled ? 'Desligar troca' : 'Ligar troca',
@@ -4721,8 +4786,6 @@ export class AppShell {
           }
         </article>
       </section>
-
-      ${this.renderLegacyMigrationTools(page.data)}
     `;
   }
 
@@ -5075,6 +5138,7 @@ export class AppShell {
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({ label: 'Abrir WhatsApp', href: '/whatsapp', dataAttributes: { route: '/whatsapp' } })}
+            ${renderUiActionButton({ label: 'Abrir Codex Router', href: '/codex-router', variant: 'secondary', dataAttributes: { route: '/codex-router' } })}
             ${renderUiActionButton({ label: 'Abrir migracao', href: '/migration', variant: 'secondary', dataAttributes: { route: '/migration' } })}
             ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', variant: 'secondary', dataAttributes: { route: '/groups' } })}
           </div>
@@ -5087,7 +5151,7 @@ export class AppShell {
             </article>
             <article class="status-item status-item--warning">
               <strong>Fora desta pagina</strong>
-              <p>WhatsApp, imports legacy, readiness da semana paralela e tokens do Codex vivem fora daqui.</p>
+              <p>WhatsApp, Codex Router, imports legacy e readiness da semana paralela vivem fora daqui.</p>
             </article>
           </div>
         </div>
@@ -6279,10 +6343,10 @@ export class AppShell {
     return page;
   }
 
-  private readSettingsSurfacePage(): UiPage<SettingsPageData | MigrationPageData> | null {
-    const page = this.state.page as UiPage<SettingsPageData | MigrationPageData> | null;
+  private readSettingsSurfacePage(): UiPage<SettingsPageData | MigrationPageData | CodexRouterPageData> | null {
+    const page = this.state.page as UiPage<SettingsPageData | MigrationPageData | CodexRouterPageData> | null;
 
-    if (!page || (page.route !== '/settings' && page.route !== '/migration')) {
+    if (!page || (page.route !== '/settings' && page.route !== '/migration' && page.route !== '/codex-router')) {
       return null;
     }
 
@@ -6867,12 +6931,17 @@ export class AppShell {
       return;
     }
 
-    if (action === 'refresh-migration') {
+    if (action === 'refresh-settings-surface') {
+      const message =
+        page.route === '/migration'
+          ? 'A atualizar a semana paralela e o estado dos tokens do Codex.'
+          : 'A atualizar o estado do Codex Router e dos tokens disponiveis.';
+
       this.state = {
         ...this.state,
         flowFeedback: {
           tone: 'neutral',
-          message: 'A atualizar a semana paralela e o estado dos tokens do Codex.',
+          message,
         },
       };
       this.render();

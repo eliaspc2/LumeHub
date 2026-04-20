@@ -107,6 +107,10 @@ export interface SettingsPageData {
   readonly people: readonly Person[];
 }
 
+export interface CodexRouterPageData {
+  readonly settings: SettingsSnapshot;
+}
+
 export interface MigrationPageData {
   readonly settings: SettingsSnapshot;
   readonly migrationReadiness: MigrationReadinessSnapshot;
@@ -345,6 +349,22 @@ export class AppRouter {
             } satisfies AssistantPageData,
           };
         },
+      },
+      {
+        route: '/codex-router',
+        label: 'Codex Router',
+        description: 'Troca de tokens do Codex/OpenAI, auth canonica live e escolha manual ou automatica do token.',
+        navigationPlacement: 'secondary',
+        legacyRoutes: ['/codex-auth-router', '/oauth-router'],
+        render: async () => ({
+          route: '/codex-router',
+          title: 'Codex Router',
+          description: 'Troca de tokens do Codex/OpenAI, auth canonica live e escolha manual ou automatica do token.',
+          sections: [],
+          data: {
+            settings: await this.readQuery('settings', () => this.client.getSettings()),
+          } satisfies CodexRouterPageData,
+        }),
       },
       {
         route: this.routing.config.route,
