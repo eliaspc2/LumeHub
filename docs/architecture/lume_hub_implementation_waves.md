@@ -7,6 +7,8 @@ Regra editorial:
 - o plano ativo deve ficar curto e legivel
 - novas waves so devem ser criadas quando existir trabalho suficientemente coeso, validavel e com fronteira clara
 - sempre que abrir uma nova ronda de waves, essa ronda deve terminar com uma wave final de limpeza
+- cada pedido deve executar apenas uma wave
+- se o utilizador pedir mais do que uma wave na mesma sequencia, assumir erro de instrucao, nao executar as waves extra e pedir/esperar clarificacao explicita
 
 ## Estado atual
 
@@ -28,7 +30,7 @@ Estado canonico deixado pela ronda `group-first`:
 Validacao consolidada atual:
 
 - `cd /home/eliaspc/Documentos/lume-hub/source`
-- `corepack pnpm run validate:wave68`
+- `corepack pnpm run validate:wave69`
 
 ## Ronda `ui-clarity`
 
@@ -100,7 +102,7 @@ Objetivo da ronda:
 
 Base deixada antes desta ronda:
 
-- a validacao consolidada atual desta ronda passou a ser `validate:wave68`
+- a validacao consolidada atual desta ronda passou a ser `validate:wave69`
 - o `Codex Router` ja ficou exposto como pagina propria em `/codex-router`
 - a shell ja tem contratos visuais mais fortes; agora falta torná-los mais comerciais e mais autoexplicativos
 
@@ -127,33 +129,15 @@ A `Wave 68` ja fechou lembretes por grupo, janelas temporais e copy assistida pe
 - a `instruction-queue` passou a tratar lembretes como trabalho auditavel e deduplicado, com cancelacao quando o evento muda
 - a validacao consolidada atual passou a ser `validate:wave68`
 
-### Wave 69 - Grupos e WhatsApp como fluxos guiados
+A `Wave 69` ja fechou `Grupos` e `WhatsApp` como fluxos guiados:
 
-Objetivo:
-- tornar a operacao diaria em `Grupos` e `WhatsApp` compreensivel para pessoa pouco tecnica
-
-Entrega esperada:
-
-- `Grupos`:
-  - fluxo claro `escolher grupo -> ver estado atual -> alterar`
-  - reduzir repeticao de switches e texto longo na lista de grupos
-  - mostrar estado sintetico e CTA principal por grupo
-- `Grupo detalhado`:
-  - separar `Resumo`, `Permissoes`, `Automacao` e `Conhecimento`
-  - evitar misturar selects, ajuda longa e switches na mesma linha ou grelha apertada
-  - manter largura legivel e blocos informativos curtos
-- `WhatsApp`:
-  - responder primeiro a:
-    - `esta ligado?`
-    - `o que falta?`
-    - `qual o proximo botao?`
-  - empurrar `identidades conhecidas`, listas grandes e detalhe tecnico para segundo nivel
-  - tratar reparacao/sessao como wizard de estado, nao como consola crua
-
-Vale a pena o utilizador testar no fim:
-
-- escolher e gerir um grupo
-- perceber o estado do canal WhatsApp sem ajuda externa
+- `Grupos` passou a ter fluxo explicito `escolher grupo -> ver estado atual -> alterar`
+- a lista de grupos deixou de repetir switches grandes e passou a usar estado sintetico, badges e CTA principal por grupo
+- `Grupo detalhado` ficou separado em `Resumo`, `Permissoes`, `Automacao` e `Conhecimento`
+- `WhatsApp` passou a responder primeiro a `esta ligado?`, `o que falta?` e `qual o proximo botao?`
+- identidades, conversas privadas e permissoes detalhadas ficaram atras de divulgacao progressiva
+- a reparacao do canal passou a ter wizard curto por foco: auth, grupos ou permissoes
+- a validacao consolidada atual passou a ser `validate:wave69`
 
 ### Wave 70 - LumeHub, Codex Router e Migracao por papel
 

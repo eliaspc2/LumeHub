@@ -3255,12 +3255,40 @@ export class AppShell {
           : ''
       }
 
+      <section class="surface content-card group-guided-flow">
+        <div class="card-header">
+          <div>
+            <h3>Fluxo guiado do grupo</h3>
+            <p>Usa a pagina por ordem: escolher, perceber, alterar e so depois mexer em automacao ou conhecimento.</p>
+          </div>
+          ${renderUiBadge({ label: selectedGroup ? 'Grupo escolhido' : 'Falta escolher', tone: selectedGroup ? 'positive' : 'warning' })}
+        </div>
+        <div class="guided-step-grid">
+          <article class="guided-step-card guided-step-card--${selectedGroup ? 'positive' : 'warning'}">
+            <strong>1. Escolher</strong>
+            <p>${escapeHtml(selectedGroup ? selectedGroup.preferredSubject : 'Seleciona um grupo no mapa para evitar mexer no grupo errado.')}</p>
+          </article>
+          <article class="guided-step-card guided-step-card--${selectedGroup ? groupModeTone : 'neutral'}">
+            <strong>2. Ver estado</strong>
+            <p>${escapeHtml(selectedGroup ? `${groupModeLabel}. Owner: ${primaryOwnerLabel}.` : 'Depois da escolha, aparece um resumo humano do estado atual.')}</p>
+          </article>
+          <article class="guided-step-card guided-step-card--${assistantAuthorized ? 'positive' : 'warning'}">
+            <strong>3. Alterar</strong>
+            <p>${escapeHtml(selectedGroup ? (assistantAuthorized ? 'O assistente esta ligado; altera permissoes ou modo se precisares.' : 'O assistente esta bloqueado; liga-o se este grupo deve operar.') : 'As alteracoes ficam bloqueadas ate haver grupo em foco.')}</p>
+          </article>
+          <article class="guided-step-card guided-step-card--${instructionsTone}">
+            <strong>4. Completar</strong>
+            <p>${escapeHtml(selectedGroup ? (intelligence?.instructions.exists ? 'Conhecimento base ja existe; revê lembretes ou documentos quando fizer sentido.' : 'Falta gravar instrucoes canonicas para este grupo.') : 'A automacao e o conhecimento aparecem abaixo quando houver grupo escolhido.')}</p>
+          </article>
+        </div>
+      </section>
+
       <section class="content-grid">
         <article class="surface content-card span-4">
           <div class="card-header card-header--with-switch">
             <div>
-              <h3>Mapa de grupos</h3>
-              <p>Troca rapidamente entre grupos e confirma onde o assistente esta ligado.</p>
+              <h3>Passo 1. Escolher grupo</h3>
+              <p>Escolhe primeiro o grupo. Cada linha mostra o estado essencial e o proximo botao util.</p>
             </div>
             <div class="card-header__actions card-header__actions--group-master">
               ${renderUiBadge({ label: `${groups.length} grupos`, tone: 'neutral' })}
@@ -3293,18 +3321,39 @@ export class AppShell {
                     >
                       <strong>${escapeHtml(group.preferredSubject)}</strong>
                       <time>${escapeHtml(group.courseId ?? 'Sem curso associado')}</time>
-                      <p>${escapeHtml(`${owners} • ${readableGroupMode(group.operationalSettings.mode)}`)}</p>
+                      <p>${escapeHtml(owners)}</p>
                     </button>
-                    <div class="group-tile__switch">
-                      ${renderUiSwitch({
-                        label: 'Assistente neste grupo',
-                        checked: groupAuthorized,
-                        description: groupAuthorized ? 'Ligado neste grupo.' : 'Bloqueado neste grupo.',
-                        dataAttributes: {
-                          'group-action': 'toggle-group-authorized',
-                          'group-jid': group.groupJid,
-                        },
-                      })}
+                    <div class="group-tile__summary">
+                      <div class="ui-card__chips">
+                        ${renderUiBadge({
+                          label: groupAuthorized ? 'Assistente ligado' : 'Assistente bloqueado',
+                          tone: groupAuthorized ? 'positive' : 'warning',
+                          style: 'chip',
+                        })}
+                        ${renderUiBadge({
+                          label: readableGroupMode(group.operationalSettings.mode),
+                          tone: toneForGroupMode(group.operationalSettings.mode),
+                          style: 'chip',
+                        })}
+                      </div>
+                      <div class="action-row group-tile__actions">
+                        ${renderUiActionButton({
+                          label: isSelected ? 'A gerir' : 'Gerir',
+                          variant: isSelected ? 'primary' : 'secondary',
+                          dataAttributes: {
+                            'group-action': 'select-group',
+                            'group-jid': group.groupJid,
+                          },
+                        })}
+                        ${renderUiActionButton({
+                          label: groupAuthorized ? 'Bloquear assistente' : 'Ligar assistente',
+                          variant: 'secondary',
+                          dataAttributes: {
+                            'group-action': 'toggle-group-authorized',
+                            'group-jid': group.groupJid,
+                          },
+                        })}
+                      </div>
                     </div>
                   </article>
                 `;
@@ -3316,8 +3365,8 @@ export class AppShell {
         <article class="surface content-card span-8">
           <div class="card-header">
             <div>
-              <h3>Configuracao operacional</h3>
-              <p>Esta pagina deve responder primeiro a owner, modo do grupo, tags ao bot e switches locais.</p>
+              <h3>Passo 2. Ver estado atual</h3>
+              <p>Resumo curto antes de mexeres em permissoes, automacao ou conhecimento.</p>
             </div>
             ${renderUiBadge({ label: selectedGroup ? selectedGroup.preferredSubject : 'Escolher grupo', tone: selectedGroup ? 'positive' : 'warning' })}
           </div>
@@ -3420,96 +3469,101 @@ export class AppShell {
                   </div>
                 </div>
 
-                <div class="inline-empty">
-                  <strong>Escopo local</strong>
-                  <p>As mudancas abaixo mexem so neste grupo. Sessao WhatsApp, discovery e regras globais continuam noutras paginas.</p>
-                </div>
-
-                <div class="ui-form-grid ui-form-grid--equal">
-                  <label class="ui-field">
-                    <span class="ui-field__label">Responsavel do grupo</span>
-                    <select
-                      class="ui-control"
-                      data-group-owner-select
-                      data-group-jid="${escapeHtml(selectedGroup.groupJid)}"
-                      ${ownerOptions.length <= 1 ? 'disabled' : ''}
-                    >
-                      ${ownerOptions
-                        .map(
-                          (option) =>
-                            `<option value="${escapeHtml(option.value)}"${option.value === primaryOwnerPersonId ? ' selected' : ''}>${escapeHtml(option.label)}</option>`,
-                        )
-                        .join('')}
-                    </select>
-                    <span class="ui-field__hint">${escapeHtml(
-                      ownerOverflowCount > 0
-                        ? `Existem ${ownerOverflowCount} owner(s) extra no catalogo atual; esta pagina assume um owner operacional principal.`
-                        : 'Ao mudar aqui, o grupo fica com esse owner operacional principal.',
-                    )}</span>
-                  </label>
-                  <label class="ui-field">
-                    <span class="ui-field__label">Modo do grupo</span>
-                    <select
-                      class="ui-control"
-                      data-group-operational-setting="mode"
-                      data-group-jid="${escapeHtml(selectedGroup.groupJid)}"
-                    >
-                      <option value="com_agendamento"${selectedGroup.operationalSettings.mode === 'com_agendamento' ? ' selected' : ''}>Com agendamento</option>
-                      <option value="distribuicao_apenas"${selectedGroup.operationalSettings.mode === 'distribuicao_apenas' ? ' selected' : ''}>Distribuicao apenas</option>
-                    </select>
-                    <span class="ui-field__hint">Define se este grupo usa scheduling assistido ou apenas distribuicao.</span>
-                  </label>
-                </div>
-                <div class="ui-form-grid ui-form-grid--equal">
-                  <label class="ui-field">
-                    <span class="ui-field__label">Quem pode tagar o bot</span>
-                    <select
-                      class="ui-control"
-                      data-group-operational-setting="memberTagPolicy"
-                      data-group-jid="${escapeHtml(selectedGroup.groupJid)}"
-                    >
-                      <option value="members_can_tag"${selectedGroup.operationalSettings.memberTagPolicy === 'members_can_tag' ? ' selected' : ''}>Membros podem tagar</option>
-                      <option value="owner_only"${selectedGroup.operationalSettings.memberTagPolicy === 'owner_only' ? ' selected' : ''}>So o owner pode tagar</option>
-                    </select>
-                    <span class="ui-field__hint">A policy define quem pode dirigir o bot no grupo antes de qualquer ACL mais fina.</span>
-                  </label>
-                  <div class="inline-empty">
-                    <strong>Switches locais</strong>
-                    <p>Estes switches deixam-te separar o modo do grupo da disponibilidade real do assistente e do scheduling.</p>
-                  </div>
-                </div>
-                <div class="group-settings-switches">
-                  ${renderUiSwitch({
-                    label: 'Assistente neste grupo',
-                    checked: assistantAuthorized,
-                    description: assistantAuthorized ? 'Ligado neste grupo.' : 'Bloqueado neste grupo.',
-                    dataAttributes: {
-                      'group-action': 'toggle-group-authorized',
-                      'group-jid': selectedGroup.groupJid,
-                    },
-                  })}
-                  ${renderUiSwitch({
-                    label: 'Agendamento ativo',
-                    checked: selectedGroup.operationalSettings.schedulingEnabled,
-                    description: selectedGroup.operationalSettings.schedulingEnabled
-                      ? 'O grupo pode manter scheduling local ativo.'
-                      : 'O scheduling local fica desligado neste grupo.',
-                    dataAttributes: {
-                      'group-action': 'toggle-scheduling-enabled',
-                      'group-jid': selectedGroup.groupJid,
-                    },
-                  })}
-                  ${renderUiSwitch({
-                    label: 'LLM pode decidir agendamentos',
-                    checked: selectedGroup.operationalSettings.allowLlmScheduling,
-                    description: selectedGroup.operationalSettings.allowLlmScheduling
-                      ? 'A LLM pode preparar ou decidir scheduling neste grupo.'
-                      : 'A LLM fica sem poderes de scheduling neste grupo.',
-                    dataAttributes: {
-                      'group-action': 'toggle-llm-scheduling',
-                      'group-jid': selectedGroup.groupJid,
-                    },
-                  })}
+                <div class="group-guided-edit-grid">
+                  <article class="group-guided-card">
+                    <div class="summary-column__header">
+                      <h4>Permissoes</h4>
+                      <p>Quem responde por este grupo e quem pode chamar o bot.</p>
+                    </div>
+                    <div class="ui-form-grid">
+                      <label class="ui-field">
+                        <span class="ui-field__label">Responsavel do grupo</span>
+                        <select
+                          class="ui-control"
+                          data-group-owner-select
+                          data-group-jid="${escapeHtml(selectedGroup.groupJid)}"
+                          ${ownerOptions.length <= 1 ? 'disabled' : ''}
+                        >
+                          ${ownerOptions
+                            .map(
+                              (option) =>
+                                `<option value="${escapeHtml(option.value)}"${option.value === primaryOwnerPersonId ? ' selected' : ''}>${escapeHtml(option.label)}</option>`,
+                            )
+                            .join('')}
+                        </select>
+                        <span class="ui-field__hint">${escapeHtml(
+                          ownerOverflowCount > 0
+                            ? `Existem ${ownerOverflowCount} owner(s) extra no catalogo atual; esta pagina assume um owner operacional principal.`
+                            : 'Ao mudar aqui, o grupo fica com esse owner operacional principal.',
+                        )}</span>
+                      </label>
+                      <label class="ui-field">
+                        <span class="ui-field__label">Quem pode tagar o bot</span>
+                        <select
+                          class="ui-control"
+                          data-group-operational-setting="memberTagPolicy"
+                          data-group-jid="${escapeHtml(selectedGroup.groupJid)}"
+                        >
+                          <option value="members_can_tag"${selectedGroup.operationalSettings.memberTagPolicy === 'members_can_tag' ? ' selected' : ''}>Membros podem tagar</option>
+                          <option value="owner_only"${selectedGroup.operationalSettings.memberTagPolicy === 'owner_only' ? ' selected' : ''}>So o owner pode tagar</option>
+                        </select>
+                        <span class="ui-field__hint">Mantem simples: decide se qualquer membro pode chamar o bot ou se fica reservado ao owner.</span>
+                      </label>
+                    </div>
+                  </article>
+                  <article class="group-guided-card">
+                    <div class="summary-column__header">
+                      <h4>Automacao</h4>
+                      <p>Como o grupo usa scheduling e se a LLM pode ajudar nas mudancas.</p>
+                    </div>
+                    <div class="ui-form-grid">
+                      <label class="ui-field">
+                        <span class="ui-field__label">Modo do grupo</span>
+                        <select
+                          class="ui-control"
+                          data-group-operational-setting="mode"
+                          data-group-jid="${escapeHtml(selectedGroup.groupJid)}"
+                        >
+                          <option value="com_agendamento"${selectedGroup.operationalSettings.mode === 'com_agendamento' ? ' selected' : ''}>Com agendamento</option>
+                          <option value="distribuicao_apenas"${selectedGroup.operationalSettings.mode === 'distribuicao_apenas' ? ' selected' : ''}>Distribuicao apenas</option>
+                        </select>
+                        <span class="ui-field__hint">Escolhe entre agenda local assistida ou apenas distribuicao.</span>
+                      </label>
+                    </div>
+                    <div class="group-settings-switches">
+                      ${renderUiSwitch({
+                        label: 'Assistente neste grupo',
+                        checked: assistantAuthorized,
+                        description: assistantAuthorized ? 'Ligado neste grupo.' : 'Bloqueado neste grupo.',
+                        dataAttributes: {
+                          'group-action': 'toggle-group-authorized',
+                          'group-jid': selectedGroup.groupJid,
+                        },
+                      })}
+                      ${renderUiSwitch({
+                        label: 'Agendamento ativo',
+                        checked: selectedGroup.operationalSettings.schedulingEnabled,
+                        description: selectedGroup.operationalSettings.schedulingEnabled
+                          ? 'O grupo pode manter scheduling local ativo.'
+                          : 'O scheduling local fica desligado neste grupo.',
+                        dataAttributes: {
+                          'group-action': 'toggle-scheduling-enabled',
+                          'group-jid': selectedGroup.groupJid,
+                        },
+                      })}
+                      ${renderUiSwitch({
+                        label: 'LLM pode decidir agendamentos',
+                        checked: selectedGroup.operationalSettings.allowLlmScheduling,
+                        description: selectedGroup.operationalSettings.allowLlmScheduling
+                          ? 'A LLM pode preparar ou decidir scheduling neste grupo.'
+                          : 'A LLM fica sem poderes de scheduling neste grupo.',
+                        dataAttributes: {
+                          'group-action': 'toggle-llm-scheduling',
+                          'group-jid': selectedGroup.groupJid,
+                        },
+                      })}
+                    </div>
+                  </article>
                 </div>
                 ${
                   this.state.advancedDetailsEnabled
@@ -3540,8 +3594,8 @@ export class AppShell {
         <article class="surface content-card span-7">
           <div class="card-header card-header--with-switch">
             <div>
-              <h3>Lembretes deste grupo</h3>
-              <p>Podes ter varios lembretes por grupo, cada um com a sua janela temporal e com copy propria.</p>
+              <h3>Passo 3. Automacao e lembretes</h3>
+              <p>Define os avisos deste grupo depois de confirmares que o modo e as permissoes estao certos.</p>
             </div>
             ${
               selectedGroup
@@ -3712,8 +3766,8 @@ export class AppShell {
         <article class="surface content-card span-5">
           <div class="card-header">
             <div>
-              <h3>Preview da copy</h3>
-              <p>Variaveis canonicas e preview do texto base antes de ativares estes lembretes.</p>
+              <h3>Preview da comunicacao</h3>
+              <p>Mostra a mensagem base e o prompt antes de esses lembretes entrarem na rotina do grupo.</p>
             </div>
             ${renderUiBadge({
               label: selectedGroup ? `${reminderPolicy.reminders.length} regra(s)` : 'Sem grupo',
@@ -3789,8 +3843,8 @@ export class AppShell {
         <article class="surface content-card span-7">
           <div class="card-header">
             <div>
-              <h3>Instrucoes e preview</h3>
-              <p>Aqui defines como a LLM deve interpretar este grupo e confirmas logo o contexto que seria usado.</p>
+              <h3>Passo 4. Conhecimento do grupo</h3>
+              <p>Guarda linguagem, regras e contexto para a LLM perceber este grupo sem depender de memoria solta.</p>
             </div>
             ${renderUiBadge({ label: instructionsState, tone: instructionsTone })}
           </div>
@@ -3893,8 +3947,8 @@ export class AppShell {
         <article class="surface content-card span-5">
           <div class="card-header">
             <div>
-              <h3>Documentos deste grupo</h3>
-              <p>Normas, excecoes e conhecimento ficam guardados na pasta do proprio grupo.</p>
+              <h3>Documentos e normas</h3>
+              <p>Normas, excecoes e materiais ficam guardados na pasta do proprio grupo.</p>
             </div>
             ${renderUiBadge({
               label: `${documentCount} documento${documentCount === 1 ? '' : 's'}`,
@@ -4108,16 +4162,16 @@ export class AppShell {
       <section class="surface content-card">
         <div class="card-header">
           <div>
-            <h3>Leitura rapida do canal</h3>
-            <p>A sessao, a cobertura atual e o discovery ficam condensados aqui antes de entrares no detalhe.</p>
+            <h3>Fluxo guiado do WhatsApp</h3>
+            <p>Comeca aqui: estado da ligacao, o que falta e o botao certo para continuar.</p>
           </div>
           ${renderUiBadge({ label: sessionLabel, tone: sessionTone })}
         </div>
         <div class="summary-grid">
           <div class="summary-column">
             <div class="summary-column__header">
-              <h4>Ligacao</h4>
-              <p>Estado live da sessao e ultimo sinal conhecido do canal.</p>
+              <h4>1. Esta ligado?</h4>
+              <p>Estado live da sessao e ultimo sinal conhecido.</p>
             </div>
             <div class="status-list">
               <article class="status-item status-item--${sessionTone}">
@@ -4128,7 +4182,7 @@ export class AppShell {
           </div>
           <div class="summary-column">
             <div class="summary-column__header">
-              <h4>Grupos e discovery</h4>
+              <h4>2. O que falta?</h4>
               <p>Mostra se o assistente ja esta autorizado onde interessa.</p>
             </div>
             <div class="status-list">
@@ -4158,15 +4212,38 @@ export class AppShell {
           </div>
           <div class="summary-column">
             <div class="summary-column__header">
-              <h4>Identidades conhecidas</h4>
-              <p>Privados e pessoas reconhecidas pelo canal neste momento.</p>
+              <h4>3. Qual o proximo botao?</h4>
+              <p>Um operador pouco tecnico deve conseguir continuar daqui.</p>
             </div>
             <div class="status-list">
-              <article class="status-item status-item--${snapshot.conversations.length > 0 ? 'positive' : 'warning'}">
-                <strong>${escapeHtml(`${snapshot.conversations.length} privado(s) conhecidos`)}</strong>
-                <p>${escapeHtml(`${knownPeopleCount} pessoa(s) reconhecida(s) pelo canal.`)}</p>
+              <article class="status-item status-item--${snapshot.runtime.session.connected ? 'positive' : 'warning'}">
+                <strong>Proximo passo</strong>
+                <p>${escapeHtml(nextWhatsAppStep)}</p>
               </article>
             </div>
+          </div>
+        </div>
+        <div class="whatsapp-repair-wizard">
+          <div class="summary-column__header">
+            <h4>Reparacao guiada</h4>
+            <p>Escolhe o problema que estas a tentar resolver e segue a checklist curta.</p>
+          </div>
+          <div class="action-row">
+            ${(['auth', 'groups', 'permissions'] as const)
+              .map((focus) =>
+                renderUiActionButton({
+                  label: readableRepairFocus(focus),
+                  variant: this.state.whatsappRepairFocus === focus ? 'primary' : 'secondary',
+                  dataAttributes: {
+                    'flow-action': 'repair-focus',
+                    'flow-value': focus,
+                  },
+                }),
+              )
+              .join('')}
+          </div>
+          <div class="guide-preview guide-preview--${repairTone(this.state.whatsappRepairFocus, snapshot)}">
+            ${renderRepairChecklist(this.state.whatsappRepairFocus, snapshot)}
           </div>
         </div>
       </section>
@@ -4174,7 +4251,7 @@ export class AppShell {
       <section class="content-grid">
         <article class="surface content-card span-5">
           <div class="card-header">
-            <h3>Sessao e emparelhamento</h3>
+            <h3>Passo 1. Ligar ou reparar sessao</h3>
             ${renderUiBadge({ label: sessionLabel, tone: sessionTone })}
           </div>
           <div class="ui-card__content">
@@ -4258,70 +4335,62 @@ export class AppShell {
         <article class="surface content-card span-7">
           <div class="card-header">
             <div>
-              <h3>Identidades vistas no canal</h3>
-              <p>Esta area ficou diagnostica: mostra quem o canal conhece, sem misturar governanca global com sessao e discovery.</p>
+              <h3>Diagnostico de identidades</h3>
+              <p>Pessoas e privados ficam recolhidos para nao distrair da ligacao e dos grupos.</p>
             </div>
             ${renderUiBadge({ label: `${knownPeopleCount} pessoas`, tone: 'neutral' })}
           </div>
-          <div class="compact-record-list">
-            ${people.length > 0
-              ? people
-                  .map(
-                    (person) => `
-                      <article class="compact-record">
-                        <div class="compact-record__header">
-                          <div>
-                            <strong>${escapeHtml(person.displayName)}</strong>
-                            <p>${escapeHtml(person.globalRoles.includes('app_owner') ? 'App owner conhecido' : 'Membro conhecido')}</p>
-                          </div>
-                          <div class="ui-card__chips">
-                            ${renderUiBadge({
-                              label: person.privateAssistantAuthorized ? 'Privado permitido' : 'Privado bloqueado',
-                              tone: person.privateAssistantAuthorized ? 'positive' : 'warning',
-                              style: 'chip',
-                            })}
-                          </div>
-                        </div>
-                        <div class="compact-record__body">
-                          <p>${escapeHtml(
-                            person.whatsappJids.length > 0
-                              ? `${person.whatsappJids.length} contacto(s) WhatsApp conhecido(s).`
-                              : 'Sem contacto WhatsApp conhecido.',
-                          )}</p>
-                        </div>
-                        <div class="action-row">
-                          ${renderUiActionButton({
-                            label: 'Abrir LumeHub',
-                            href: '/settings',
-                            variant: 'secondary',
-                            dataAttributes: { route: '/settings' },
-                          })}
-                          ${
-                            person.ownedGroupJids.length > 0
-                              ? renderUiActionButton({
-                                  label: 'Ver grupos',
-                                  href: '/groups',
-                                  variant: 'secondary',
-                                  dataAttributes: { route: '/groups' },
-                                })
-                              : ''
-                          }
-                        </div>
-                      </article>
-                    `,
-                  )
-                  .join('')
-              : `
-                  <div class="inline-empty">
-                    <strong>Sem pessoas conhecidas</strong>
-                    <p>Assim que o runtime reconhecer pessoas, esta lista passa a ficar gerivel aqui.</p>
-                  </div>
-                `}
-          </div>
-          <details class="ui-details">
-            <summary>Conversas privadas conhecidas</summary>
+          <details class="ui-details whatsapp-diagnostics-details">
+            <summary>Ver pessoas e conversas privadas</summary>
             <div class="ui-details__content">
               <div class="compact-record-list">
+                ${people.length > 0
+                  ? people
+                      .map(
+                        (person) => `
+                          <article class="compact-record">
+                            <div class="compact-record__header">
+                              <div>
+                                <strong>${escapeHtml(person.displayName)}</strong>
+                                <p>${escapeHtml(person.globalRoles.includes('app_owner') ? 'App owner conhecido' : 'Membro conhecido')}</p>
+                              </div>
+                              <div class="ui-card__chips">
+                                ${renderUiBadge({
+                                  label: person.privateAssistantAuthorized ? 'Privado permitido' : 'Privado bloqueado',
+                                  tone: person.privateAssistantAuthorized ? 'positive' : 'warning',
+                                  style: 'chip',
+                                })}
+                              </div>
+                            </div>
+                            <div class="compact-record__body">
+                              <p>${escapeHtml(
+                                person.whatsappJids.length > 0
+                                  ? `${person.whatsappJids.length} contacto(s) WhatsApp conhecido(s).`
+                                  : 'Sem contacto WhatsApp conhecido.',
+                              )}</p>
+                            </div>
+                            <div class="action-row">
+                              ${
+                                person.ownedGroupJids.length > 0
+                                  ? renderUiActionButton({
+                                      label: 'Ver grupos',
+                                      href: '/groups',
+                                      variant: 'secondary',
+                                      dataAttributes: { route: '/groups' },
+                                    })
+                                  : ''
+                              }
+                            </div>
+                          </article>
+                        `,
+                      )
+                      .join('')
+                  : `
+                      <div class="inline-empty">
+                        <strong>Sem pessoas conhecidas</strong>
+                        <p>Assim que o runtime reconhecer pessoas, esta lista passa a ficar gerivel aqui.</p>
+                      </div>
+                    `}
                 ${snapshot.conversations.length > 0
                   ? snapshot.conversations
                       .map(
@@ -4362,8 +4431,8 @@ export class AppShell {
         <article class="surface content-card span-12">
           <div class="card-header">
             <div>
-              <h3>Grupos do WhatsApp</h3>
-              <p>O canal mostra o que conhece e em que estado esta. A configuracao operacional de cada grupo vive na pagina Grupos.</p>
+              <h3>Passo 2. Escolher grupos a operar</h3>
+              <p>O canal mostra os grupos conhecidos. A configuracao detalhada continua na pagina Grupos.</p>
             </div>
             ${renderUiBadge({ label: `${snapshot.groups.length} grupos`, tone: 'neutral' })}
           </div>
@@ -4388,11 +4457,11 @@ export class AppShell {
                               </div>
                             </div>
                             <div class="compact-record__body">
-                              <p><strong>Calendario</strong>: ${escapeHtml(
-                                `Membros ${readableCalendarAccessMode(group.calendarAccessPolicy.group)}, Responsavel ${readableCalendarAccessMode(group.calendarAccessPolicy.groupOwner)}, Admin ${readableCalendarAccessMode(group.calendarAccessPolicy.appOwner)}.`,
+                              <p>${escapeHtml(
+                                group.assistantAuthorized
+                                  ? 'Este grupo ja pode receber operacao do assistente.'
+                                  : 'Este grupo esta visivel, mas o assistente ainda esta bloqueado.',
                               )}</p>
-                              <p><strong>Permissoes efetivas</strong></p>
-                              ${renderGroupEffectivePermissionList(group)}
                             </div>
                             <div class="action-row">
                               ${renderUiActionButton({
@@ -4402,13 +4471,16 @@ export class AppShell {
                                   route: this.currentRouter().buildGroupRoute(group.groupJid),
                                 },
                               })}
-                              ${renderUiActionButton({
-                                label: 'Abrir LumeHub',
-                                href: '/settings',
-                                variant: 'secondary',
-                                dataAttributes: { route: '/settings' },
-                              })}
                             </div>
+                            <details class="ui-details">
+                              <summary>Ver permissoes deste grupo</summary>
+                              <div class="ui-details__content">
+                                <p><strong>Calendario</strong>: ${escapeHtml(
+                                  `Membros ${readableCalendarAccessMode(group.calendarAccessPolicy.group)}, Responsavel ${readableCalendarAccessMode(group.calendarAccessPolicy.groupOwner)}, Admin ${readableCalendarAccessMode(group.calendarAccessPolicy.appOwner)}.`,
+                                )}</p>
+                                ${renderGroupEffectivePermissionList(group)}
+                              </div>
+                            </details>
                             ${
                               this.state.advancedDetailsEnabled
                                 ? `
