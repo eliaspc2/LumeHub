@@ -155,6 +155,7 @@ exec "$NODE_BIN" "$APP_ROOT/dist/apps/lume-hub-backend/src/main.js"
       '[Service]',
       'Type=simple',
       'WorkingDirectory=/srv/lume-hub/app/current',
+      'EnvironmentFile=-/home/eliaspc/Documentos/lume-hub/runtime/host/codex-auth-sources.env',
       'Environment=CODEX_AUTH_FILE=/codex/auth.json',
       'Environment=LUME_HUB_DATA_DIR=/srv/lume-hub/data',
       'Environment=LUME_HUB_LOG_DIR=/srv/lume-hub/logs',
@@ -323,6 +324,7 @@ exec "$NODE_BIN" "$SCRIPT_DIR/lume-hub-host.mjs"
     auth: {
       hostPath: '/home/eliaspc/.codex/auth.json',
       envKey: 'CODEX_AUTH_FILE',
+      optionalSourcesEnvFile: 'runtime/host/codex-auth-sources.env',
     },
     delivery: {
       packagingModel: 'host_companion_outside_container',
@@ -343,6 +345,7 @@ exec "$NODE_BIN" "$SCRIPT_DIR/lume-hub-host.mjs"
     '[Service]',
     'Type=simple',
     `WorkingDirectory=${stagePath}`,
+    'EnvironmentFile=-/home/eliaspc/Documentos/lume-hub/runtime/host/codex-auth-sources.env',
     'Environment=CODEX_AUTH_FILE=/home/eliaspc/.codex/auth.json',
     `ExecStart=${hostBinPath}`,
     'Restart=always',

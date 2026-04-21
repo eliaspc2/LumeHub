@@ -18,7 +18,7 @@ Nao existem waves ativas neste momento.
 A validacao consolidada atual e:
 
 - `cd /home/eliaspc/Documentos/lume-hub/source`
-- `corepack pnpm run validate:wave72`
+- `corepack pnpm run validate:wave73`
 
 ## Ultimas rondas fechadas
 
@@ -51,6 +51,15 @@ Estado canonico deixado:
 - `Codex Router` em pagina propria, com backup antes de trocar token e suporte a `3+` tokens
 - kit de entrega comercial honesto para `backend containerizado + host companion`
 - validadores intermédios da ronda removidos; a serie ficou consolidada em `validate:wave72`
+
+A `Wave 73` fechou o cutover operacional de avisos e ownership OAuth.
+Estado canonico deixado:
+
+- LumeHub passa a aceitar `LUME_HUB_CODEX_AUTH_SOURCES` como contrato para `2+` contas OAuth externas
+- `lume-hub-backend` e `lume-hub-host` carregam o mesmo ficheiro local `runtime/host/codex-auth-sources.env`
+- o packaging publicado inclui `EnvironmentFile` opcional para manter o ownership OAuth fora de hacks manuais
+- os avisos migrados do WA-Notify devem ficar no LumeHub como envio principal, com WA-Notify apenas como redundancia 5 minutos depois
+- validacao consolidada: `validate:wave73`
 
 ## Como reabrir uma ronda
 

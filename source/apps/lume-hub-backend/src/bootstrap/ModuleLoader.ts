@@ -42,7 +42,12 @@ import { ConversationAuditRepository } from '@lume-hub/conversation';
 
 import type { BackendRuntimeModules } from './BackendRuntime.js';
 import { BackendRuntimeStateRepository } from './BackendRuntimeStateRepository.js';
-import { resolveBackendRuntimePaths, type BackendRuntimeConfig, type BackendRuntimePaths } from './BackendRuntimeConfig.js';
+import {
+  resolveBackendRuntimePaths,
+  resolveCodexAuthSources,
+  type BackendRuntimeConfig,
+  type BackendRuntimePaths,
+} from './BackendRuntimeConfig.js';
 import { ConversationPipelineRuntime } from './ConversationPipelineRuntime.js';
 import { ConversationReplyDeliveryRepository } from './ConversationReplyDeliveryRepository.js';
 import { InstructionQueueExecutionRuntime } from './InstructionQueueExecutionRuntime.js';
@@ -66,6 +71,7 @@ export class ModuleLoader {
 
   load(): LoadedBackendComposition {
     const paths = resolveBackendRuntimePaths(this.config);
+    const codexAuthSources = resolveCodexAuthSources(this.config.codexAuthSources);
     const adminConfigModule = new AdminConfigModule({
       settingsFilePath: paths.settingsFilePath,
     });
@@ -172,7 +178,7 @@ export class ModuleLoader {
       canonicalAuthFilePath: paths.canonicalCodexAuthFile,
       stateFilePath: paths.codexAuthRouterStateFilePath,
       backupDirectoryPath: paths.codexAuthRouterBackupDirectoryPath,
-      sourceAccounts: this.config.codexAuthSources,
+      sourceAccounts: codexAuthSources,
       startByPreparingAuth: this.config.startByPreparingCodexAuth ?? false,
     });
     const hostLifecycleModule = new HostLifecycleModule({

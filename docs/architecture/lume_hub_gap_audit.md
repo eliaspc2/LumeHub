@@ -188,6 +188,7 @@ E simplificar o que ja existe, torna-lo coerente e fazer com que o utilizador pe
 
 Nao restam gaps ativos na ronda `commercial-readiness`.
 A `Wave 72` fechou a limpeza final e consolidou a serie em `validate:wave72`.
+A `Wave 73` acrescentou o cutover operacional de avisos WA-Notify -> LumeHub e o ownership OAuth por `LUME_HUB_CODEX_AUTH_SOURCES`.
 
 Estado canonico deixado:
 
@@ -200,7 +201,7 @@ Estado canonico deixado:
 - copy de lembretes pode ser assistida pela LLM e auditada como `gerado -> preparado -> enviado`
 - `Codex Router` suporta lista de `3+` tokens e mantem backup antes de trocar token
 - o kit comercial declara honestamente `backend containerizado + host companion`, sem vender o produto como `um container unico`
-- os validadores intermédios da ronda foram removidos; a entrada canonica e `validate:wave72`
+- os validadores intermédios da ronda foram removidos; a entrada canonica atual e `validate:wave73`
 
 ## Trabalho futuro fora do scope atual
 

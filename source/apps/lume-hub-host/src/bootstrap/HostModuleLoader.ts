@@ -47,6 +47,7 @@ export class HostModuleLoader {
     const rootPath = this.options.rootPath ?? resolveProjectRoot();
     const codexAuthFile = this.options.codexAuthFile ?? '/home/eliaspc/.codex/auth.json';
     const canonicalCodexAuthFile = this.options.canonicalCodexAuthFile ?? codexAuthFile;
+    const codexAuthSources = this.options.codexAuthSources ?? readCodexAuthSourcesFromEnv();
     const codexAuthRouterBackupDirectoryPath =
       this.options.codexAuthRouterBackupDirectoryPath ??
       resolve(rootPath, 'runtime/host/state/codex-auth-router-backups');
@@ -60,7 +61,7 @@ export class HostModuleLoader {
       backupDirectoryPath: codexAuthRouterBackupDirectoryPath,
       backupHistoryDirectoryPath: codexAuthRouterBackupHistoryDirectoryPath,
       backupHistoryRetentionLimit: this.options.codexAuthRouterBackupHistoryRetentionLimit ?? 5,
-      sourceAccounts: this.options.codexAuthSources,
+      sourceAccounts: codexAuthSources,
     });
     const systemPowerModule = new SystemPowerModule({
       clock: this.options.clock,
@@ -132,4 +133,68 @@ function resolveDefaultCodexAuthBackupRepositoryPath(): string | undefined {
   const repositoryPath = '/home/eliaspc/Documentos/codex-auth-backups';
 
   return existsSync(join(repositoryPath, '.git')) ? repositoryPath : undefined;
+}
+
+function readCodexAuthSourcesFromEnv(): readonly CodexAuthSourceConfig[] | undefined {
+  const rawValue = process.env.LUME_HUB_CODEX_AUTH_SOURCES;
+
+  if (!rawValue?.trim()) {
+    return undefined;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawValue);
+  } catch {
+    throw new Error('LUME_HUB_CODEX_AUTH_SOURCES must be a JSON array.');
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('LUME_HUB_CODEX_AUTH_SOURCES must be a JSON array.');
+  }
+
+  return parsed.map((entry, index) => normaliseCodexAuthSource(entry, index));
+}
+
+function normaliseCodexAuthSource(entry: unknown, index: number): CodexAuthSourceConfig {
+  if (!entry || typeof entry !== 'object') {
+    throw new Error(`LUME_HUB_CODEX_AUTH_SOURCES[${index}] must be an object.`);
+  }
+
+  const value = entry as Record<string, unknown>;
+  const accountId = readRequiredTrimmedSourceField(value, index, 'accountId');
+  const label = readRequiredTrimmedSourceField(value, index, 'label');
+  const filePath = readRequiredTrimmedSourceField(value, index, 'filePath');
+  const priority = value.priority === undefined ? undefined : Number(value.priority);
+  const kind = value.kind === undefined ? undefined : String(value.kind);
+
+  if (priority !== undefined && (!Number.isInteger(priority) || priority < 0)) {
+    throw new Error(`LUME_HUB_CODEX_AUTH_SOURCES[${index}].priority must be a non-negative integer.`);
+  }
+
+  if (kind !== undefined && kind !== 'canonical_live' && kind !== 'secondary') {
+    throw new Error(`LUME_HUB_CODEX_AUTH_SOURCES[${index}].kind must be canonical_live or secondary.`);
+  }
+
+  return {
+    accountId,
+    label,
+    filePath,
+    priority,
+    kind,
+  };
+}
+
+function readRequiredTrimmedSourceField(
+  value: Readonly<Record<string, unknown>>,
+  index: number,
+  fieldName: 'accountId' | 'label' | 'filePath',
+): string {
+  const fieldValue = value[fieldName];
+
+  if (typeof fieldValue !== 'string' || !fieldValue.trim()) {
+    throw new Error(`LUME_HUB_CODEX_AUTH_SOURCES[${index}].${fieldName} must be a non-empty string.`);
+  }
+
+  return fieldValue.trim();
 }
