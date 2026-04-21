@@ -601,6 +601,11 @@ textarea {
   background: linear-gradient(180deg, #ffffff 0%, #fff4f1 100%);
 }
 
+.status-item--neutral {
+  border-color: rgba(135, 148, 167, 0.2);
+  background: var(--neutral-soft);
+}
+
 .llm-chat-workbench__stack {
   gap: 16px;
 }
@@ -857,7 +862,8 @@ textarea {
 }
 
 .group-guided-flow,
-.whatsapp-repair-wizard {
+.whatsapp-repair-wizard,
+.migration-operator-wizard {
   display: grid;
   gap: 16px;
 }
@@ -1094,6 +1100,22 @@ textarea {
 
 .settings-switch-grid .ui-switch {
   height: 100%;
+}
+
+.settings-advanced-details {
+  padding: var(--surface-pad-shell);
+}
+
+.settings-advanced-details > summary {
+  cursor: pointer;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink-strong);
+}
+
+.settings-advanced-stack {
+  display: grid;
+  gap: var(--surface-gap-lg);
 }
 
 .settings-summary-list {

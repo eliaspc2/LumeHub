@@ -127,9 +127,10 @@ O runtime em `runtime/` deve ser tratado como destino de build/publicacao, nao c
 - essa pagina deve concentrar:
   - switches globais do produto
   - defaults canonicos de notificacao
-  - runtime LLM
-  - host companion, energia e autostart
-  - governanca global da app, incluindo `app owners` e permissao de privados
+  - saude operacional do runtime
+  - governanca global da app, incluindo `app owners` e permissao de privados, atras de detalhe avancado
+- a vista base deve ficar em `Basico`
+- provider LLM, host companion, energia, autostart, auth e tokens ficam em `Avancado` ou na pagina propria do `Codex Router`
 - imports legacy e readiness de shadow mode nao vivem aqui; ficam na pagina `Migracao`
 
 ## Principios de UX do Frontend
@@ -250,14 +251,14 @@ a pagina `LLM` ja permite chat direto em escopo global ou de grupo, mantendo con
 O `LumeHub` ja tem:
 
 - runtime `Live` operacional com WhatsApp, LLM, scheduling, alerts e automations
-- readiness de migracao exposta na pagina `Migracao`
-- GUI live do `codex auto router` para preparar a melhor conta e fazer switch manual
+- pagina `Migracao` como wizard de operador para readiness, semana paralela e imports legacy
+- pagina `Codex Router` propria para preparar a melhor conta e fazer switch manual com backup antes de trocar
 - endpoint `GET /api/migrations/readiness`
 - checklist de `shadow mode` em [lume_hub_shadow_mode_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md)
 - checklist de cutover em [lume_hub_live_cutover_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_live_cutover_checklist.md)
 
 Em `2026-04-06`, o bloqueador principal para substituir de vez o `WA-notify` ja nao e tecnico: passa a ser a execucao real da semana paralela e a decisao final de cutover.
-O `LumeHub` ja mostra readiness de migracao, checklist de `shadow mode` e consola do `codex auto router` na pagina `Migracao`, mas o cutover total do `WA-notify` continua dependente de uma semana paralela real antes da decisao final.
+O `LumeHub` ja separa readiness de migracao, checklist de `shadow mode` e consola do `codex auto router` por paginas diferentes, mas o cutover total do `WA-notify` continua dependente de uma semana paralela real antes da decisao final.
 
 Mas isso nao significa, por si so, que o `WA-notify` ja deva ser desligado.
 
@@ -282,7 +283,8 @@ Em `2026-04-06`, a leitura canonica passa a ser esta:
 - a `Wave 67` ja fechou `Calendario` summary-first e `LLM` chat-first
 - a `Wave 68` ja fechou lembretes por grupo, janelas temporais e copy assistida pela LLM
 - a `Wave 69` ja fechou `Grupos` e `WhatsApp` como fluxos guiados, com `validate:wave69`
-- a validacao consolidada mais recente passou a ser `validate:wave69`
+- a `Wave 70` ja fechou `LumeHub`, `Codex Router` e `Migracao` por papel, com `validate:wave70`
+- a validacao consolidada mais recente passou a ser `validate:wave70`
 - a `Wave 52` ja fechou a fundacao do modelo `group-first`
 - a `Wave 53` ja fechou a shell `group-first`, com switcher global de grupo e navegacao principal curta
 - a `Wave 54` ja fechou a pagina operacional de grupo, com owner, modos e politicas locais persistentes

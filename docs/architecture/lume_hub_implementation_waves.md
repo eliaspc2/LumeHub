@@ -30,7 +30,7 @@ Estado canonico deixado pela ronda `group-first`:
 Validacao consolidada atual:
 
 - `cd /home/eliaspc/Documentos/lume-hub/source`
-- `corepack pnpm run validate:wave69`
+- `corepack pnpm run validate:wave70`
 
 ## Ronda `ui-clarity`
 
@@ -102,7 +102,7 @@ Objetivo da ronda:
 
 Base deixada antes desta ronda:
 
-- a validacao consolidada atual desta ronda passou a ser `validate:wave69`
+- a validacao consolidada atual desta ronda passou a ser `validate:wave70`
 - o `Codex Router` ja ficou exposto como pagina propria em `/codex-router`
 - a shell ja tem contratos visuais mais fortes; agora falta torná-los mais comerciais e mais autoexplicativos
 
@@ -139,30 +139,13 @@ A `Wave 69` ja fechou `Grupos` e `WhatsApp` como fluxos guiados:
 - a reparacao do canal passou a ter wizard curto por foco: auth, grupos ou permissoes
 - a validacao consolidada atual passou a ser `validate:wave69`
 
-### Wave 70 - LumeHub, Codex Router e Migracao por papel
+A `Wave 70` ja fechou `LumeHub`, `Codex Router` e `Migracao` por papel:
 
-Objetivo:
-- separar melhor produto base, gestao de tokens e consola de operador
-
-Entrega esperada:
-
-- `LumeHub`:
-  - dividir em `Basico` e `Avancado`
-  - manter na vista base apenas controlos de produto e saude operacional
-  - esconder detalhes de provider, tokens e energia atras de `details` ou modo expert
-- `Codex Router`:
-  - manter a pagina propria ja aberta nesta baseline
-  - alinhar copy e divulgacao progressiva da pagina para linguagem mais humana
-  - esconder diagnostico tecnico pesado por defeito
-- `Migracao`:
-  - converter a leitura atual num wizard de operador com `3-5` passos
-  - esconder comparativos internos, `shadow mode` e detalhe tecnico por defeito
-  - reforcar que esta pagina nao e a homepage normal do produto
-
-Vale a pena o utilizador testar no fim:
-
-- diferenca entre `LumeHub`, `Codex Router` e `Migracao`
-- leitura da pagina `Migracao` sem conhecimento tecnico previo
+- `LumeHub` passou a ter vista `Basico` para regras globais e saude operacional, com `Avancado` recolhido
+- provider LLM, energia, auth, tokens e governanca ficaram atras de divulgacao progressiva
+- `Codex Router` ficou com linguagem humana, contrato de backup antes de trocar e escolha manual de token recolhida
+- `Migracao` passou a wizard de operador em 4 passos e deixou de mostrar comparativos internos/shadow mode por defeito
+- a validacao consolidada atual passou a ser `validate:wave70`
 
 ### Wave 71 - Kit de entrega comercial e packaging honesto
 

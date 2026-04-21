@@ -1270,8 +1270,10 @@ export class AppShell {
               bodyHtml: `<div class="action-row">${renderUiActionButton({ label: 'Abrir WhatsApp', href: '/whatsapp', dataAttributes: { route: '/whatsapp' } })}</div>`,
             })}
           </div>
-        </article>
-      </section>
+            </article>
+          </section>
+        </div>
+      </details>
     `;
   }
 
@@ -2390,8 +2392,10 @@ export class AppShell {
               </div>
             </div>
           </details>
-        </article>
-      </section>
+            </article>
+          </section>
+        </div>
+      </details>
     `;
   }
 
@@ -4828,19 +4832,21 @@ export class AppShell {
           ? 'Semana paralela pronta a arrancar'
           : 'Entrar em shadow mode';
     const authRouterStatus = snapshot.authRouterStatus;
-    const activeTokenLabel = authRouterStatus?.currentSelection?.label ?? 'A rever';
     const visibleTokenLabel = readCodexTokenCountLabel(authRouterStatus?.accountCount ?? 0);
+    const runtimeTone: UiTone = migrationReadiness.runtime.ready ? 'positive' : 'danger';
+    const whatsappTone: UiTone = migrationReadiness.whatsapp.connected ? 'positive' : 'warning';
+    const llmTone: UiTone = migrationReadiness.llm.mode === 'live' ? 'positive' : 'warning';
+    const importTone: UiTone = migrationReadiness.lumeHubState.importedScheduleEvents > 0 ? 'positive' : 'warning';
 
     return `
       <section class="surface hero surface--strong">
         <div>
           <p class="eyebrow">Migracao</p>
-          <h2>Compara a semana paralela e gere os tokens do Codex num unico sitio.</h2>
-          <p>${escapeHtml(page.description)}</p>
+          <h2>Consola de operador para sair do WA-notify sem confundir com o uso diario.</h2>
+          <p>Esta pagina nao e a homepage normal do produto. Usa-a so quando estas a preparar, validar ou aplicar a migracao.</p>
           <div class="action-row">
-            ${renderUiActionButton({ label: 'Ver WhatsApp', href: '/whatsapp', dataAttributes: { route: '/whatsapp' } })}
-            ${renderUiActionButton({ label: 'Abrir assistente', href: '/assistant', variant: 'secondary', dataAttributes: { route: '/assistant' } })}
-            ${renderUiActionButton({ label: 'Abrir configuracao base', href: '/settings', variant: 'secondary', dataAttributes: { route: '/settings' } })}
+            ${renderUiActionButton({ label: 'Voltar ao LumeHub', href: '/settings', dataAttributes: { route: '/settings' } })}
+            ${renderUiActionButton({ label: 'Ver WhatsApp', href: '/whatsapp', variant: 'secondary', dataAttributes: { route: '/whatsapp' } })}
             ${renderUiActionButton({ label: 'Abrir Codex Router', href: '/codex-router', variant: 'secondary', dataAttributes: { route: '/codex-router' } })}
           </div>
         </div>
@@ -4850,37 +4856,90 @@ export class AppShell {
               <strong>Proximo passo</strong>
               <p>${escapeHtml(migrationReadiness.summary)}</p>
             </article>
-            <article class="status-item status-item--${authRouterStatus?.currentSelection ? 'positive' : 'warning'}">
-              <strong>Tokens do Codex</strong>
-              <p>${
+            <article class="status-item status-item--neutral">
+              <strong>Papel desta pagina</strong>
+              <p>Operador de migracao: prepara a semana paralela, valida importacoes e so depois decide o corte.</p>
+            </article>
+            <article class="status-item status-item--${authRouterStatus ? 'positive' : 'warning'}">
+              <strong>Tokens ficam separados</strong>
+              <p>${escapeHtml(
                 authRouterStatus
-                  ? escapeHtml(`Token em uso: ${activeTokenLabel}. ${visibleTokenLabel} disponiveis neste runtime.`)
-                  : 'A gestao de tokens nao esta disponivel neste runtime.'
-              }</p>
+                  ? `O Codex Router tem ${visibleTokenLabel} prontos. Abre a pagina propria para trocar tokens.`
+                  : 'A gestao de tokens nao esta disponivel neste runtime.',
+              )}</p>
             </article>
           </div>
         </div>
       </section>
 
       <section class="content-grid">
-        <article class="surface content-card span-8">
+        <article class="surface content-card span-12">
           <div class="card-header">
             <div>
-              <h3>Prontidao da semana paralela</h3>
-              <p>Aqui decides se ja vale a pena operar uma semana real em paralelo com o WA-notify.</p>
+              <h3>Wizard de operador</h3>
+              <p>Segue estes passos por ordem. O objetivo e saber sempre qual e o proximo botao seguro.</p>
             </div>
             ${renderUiBadge({ label: migrationRecommendationLabel, tone: migrationRecommendationTone })}
           </div>
+          <div class="migration-operator-wizard">
+            <article class="guided-step-card guided-step-card--${runtimeTone}">
+              <strong>Passo 1. Confirmar que o LumeHub esta acordado</strong>
+              <p>${escapeHtml(
+                migrationReadiness.runtime.ready
+                  ? 'Backend e runtime estao a responder. Podes continuar.'
+                  : `Antes de mexer em imports, resolve o runtime: ${migrationReadiness.runtime.phase}.`,
+              )}</p>
+            </article>
+            <article class="guided-step-card guided-step-card--${whatsappTone}">
+              <strong>Passo 2. Confirmar canal e grupos</strong>
+              <p>${escapeHtml(
+                migrationReadiness.whatsapp.connected
+                  ? `${migrationReadiness.whatsapp.discoveredGroups} grupo(s) e ${migrationReadiness.whatsapp.discoveredConversations} conversa(s) visiveis.`
+                  : 'Liga ou repara o WhatsApp antes de comparar semanas.',
+              )}</p>
+            </article>
+            <article class="guided-step-card guided-step-card--${importTone}">
+              <strong>Passo 3. Importar ou rever dados legacy</strong>
+              <p>${escapeHtml(
+                migrationReadiness.lumeHubState.importedScheduleEvents > 0
+                  ? `${migrationReadiness.lumeHubState.importedScheduleEvents} evento(s) ja estao no runtime novo.`
+                  : 'Comeca pelos previews de schedules, alerts e automations antes de aplicar.',
+              )}</p>
+            </article>
+            <article class="guided-step-card guided-step-card--${migrationRecommendationTone}">
+              <strong>Passo 4. Decidir semana paralela ou corte</strong>
+              <p>${escapeHtml(
+                migrationReadiness.cutoverDecisionReady
+                  ? 'Ja ha sinais suficientes para decidir cutover com mais seguranca.'
+                  : migrationReadiness.summary,
+              )}</p>
+            </article>
+          </div>
           <div class="guide-preview">
             <p><strong>Fase recomendada</strong>: ${escapeHtml(migrationRecommendationLabel)}</p>
-            <p>${escapeHtml(migrationReadiness.summary)}</p>
             <p><strong>Gerado em</strong>: ${escapeHtml(formatShortDateTime(migrationReadiness.generatedAt))}</p>
+            <p>Se so queres usar o produto no dia a dia, esta nao e a entrada certa: volta ao LumeHub ou a Hoje.</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-7">
+          <div class="card-header">
+            <div>
+              <h3>Leitura simples da migracao</h3>
+              <p>Resumo sem jargao para perceber o que esta pronto e o que ainda pede cuidado.</p>
+            </div>
+            ${renderUiBadge({
+              label: migrationReadiness.recommendedPhase === 'blocked' ? 'Bloqueada' : 'Em preparacao',
+              tone: migrationReadiness.recommendedPhase === 'blocked' ? 'danger' : 'warning',
+            })}
           </div>
           <div class="summary-grid">
             <div class="summary-column">
               <div class="summary-column__header">
-                <h4>Runtime</h4>
-                <p>Base tecnica para arrancar a semana paralela.</p>
+                <h4>Base operacional</h4>
+                <p>Sem isto, nao vale a pena comparar semanas.</p>
               </div>
               <div class="status-list">
                 <article class="status-item status-item--${migrationReadiness.runtime.ready ? 'positive' : 'danger'}">
@@ -4901,8 +4960,8 @@ export class AppShell {
             </div>
             <div class="summary-column">
               <div class="summary-column__header">
-                <h4>LLM e cobertura</h4>
-                <p>Confirma se a semana paralela usa provider real e dados suficientes.</p>
+                <h4>Inteligencia e cobertura</h4>
+                <p>Confirma se a comparacao tem dados suficientes.</p>
               </div>
               <div class="status-list">
                 <article class="status-item status-item--${migrationReadiness.llm.mode === 'live' ? 'positive' : 'warning'}">
@@ -4922,8 +4981,8 @@ export class AppShell {
               </div>
             </div>
           </div>
-          <details class="ui-details" open>
-            <summary>Checklist objetiva</summary>
+          <details class="ui-details">
+            <summary>Ver checklist detalhada</summary>
             <div class="ui-details__content">
               <div class="migration-readiness-list">
                 ${migrationReadiness.checklist
@@ -4956,18 +5015,15 @@ export class AppShell {
             </div>
           </details>
         </article>
-        <article class="surface content-card span-4">
+        <article class="surface content-card span-5">
           <div class="card-header">
             <div>
-              <h3>O que validar</h3>
-              <p>Checklist curta para fechares a comparacao antes do corte final.</p>
+              <h3>Validacao avancada</h3>
+              <p>Comparativos internos e shadow mode ficam recolhidos para nao poluir o fluxo principal.</p>
             </div>
-            ${renderUiBadge({
-              label: migrationReadiness.recommendedPhase === 'blocked' ? 'Bloqueada' : 'Em preparacao',
-              tone: migrationReadiness.recommendedPhase === 'blocked' ? 'danger' : 'warning',
-            })}
+            ${renderUiBadge({ label: 'So para operador', tone: 'warning' })}
           </div>
-          <details class="ui-details" open>
+          <details class="ui-details">
             <summary>Comparacao curta WA-notify vs LumeHub</summary>
             <div class="ui-details__content">
               <div class="migration-comparison-list">
@@ -4991,8 +5047,8 @@ export class AppShell {
               </div>
             </div>
           </details>
-          <details class="ui-details" open>
-            <summary>O que fazer durante a semana paralela</summary>
+          <details class="ui-details">
+            <summary>Shadow mode: o que fazer durante a semana paralela</summary>
             <div class="ui-details__content">
               <ul>
                 ${migrationReadiness.shadowModeChecks.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
@@ -5024,7 +5080,20 @@ export class AppShell {
         </article>
       </section>
 
-      ${this.renderCodexRouterSurface(snapshot)}
+      <section class="content-grid">
+        <article class="surface content-card span-12">
+          <div class="card-header">
+            <div>
+              <h3>Tokens do Codex vivem noutra pagina</h3>
+              <p>A migracao mostra apenas se ha router disponivel. Trocar, preparar ou fixar tokens deve acontecer no Codex Router.</p>
+            </div>
+            ${renderUiBadge({ label: authRouterStatus ? visibleTokenLabel : 'Indisponivel', tone: authRouterStatus ? 'neutral' : 'warning' })}
+          </div>
+          <div class="action-row">
+            ${renderUiActionButton({ label: 'Abrir Codex Router', href: '/codex-router', dataAttributes: { route: '/codex-router' } })}
+          </div>
+        </article>
+      </section>
 
       ${this.renderLegacyMigrationTools(page.data)}
     `;
@@ -5037,14 +5106,13 @@ export class AppShell {
     const activeTokenLabel = authRouterStatus?.currentSelection?.label ?? 'A rever';
     const visibleTokenLabel = readCodexTokenCountLabel(authRouterStatus?.accountCount ?? 0);
     const routerTone: UiTone = authRouterStatus ? (authRouterStatus.enabled ? 'positive' : 'warning') : 'warning';
-    const llmStatusLabel = readCodexAuthLabel(snapshot);
 
     return `
       <section class="surface hero surface--strong">
         <div>
           <p class="eyebrow">Codex Router</p>
-          <h2>Gere aqui a troca de tokens do Codex sem teres de entrar na pagina de migracao.</h2>
-          <p>${escapeHtml(page.description)}</p>
+          <h2>Troca tokens do Codex com travoes claros e backup antes de mexer.</h2>
+          <p>Esta pagina serve so para gerir a auth do Codex. O LumeHub continua na configuracao base e a migracao continua na consola de operador.</p>
           <div class="action-row">
             ${renderUiActionButton({ label: 'Abrir LumeHub', href: '/settings', dataAttributes: { route: '/settings' } })}
             ${renderUiActionButton({ label: 'Abrir LLM', href: '/assistant', variant: 'secondary', dataAttributes: { route: '/assistant' } })}
@@ -5054,12 +5122,12 @@ export class AppShell {
         <div class="hero-panel">
           <div class="status-list">
             <article class="status-item status-item--${routerTone}">
-              <strong>Troca automatica</strong>
+              <strong>Modo de troca</strong>
               <p>${escapeHtml(
                 authRouterStatus
                   ? authRouterStatus.enabled
-                    ? 'Ligada para o Codex poder escolher sozinho o melhor token.'
-                    : 'Desligada para manter o token atual fixo.'
+                    ? 'Ligado: o Codex pode escolher o token mais seguro quando precisa.'
+                    : 'Desligado: o token atual fica fixo ate voltares a ligar.'
                   : 'A gestao de tokens nao esta disponivel neste runtime.',
               )}</p>
             </article>
@@ -5067,9 +5135,13 @@ export class AppShell {
               <strong>Token em uso</strong>
               <p>${escapeHtml(activeTokenLabel)}</p>
             </article>
-            <article class="status-item status-item--${snapshot.llmRuntime.mode === 'live' ? 'positive' : 'warning'}">
-              <strong>LLM live</strong>
-              <p>${escapeHtml(`${llmStatusLabel} · ${visibleTokenLabel} conhecidos`)}</p>
+            <article class="status-item status-item--positive">
+              <strong>Backup antes de trocar</strong>
+              <p>${escapeHtml(
+                authRouterStatus
+                  ? `Antes de preparar ou trocar, o router preserva a auth atual. ${visibleTokenLabel} conhecidos.`
+                  : 'Quando o router estiver disponivel, a troca passa pelo mesmo contrato de backup.',
+              )}</p>
             </article>
           </div>
         </div>
@@ -5090,11 +5162,11 @@ export class AppShell {
 
     return `
       <section class="content-grid">
-        <article class="surface content-card span-4">
+        <article class="surface content-card span-5">
           <div class="card-header">
             <div>
-              <h3>Tokens do Codex</h3>
-              <p>Liga a troca automatica, escolhe o melhor token ou usa um token concreto quando precisares.</p>
+              <h3>Operacao segura</h3>
+              <p>Comeca aqui: ligar/desligar a troca, atualizar estado ou pedir ao router para escolher o melhor token.</p>
             </div>
             ${renderUiBadge({
               label: routerEnabledLabel,
@@ -5108,7 +5180,7 @@ export class AppShell {
                     <p><strong>Troca automatica</strong>: ${escapeHtml(routerEnabledLabel)}</p>
                     <p><strong>Token em uso</strong>: ${escapeHtml(activeTokenLabel)}</p>
                     <p><strong>Tokens prontos</strong>: ${escapeHtml(visibleTokenLabel)}</p>
-                    <p><strong>Ultima troca</strong>: ${escapeHtml(formatShortDateTime(authRouterStatus.lastSwitchAt))}</p>
+                    <p><strong>Contrato de seguranca</strong>: antes de mudar, faz backup da auth canonica atual.</p>
                   </div>
                   <div class="action-row">
                     ${renderUiActionButton({
@@ -5129,6 +5201,10 @@ export class AppShell {
                       disabled: !authRouterStatus.enabled,
                       dataAttributes: { 'settings-action': 'prepare-codex-router' },
                     })}
+                  </div>
+                  <div class="guide-preview">
+                    <p><strong>Ultima troca</strong>: ${escapeHtml(formatShortDateTime(authRouterStatus.lastSwitchAt))}</p>
+                    <p>Se nao tens a certeza do que fazer, deixa a troca ligada e usa "Escolher melhor token". A escolha manual fica no bloco seguinte.</p>
                   </div>
                   <div class="summary-grid">
                     <div class="summary-column">
@@ -5184,6 +5260,7 @@ export class AppShell {
                     <summary>Ver detalhe tecnico</summary>
                     <div class="ui-details__content">
                       <p><strong>Auth canonica</strong>: ${escapeHtml(authRouterStatus.canonicalAuthFilePath)}</p>
+                      <p><strong>Pasta de backups</strong>: ${escapeHtml(authRouterStatus.backupDirectoryPath)}</p>
                       <p><strong>Ultimo prepare</strong>: ${escapeHtml(formatShortDateTime(authRouterStatus.lastPreparedAt))}</p>
                       <p><strong>Auth pronta</strong>: ${escapeHtml(authRouterStatus.canonicalExists ? 'Pronta' : 'Em falta')}</p>
                       <ul>
@@ -5212,17 +5289,20 @@ export class AppShell {
                 `
           }
         </article>
-        <article class="surface content-card span-8">
+        <article class="surface content-card span-7">
           <div class="card-header">
             <div>
-              <h3>Tokens disponiveis</h3>
-              <p>Podes ter 3, 4 ou mais tokens aqui. A lista nao fica limitada ao principal e a uma reserva.</p>
+              <h3>Escolha manual de token</h3>
+              <p>So abre isto quando queres fixar uma conta especifica. A lista aceita 3, 4 ou mais tokens.</p>
             </div>
             ${renderUiBadge({
               label: readCodexTokenCountLabel(authRouterStatus?.accounts.length ?? 0),
               tone: authRouterStatus?.accounts.length ? 'neutral' : 'warning',
             })}
           </div>
+          <details class="ui-details codex-router-token-details">
+            <summary>Ver todos os tokens e escolher manualmente</summary>
+            <div class="ui-details__content">
           ${
             authRouterStatus && authRouterStatus.accounts.length > 0
               ? `
@@ -5296,6 +5376,8 @@ export class AppShell {
                   </div>
                 `
           }
+            </div>
+          </details>
         </article>
       </section>
     `;
@@ -5326,12 +5408,12 @@ export class AppShell {
         <article class="surface content-card span-12">
           <div class="card-header">
             <div>
-              <h3>Ferramentas de migracao legacy</h3>
-              <p>Imports do WA-notify, previews e aplicacao real vivem agora aqui, junto da readiness de shadow mode.</p>
+              <h3>Ferramentas de operador</h3>
+              <p>Previews e aplicacao real ficam recolhidos. Abre so o bloco que precisas de executar.</p>
             </div>
             ${renderUiBadge({ label: 'Migracao', tone: 'warning' })}
           </div>
-          <details class="ui-details" open>
+          <details class="ui-details">
             <summary>Migracao de schedules do WA-notify</summary>
             <div class="ui-details__content">
               ${
@@ -5641,29 +5723,34 @@ export class AppShell {
       snapshot.adminSettings.ui.defaultNotificationRules.length > 0
         ? snapshot.adminSettings.ui.defaultNotificationRules
         : createCanonicalDefaultNotificationRules();
+    const authRouterStatus = snapshot.authRouterStatus;
+    const routerEnabledLabel = authRouterStatus ? readCodexRouterEnabledLabel(authRouterStatus.enabled) : 'Indisponivel';
+    const routerTone: UiTone = authRouterStatus ? (authRouterStatus.enabled ? 'positive' : 'warning') : 'warning';
+    const visibleTokenLabel = readCodexTokenCountLabel(authRouterStatus?.accountCount ?? 0);
+    const hostRuntimeTone: UiTone = snapshot.hostStatus.runtime.lastError ? 'warning' : 'positive';
 
     return `
       <section class="surface hero surface--strong">
         <div>
-          <p class="eyebrow">Configuracao do produto</p>
-          <h2>Aqui ajustas as regras globais do produto. WhatsApp e migracao ficam nas respetivas paginas.</h2>
-          <p>${escapeHtml(page.description)}</p>
+          <p class="eyebrow">LumeHub</p>
+          <h2>Painel base do produto: regras globais e saude operacional sem ruido tecnico.</h2>
+          <p>Esta pagina e para operar o produto. WhatsApp, Codex Router e Migracao ficam separados para cada pessoa perceber onde deve mexer.</p>
           <div class="action-row">
-            ${renderUiActionButton({ label: 'Abrir WhatsApp', href: '/whatsapp', dataAttributes: { route: '/whatsapp' } })}
+            ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', dataAttributes: { route: '/groups' } })}
+            ${renderUiActionButton({ label: 'Abrir WhatsApp', href: '/whatsapp', variant: 'secondary', dataAttributes: { route: '/whatsapp' } })}
             ${renderUiActionButton({ label: 'Abrir Codex Router', href: '/codex-router', variant: 'secondary', dataAttributes: { route: '/codex-router' } })}
             ${renderUiActionButton({ label: 'Abrir migracao', href: '/migration', variant: 'secondary', dataAttributes: { route: '/migration' } })}
-            ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', variant: 'secondary', dataAttributes: { route: '/groups' } })}
           </div>
         </div>
         <div class="hero-panel">
           <div class="status-list">
             <article class="status-item status-item--positive">
-              <strong>Aqui dentro</strong>
-              <p>Regras globais, LLM, energia, arranque e governanca da app vivem aqui.</p>
+              <strong>Basico</strong>
+              <p>Controlos de produto, leitura de saude e proximos caminhos.</p>
             </article>
             <article class="status-item status-item--warning">
-              <strong>Fora desta pagina</strong>
-              <p>WhatsApp, Codex Router, imports legacy e readiness da semana paralela vivem fora daqui.</p>
+              <strong>Avancado</strong>
+              <p>Provider LLM, energia, tokens, auth e governanca ficam recolhidos abaixo.</p>
             </article>
           </div>
         </div>
@@ -5671,8 +5758,8 @@ export class AppShell {
       <section class="surface content-card">
         <div class="card-header">
           <div>
-            <h3>Leitura rapida do produto</h3>
-            <p>Antes do detalhe, a pagina resume regras globais, LLM, governanca e arranque no mesmo contrato visual.</p>
+            <h3>Basico: leitura rapida</h3>
+            <p>O essencial para uma pessoa pouco tecnica perceber se o produto esta pronto para usar.</p>
           </div>
           ${renderUiBadge({ label: `${enabledCommandSettings} regras ativas`, tone: enabledCommandSettings > 0 ? 'positive' : 'warning' })}
         </div>
@@ -5685,43 +5772,31 @@ export class AppShell {
             <div class="status-list">
               <article class="status-item status-item--${enabledCommandSettings > 0 ? 'positive' : 'warning'}">
                 <strong>${escapeHtml(`${enabledCommandSettings}/${PRODUCT_COMMAND_SETTING_KEYS.length} regras ligadas`)}</strong>
-                <p>Quantas regras globais estao ligadas agora.</p>
+                <p>Controlos ativos agora, antes das regras por grupo.</p>
               </article>
             </div>
           </div>
           <div class="summary-column">
             <div class="summary-column__header">
-              <h4>LLM live</h4>
-              <p>Provider atual e relacao com a auth do Codex.</p>
+              <h4>Saude operacional</h4>
+              <p>Se ha sinal recente e se existe algum erro visivel.</p>
             </div>
             <div class="status-list">
-              <article class="status-item status-item--${llmTone}">
-                <strong>${escapeHtml(llmStatusLabel)}</strong>
-                <p>${escapeHtml(`${snapshot.llmRuntime.effectiveProviderId} / ${snapshot.llmRuntime.effectiveModelId}`)}</p>
+              <article class="status-item status-item--${hostRuntimeTone}">
+                <strong>${escapeHtml(snapshot.hostStatus.runtime.lastError ? 'A rever' : 'Sem erro recente')}</strong>
+                <p>${escapeHtml(snapshot.hostStatus.runtime.lastError ?? `Ultimo sinal: ${formatShortDateTime(snapshot.hostStatus.runtime.lastHeartbeatAt)}`)}</p>
               </article>
+            </div>
+          </div>
+          <div class="summary-column">
+            <div class="summary-column__header">
+              <h4>Caminhos certos</h4>
+              <p>Cada assunto tem uma pagina propria.</p>
+            </div>
+            <div class="status-list">
               <article class="status-item">
-                <strong>Codex</strong>
-                <p>${escapeHtml(llmAuthLabel)}</p>
-              </article>
-            </div>
-          </div>
-          <div class="summary-column">
-            <div class="summary-column__header">
-              <h4>Governanca e arranque</h4>
-              <p>Owners, privado, energia e autostart no mesmo olhar.</p>
-            </div>
-            <div class="status-list">
-              <article class="status-item status-item--${appOwnerCount > 0 ? 'positive' : 'warning'}">
-                <strong>${escapeHtml(`${appOwnerCount} owner(s)`)}</strong>
-                <p>${escapeHtml(`${privateAuthorizedCount} contacto(s) com privado autorizado nesta configuracao global.`)}</p>
-              </article>
-              <article class="status-item status-item--${snapshot.hostStatus.autostart.enabled ? 'positive' : 'warning'}">
-                <strong>${escapeHtml(
-                  snapshot.hostStatus.autostart.enabled ? 'Autostart ligado' : 'Autostart desligado',
-                )}</strong>
-                <p>${escapeHtml(
-                  `${activePowerModeLabel} · ${snapshot.hostStatus.auth.sameAsCodexCanonical ? 'auth partilhado' : 'auth isolado'}`,
-                )}</p>
+                <strong>Separacao por papel</strong>
+                <p>Canal no WhatsApp, tokens no Codex Router e imports na Migracao.</p>
               </article>
             </div>
           </div>
@@ -5758,77 +5833,144 @@ export class AppShell {
         <article class="surface content-card span-5">
           <div class="card-header">
             <div>
-              <h3>LLM, energia e arranque</h3>
-              <p>O runtime live e o host local ficam juntos aqui para nao se confundirem com o canal.</p>
+              <h3>Saude operacional</h3>
+              <p>Sem detalhes de provider: so o suficiente para perceber se a instalacao parece pronta.</p>
             </div>
-            ${renderUiBadge({ label: llmStatusLabel, tone: llmTone })}
-          </div>
-          <div class="settings-switch-grid">
-            ${PRODUCT_LLM_SETTING_KEYS.map((key) =>
-              renderUiSwitch({
-                label: readLlmSettingLabel(key),
-                checked: snapshot.adminSettings.llm[key],
-                description: readLlmSettingDescription(key, snapshot.adminSettings.llm[key]),
-                dataAttributes: {
-                  'settings-action': 'toggle-llm-setting',
-                  'llm-setting': key,
-                },
-              }),
-            ).join('')}
+            ${renderUiBadge({ label: snapshot.hostStatus.runtime.lastError ? 'A rever' : 'Estavel', tone: hostRuntimeTone })}
           </div>
           <ul class="settings-summary-list">
-            <li><strong>Definido</strong>: ${escapeHtml(snapshot.adminSettings.llm.provider)} / ${escapeHtml(snapshot.adminSettings.llm.model)}</li>
-            <li><strong>Agora</strong>: ${escapeHtml(snapshot.llmRuntime.effectiveProviderId)} / ${escapeHtml(snapshot.llmRuntime.effectiveModelId)}</li>
-            <li><strong>Codex</strong>: ${escapeHtml(llmAuthLabel)}</li>
-            <li><strong>Energia</strong>: ${escapeHtml(activePowerModeLabel)}${snapshot.powerStatus.policy.enabled ? '' : ' (policy desligada)'}</li>
             <li><strong>Ultimo sinal</strong>: ${escapeHtml(formatShortDateTime(snapshot.hostStatus.runtime.lastHeartbeatAt))}</li>
-            ${
-              snapshot.llmRuntime.fallbackReason
-                ? `<li><strong>Fallback</strong>: ${escapeHtml(snapshot.llmRuntime.fallbackReason)}</li>`
-                : ''
-            }
+            <li><strong>Avisos base</strong>: ${escapeHtml(defaultRuleSummary)}</li>
+            <li><strong>Owners</strong>: ${escapeHtml(`${appOwnerCount} owner(s) definidos`)}</li>
+            <li><strong>Privado autorizado</strong>: ${escapeHtml(`${privateAuthorizedCount} contacto(s)`)}</li>
           </ul>
-          <div class="settings-mode-actions">
-            ${renderUiActionButton({
-              label: snapshot.powerStatus.policy.enabled ? 'Desligar policy de energia' : 'Ligar policy de energia',
-              variant: snapshot.powerStatus.policy.enabled ? 'secondary' : 'primary',
-              dataAttributes: { 'settings-action': 'toggle-power-enabled' },
-            })}
-            ${PRODUCT_POWER_MODES.map((mode) =>
-              renderUiActionButton({
-                label: readPowerModeLabel(mode),
-                variant: mode === powerMode ? 'primary' : 'secondary',
-                disabled: mode === powerMode,
-                dataAttributes: {
-                  'settings-action': 'set-power-mode',
-                  'power-mode': mode,
-                },
-              }),
-            ).join('')}
-            ${renderUiActionButton({
-              label: snapshot.hostStatus.autostart.enabled ? 'Desligar autostart' : 'Ligar autostart',
-              variant: 'secondary',
-              dataAttributes: { 'settings-action': 'toggle-autostart' },
-            })}
+          <div class="inline-empty">
+            <strong>Onde mexer se algo falhar</strong>
+            <p>WhatsApp trata sessao, Codex Router trata tokens, Migracao trata imports. Os detalhes avancados ficam abaixo.</p>
           </div>
-          ${
-            this.state.advancedDetailsEnabled
-              ? `
-                  <details class="ui-details">
-                    <summary>Ver detalhe tecnico</summary>
-                    <div class="ui-details__content">
-                      <p>Auth file: ${escapeHtml(snapshot.hostStatus.auth.filePath)}</p>
-                      <p>Service: ${escapeHtml(snapshot.hostStatus.autostart.serviceName)}</p>
-                      <p>Manifesto: ${escapeHtml(snapshot.hostStatus.autostart.manifestPath)}</p>
-                    </div>
-                  </details>
-                `
-              : ''
-          }
         </article>
       </section>
 
-      <section class="content-grid">
+      <details class="surface content-card settings-advanced-details">
+        <summary>Avancado: LLM, energia, tokens, avisos e governanca</summary>
+        <div class="ui-details__content settings-advanced-stack">
+          <section class="content-grid">
+            <article class="surface content-card span-6">
+              <div class="card-header">
+                <div>
+                  <h3>LLM, energia e arranque</h3>
+                  <p>Provider, auth, power policy e autostart ficam aqui para nao pesar na vista base.</p>
+                </div>
+                ${renderUiBadge({ label: llmStatusLabel, tone: llmTone })}
+              </div>
+              <div class="settings-switch-grid">
+                ${PRODUCT_LLM_SETTING_KEYS.map((key) =>
+                  renderUiSwitch({
+                    label: readLlmSettingLabel(key),
+                    checked: snapshot.adminSettings.llm[key],
+                    description: readLlmSettingDescription(key, snapshot.adminSettings.llm[key]),
+                    dataAttributes: {
+                      'settings-action': 'toggle-llm-setting',
+                      'llm-setting': key,
+                    },
+                  }),
+                ).join('')}
+              </div>
+              <ul class="settings-summary-list">
+                <li><strong>Definido</strong>: ${escapeHtml(snapshot.adminSettings.llm.provider)} / ${escapeHtml(snapshot.adminSettings.llm.model)}</li>
+                <li><strong>Agora</strong>: ${escapeHtml(snapshot.llmRuntime.effectiveProviderId)} / ${escapeHtml(snapshot.llmRuntime.effectiveModelId)}</li>
+                <li><strong>Codex</strong>: ${escapeHtml(llmAuthLabel)}</li>
+                <li><strong>Energia</strong>: ${escapeHtml(activePowerModeLabel)}${snapshot.powerStatus.policy.enabled ? '' : ' (policy desligada)'}</li>
+                <li><strong>Ultimo sinal</strong>: ${escapeHtml(formatShortDateTime(snapshot.hostStatus.runtime.lastHeartbeatAt))}</li>
+                ${
+                  snapshot.llmRuntime.fallbackReason
+                    ? `<li><strong>Fallback</strong>: ${escapeHtml(snapshot.llmRuntime.fallbackReason)}</li>`
+                    : ''
+                }
+              </ul>
+              <div class="settings-mode-actions">
+                ${renderUiActionButton({
+                  label: snapshot.powerStatus.policy.enabled ? 'Desligar policy de energia' : 'Ligar policy de energia',
+                  variant: snapshot.powerStatus.policy.enabled ? 'secondary' : 'primary',
+                  dataAttributes: { 'settings-action': 'toggle-power-enabled' },
+                })}
+                ${PRODUCT_POWER_MODES.map((mode) =>
+                  renderUiActionButton({
+                    label: readPowerModeLabel(mode),
+                    variant: mode === powerMode ? 'primary' : 'secondary',
+                    disabled: mode === powerMode,
+                    dataAttributes: {
+                      'settings-action': 'set-power-mode',
+                      'power-mode': mode,
+                    },
+                  }),
+                ).join('')}
+                ${renderUiActionButton({
+                  label: snapshot.hostStatus.autostart.enabled ? 'Desligar autostart' : 'Ligar autostart',
+                  variant: 'secondary',
+                  dataAttributes: { 'settings-action': 'toggle-autostart' },
+                })}
+              </div>
+              ${
+                this.state.advancedDetailsEnabled
+                  ? `
+                      <details class="ui-details">
+                        <summary>Ver detalhe tecnico do host</summary>
+                        <div class="ui-details__content">
+                          <p>Auth file: ${escapeHtml(snapshot.hostStatus.auth.filePath)}</p>
+                          <p>Service: ${escapeHtml(snapshot.hostStatus.autostart.serviceName)}</p>
+                          <p>Manifesto: ${escapeHtml(snapshot.hostStatus.autostart.manifestPath)}</p>
+                        </div>
+                      </details>
+                    `
+                  : ''
+              }
+            </article>
+
+            <article class="surface content-card span-6">
+              <div class="card-header">
+                <div>
+                  <h3>Codex Router nesta instalacao</h3>
+                  <p>Resumo e botoes de emergencia. A gestao completa continua na pagina Codex Router.</p>
+                </div>
+                ${renderUiBadge({ label: routerEnabledLabel, tone: routerTone })}
+              </div>
+              ${
+                authRouterStatus
+                  ? `
+                      <div class="guide-preview">
+                        <p><strong>Troca de token</strong>: ${escapeHtml(routerEnabledLabel)}</p>
+                        <p><strong>Tokens prontos</strong>: ${escapeHtml(visibleTokenLabel)}</p>
+                        <p><strong>Backup</strong>: antes de preparar ou trocar, o router preserva a auth atual.</p>
+                      </div>
+                      <div class="action-row">
+                        ${renderUiActionButton({
+                          label: authRouterStatus.enabled ? 'Desligar troca de token' : 'Ligar troca de token',
+                          variant: authRouterStatus.enabled ? 'secondary' : 'primary',
+                          dataAttributes: {
+                            'settings-action': 'toggle-codex-router-enabled',
+                            'codex-router-enabled': authRouterStatus.enabled ? 'true' : 'false',
+                          },
+                        })}
+                        ${renderUiActionButton({
+                          label: 'Abrir Codex Router',
+                          href: '/codex-router',
+                          variant: 'secondary',
+                          dataAttributes: { route: '/codex-router' },
+                        })}
+                      </div>
+                    `
+                  : `
+                      <div class="inline-empty inline-empty--warning">
+                        <strong>Codex Router indisponivel</strong>
+                        <p>A gestao de tokens nao esta configurada neste runtime.</p>
+                      </div>
+                    `
+              }
+            </article>
+          </section>
+
+          <section class="content-grid">
         <article class="surface content-card span-6">
           <div class="card-header">
             <div>
@@ -5936,8 +6078,10 @@ export class AppShell {
                   </div>
                 `
           }
-        </article>
-      </section>
+            </article>
+          </section>
+        </div>
+      </details>
     `;
   }
 

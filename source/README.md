@@ -43,6 +43,7 @@ Hoje esta pasta ja contem:
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
+  - `validate:wave70`
   - `validate:wave69`
   - `validate:wave68`
   - `validate:wave67`
@@ -64,7 +65,7 @@ A ronda de simplificacao do GUI ficou fechada:
 - a `Wave 63` alinhou a linguagem da shell e o `codex auto router`
 - a `Wave 64` migrou `WhatsApp`, `LumeHub`, `Migracao` e vistas principais de grupo para os novos objetos compactos
 - a `Wave 65` removeu restos de transicao, consolidou `validate:wave65` e fechou a ronda
-- a ronda `commercial-readiness` ja fechou a `Wave 66` com homepage e estados humanos, a `Wave 67` com `Calendario` summary-first e `LLM` chat-first, a `Wave 68` com lembretes por grupo e copy assistida pela LLM, e a `Wave 69` com `Grupos` e `WhatsApp` como fluxos guiados
+- a ronda `commercial-readiness` ja fechou a `Wave 66` com homepage e estados humanos, a `Wave 67` com `Calendario` summary-first e `LLM` chat-first, a `Wave 68` com lembretes por grupo e copy assistida pela LLM, a `Wave 69` com `Grupos` e `WhatsApp` como fluxos guiados e a `Wave 70` com `LumeHub`, `Codex Router` e `Migracao` separados por papel
 Tambem ja existe o fluxo operacional do agente de projeto:
 
 - modulo `@lume-hub/workspace-agent`
@@ -88,7 +89,7 @@ A ronda de paridade e migracao do `WA-notify` tambem ficou fechada:
 - `alerts` e `automations` ficaram portados para a arquitetura nova
 - `pnpm run test` ficou verde com hardening de restart/cutover
 - a pagina `Configuracao` ficou como area secundaria para imports legacy e ajustes base
-- a pagina `Migracao` passou a concentrar readiness live, checklist de shadow mode e GUI do `codex auto router`
+- a pagina `Migracao` passou a concentrar readiness live e checklist de shadow mode, enquanto o `Codex Router` vive em pagina propria
 - a API expoe `GET /api/migrations/readiness`
 - a semana paralela ficou descrita em `docs/deployment/lume_hub_shadow_mode_checklist.md`
 - a `Wave 52` fechou a fundacao do modelo `group-first`
@@ -108,9 +109,10 @@ A ronda de paridade e migracao do `WA-notify` tambem ficou fechada:
 - a `Wave 66` abre a ronda `commercial-readiness` com homepage real e estados de carga mais humanos
 - a `Wave 67` fecha `Calendario` e `LLM` como fluxos mais operacionais
 - a `Wave 68` fecha lembretes por grupo, janelas temporais e copy assistida pela LLM
-- a `Wave 69` fecha `Grupos` e `WhatsApp` como fluxos guiados, e deixa `validate:wave69` como entrada canonica atual
+- a `Wave 69` fecha `Grupos` e `WhatsApp` como fluxos guiados
+- a `Wave 70` fecha `LumeHub`, `Codex Router` e `Migracao` por papel, e deixa `validate:wave70` como entrada canonica atual
 - grupos `distribuicao_apenas` saem do scheduling local e passam a fan-out/distribuicao
-- a validacao consolidada mais recente passou a ser `validate:wave69`
+- a validacao consolidada mais recente passou a ser `validate:wave70`
 
 Na ronda curta de operacao de migracao, agora ja fechada:
 
