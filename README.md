@@ -131,8 +131,8 @@ O runtime em `runtime/` deve ser tratado como destino de build/publicacao, nao c
   - governanca global da app, incluindo `app owners` e permissao de privados, atras de detalhe avancado
 - a vista base deve ficar em `Basico`
 - provider LLM, host companion, energia, autostart, auth e tokens ficam em `Avancado` ou na pagina propria do `Codex Router`
-- imports legacy e readiness de shadow mode nao vivem aqui; ficam na pagina `Migracao`
-- depois do cutover total do `WA-Notify`, `Migracao` deixa de aparecer no menu normal e fica apenas como rota tecnica/manutencao explicita
+- imports legacy e readiness de shadow mode nao vivem na UI normal depois do cutover
+- depois do cutover total do `WA-Notify`, `Migracao` deixa de existir como pagina/menu navegavel; ficam apenas APIs tecnicas de manutencao quando forem mesmo necessarias
 
 ## Principios de UX do Frontend
 
@@ -260,7 +260,7 @@ a pagina `LLM` ja permite chat direto em escopo global ou de grupo, mantendo con
 O `LumeHub` ja tem:
 
 - runtime `Live` operacional com WhatsApp, LLM, scheduling, alerts e automations
-- pagina `Migracao` como wizard de operador para readiness, semana paralela e imports legacy
+- `Migracao` retirada da navegacao comercial depois do cutover; imports legacy ficam como manutencao tecnica fora da UI normal
 - pagina `Codex Router` propria para preparar a melhor conta e fazer switch manual com backup antes de trocar
 - endpoint `GET /api/migrations/readiness`
 - checklist de `shadow mode` em [lume_hub_shadow_mode_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md)

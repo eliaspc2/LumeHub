@@ -46,7 +46,7 @@ Estado canonico deixado:
 - `Hoje` como homepage comercial real
 - estados de loading, erro e vazio em linguagem humana
 - `Calendario`, `LLM`, `Grupos`, `WhatsApp`, `LumeHub` e `Codex Router` separados por papel e tarefa
-- `Migracao` saiu do menu normal depois do cutover; a rota tecnica pode continuar acessivel para manutencao explicita
+- `Migracao` saiu da UI navegavel depois do cutover; ficam apenas APIs tecnicas de manutencao explicita
 - configuracao de lembretes `1..N` por grupo, com janelas antes, hora fixa e depois
 - copy de lembretes assistida pela LLM e auditavel como `gerado -> preparado -> enviado`
 - `Codex Router` em pagina propria, com backup antes de trocar token e suporte a `3+` tokens
