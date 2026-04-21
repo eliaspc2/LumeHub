@@ -186,23 +186,21 @@ E simplificar o que ja existe, torna-lo coerente e fazer com que o utilizador pe
 
 ## Gaps ativos da ronda `commercial-readiness`
 
-A partir de `2026-04-20`, voltaram a existir gaps reais de produto, nao por falta de arquitetura base, mas porque a shell ainda nao esta suficientemente afinada para parecer uma solucao comercial pronta para utilizador pouco tecnico.
+Nao restam gaps ativos na ronda `commercial-readiness`.
+A `Wave 72` fechou a limpeza final e consolidou a serie em `validate:wave72`.
 
-Os gaps ativos desta ronda sao agora apenas de limpeza final:
+Estado canonico deixado:
 
-- consolidar a ronda `commercial-readiness` numa limpeza final curta e remover duplicacao documental criada pela propria ronda
-
-Baseline importante:
-
-- a `Wave 66` ja promoveu `Hoje` a homepage real e fechou a linguagem humana para loading, erro, vazio e recuperacao
-- a `Wave 67` ja tornou `Calendario` summary-first e `LLM` chat-first
-- a `Wave 68` ja productizou lembretes por grupo com `1..N` regras, copy assistida pela LLM e auditoria `gerado -> preparado -> enviado`, consolidando `validate:wave68`
-- a `Wave 69` ja transformou `Grupos` e `WhatsApp` em fluxos guiados para operador pouco tecnico, consolidando `validate:wave69`
-- a `Wave 70` ja separou `LumeHub`, `Codex Router` e `Migracao` por papel, consolidando `validate:wave70`
-- a `Wave 71` ja fechou o kit de entrega comercial honesto para `backend containerizado + host companion`, consolidando `validate:wave71`
-- o runtime base ja tem modulos reais de notificacao, fila, politica por grupo, separacao clara de paginas e packaging comercial honesto
-- a pagina `Codex Router` ja ficou extraida de `Migracao` e passou a existir em `/codex-router`
-- a ronda nova parte dessa base e nao de uma shell antiga ou textual
+- `Hoje` e a homepage comercial real
+- loading, erro e vazio explicam o que aconteceu e qual o proximo passo
+- `Calendario` e summary-first; `LLM` e chat-first
+- `Grupos` e `WhatsApp` estao organizados como fluxos guiados
+- `LumeHub`, `Codex Router` e `Migracao` estao separados por papel
+- lembretes por grupo suportam `1..N` regras, janelas antes, horarios fixos e janelas depois
+- copy de lembretes pode ser assistida pela LLM e auditada como `gerado -> preparado -> enviado`
+- `Codex Router` suporta lista de `3+` tokens e mantem backup antes de trocar token
+- o kit comercial declara honestamente `backend containerizado + host companion`, sem vender o produto como `um container unico`
+- os validadores intermédios da ronda foram removidos; a entrada canonica e `validate:wave72`
 
 ## Trabalho futuro fora do scope atual
 
@@ -226,8 +224,8 @@ Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
 - as rondas anteriores, sim
 - a ronda de inteligencia por grupo, sim
 - a ronda `ui-clarity`, sim
-- a partir de `2026-04-20`, existe uma nova ronda aberta:
-  - `commercial-readiness`
+- a ronda `commercial-readiness`, sim
+- neste momento nao ha waves ativas registadas
 
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
 - para o runtime operacional base, a base existe e esta bastante forte

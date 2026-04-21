@@ -43,11 +43,8 @@ Hoje esta pasta ja contem:
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
-  - `validate:wave71`
-  - `validate:wave70`
-  - `validate:wave69`
-  - `validate:wave68`
-  - `validate:wave67`
+  - `validate:wave72`
+  - `validate:wave65`
   - `validate:wave60`
   - `validate:wave51`
   - `validate:wave49`
@@ -66,7 +63,7 @@ A ronda de simplificacao do GUI ficou fechada:
 - a `Wave 63` alinhou a linguagem da shell e o `codex auto router`
 - a `Wave 64` migrou `WhatsApp`, `LumeHub`, `Migracao` e vistas principais de grupo para os novos objetos compactos
 - a `Wave 65` removeu restos de transicao, consolidou `validate:wave65` e fechou a ronda
-- a ronda `commercial-readiness` ja fechou a `Wave 66` com homepage e estados humanos, a `Wave 67` com `Calendario` summary-first e `LLM` chat-first, a `Wave 68` com lembretes por grupo e copy assistida pela LLM, a `Wave 69` com `Grupos` e `WhatsApp` como fluxos guiados, a `Wave 70` com `LumeHub`, `Codex Router` e `Migracao` separados por papel e a `Wave 71` com kit de entrega comercial honesto
+- a ronda `commercial-readiness` ficou fechada com a `Wave 72`, consolidando homepage comercial, estados humanos, paginas por papel, fluxos guiados, lembretes por grupo `1..N`, `Codex Router` proprio e kit de entrega honesto
 Tambem ja existe o fluxo operacional do agente de projeto:
 
 - modulo `@lume-hub/workspace-agent`
@@ -102,19 +99,10 @@ A ronda de paridade e migracao do `WA-notify` tambem ficou fechada:
 - a `Wave 58` separou a pagina `WhatsApp` da pagina `LumeHub` e empurrou imports legacy para `Migracao`
 - a `Wave 59` fechou a pagina `LLM` como chat direto com escopo global ou de grupo, `memoryScope` auditavel e separacao clara entre conversa segura e `preview/apply`
 - a `Wave 60` fechou a limpeza final da ronda `group-first`, consolidando `validate:wave60` e removendo validadores intermédios `52..59`
-- a ronda `ui-clarity` abriu com a `Wave 61`, dedicada a contratos base de composicao, densidade e consistencia visual da shell
-- a `Wave 62` passa a usar essa base para refazer a pagina `LLM`, separando melhor `perguntar`, `agir` e `auditar`
-- a `Wave 63` simplifica a linguagem da shell, empurra detalhe tecnico para segundo plano e deixa o `codex auto router` pronto para listar `3+` tokens
-- a `Wave 64` migra a shell restante para listas de estado, blocos compactos e estados vazios coerentes nas paginas `WhatsApp`, `LumeHub`, `Migracao` e `Grupos`
-- a `Wave 65` fecha a ronda `ui-clarity`, remove validadores intermédios `61..64` e deixa `validate:wave65` como entrada canonica da serie
-- a `Wave 66` abre a ronda `commercial-readiness` com homepage real e estados de carga mais humanos
-- a `Wave 67` fecha `Calendario` e `LLM` como fluxos mais operacionais
-- a `Wave 68` fecha lembretes por grupo, janelas temporais e copy assistida pela LLM
-- a `Wave 69` fecha `Grupos` e `WhatsApp` como fluxos guiados
-- a `Wave 70` fecha `LumeHub`, `Codex Router` e `Migracao` por papel
-- a `Wave 71` fecha o kit de entrega comercial e packaging honesto, e deixa `validate:wave71` como entrada canonica atual
+- a ronda `ui-clarity` fechou com objetos visuais consistentes, menos espaco morto e `validate:wave65`
+- a ronda `commercial-readiness` fechou com experiencia comercial mais clara e `validate:wave72`
 - grupos `distribuicao_apenas` saem do scheduling local e passam a fan-out/distribuicao
-- a validacao consolidada mais recente passou a ser `validate:wave71`
+- a validacao consolidada mais recente passou a ser `validate:wave72`
 
 Na ronda curta de operacao de migracao, agora ja fechada:
 
