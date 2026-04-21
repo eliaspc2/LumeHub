@@ -197,6 +197,7 @@ Estado canonico deixado:
 - `Calendario` e summary-first; `LLM` e chat-first
 - `Grupos` e `WhatsApp` estao organizados como fluxos guiados
 - `LumeHub`, `Codex Router` e `Migracao` estao separados por papel
+- apos o cutover total do `WA-Notify`, `Migracao` deixa de aparecer no menu normal e fica apenas como rota tecnica de manutencao
 - lembretes por grupo suportam `1..N` regras, janelas antes, horarios fixos e janelas depois
 - copy de lembretes pode ser assistida pela LLM e auditada como `gerado -> preparado -> enviado`
 - `Codex Router` suporta lista de `3+` tokens e mantem backup antes de trocar token

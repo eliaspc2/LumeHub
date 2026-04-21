@@ -232,11 +232,21 @@ const binDir = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(binDir, '..');
 const hostRoot = resolve(appRoot, '..');
 const lxdRoot = resolve(hostRoot, '..', 'lxd');
+const projectRoot = resolve(hostRoot, '..', '..');
+const backendRuntimeRoot = resolve(lxdRoot, 'host-mounts', 'data', 'runtime');
 const codexAuthFile = process.env.CODEX_AUTH_FILE ?? '/home/eliaspc/.codex/auth.json';
 const bootstrap = new HostBootstrap(
   new HostModuleLoader({
+    rootPath: projectRoot,
     codexAuthFile,
     canonicalCodexAuthFile: codexAuthFile,
+    codexAuthRouterStateFilePath:
+      process.env.LUME_HUB_CODEX_AUTH_ROUTER_STATE ?? resolve(backendRuntimeRoot, 'codex-auth-router.state.json'),
+    codexAuthRouterBackupDirectoryPath:
+      process.env.LUME_HUB_CODEX_AUTH_ROUTER_BACKUPS ?? resolve(backendRuntimeRoot, 'codex-auth-router-backups'),
+    codexAuthRouterBackupHistoryDirectoryPath:
+      process.env.LUME_HUB_CODEX_AUTH_ROUTER_BACKUP_HISTORY ??
+      resolve(backendRuntimeRoot, 'codex-auth-router-backups', 'history'),
     hostStateFilePath: resolve(hostRoot, 'state', 'host-runtime-state.json'),
     powerStateFilePath: resolve(hostRoot, 'state', 'power-policy-state.json'),
     inhibitorStatePath: resolve(hostRoot, 'state', 'sleep-inhibitor.json'),

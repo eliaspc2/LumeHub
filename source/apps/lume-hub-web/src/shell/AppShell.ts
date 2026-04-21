@@ -5112,11 +5112,10 @@ export class AppShell {
         <div>
           <p class="eyebrow">Codex Router</p>
           <h2>Troca tokens do Codex com travoes claros e backup antes de mexer.</h2>
-          <p>Esta pagina serve so para gerir a auth do Codex. O LumeHub continua na configuracao base e a migracao continua na consola de operador.</p>
+          <p>Esta pagina serve so para gerir a auth do Codex. O LumeHub continua na configuracao base e os imports legacy ficam fora do menu principal.</p>
           <div class="action-row">
             ${renderUiActionButton({ label: 'Abrir LumeHub', href: '/settings', dataAttributes: { route: '/settings' } })}
             ${renderUiActionButton({ label: 'Abrir LLM', href: '/assistant', variant: 'secondary', dataAttributes: { route: '/assistant' } })}
-            ${renderUiActionButton({ label: 'Abrir migracao', href: '/migration', variant: 'secondary', dataAttributes: { route: '/migration' } })}
           </div>
         </div>
         <div class="hero-panel">
@@ -5734,12 +5733,11 @@ export class AppShell {
         <div>
           <p class="eyebrow">LumeHub</p>
           <h2>Painel base do produto: regras globais e saude operacional sem ruido tecnico.</h2>
-          <p>Esta pagina e para operar o produto. WhatsApp, Codex Router e Migracao ficam separados para cada pessoa perceber onde deve mexer.</p>
+          <p>Esta pagina e para operar o produto. WhatsApp e Codex Router ficam separados para cada pessoa perceber onde deve mexer.</p>
           <div class="action-row">
             ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', dataAttributes: { route: '/groups' } })}
             ${renderUiActionButton({ label: 'Abrir WhatsApp', href: '/whatsapp', variant: 'secondary', dataAttributes: { route: '/whatsapp' } })}
             ${renderUiActionButton({ label: 'Abrir Codex Router', href: '/codex-router', variant: 'secondary', dataAttributes: { route: '/codex-router' } })}
-            ${renderUiActionButton({ label: 'Abrir migracao', href: '/migration', variant: 'secondary', dataAttributes: { route: '/migration' } })}
           </div>
         </div>
         <div class="hero-panel">
@@ -5796,7 +5794,7 @@ export class AppShell {
             <div class="status-list">
               <article class="status-item">
                 <strong>Separacao por papel</strong>
-                <p>Canal no WhatsApp, tokens no Codex Router e imports na Migracao.</p>
+                <p>Canal no WhatsApp e tokens no Codex Router. Imports legacy ficam arquivados fora do menu principal.</p>
               </article>
             </div>
           </div>
@@ -5846,7 +5844,7 @@ export class AppShell {
           </ul>
           <div class="inline-empty">
             <strong>Onde mexer se algo falhar</strong>
-            <p>WhatsApp trata sessao, Codex Router trata tokens, Migracao trata imports. Os detalhes avancados ficam abaixo.</p>
+            <p>WhatsApp trata sessao e Codex Router trata tokens. Os detalhes avancados ficam abaixo.</p>
           </div>
         </article>
       </section>
@@ -6000,8 +5998,8 @@ export class AppShell {
             })}
           </div>
           <div class="inline-empty">
-            <strong>Imports legacy nao vivem aqui</strong>
-            <p>Schedules, alerts e automations do WA-notify passaram para a pagina Migracao, junto da readiness de shadow mode.</p>
+            <strong>Imports legacy fechados</strong>
+            <p>Schedules e alerts do WA-Notify ja foram absorvidos pelo LumeHub; a consola de migracao saiu do menu normal.</p>
           </div>
         </article>
 
@@ -11703,11 +11701,11 @@ function shouldAutoRefreshRoute(route: string, topic: string): boolean {
   }
 
   if (topic.startsWith('settings.whatsapp')) {
-    return route === '/whatsapp' || route === '/settings' || route === '/migration' || route === '/today';
+    return route === '/whatsapp' || route === '/settings' || route === '/today';
   }
 
   if (topic.startsWith('settings.codex_auth_router')) {
-    return route === '/migration' || route === '/settings';
+    return route === '/settings' || route === '/codex-router';
   }
 
   return false;

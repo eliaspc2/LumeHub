@@ -45,7 +45,8 @@ Estado canonico deixado:
 
 - `Hoje` como homepage comercial real
 - estados de loading, erro e vazio em linguagem humana
-- `Calendario`, `LLM`, `Grupos`, `WhatsApp`, `LumeHub`, `Codex Router` e `Migracao` separados por papel e tarefa
+- `Calendario`, `LLM`, `Grupos`, `WhatsApp`, `LumeHub` e `Codex Router` separados por papel e tarefa
+- `Migracao` saiu do menu normal depois do cutover; a rota tecnica pode continuar acessivel para manutencao explicita
 - configuracao de lembretes `1..N` por grupo, com janelas antes, hora fixa e depois
 - copy de lembretes assistida pela LLM e auditavel como `gerado -> preparado -> enviado`
 - `Codex Router` em pagina propria, com backup antes de trocar token e suporte a `3+` tokens
@@ -58,7 +59,8 @@ Estado canonico deixado:
 - LumeHub passa a aceitar `LUME_HUB_CODEX_AUTH_SOURCES` como contrato para `2+` contas OAuth externas
 - `lume-hub-backend` e `lume-hub-host` carregam o mesmo ficheiro local `runtime/host/codex-auth-sources.env`
 - o packaging publicado inclui `EnvironmentFile` opcional para manter o ownership OAuth fora de hacks manuais
-- os avisos migrados do WA-Notify devem ficar no LumeHub como envio principal, com WA-Notify apenas como redundancia 5 minutos depois
+- o host companion sincroniza o mesmo historico de backups do router usado pelo backend para o repositorio privado
+- os avisos migrados do WA-Notify ficam no LumeHub como envio principal; a redundancia WA-Notify foi desativada no cutover total
 - validacao consolidada: `validate:wave73`
 
 ## Como reabrir uma ronda

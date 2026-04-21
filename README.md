@@ -132,6 +132,7 @@ O runtime em `runtime/` deve ser tratado como destino de build/publicacao, nao c
 - a vista base deve ficar em `Basico`
 - provider LLM, host companion, energia, autostart, auth e tokens ficam em `Avancado` ou na pagina propria do `Codex Router`
 - imports legacy e readiness de shadow mode nao vivem aqui; ficam na pagina `Migracao`
+- depois do cutover total do `WA-Notify`, `Migracao` deixa de aparecer no menu normal e fica apenas como rota tecnica/manutencao explicita
 
 ## Principios de UX do Frontend
 

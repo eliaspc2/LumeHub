@@ -502,7 +502,7 @@ export class AppRouter {
         route: '/migration',
         label: 'Migracao',
         description: 'Passagem do sistema antigo para o novo, checks de prontidao e ferramentas de migracao.',
-        navigationPlacement: 'secondary',
+        navigationPlacement: 'hidden',
         render: async () => ({
           route: '/migration',
           title: 'Migracao',

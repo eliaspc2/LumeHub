@@ -26,6 +26,9 @@ async function validateDocsAndScripts() {
 
   const packageRelease = await readFile(resolve(SOURCE_ROOT, 'scripts', 'package-release.mjs'), 'utf8');
   assert.match(packageRelease, /EnvironmentFile=-\/home\/eliaspc\/Documentos\/lume-hub\/runtime\/host\/codex-auth-sources\.env/u);
+  assert.match(packageRelease, /const backendRuntimeRoot = resolve\(lxdRoot, 'host-mounts', 'data', 'runtime'\)/u);
+  assert.match(packageRelease, /LUME_HUB_CODEX_AUTH_ROUTER_BACKUP_HISTORY/u);
+  assert.match(packageRelease, /codex-auth-router-backups', 'history'/u);
 }
 
 async function validateCodexAuthSourcesEnv() {
