@@ -30,7 +30,7 @@ Estado canonico deixado pela ronda `group-first`:
 Validacao consolidada atual:
 
 - `cd /home/eliaspc/Documentos/lume-hub/source`
-- `corepack pnpm run validate:wave70`
+- `corepack pnpm run validate:wave71`
 
 ## Ronda `ui-clarity`
 
@@ -102,7 +102,7 @@ Objetivo da ronda:
 
 Base deixada antes desta ronda:
 
-- a validacao consolidada atual desta ronda passou a ser `validate:wave70`
+- a validacao consolidada atual desta ronda passou a ser `validate:wave71`
 - o `Codex Router` ja ficou exposto como pagina propria em `/codex-router`
 - a shell ja tem contratos visuais mais fortes; agora falta torná-los mais comerciais e mais autoexplicativos
 
@@ -147,31 +147,14 @@ A `Wave 70` ja fechou `LumeHub`, `Codex Router` e `Migracao` por papel:
 - `Migracao` passou a wizard de operador em 4 passos e deixou de mostrar comparativos internos/shadow mode por defeito
 - a validacao consolidada atual passou a ser `validate:wave70`
 
-### Wave 71 - Kit de entrega comercial e packaging honesto
+A `Wave 71` ja fechou o kit de entrega comercial e packaging honesto:
 
-Objetivo:
-- transformar a conclusao operacional da auditoria num pacote de entrega comercial realista
-
-Entrega esperada:
-
-- bundle ou imagem do backend containerizado
-- pacote do `host companion` fora do container
-- mounts canonicos para:
-  - `data`
-  - `logs`
-  - `auth`
-- guias curtos de:
-  - install
-  - update
-  - health check
-  - recovery de token/auth
-- explicitar na documentacao de entrega o limite atual:
-  - nao vender isto como `um container unico` se o `host companion` continuar obrigatorio
-
-Vale a pena o utilizador testar no fim:
-
-- instalacao guiada num ambiente limpo ou equivalente
-- checklist de health check e recovery
+- o backend passou a declarar no manifest que e artefacto para runtime containerizado, em tarball e arvore publicada
+- o `host companion` passou a declarar no manifest que e componente obrigatorio fora do container
+- os mounts canonicos `data`, `logs` e `auth` ficaram explicitos no runbook comercial
+- foram adicionados guias curtos de install, update, health check e recovery de token/auth
+- a documentacao passou a responder claramente que isto nao deve ser vendido como `um container unico`
+- a validacao consolidada atual passou a ser `validate:wave71`
 
 ### Wave 72 - Limpeza final da ronda `commercial-readiness`
 

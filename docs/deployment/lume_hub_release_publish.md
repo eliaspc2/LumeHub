@@ -2,6 +2,10 @@
 
 Guia canonico para gerar e publicar os artefactos do `Lume Hub`.
 
+Para entrega comercial, usar tambem:
+
+- [lume_hub_commercial_delivery_kit.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_commercial_delivery_kit.md)
+
 ## Comando principal
 
 No source tree:
@@ -15,6 +19,12 @@ Este comando faz:
 1. build do workspace
 2. validacao local da release em sandbox
 3. publicacao da release atual no `runtime/`
+
+Nota honesta:
+
+- o backend fica preparado como artefacto para runtime containerizado
+- o `host companion` continua a ser entregue fora do container
+- isto nao deve ser apresentado como produto de `um container unico`
 
 ## Backend publicado
 
@@ -79,3 +89,4 @@ systemctl --user enable --now lume-hub-host.service
 - a release publicada nao deve ser editada manualmente
 - qualquer alteracao volta a acontecer em `source/` e volta a ser publicada
 - `data/`, `logs/` e `auth.json` ficam fora do bundle da app
+- energia, autostart e ownership do OAuth Codex ficam no `host companion`, nao dentro do container do backend

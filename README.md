@@ -233,6 +233,13 @@ O fluxo canónico de release passa por:
 - host companion publicado em `runtime/host/current/`
 - unit file do host em `runtime/host/systemd-user/lume-hub-host.service`
 
+Entrega comercial honesta:
+
+- o backend e entregue como artefacto para runtime containerizado
+- o `host companion` e entregue fora do container
+- `data`, `logs` e `auth` ficam fora do bundle aplicacional
+- isto nao deve ser vendido como `um container unico` enquanto energia, autostart e OAuth Codex dependerem do host companion
+
 ## Documentos mais importantes
 
 - [AGENTS.md](/home/eliaspc/Documentos/lume-hub/AGENTS.md)
@@ -242,6 +249,7 @@ O fluxo canónico de release passa por:
 - [lume_hub_gap_audit.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_gap_audit.md)
 - [lume_hub_lxd_runtime_plan.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_lxd_runtime_plan.md)
 - [lume_hub_release_publish.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_release_publish.md)
+- [lume_hub_commercial_delivery_kit.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_commercial_delivery_kit.md)
 
 ## Estado atual
 
@@ -284,7 +292,8 @@ Em `2026-04-06`, a leitura canonica passa a ser esta:
 - a `Wave 68` ja fechou lembretes por grupo, janelas temporais e copy assistida pela LLM
 - a `Wave 69` ja fechou `Grupos` e `WhatsApp` como fluxos guiados, com `validate:wave69`
 - a `Wave 70` ja fechou `LumeHub`, `Codex Router` e `Migracao` por papel, com `validate:wave70`
-- a validacao consolidada mais recente passou a ser `validate:wave70`
+- a `Wave 71` ja fechou o kit de entrega comercial e packaging honesto, com `validate:wave71`
+- a validacao consolidada mais recente passou a ser `validate:wave71`
 - a `Wave 52` ja fechou a fundacao do modelo `group-first`
 - a `Wave 53` ja fechou a shell `group-first`, com switcher global de grupo e navegacao principal curta
 - a `Wave 54` ja fechou a pagina operacional de grupo, com owner, modos e politicas locais persistentes

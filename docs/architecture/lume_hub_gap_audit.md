@@ -188,9 +188,9 @@ E simplificar o que ja existe, torna-lo coerente e fazer com que o utilizador pe
 
 A partir de `2026-04-20`, voltaram a existir gaps reais de produto, nao por falta de arquitetura base, mas porque a shell ainda nao esta suficientemente afinada para parecer uma solucao comercial pronta para utilizador pouco tecnico.
 
-Os gaps ativos desta ronda sao:
+Os gaps ativos desta ronda sao agora apenas de limpeza final:
 
-- o kit de entrega comercial ainda nao esta fechado como pacote honesto de `backend containerizado + host companion`
+- consolidar a ronda `commercial-readiness` numa limpeza final curta e remover duplicacao documental criada pela propria ronda
 
 Baseline importante:
 
@@ -199,7 +199,8 @@ Baseline importante:
 - a `Wave 68` ja productizou lembretes por grupo com `1..N` regras, copy assistida pela LLM e auditoria `gerado -> preparado -> enviado`, consolidando `validate:wave68`
 - a `Wave 69` ja transformou `Grupos` e `WhatsApp` em fluxos guiados para operador pouco tecnico, consolidando `validate:wave69`
 - a `Wave 70` ja separou `LumeHub`, `Codex Router` e `Migracao` por papel, consolidando `validate:wave70`
-- o runtime base ja tem modulos reais de notificacao, fila, politica por grupo e separacao clara de paginas; o que sobra agora e packaging comercial
+- a `Wave 71` ja fechou o kit de entrega comercial honesto para `backend containerizado + host companion`, consolidando `validate:wave71`
+- o runtime base ja tem modulos reais de notificacao, fila, politica por grupo, separacao clara de paginas e packaging comercial honesto
 - a pagina `Codex Router` ja ficou extraida de `Migracao` e passou a existir em `/codex-router`
 - a ronda nova parte dessa base e nao de uma shell antiga ou textual
 

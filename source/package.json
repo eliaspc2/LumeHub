@@ -28,7 +28,8 @@
     "validate:wave67": "corepack pnpm run typecheck && corepack pnpm run build && node --experimental-global-webcrypto ./scripts/validate-wave67.mjs",
     "validate:wave68": "corepack pnpm run typecheck && corepack pnpm run build && node --test ./tests/unit/notification-rule-policy-engine.test.mjs && node --experimental-global-webcrypto ./scripts/validate-wave68.mjs",
     "validate:wave69": "corepack pnpm run typecheck && corepack pnpm run build && node --experimental-global-webcrypto ./scripts/validate-wave69.mjs",
-    "validate:wave70": "corepack pnpm run typecheck && corepack pnpm run build && node --experimental-global-webcrypto ./scripts/validate-wave70.mjs"
+    "validate:wave70": "corepack pnpm run typecheck && corepack pnpm run build && node --experimental-global-webcrypto ./scripts/validate-wave70.mjs",
+    "validate:wave71": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-release.mjs && node ./scripts/validate-wave71.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",

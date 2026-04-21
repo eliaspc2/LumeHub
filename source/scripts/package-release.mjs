@@ -113,6 +113,14 @@ async function publishBackendRelease({ sourceRoot, stagePath, bundleFilePath, re
         mode: 'read_write',
       },
     },
+    delivery: {
+      packagingModel: 'backend_container_artifact',
+      artifactKind: 'tarball_and_published_tree',
+      containerImageIncluded: false,
+      requiresHostCompanion: true,
+      honestLimit:
+        'This is not sold as a single-container product while energy, autostart and Codex OAuth ownership require the host companion outside the container.',
+    },
   };
   await writeJson(resolve(stagePath, 'release-manifest.json'), manifest);
 
@@ -171,6 +179,7 @@ exec "$NODE_BIN" "$APP_ROOT/dist/apps/lume-hub-backend/src/main.js"
       '- data mount: `/srv/lume-hub/data`',
       '- logs mount: `/srv/lume-hub/logs`',
       '- auth mount: `/codex/auth.json`',
+      '- delivery note: backend artifact for a container runtime; not a complete single-container product without the host companion',
       '',
     ].join('\n'),
     'utf8',
@@ -315,6 +324,12 @@ exec "$NODE_BIN" "$SCRIPT_DIR/lume-hub-host.mjs"
       hostPath: '/home/eliaspc/.codex/auth.json',
       envKey: 'CODEX_AUTH_FILE',
     },
+    delivery: {
+      packagingModel: 'host_companion_outside_container',
+      required: true,
+      responsibilities: ['power_policy', 'autostart', 'codex_oauth_ownership', 'host_heartbeat'],
+      honestLimit: 'This component must be delivered and supervised on the host alongside the backend container artifact.',
+    },
   };
   await writeJson(resolve(stagePath, 'release-manifest.json'), manifest);
 
@@ -350,6 +365,7 @@ exec "$NODE_BIN" "$SCRIPT_DIR/lume-hub-host.mjs"
       '- state path: `../state/`',
       '- systemd unit: `../systemd-user/lume-hub-host.service`',
       '- backend bridge state: `../../lxd/host-mounts/data/runtime/host-state.json`',
+      '- delivery note: required outside the backend container for power, autostart and Codex OAuth ownership',
       '',
     ].join('\n'),
     'utf8',
