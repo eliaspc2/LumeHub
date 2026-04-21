@@ -340,12 +340,15 @@ export class WaNotifyScheduleImportService {
 
         if (preReminderMatch?.groups?.minutes) {
           const offsetMinutesBeforeEvent = Number(preReminderMatch.groups.minutes);
+          const legacyMessageTemplate = normaliseLegacyMessageTemplate(item.text);
 
           return [
             {
               kind: 'relative_before_event' as const,
               label: `Lembrete ${offsetMinutesBeforeEvent} min antes`,
               offsetMinutesBeforeEvent,
+              messageTemplate: legacyMessageTemplate,
+              llmPromptTemplate: legacyMessageTemplate ? null : undefined,
             },
           ];
         }
@@ -373,12 +376,16 @@ export class WaNotifyScheduleImportService {
           return [];
         }
 
+        const legacyMessageTemplate = normaliseLegacyMessageTemplate(item.text);
+
         return [
           {
             kind: 'fixed_local_time' as const,
             label: daysBeforeEvent === 0 ? `No proprio dia as ${localTime}` : `${daysBeforeEvent} dia(s) antes as ${localTime}`,
             daysBeforeEvent,
             localTime,
+            messageTemplate: legacyMessageTemplate,
+            llmPromptTemplate: legacyMessageTemplate ? null : undefined,
           },
         ];
       }),
@@ -496,16 +503,29 @@ function normaliseRuleSignature(
     readonly offsetMinutesBeforeEvent?: number | null;
     readonly daysBeforeEvent?: number | null;
     readonly localTime?: string | null;
+    readonly messageTemplate?: string | null;
+    readonly llmPromptTemplate?: string | null;
   }[],
 ): string {
   return rules
-    .map((rule) =>
-      rule.kind === 'relative_before_event'
-        ? `${rule.kind}:${rule.offsetMinutesBeforeEvent ?? ''}`
-        : `${rule.kind}:${rule.daysBeforeEvent ?? ''}:${rule.localTime ?? ''}`,
-    )
+    .map((rule) => {
+      const templateSignature = `${signatureString(rule.messageTemplate)}:${signatureString(rule.llmPromptTemplate)}`;
+
+      return rule.kind === 'relative_before_event'
+        ? `${rule.kind}:${rule.offsetMinutesBeforeEvent ?? ''}:${templateSignature}`
+        : `${rule.kind}:${rule.daysBeforeEvent ?? ''}:${rule.localTime ?? ''}:${templateSignature}`;
+    })
     .sort()
     .join('|');
+}
+
+function signatureString(value: string | null | undefined): string {
+  return value ?? '';
+}
+
+function normaliseLegacyMessageTemplate(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
 }
 
 function readLegacyImportMetadata(metadata: Readonly<Record<string, unknown>> | undefined): {

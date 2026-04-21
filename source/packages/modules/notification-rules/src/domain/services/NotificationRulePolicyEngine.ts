@@ -95,7 +95,10 @@ export class NotificationRulePolicyEngine {
         daysBeforeEvent: null,
         localTime: null,
         messageTemplate: definition.messageTemplate ?? defaultMessageTemplateForRule(definition),
-        llmPromptTemplate: definition.llmPromptTemplate ?? defaultLlmPromptTemplateForRule(definition),
+        llmPromptTemplate:
+          definition.llmPromptTemplate === undefined
+            ? defaultLlmPromptTemplateForRule(definition)
+            : definition.llmPromptTemplate,
       };
     }
 
@@ -123,7 +126,10 @@ export class NotificationRulePolicyEngine {
         daysBeforeEvent: null,
         localTime: null,
         messageTemplate: definition.messageTemplate ?? defaultMessageTemplateForRule(definition),
-        llmPromptTemplate: definition.llmPromptTemplate ?? defaultLlmPromptTemplateForRule(definition),
+        llmPromptTemplate:
+          definition.llmPromptTemplate === undefined
+            ? defaultLlmPromptTemplateForRule(definition)
+            : definition.llmPromptTemplate,
       };
     }
 
@@ -151,7 +157,10 @@ export class NotificationRulePolicyEngine {
       daysBeforeEvent: definition.daysBeforeEvent,
       localTime: definition.localTime,
       messageTemplate: definition.messageTemplate ?? defaultMessageTemplateForRule(definition),
-      llmPromptTemplate: definition.llmPromptTemplate ?? defaultLlmPromptTemplateForRule(definition),
+      llmPromptTemplate:
+        definition.llmPromptTemplate === undefined
+          ? defaultLlmPromptTemplateForRule(definition)
+          : definition.llmPromptTemplate,
     };
   }
 }
