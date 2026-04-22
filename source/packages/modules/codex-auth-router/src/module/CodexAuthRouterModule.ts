@@ -95,6 +95,10 @@ export class CodexAuthRouterModule extends BaseModule implements CodexAuthRouter
     return this.service.getStatus();
   }
 
+  async refreshStatus() {
+    return this.service.refreshStatus();
+  }
+
   async health() {
     const status = await this.service.getStatus();
 

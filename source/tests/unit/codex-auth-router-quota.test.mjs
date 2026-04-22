@@ -103,6 +103,64 @@ test('codex auth scorer prefers the token with more free quota', () => {
   assert.ok(scorer.score(highQuota, emptyState, now) > scorer.score(lowQuota, emptyState, now));
 });
 
+test('codex quota refresh can bypass cached usage limits', async () => {
+  const sandboxPath = await mkdtemp(join(tmpdir(), 'lume-hub-codex-quota-refresh-'));
+  const authFilePath = join(sandboxPath, 'account-a', 'auth.json');
+  let fetchCount = 0;
+
+  try {
+    await mkdir(join(sandboxPath, 'account-a'), { recursive: true });
+    await writeFile(
+      authFilePath,
+      JSON.stringify({
+        tokens: {
+          account_id: 'account-a',
+          access_token: 'unit-access-token',
+        },
+      }),
+      'utf8',
+    );
+
+    const quotaService = new CodexAccountQuotaService({
+      enabled: true,
+      cacheTtlMs: 60_000,
+      fetcher: async () => {
+        fetchCount += 1;
+        return {
+          ok: true,
+          status: 200,
+          async text() {
+            return JSON.stringify({
+              rate_limit: {
+                allowed: true,
+                limit_reached: false,
+                primary_window: {
+                  used_percent: fetchCount === 1 ? 40 : 10,
+                  reset_at: '2026-04-22T10:15:00.000Z',
+                },
+              },
+            });
+          },
+        };
+      },
+    });
+
+    const now = new Date('2026-04-22T10:00:00.000Z');
+    const [first] = await quotaService.enrichAccounts([buildAccount(authFilePath)], now);
+    const [cached] = await quotaService.enrichAccounts([buildAccount(authFilePath)], now);
+
+    quotaService.clearCache();
+    const [refreshed] = await quotaService.enrichAccounts([buildAccount(authFilePath)], now);
+
+    assert.equal(fetchCount, 2);
+    assert.equal(first.quota?.primaryWindow?.remainingPercent, 60);
+    assert.equal(cached.quota?.primaryWindow?.remainingPercent, 60);
+    assert.equal(refreshed.quota?.primaryWindow?.remainingPercent, 90);
+  } finally {
+    await rm(sandboxPath, { recursive: true, force: true });
+  }
+});
+
 function buildAccount(sourceFilePath, quotaWindow) {
   return {
     accountId: sourceFilePath.includes('high') ? 'high' : 'account-a',

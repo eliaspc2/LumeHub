@@ -88,6 +88,10 @@ export class CodexAccountQuotaService {
     );
   }
 
+  clearCache(): void {
+    this.cache.clear();
+  }
+
   async readQuota(account: CodexAccount, now: Date = new Date()): Promise<CodexQuotaSnapshot> {
     if (!this.enabled) {
       return buildUnavailableQuota(now, 'Leitura de limites desativada neste runtime.');

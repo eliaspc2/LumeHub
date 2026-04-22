@@ -5152,7 +5152,9 @@ export class AppShell {
 
   private renderCodexRouterSurface(snapshot: SettingsSnapshot): string {
     const authRouterStatus = snapshot.authRouterStatus;
-    const activeAccount = authRouterStatus?.currentSelection?.accountId ?? null;
+    const activeAccountId = authRouterStatus?.currentSelection?.accountId ?? null;
+    const activeAccount =
+      authRouterStatus?.accounts.find((account) => account.accountId === activeAccountId) ?? null;
     const visibleTokenCount = authRouterStatus?.accountCount ?? 0;
     const visibleTokenLabel = readCodexTokenCountLabel(visibleTokenCount);
     const routerEnabledLabel = authRouterStatus ? readCodexRouterEnabledLabel(authRouterStatus.enabled) : 'Indisponivel';
@@ -5161,11 +5163,11 @@ export class AppShell {
 
     return `
       <section class="content-grid">
-        <article class="surface content-card span-5">
+        <article class="surface content-card span-12 codex-router-control-card">
           <div class="card-header">
             <div>
-              <h3>Operacao segura</h3>
-              <p>Comeca aqui: ligar/desligar a troca, atualizar estado ou pedir ao router para escolher o melhor token.</p>
+              <h3>Painel do Codex Router</h3>
+              <p>Visao direta, como no router antigo: token ativo, uso livre e troca manual sempre acessiveis.</p>
             </div>
             ${renderUiBadge({
               label: routerEnabledLabel,
@@ -5175,15 +5177,37 @@ export class AppShell {
           ${
             authRouterStatus
               ? `
-                  <div class="guide-preview">
-                    <p><strong>Troca automatica</strong>: ${escapeHtml(routerEnabledLabel)}</p>
-                    <p><strong>Token em uso</strong>: ${escapeHtml(activeTokenLabel)}</p>
-                    <p><strong>Tokens prontos</strong>: ${escapeHtml(visibleTokenLabel)}</p>
-                    <p><strong>Contrato de seguranca</strong>: antes de mudar, faz backup da auth canonica atual.</p>
+                  <div class="codex-router-summary-grid">
+                    ${renderCodexRouterSummaryCard({
+                      title: 'Conta ativa',
+                      value: activeTokenLabel,
+                      detail: activeAccountId ? `ID ${readCodexAccountIdDisplay(activeAccountId)}` : 'Ainda sem token escolhido.',
+                      tone: activeAccount ? 'positive' : 'warning',
+                    })}
+                    ${renderCodexRouterSummaryCard({
+                      title: 'Troca de token',
+                      value: routerEnabledLabel,
+                      detail: authRouterStatus.enabled
+                        ? 'Pode escolher automaticamente ou por botao manual.'
+                        : 'Fica fixo ate voltares a ligar.',
+                      tone: routerTone,
+                    })}
+                    ${renderCodexQuotaWindowCard('Janela 5h restante', activeAccount?.quota ?? null, activeAccount?.quota?.primaryWindow ?? null)}
+                    ${renderCodexQuotaWindowCard('Janela semanal restante', activeAccount?.quota ?? null, activeAccount?.quota?.secondaryWindow ?? null)}
+                    ${renderCodexRouterSummaryCard({
+                      title: 'Ultima troca',
+                      value: formatShortDateTime(authRouterStatus.lastSwitchAt),
+                      detail: 'Backup feito antes de alterar a auth canonica.',
+                      tone: 'neutral',
+                    })}
+                  </div>
+                  <div class="guide-preview codex-router-contract">
+                    <p><strong>Contrato de seguranca</strong>: antes de preparar ou trocar, o router faz backup da auth atual e sincroniza de volta o token que estava em uso.</p>
+                    <p><strong>Tokens prontos</strong>: ${escapeHtml(visibleTokenLabel)}. A lista abaixo suporta 1, 2, 3 ou mais contas sem mudar o fluxo.</p>
                   </div>
                   <div class="action-row">
                     ${renderUiActionButton({
-                      label: 'Atualizar estado',
+                      label: 'Atualizar limites',
                       variant: 'secondary',
                       dataAttributes: { 'settings-action': 'refresh-settings-surface' },
                     })}
@@ -5200,60 +5224,6 @@ export class AppShell {
                       disabled: !authRouterStatus.enabled,
                       dataAttributes: { 'settings-action': 'prepare-codex-router' },
                     })}
-                  </div>
-                  <div class="guide-preview">
-                    <p><strong>Ultima troca</strong>: ${escapeHtml(formatShortDateTime(authRouterStatus.lastSwitchAt))}</p>
-                    <p>Se nao tens a certeza do que fazer, deixa a troca ligada e usa "Escolher melhor token". A escolha manual fica no bloco seguinte.</p>
-                  </div>
-                  <div class="summary-grid">
-                    <div class="summary-column">
-                      <div class="summary-column__header">
-                        <h4>Estado do router</h4>
-                        <p>Decide se o Codex pode ou nao trocar sozinho.</p>
-                      </div>
-                      <div class="status-list">
-                        <article class="status-item status-item--${routerTone}">
-                          <strong>${escapeHtml(routerEnabledLabel)}</strong>
-                          <p>${escapeHtml(
-                            authRouterStatus.enabled
-                              ? 'O Codex pode mudar sozinho para o melhor token.'
-                              : 'O token em uso fica fixo ate voltares a ligar a troca.',
-                          )}</p>
-                        </article>
-                        <article class="status-item status-item--${
-                          authRouterStatus.currentSelection ? 'positive' : 'warning'
-                        }">
-                          <strong>${escapeHtml(activeTokenLabel)}</strong>
-                          <p>${escapeHtml(
-                            authRouterStatus.currentSelection
-                              ? 'Este e o token canonico em uso pelo Codex.'
-                              : 'Ainda nao ha um token escolhido.',
-                          )}</p>
-                        </article>
-                      </div>
-                    </div>
-                    <div class="summary-column">
-                      <div class="summary-column__header">
-                        <h4>Saude recente</h4>
-                        <p>Mostra quantos tokens estao prontos e se houve falha recente.</p>
-                      </div>
-                      <div class="status-list">
-                        <article class="status-item status-item--${
-                          authRouterStatus.accountCount > 0 ? 'positive' : 'warning'
-                        }">
-                          <strong>${escapeHtml(`${visibleTokenCount} token(s) prontos`)}</strong>
-                          <p>${escapeHtml(
-                            authRouterStatus.accounts.length > 0
-                              ? 'A lista pode ter 3, 4 ou mais tokens.'
-                              : 'Ainda nao ha tokens conhecidos.',
-                          )}</p>
-                        </article>
-                        <article class="status-item status-item--${authRouterStatus.lastError ? 'warning' : 'positive'}">
-                          <strong>${escapeHtml(authRouterStatus.lastError ? 'Ultimo erro a rever' : 'Sem erro recente')}</strong>
-                          <p>${escapeHtml(authRouterStatus.lastError ?? 'Sem erro recente registado pelo router.')}</p>
-                        </article>
-                      </div>
-                    </div>
                   </div>
                   <details class="ui-details">
                     <summary>Ver detalhe tecnico</summary>
@@ -5288,20 +5258,17 @@ export class AppShell {
                 `
           }
         </article>
-        <article class="surface content-card span-7">
+        <article class="surface content-card span-12">
           <div class="card-header">
             <div>
-              <h3>Escolha manual de token</h3>
-              <p>So abre isto quando queres fixar uma conta especifica. A lista aceita 3, 4 ou mais tokens.</p>
+              <h3>Tokens disponiveis</h3>
+              <p>Cada token mostra quanto uso livre resta e tem o botao direto para mudar, como no GUI antigo.</p>
             </div>
             ${renderUiBadge({
               label: readCodexTokenCountLabel(authRouterStatus?.accounts.length ?? 0),
               tone: authRouterStatus?.accounts.length ? 'neutral' : 'warning',
             })}
           </div>
-          <details class="ui-details codex-router-token-details">
-            <summary>Ver todos os tokens e escolher manualmente</summary>
-            <div class="ui-details__content">
           ${
             authRouterStatus && authRouterStatus.accounts.length > 0
               ? `
@@ -5309,7 +5276,8 @@ export class AppShell {
                     ${authRouterStatus.accounts
                       .map(
                         (account) => {
-                          const availability = readCodexTokenAvailability(account, activeAccount);
+                          const availability = readCodexTokenAvailability(account, activeAccountId);
+                          const isActive = account.accountId === activeAccountId;
 
                           return `
                           <article class="codex-router-account-card">
@@ -5317,6 +5285,7 @@ export class AppShell {
                               <div>
                                 <h4>${escapeHtml(account.label)}</h4>
                                 <p>${escapeHtml(describeCodexTokenRole(account))}</p>
+                                <p class="codex-router-account-id">ID ${escapeHtml(readCodexAccountIdDisplay(account.accountId))}</p>
                               </div>
                               <div class="codex-router-account-badges">
                                 ${renderUiBadge({
@@ -5330,27 +5299,26 @@ export class AppShell {
                                 })}
                               </div>
                             </div>
-                            <div class="guide-preview">
-                              <p><strong>Estado</strong>: ${escapeHtml(availability.summary)}</p>
-                              <p><strong>Uso livre</strong>: ${escapeHtml(readCodexQuotaSummary(account))}</p>
-                              <p><strong>Ultimo sucesso</strong>: ${escapeHtml(formatShortDateTime(account.usage.lastSuccessAt))}</p>
-                              <p><strong>Ultima falha</strong>: ${escapeHtml(
-                                account.usage.lastFailureReason
-                                  ? `${formatShortDateTime(account.usage.lastFailureAt)} · ${account.usage.lastFailureReason}`
-                                  : formatShortDateTime(account.usage.lastFailureAt),
-                              )}</p>
-                            </div>
-                            ${renderCodexQuotaMeter(account)}
                             <div class="action-row">
                               ${renderUiActionButton({
-                                label: account.accountId === activeAccount ? 'Token em uso' : 'Usar este token',
-                                variant: account.accountId === activeAccount ? 'secondary' : 'primary',
-                                disabled: !authRouterStatus.enabled || !account.exists || account.accountId === activeAccount,
+                                label: isActive ? 'Ja ativa' : 'Ativar esta conta',
+                                variant: isActive ? 'secondary' : 'primary',
+                                disabled: !authRouterStatus.enabled || !account.exists || isActive,
                                 dataAttributes: {
                                   'settings-action': 'switch-codex-account',
                                   'codex-account-id': account.accountId,
                                 },
                               })}
+                            </div>
+                            <div class="codex-router-usage-grid">
+                              ${renderCodexQuotaWindowCard('Janela 5h', account.quota ?? null, account.quota?.primaryWindow ?? null)}
+                              ${renderCodexQuotaWindowCard('Janela semanal', account.quota ?? null, account.quota?.secondaryWindow ?? null)}
+                            </div>
+                            ${renderCodexQuotaMeter(account)}
+                            <div class="guide-preview codex-router-account-status">
+                              <p><strong>Estado</strong>: ${escapeHtml(availability.summary)}</p>
+                              <p><strong>Uso livre</strong>: ${escapeHtml(readCodexQuotaSummary(account))}</p>
+                              <p><strong>Plano</strong>: ${escapeHtml(readCodexQuotaPlanLabel(account))}</p>
                             </div>
                             <details class="ui-details">
                               <summary>Ver diagnostico tecnico</summary>
@@ -5379,8 +5347,6 @@ export class AppShell {
                   </div>
                 `
           }
-            </div>
-          </details>
         </article>
       </section>
     `;
@@ -7670,6 +7636,8 @@ export class AppShell {
       const message =
         page.route === '/migration'
           ? 'A atualizar a semana paralela e o estado dos tokens do Codex.'
+          : page.route === '/codex-router'
+            ? 'A atualizar os limites do Codex diretamente no servidor.'
           : 'A atualizar o estado do Codex Router e dos tokens disponiveis.';
 
       this.state = {
@@ -7680,6 +7648,33 @@ export class AppShell {
         },
       };
       this.render();
+
+      if (page.route === '/codex-router') {
+        try {
+          const status = await this.currentClient().refreshCodexAuthRouterStatus();
+          this.state = {
+            ...this.state,
+            flowFeedback: {
+              tone: 'positive',
+              message: `Limites atualizados. Token em uso: ${status.currentSelection?.label ?? 'por escolher'}.`,
+            },
+          };
+          this.recordUxEvent('positive', 'Codex router limites atualizados manualmente.');
+        } catch (error) {
+          const errorMessage = `Nao foi possivel atualizar os limites do Codex. ${readErrorMessage(error)}`;
+          this.state = {
+            ...this.state,
+            flowFeedback: {
+              tone: 'danger',
+              message: errorMessage,
+            },
+          };
+          this.recordUxEvent('danger', summarizeTelemetryMessage(errorMessage));
+          this.render();
+          return;
+        }
+      }
+
       await this.refreshCurrentRouteData();
       return;
     }
@@ -12671,11 +12666,128 @@ function readCodexTokenAvailability(
     };
   }
 
+  if (account.quota?.fetchError) {
+    return {
+      label: 'Limites por ler',
+      tone: 'warning',
+      summary: 'O token existe e pode ser escolhido manualmente, mas a leitura de quota falhou agora.',
+    };
+  }
+
   return {
     label: 'Pronto',
     tone: 'neutral',
     summary: 'Pode entrar em uso quando precisares.',
   };
+}
+
+type CodexRouterAccountSnapshot = NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number];
+type CodexRouterQuotaSnapshot = NonNullable<CodexRouterAccountSnapshot['quota']>;
+type CodexRouterQuotaWindowSnapshot = CodexRouterQuotaSnapshot['primaryWindow'];
+
+function renderCodexRouterSummaryCard(input: {
+  readonly title: string;
+  readonly value: string;
+  readonly detail: string;
+  readonly tone: UiTone;
+}): string {
+  return `
+    <article class="codex-router-summary-card codex-router-summary-card--${input.tone}">
+      <span>${escapeHtml(input.title)}</span>
+      <strong>${escapeHtml(input.value)}</strong>
+      <p>${escapeHtml(input.detail)}</p>
+    </article>
+  `;
+}
+
+function renderCodexQuotaWindowCard(
+  title: string,
+  quota: CodexRouterQuotaSnapshot | null,
+  window: CodexRouterQuotaWindowSnapshot,
+): string {
+  const reading = readCodexQuotaWindowReading(quota, window);
+
+  return `
+    <article class="codex-router-window-card codex-router-window-card--${reading.tone}">
+      <span>${escapeHtml(title)}</span>
+      <strong>${escapeHtml(reading.value)}</strong>
+      <p>${escapeHtml(reading.detail)}</p>
+    </article>
+  `;
+}
+
+function readCodexQuotaWindowReading(
+  quota: CodexRouterQuotaSnapshot | null,
+  window: CodexRouterQuotaWindowSnapshot,
+): {
+  readonly value: string;
+  readonly detail: string;
+  readonly tone: UiTone;
+} {
+  if (!quota) {
+    return {
+      value: 'Por ler',
+      detail: 'Ainda sem leitura de limites.',
+      tone: 'neutral',
+    };
+  }
+
+  if (quota.fetchError) {
+    return {
+      value: 'Indisponivel',
+      detail: quota.fetchError,
+      tone: 'warning',
+    };
+  }
+
+  if (quota.credits.unlimited) {
+    return {
+      value: '100% livre',
+      detail: 'Plano sem limite visivel nesta janela.',
+      tone: 'positive',
+    };
+  }
+
+  const remainingPercent =
+    typeof window?.remainingPercent === 'number' && Number.isFinite(window.remainingPercent)
+      ? Math.max(0, Math.min(100, Math.round(window.remainingPercent)))
+      : null;
+  const usedPercent =
+    typeof window?.usedPercent === 'number' && Number.isFinite(window.usedPercent)
+      ? Math.max(0, Math.min(100, Math.round(window.usedPercent)))
+      : null;
+  const resetLabel = window?.resetAt ? `renova ${formatShortDateTime(window.resetAt)}` : 'sem hora de reset visivel';
+  const tone: UiTone = quota.limitReached || (remainingPercent !== null && remainingPercent <= 10) ? 'warning' : 'positive';
+
+  if (remainingPercent === null) {
+    return {
+      value: 'Sem percentagem',
+      detail: usedPercent === null ? resetLabel : `${usedPercent}% usado · ${resetLabel}`,
+      tone: 'neutral',
+    };
+  }
+
+  return {
+    value: `${remainingPercent}% livre`,
+    detail: usedPercent === null ? resetLabel : `${usedPercent}% usado · ${resetLabel}`,
+    tone,
+  };
+}
+
+function readCodexAccountIdDisplay(accountId: string): string {
+  return accountId.length > 0 ? accountId : 'sem-id';
+}
+
+function readCodexQuotaPlanLabel(account: CodexRouterAccountSnapshot): string {
+  if (!account.quota) {
+    return 'Ainda sem leitura.';
+  }
+
+  if (account.quota.fetchError) {
+    return 'Nao lido agora.';
+  }
+
+  return account.quota.planType ?? 'Sem plano identificado.';
 }
 
 function readCodexQuotaSummary(account: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number]): string {

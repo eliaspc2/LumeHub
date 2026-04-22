@@ -235,6 +235,11 @@ export class CodexAuthRouterService {
     };
   }
 
+  async refreshStatus(): Promise<CodexAuthRouterStatus> {
+    this.quotaService.clearCache();
+    return this.getStatus();
+  }
+
   private async readAccountsWithQuotas(state: CodexAuthRouterState, now: Date = new Date()): Promise<readonly CodexAccount[]> {
     const accounts = await this.repository.listAccounts(state);
     return this.quotaService.enrichAccounts(accounts, now);
