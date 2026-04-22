@@ -23,6 +23,7 @@ assert.match(appShell, /Janela semanal restante/u);
 assert.match(appShell, /Ativar esta conta/u);
 assert.match(appShell, /refreshCodexAuthRouterStatus/u);
 assert.doesNotMatch(appShell, /codex-router-token-details/u);
+assert.doesNotMatch(appShell, /codex-router-switch:/u);
 assert.doesNotMatch(appShell, /Runtime live/u);
 assert.doesNotMatch(appShell, /workspace desse grupo/u);
 

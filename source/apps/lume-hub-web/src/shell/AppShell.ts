@@ -7765,30 +7765,6 @@ export class AppShell {
         return;
       }
 
-      if (!options.confirmed) {
-        this.state = {
-          ...this.state,
-          pendingConfirmation: {
-            domain: 'settings',
-            key: `codex-router-switch:${accountId}`,
-            action,
-            dataset: {
-              codexAccountId: accountId,
-            },
-            title: 'Trocar o token em uso do Codex?',
-            description: 'Isto vai atualizar a auth canonica do Codex para o token escolhido.',
-            confirmLabel: 'Trocar token',
-            tone: 'warning',
-          },
-          flowFeedback: {
-            tone: 'warning',
-            message: 'Confirma primeiro a troca manual do token em uso do Codex.',
-          },
-        };
-        this.render();
-        return;
-      }
-
       this.state = {
         ...this.state,
         flowFeedback: {
