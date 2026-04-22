@@ -687,7 +687,7 @@ export class AppShell {
     const route = bootstrap.router.resolveRoute(this.state.route);
     const token = ++this.requestToken;
     const backgroundRefresh = options.backgroundRefresh ?? false;
-    const shouldFocusMainContent = options.focusMainContent ?? !backgroundRefresh;
+    const shouldFocusMainContent = options.focusMainContent ?? false;
 
     this.syncUrl(options.replaceHistory ?? false);
 
@@ -999,7 +999,7 @@ export class AppShell {
         <div class="shell-main">
           <header class="surface shell-header surface--strong">
             <div class="header-copy">
-              <p class="eyebrow">Runtime live</p>
+              <p class="eyebrow">${escapeHtml(this.state.mode === 'demo' ? 'Preview seguro' : 'Sistema ligado')}</p>
               <h1>${escapeHtml(currentRoute.label)}</h1>
               <p>${escapeHtml(currentRoute.description)}</p>
             </div>
@@ -1007,10 +1007,10 @@ export class AppShell {
               ${groupSwitcher
                 ? `
                   <section class="header-group-switcher" aria-label="Switcher global de grupo">
-                    <p class="header-group-switcher__eyebrow">Grupo em foco</p>
+                    <p class="header-group-switcher__eyebrow">Grupo escolhido</p>
                     <strong>${escapeHtml(groupSwitcher.selectedLabel)}</strong>
                     <label class="header-group-switcher__field">
-                      <span>Abrir pagina de grupo</span>
+                      <span>Abrir este grupo</span>
                       <select class="ui-control" data-shell-group-switcher>
                         ${groupSwitcher.groups
                           .map(
@@ -1020,7 +1020,7 @@ export class AppShell {
                           .join('')}
                       </select>
                     </label>
-                    <p class="header-group-switcher__hint">Ao trocar aqui, abres logo o workspace desse grupo.</p>
+                    <p class="header-group-switcher__hint">Ao mudar aqui, abres logo a pagina desse grupo.</p>
                   </section>
                 `
                 : ''}
@@ -10478,7 +10478,10 @@ export class AppShell {
       pendingConfirmation: null,
       route: this.currentRouter().normalizeRoute(nextRoute),
     };
-    void this.loadCurrentRoute({ replaceHistory: options.replaceHistory });
+    void this.loadCurrentRoute({
+      replaceHistory: options.replaceHistory,
+      focusMainContent: true,
+    });
   }
 
   private async handleShellGroupSwitch(groupJid: string): Promise<void> {

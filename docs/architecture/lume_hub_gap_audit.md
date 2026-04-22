@@ -204,6 +204,32 @@ Estado canonico deixado:
 - o kit comercial declara honestamente `backend containerizado + host companion`, sem vender o produto como `um container unico`
 - os validadores intermédios da ronda foram removidos; a entrada canonica atual e `validate:wave73`
 
+## Gaps ativos da ronda `ui-ux-commercial-polish`
+
+Em `2026-04-22`, a `Wave 74` abriu uma nova ronda curta depois de auditoria visual e DOM das paginas principais e tecnicas.
+
+Estado confirmado:
+
+- nao ha evidencia de pagina branca real no LumeHub live
+- o branco observado em captura veio de artefacto do `google-chrome --screenshot` e do scroll/foco automatico
+- o foco automatico no primeiro load foi removido para reduzir saltos de janela/scroll
+- a shell global ficou mais compacta e menos tecnica
+- a navegacao mobile foi compactada para nao ocupar um ecra inteiro antes do conteudo
+
+Gaps ainda ativos:
+
+- `Grupos` e pagina de grupo repetem demasiados estados e nomes; precisam separar catalogo global de detalhe do grupo
+- `WhatsApp` repete permissoes/contactos e deve resumir por problema/acao antes de mostrar ACL
+- `Calendario` mostra muitos estados a zero; deve esconder ruido vazio e promover evento/proximo passo
+- `LLM` ainda deve separar melhor pergunta segura de alteracao real de agenda
+- `Codex Router` esta funcional, mas diagnostico tecnico deve ficar mais recolhido face a uso livre/troca manual
+- `Workspace` repete acoes por ficheiro dezenas de vezes; deve passar a barra de acoes contextual
+- `Media` e rotas tecnicas devem esconder JIDs/logs na vista base quando houver label humana ou resumo de impacto
+
+Validacao canonica atual da ronda:
+
+- `validate:wave74`
+
 ## Trabalho futuro fora do scope atual
 
 ### 1. `alerts` e `automations`

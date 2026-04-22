@@ -13,12 +13,106 @@ Regra editorial:
 
 ## Estado atual
 
-Nao existem waves ativas neste momento.
+Ronda ativa: `ui-ux-commercial-polish`.
+
+A `Wave 74` abriu a ronda com auditoria UI/UX page-by-page, correcao de foco/scroll automatico e contratos globais de densidade.
+
+Waves ainda por executar:
+
+### Wave 75 - Grupos e WhatsApp sem repeticao operacional
+
+Objetivo:
+- reduzir repeticoes nos ecras com mais duplicacao textual
+- transformar listas repetidas em resumo + detalhe progressivo
+- manter claro quem pode agir, que grupo esta em foco e qual e o proximo passo
+
+Scope:
+- `/groups`
+- `/groups/:groupJid`
+- `/whatsapp`
+
+Obrigatorio:
+- `/groups` deve parecer catalogo curto de grupos, nao a pagina detalhada duplicada
+- `/groups/:groupJid` deve mostrar trabalho desse grupo sem repetir a lista global inteira
+- permissao WhatsApp/ACL deve aparecer como resumo humano antes do detalhe tecnico
+- repetir nomes de grupos, owners, `Assistente ligado` e `Com agendamento` so quando houver comparacao real
+
+Validacao:
+- criar `validate:wave75`
+- recarregar desktop e mobile das tres rotas em browser headless/CDP
+- confirmar que nao ha regressao de foco em inputs nem saltos de scroll no load inicial
+
+### Wave 76 - Hoje, Calendario e LLM com resumo primeiro
+
+Objetivo:
+- tornar as paginas de operacao diaria mais rapidas de perceber
+- esconder ruido tecnico ate ser necessario
+- reduzir chips/contadores vazios
+
+Scope:
+- `/today`
+- `/week`
+- `/assistant`
+
+Obrigatorio:
+- `Hoje` deve responder em poucos segundos: estado, risco, proximo passo
+- `Calendario` deve esconder estados a zero por defeito
+- `LLM` deve separar melhor pergunta segura de alteracao real de agenda
+- copy deve continuar pensada para utilizador pouco tecnico
+
+Validacao:
+- criar `validate:wave76`
+- validar rotas desktop/mobile
+- verificar input da LLM a escrever varios caracteres sem perder foco
+
+### Wave 77 - LumeHub, Codex Router e rotas tecnicas por papel
+
+Objetivo:
+- separar operacao normal de diagnostico tecnico
+- manter informacao sensivel e tecnica em detalhe progressivo
+- melhorar legibilidade comercial das areas de sistema
+
+Scope:
+- `/settings`
+- `/codex-router`
+- `/media`
+- `/workspace`
+- `/distributions`
+- `/delivery-monitor`
+- `/watchdog`
+
+Obrigatorio:
+- `Codex Router` deve manter uso livre, token em uso e troca manual, mas com diagnostico tecnico recolhido
+- `Workspace` deve deixar de repetir dezenas de acoes iguais por ficheiro
+- `Media` deve evitar JIDs crus na vista base quando houver label humana
+- rotas tecnicas devem mostrar impacto e proximo passo antes do log/diagnostico
+
+Validacao:
+- criar `validate:wave77`
+- validar `Codex Router` live sem imprimir tokens
+- validar rotas tecnicas em browser headless/CDP
+
+### Wave 78 - Limpeza final da ronda `ui-ux-commercial-polish`
+
+Objetivo:
+- fechar a ronda, remover validadores intermédios e deixar docs/README/backlog canonicos
+- relancar o LumeHub no fim da limpeza
+
+Obrigatorio:
+- consolidar a validacao final em `validate:wave78`
+- remover validadores intermédios `74..77`, se ja estiverem cobertos
+- atualizar README, gap audit e esta lista para declarar a ronda fechada
+- relancar no fim:
+  - `bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh restart`
+  - se for a partir de sessao automatizada, usar `setsid bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh restart >/tmp/lumehub-wave-restart.log 2>&1 < /dev/null &`
+- validar a seguir:
+  - `bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh status`
+  - `curl -fsS http://127.0.0.1:18420/api/runtime/diagnostics`
 
 A validacao consolidada atual e:
 
 - `cd /home/eliaspc/Documentos/lume-hub/source`
-- `corepack pnpm run validate:wave73`
+- `corepack pnpm run validate:wave74`
 
 ## Ultimas rondas fechadas
 
@@ -62,6 +156,16 @@ Estado canonico deixado:
 - o host companion sincroniza o mesmo historico de backups do router usado pelo backend para o repositorio privado
 - os avisos migrados do WA-Notify ficam no LumeHub como envio principal; a redundancia WA-Notify foi desativada no cutover total
 - validacao consolidada: `validate:wave73`
+
+A `Wave 74` abriu a ronda `ui-ux-commercial-polish`.
+Estado canonico deixado:
+
+- auditoria UI/UX page-by-page documentada em `lume_hub_ui_ux_audit_2026-04-22.md`
+- confirmado que nao ha pagina branca real; o branco inicial era artefacto de captura/scroll
+- load inicial deixou de forcar foco/scroll para o conteudo principal
+- navegacao mobile ficou compacta em vez de ocupar um ecra inteiro antes do conteudo
+- shell global ficou mais densa e menos tecnica
+- validacao consolidada atual: `validate:wave74`
 
 ## Como reabrir uma ronda
 

@@ -43,6 +43,7 @@ Hoje esta pasta ja contem:
 - packages de `foundation`, `adapters`, `modules` e `ui-modules` com contratos e implementacoes reais
 - testes unitarios, de integracao e `e2e`
 - scripts operacionais de validacao final e release:
+  - `validate:wave74`
   - `validate:wave73`
   - `validate:wave72`
   - `validate:wave65`
@@ -102,8 +103,9 @@ A ronda de paridade e migracao do `WA-notify` tambem ficou fechada:
 - a `Wave 60` fechou a limpeza final da ronda `group-first`, consolidando `validate:wave60` e removendo validadores intermédios `52..59`
 - a ronda `ui-clarity` fechou com objetos visuais consistentes, menos espaco morto e `validate:wave65`
 - a ronda `commercial-readiness` fechou com experiencia comercial mais clara e `validate:wave72`
+- a `Wave 74` abriu a ronda `ui-ux-commercial-polish`, corrigiu foco/scroll inicial e compactou a shell global
 - grupos `distribuicao_apenas` saem do scheduling local e passam a fan-out/distribuicao
-- a validacao consolidada mais recente passou a ser `validate:wave73`
+- a validacao consolidada mais recente passou a ser `validate:wave74`
 
 Na ronda curta de operacao de migracao, agora ja fechada:
 
