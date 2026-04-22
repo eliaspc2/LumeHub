@@ -341,18 +341,25 @@ async function resolveVisibleCurrentSelection(
     : null;
 
   if (accountFromCanonical) {
+    if (state.currentSelection?.accountId === accountFromCanonical.accountId) {
+      return {
+        ...state.currentSelection,
+        label: accountFromCanonical.label,
+        sourceFilePath: accountFromCanonical.sourceFilePath,
+        canonicalAuthFilePath,
+        contentHash: accountFromCanonical.contentHash,
+      };
+    }
+
     return {
       accountId: accountFromCanonical.accountId,
       label: accountFromCanonical.label,
       sourceFilePath: accountFromCanonical.sourceFilePath,
       canonicalAuthFilePath,
-      selectedAt:
-        state.currentSelection?.accountId === accountFromCanonical.accountId
-          ? state.currentSelection.selectedAt
-          : new Date().toISOString(),
+      selectedAt: new Date().toISOString(),
       switchPerformed: false,
       backupFilePath: null,
-      reason: state.currentSelection?.accountId === accountFromCanonical.accountId ? state.currentSelection.reason : 'canonical_live_detected',
+      reason: 'canonical_live_detected',
       contentHash: accountFromCanonical.contentHash,
     };
   }

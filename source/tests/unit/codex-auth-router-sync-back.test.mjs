@@ -59,9 +59,13 @@ test('codex auth router syncs refreshed canonical auth back before switching awa
       reason: 'unit_switch_to_b',
       now: new Date('2026-04-22T09:00:00.000Z'),
     });
+    const status = await service.getStatus();
 
     assert.equal(await readFile(accountAFilePath, 'utf8'), authJson('account-a', 'refreshed-live'));
     assert.equal(await readFile(canonicalAuthFilePath, 'utf8'), authJson('account-b', 'reserve-b'));
+    assert.equal(status.currentSelection?.accountId, 'account-b');
+    assert.equal(status.currentSelection?.switchPerformed, true);
+    assert.equal(Boolean(status.currentSelection?.backupFilePath), true);
   } finally {
     await rm(sandboxPath, { recursive: true, force: true });
   }
