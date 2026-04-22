@@ -261,7 +261,7 @@ O `LumeHub` ja tem:
 
 - runtime `Live` operacional com WhatsApp, LLM, scheduling, alerts e automations
 - `Migracao` retirada da navegacao comercial depois do cutover; imports legacy ficam como manutencao tecnica fora da UI normal
-- pagina `Codex Router` propria para preparar a melhor conta e fazer switch manual com backup antes de trocar
+- pagina `Codex Router` propria para preparar a melhor conta e fazer switch manual com backup antes de trocar; quando um token esteve ativo em `/home/eliaspc/.codex/auth.json`, o auth live e sincronizado de volta para a origem secundaria antes de sair, preservando refreshes feitos pelo Codex
 - endpoint `GET /api/migrations/readiness`
 - checklist de `shadow mode` em [lume_hub_shadow_mode_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md)
 - checklist de cutover em [lume_hub_live_cutover_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_live_cutover_checklist.md)

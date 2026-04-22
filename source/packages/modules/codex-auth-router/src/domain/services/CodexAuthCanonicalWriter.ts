@@ -1,6 +1,6 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 
 export interface CodexAuthCanonicalWriterConfig {
   readonly canonicalAuthFilePath: string;
@@ -24,11 +24,12 @@ export class CodexAuthCanonicalWriter {
     options: {
       readonly now?: Date;
       readonly previousAccountId?: string | null;
+      readonly syncBackFilePath?: string | null;
     } = {},
   ): Promise<CodexAuthWriteResult> {
     const now = options.now ?? new Date();
-    const sourceContents = await readFile(sourceFilePath, 'utf8');
-    const sourceHash = createHash('sha256').update(sourceContents).digest('hex');
+    let sourceContents = await readFile(sourceFilePath, 'utf8');
+    let sourceHash = createHash('sha256').update(sourceContents).digest('hex');
 
     let currentContents: string | null = null;
 
@@ -41,6 +42,19 @@ export class CodexAuthCanonicalWriter {
     }
 
     const currentHash = currentContents ? createHash('sha256').update(currentContents).digest('hex') : null;
+
+    if (
+      currentContents !== null &&
+      options.syncBackFilePath &&
+      resolve(options.syncBackFilePath) !== resolve(this.config.canonicalAuthFilePath)
+    ) {
+      await writeFileAtomically(options.syncBackFilePath, currentContents);
+
+      if (resolve(options.syncBackFilePath) === resolve(sourceFilePath)) {
+        sourceContents = currentContents;
+        sourceHash = currentHash ?? sourceHash;
+      }
+    }
 
     if (currentHash === sourceHash) {
       return {
@@ -65,13 +79,7 @@ export class CodexAuthCanonicalWriter {
       await this.writeHistorySnapshot(currentContents, now, options.previousAccountId);
     }
 
-    const temporaryPath = join(
-      dirname(this.config.canonicalAuthFilePath),
-      `${basename(this.config.canonicalAuthFilePath)}.${randomUUID()}.tmp`,
-    );
-
-    await writeFile(temporaryPath, sourceContents, 'utf8');
-    await rename(temporaryPath, this.config.canonicalAuthFilePath);
+    await writeFileAtomically(this.config.canonicalAuthFilePath, sourceContents);
 
     return {
       switched: true,
@@ -110,6 +118,15 @@ function normaliseRetentionLimit(value: number | undefined): number {
 
 function sanitisePathSegment(value: string): string {
   return value.replaceAll(/[^a-zA-Z0-9._-]/g, '-');
+}
+
+async function writeFileAtomically(filePath: string, contents: string): Promise<void> {
+  await mkdir(dirname(filePath), { recursive: true });
+
+  const temporaryPath = join(dirname(filePath), `${basename(filePath)}.${randomUUID()}.tmp`);
+
+  await writeFile(temporaryPath, contents, 'utf8');
+  await rename(temporaryPath, filePath);
 }
 
 async function pruneHistoryDirectory(directoryPath: string, retentionLimit: number): Promise<void> {

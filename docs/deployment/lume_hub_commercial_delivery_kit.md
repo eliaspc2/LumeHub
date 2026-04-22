@@ -116,11 +116,11 @@ Sinais esperados:
 5. Usar `Escolher melhor token` quando houver mais do que um token disponivel.
 6. Se for preciso fixar uma conta, abrir `Ver todos os tokens e escolher manualmente`.
 7. Antes de qualquer troca, o router deve preservar backup da auth canonica atual.
-8. Se o token canonico estiver corrompido, recuperar primeiro a partir dos backups do router ou do repositorio privado de backups antes de voltar a ligar a troca automatica.
+8. Se a conta ativa tiver refrescado tokens enquanto estava em `/home/eliaspc/.codex/auth.json`, o router deve sincronizar essa versao live de volta para a pasta secundaria dessa conta antes de escrever outro token no ficheiro canonico.
+9. Se o token canonico estiver corrompido, recuperar primeiro a partir dos backups do router ou do repositorio privado de backups antes de voltar a ligar a troca automatica.
 
 ## Resposta comercial simples
 
 Se perguntarem "posso entregar o container + instrucoes?", a resposta correta e:
 
 > Podes entregar o backend preparado para container com instrucoes e mounts canonicos, mas deves entregar tambem o `host companion` fora do container. Hoje isto nao e um produto de container unico, porque o PC anfitriao ainda gere energia, autostart e OAuth Codex.
-

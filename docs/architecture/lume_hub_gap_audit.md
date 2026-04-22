@@ -200,7 +200,7 @@ Estado canonico deixado:
 - apos o cutover total do `WA-Notify`, `Migracao` deixa de existir como pagina/menu navegavel; manutencao legacy fica apenas em APIs tecnicas controladas
 - lembretes por grupo suportam `1..N` regras, janelas antes, horarios fixos e janelas depois
 - copy de lembretes pode ser assistida pela LLM e auditada como `gerado -> preparado -> enviado`
-- `Codex Router` suporta lista de `3+` tokens e mantem backup antes de trocar token
+- `Codex Router` suporta lista de `3+` tokens, mantem backup antes de trocar token e sincroniza o `auth.json` live de volta para a origem da conta ativa antes de a substituir
 - o kit comercial declara honestamente `backend containerizado + host companion`, sem vender o produto como `um container unico`
 - os validadores intermédios da ronda foram removidos; a entrada canonica atual e `validate:wave73`
 

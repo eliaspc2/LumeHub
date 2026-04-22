@@ -72,26 +72,30 @@ export class CodexAccountRepository {
   }
 
   async listAccounts(state: CodexAuthRouterState): Promise<readonly CodexAccount[]> {
-    const accounts = await Promise.all(
+    const discoveredAccounts = await Promise.all(
       this.sourceAccounts.map(async (source) => {
         const snapshot = await readAccountSnapshot(source.filePath);
 
         return {
-          accountId: source.accountId,
-          label: source.label,
-          sourceFilePath: source.filePath,
-          priority: source.priority,
-          kind: source.kind,
-          exists: snapshot.exists,
-          contentHash: snapshot.contentHash,
-          bytes: snapshot.bytes,
-          lastModifiedAt: snapshot.lastModifiedAt,
-          usage: mapAccountStateToUsage(state.accountStates[source.accountId]),
-        } satisfies CodexAccount;
+          account: {
+            accountId: source.accountId,
+            label: source.label,
+            sourceFilePath: source.filePath,
+            priority: source.priority,
+            kind: source.kind,
+            exists: snapshot.exists,
+            contentHash: snapshot.contentHash,
+            bytes: snapshot.bytes,
+            lastModifiedAt: snapshot.lastModifiedAt,
+            usage: mapAccountStateToUsage(state.accountStates[source.accountId]),
+          } satisfies CodexAccount,
+          tokenIdentityKey: snapshot.tokenIdentityKey,
+        };
       }),
     );
+    const accounts = hideCanonicalLiveDuplicate(discoveredAccounts);
 
-    return accounts.sort((left, right) => left.priority - right.priority || left.label.localeCompare(right.label));
+    return [...accounts].sort((left, right) => left.priority - right.priority || left.label.localeCompare(right.label));
   }
 }
 
@@ -127,6 +131,7 @@ async function readAccountSnapshot(filePath: string): Promise<{
   readonly contentHash: string | null;
   readonly bytes: number | null;
   readonly lastModifiedAt: string | null;
+  readonly tokenIdentityKey: string | null;
 }> {
   try {
     const [contents, metadata] = await Promise.all([readFile(filePath, 'utf8'), stat(filePath)]);
@@ -136,6 +141,7 @@ async function readAccountSnapshot(filePath: string): Promise<{
       contentHash: createHash('sha256').update(contents).digest('hex'),
       bytes: Buffer.byteLength(contents),
       lastModifiedAt: metadata.mtime.toISOString(),
+      tokenIdentityKey: deriveTokenIdentityKey(contents),
     };
   } catch (error) {
     if (isNodeError(error) && error.code === 'ENOENT') {
@@ -144,6 +150,7 @@ async function readAccountSnapshot(filePath: string): Promise<{
         contentHash: null,
         bytes: null,
         lastModifiedAt: null,
+        tokenIdentityKey: null,
       };
     }
 
@@ -164,6 +171,82 @@ function mapAccountStateToUsage(state: CodexAccountState | undefined) {
     lastFailureReason: normalised.lastFailureReason,
     cooldownUntil: normalised.cooldownUntil,
   } as const;
+}
+
+function hideCanonicalLiveDuplicate(
+  discoveredAccounts: readonly {
+    readonly account: CodexAccount;
+    readonly tokenIdentityKey: string | null;
+  }[],
+): readonly CodexAccount[] {
+  const canonicalAccount = discoveredAccounts.find((entry) => entry.account.kind === 'canonical_live');
+
+  if (!canonicalAccount?.tokenIdentityKey) {
+    return discoveredAccounts.map((entry) => entry.account);
+  }
+
+  const canonicalIsKnownSecondary = discoveredAccounts.some(
+    (entry) =>
+      entry.account.kind !== 'canonical_live' &&
+      entry.tokenIdentityKey === canonicalAccount.tokenIdentityKey,
+  );
+
+  return discoveredAccounts
+    .filter((entry) => entry.account.kind !== 'canonical_live' || !canonicalIsKnownSecondary)
+    .map((entry) => entry.account);
+}
+
+function deriveTokenIdentityKey(contents: string): string | null {
+  try {
+    const raw = JSON.parse(contents) as {
+      readonly tokens?: {
+        readonly account_id?: unknown;
+        readonly id_token?: unknown;
+      };
+    };
+    const accountId = typeof raw.tokens?.account_id === 'string' ? raw.tokens.account_id.trim() : '';
+
+    if (accountId.length > 0) {
+      return `chatgpt_account_id:${accountId}`;
+    }
+
+    const payload = typeof raw.tokens?.id_token === 'string' ? decodeJwtPayload(raw.tokens.id_token) : null;
+    const authClaims = payload?.['https://api.openai.com/auth'];
+    const authAccountId =
+      isRecord(authClaims) && typeof authClaims.chatgpt_account_id === 'string'
+        ? authClaims.chatgpt_account_id.trim()
+        : '';
+
+    if (authAccountId.length > 0) {
+      return `chatgpt_account_id:${authAccountId}`;
+    }
+
+    const subject = typeof payload?.sub === 'string' ? payload.sub.trim() : '';
+
+    return subject.length > 0 ? `subject:${subject}` : null;
+  } catch {
+    return null;
+  }
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  const [, payload] = token.split('.');
+
+  if (!payload) {
+    return null;
+  }
+
+  try {
+    const json = Buffer.from(payload.replaceAll('-', '+').replaceAll('_', '/'), 'base64').toString('utf8');
+    const decoded = JSON.parse(json) as unknown;
+    return isRecord(decoded) ? decoded : null;
+  } catch {
+    return null;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 function normaliseState(input: Partial<CodexAuthRouterState>): CodexAuthRouterState {

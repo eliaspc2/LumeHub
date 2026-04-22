@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 import type {
   CodexAccount,
@@ -41,10 +43,16 @@ export class CodexAuthRouterService {
         preferredAccountId: input.preferredAccountId,
         now,
       }) ?? failNoAccount(input.preferredAccountId ?? null);
+    const syncBackAccount = await resolveSyncBackAccount(
+      state,
+      accounts,
+      this.repository.getCanonicalAuthFilePath(),
+    );
 
     const writeResult = await this.canonicalWriter.writeFromSource(selectedAccount.sourceFilePath, {
       now,
-      previousAccountId: state.currentSelection?.accountId ?? 'canonical-live',
+      previousAccountId: syncBackAccount?.accountId ?? state.currentSelection?.accountId ?? 'canonical-live',
+      syncBackFilePath: syncBackAccount?.sourceFilePath ?? null,
     });
     const selection = buildSelection(selectedAccount, this.repository.getCanonicalAuthFilePath(), now, writeResult, input.reason ?? null);
     const nextState = appendAuditRecord(
@@ -90,9 +98,15 @@ export class CodexAuthRouterService {
         now,
         ignoreCooldown: true,
       }) ?? failMissingAccount(accountId);
+    const syncBackAccount = await resolveSyncBackAccount(
+      state,
+      accounts,
+      this.repository.getCanonicalAuthFilePath(),
+    );
     const writeResult = await this.canonicalWriter.writeFromSource(selectedAccount.sourceFilePath, {
       now,
-      previousAccountId: state.currentSelection?.accountId ?? 'canonical-live',
+      previousAccountId: syncBackAccount?.accountId ?? state.currentSelection?.accountId ?? 'canonical-live',
+      syncBackFilePath: syncBackAccount?.sourceFilePath ?? null,
     });
     const selection = buildSelection(selectedAccount, this.repository.getCanonicalAuthFilePath(), now, writeResult, input.reason ?? null);
     const recoveredState = this.usageService.recordSuccess(state, selectedAccount.accountId, now);
@@ -196,15 +210,20 @@ export class CodexAuthRouterService {
   async getStatus(): Promise<CodexAuthRouterStatus> {
     const state = await this.repository.readState();
     const accounts = await this.repository.listAccounts(state);
+    const currentSelection = await resolveVisibleCurrentSelection(
+      state,
+      accounts,
+      this.repository.getCanonicalAuthFilePath(),
+    );
 
     return {
       schemaVersion: 1,
       enabled: state.enabled,
       canonicalAuthFilePath: this.repository.getCanonicalAuthFilePath(),
-      canonicalExists: accounts.some((account) => account.accountId === 'canonical-live' && account.exists),
+      canonicalExists: await fileExists(this.repository.getCanonicalAuthFilePath()),
       stateFilePath: this.repository.getStateFilePath(),
       backupDirectoryPath: this.repository.getBackupDirectoryPath(),
-      currentSelection: state.currentSelection,
+      currentSelection,
       accounts,
       switchHistory: state.switchHistory,
       lastPreparedAt: state.lastPreparedAt,
@@ -277,6 +296,83 @@ function appendAuditRecord(state: CodexAuthRouterState, record: CodexAuthSwitchR
     ...state,
     switchHistory: [...state.switchHistory, record].slice(-MAX_SWITCH_HISTORY),
   };
+}
+
+async function resolveSyncBackAccount(
+  state: CodexAuthRouterState,
+  accounts: readonly CodexAccount[],
+  canonicalAuthFilePath: string,
+): Promise<CodexAccount | null> {
+  const canonicalAccountId = await readCanonicalAccountId(canonicalAuthFilePath);
+  const accountFromCanonical = canonicalAccountId
+    ? accounts.find((account) => account.accountId === canonicalAccountId)
+    : null;
+  const accountFromState = state.currentSelection?.accountId
+    ? accounts.find((account) => account.accountId === state.currentSelection?.accountId)
+    : null;
+  const account = accountFromCanonical ?? accountFromState ?? null;
+
+  if (
+    !account ||
+    account.kind === 'canonical_live' ||
+    resolve(account.sourceFilePath) === resolve(canonicalAuthFilePath)
+  ) {
+    return null;
+  }
+
+  return account;
+}
+
+async function resolveVisibleCurrentSelection(
+  state: CodexAuthRouterState,
+  accounts: readonly CodexAccount[],
+  canonicalAuthFilePath: string,
+): Promise<CodexAccountSelection | null> {
+  if (state.currentSelection && accounts.some((account) => account.accountId === state.currentSelection?.accountId)) {
+    return state.currentSelection;
+  }
+
+  const canonicalAccountId = await readCanonicalAccountId(canonicalAuthFilePath);
+  const accountFromCanonical = canonicalAccountId
+    ? accounts.find((account) => account.accountId === canonicalAccountId)
+    : null;
+
+  if (!accountFromCanonical) {
+    return state.currentSelection;
+  }
+
+  return {
+    accountId: accountFromCanonical.accountId,
+    label: accountFromCanonical.label,
+    sourceFilePath: accountFromCanonical.sourceFilePath,
+    canonicalAuthFilePath,
+    selectedAt: state.currentSelection?.selectedAt ?? new Date().toISOString(),
+    switchPerformed: false,
+    backupFilePath: null,
+    reason: state.currentSelection?.reason ?? null,
+    contentHash: accountFromCanonical.contentHash,
+  };
+}
+
+async function readCanonicalAccountId(canonicalAuthFilePath: string): Promise<string | null> {
+  try {
+    const raw = JSON.parse(await readFile(canonicalAuthFilePath, 'utf8')) as {
+      readonly tokens?: { readonly account_id?: unknown };
+    };
+    const accountId = typeof raw.tokens?.account_id === 'string' ? raw.tokens.account_id.trim() : '';
+    return accountId.length > 0 ? accountId : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await readFile(filePath, 'utf8');
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function inferFailureKind(reason: string): CodexFailureKind {
