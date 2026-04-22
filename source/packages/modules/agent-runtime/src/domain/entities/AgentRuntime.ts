@@ -76,6 +76,7 @@ export interface AgentMemoryUsage {
   readonly groupLabel: string | null;
   readonly instructionsSource: AssistantChatContext['groupInstructionsSource'] | null;
   readonly instructionsApplied: boolean;
+  readonly instructionsContent: string | null;
   readonly knowledgeSnippetCount: number;
   readonly knowledgeDocuments: readonly AgentMemoryDocumentRef[];
 }

@@ -783,6 +783,7 @@ function buildMemoryUsage(
       groupLabel: null,
       instructionsSource: null,
       instructionsApplied: false,
+      instructionsContent: null,
       knowledgeSnippetCount: 0,
       knowledgeDocuments: [],
     };
@@ -794,6 +795,7 @@ function buildMemoryUsage(
     groupLabel: resolvedGroupLabel,
     instructionsSource: chatContext.groupInstructionsSource,
     instructionsApplied: chatContext.groupInstructionsSource !== 'missing' && Boolean(chatContext.groupInstructions?.trim()),
+    instructionsContent: chatContext.groupInstructions?.trim() || null,
     knowledgeSnippetCount: filteredSnippets.length,
     knowledgeDocuments: filteredSnippets.slice(0, 4).map((snippet) => ({
       documentId: snippet.documentId,
@@ -811,6 +813,7 @@ function toLlmMemoryScope(memoryUsage: AgentMemoryUsage): {
   readonly groupLabel: string | null;
   readonly instructionsSource: 'llm_instructions' | 'missing' | null;
   readonly instructionsApplied: boolean;
+  readonly instructionsContent?: string | null;
   readonly knowledgeSnippetCount: number;
   readonly knowledgeDocuments: readonly {
     readonly documentId: string;
@@ -826,6 +829,7 @@ function toLlmMemoryScope(memoryUsage: AgentMemoryUsage): {
     groupLabel: memoryUsage.groupLabel,
     instructionsSource: memoryUsage.instructionsSource,
     instructionsApplied: memoryUsage.instructionsApplied,
+    instructionsContent: memoryUsage.instructionsContent,
     knowledgeSnippetCount: memoryUsage.knowledgeSnippetCount,
     knowledgeDocuments: memoryUsage.knowledgeDocuments.map((document) => ({
       documentId: document.documentId,

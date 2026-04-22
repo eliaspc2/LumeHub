@@ -5,6 +5,7 @@ export * from '../application/services/LlmWeeklyPlannerService.js';
 export * from '../domain/entities/LlmOrchestrator.js';
 export * from '../domain/services/LlmProviderRegistry.js';
 export * from '../domain/services/LlmRunLogger.js';
+export * from '../domain/services/WaNotifyPromptContracts.js';
 export * from '../infrastructure/persistence/LlmRunLogRepository.js';
 export * from '../infrastructure/providers/DeterministicLlmProvider.js';
 export * from '../module/LlmOrchestratorModule.js';

@@ -41,6 +41,7 @@ export interface LlmMemoryScope {
   readonly groupLabel: string | null;
   readonly instructionsSource: 'llm_instructions' | 'missing' | null;
   readonly instructionsApplied: boolean;
+  readonly instructionsContent?: string | null;
   readonly knowledgeSnippetCount: number;
   readonly knowledgeDocuments: readonly LlmMemoryDocumentRef[];
 }

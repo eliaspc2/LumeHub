@@ -217,6 +217,14 @@ No runtime isolado, a aplicacao deve ver esse ficheiro em:
 Se houver fontes secundarias/backup, devem ser montadas como fontes explicitas do `codex_auth_router`, nunca como substituicao silenciosa da fonte canonica.
 O ponto importante e este: o projeto deve gerir o mesmo ficheiro live que o Codex usa, nao uma copia paralela escondida.
 
+## Personalidade LLM herdada do WA-Notify
+
+- os prompts operacionais do WA-Notify foram portados para um contrato partilhado em `llm-orchestrator`
+- `codex-oauth` e `openai-compat` usam o mesmo contrato para chat, parser de scheduling e planeamento semanal
+- o contrato preserva as regras de conversa em grupo, humor leve, follow-ups curtos, regras VC/AS, semana segunda-domingo, prompts semanais e referencia historica de storage semanal
+- as instrucoes canonicas de cada grupo passam a entrar no prompt da LLM, nao apenas o sinal de que existem
+- a referencia de storage semanal do WA-Notify e apenas semantica; o LumeHub continua a persistir schedules por grupo/mes na arquitetura nova
+
 ## Fluxo de build/deploy pretendido
 
 1. Desenvolver e testar em `source/`.

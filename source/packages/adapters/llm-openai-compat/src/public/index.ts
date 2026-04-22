@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
+import {
+  buildWaNotifyChatInstructions,
+  buildWaNotifyScheduleInstructions,
+  buildWaNotifyStorageReferenceInstructions,
+  buildWaNotifyWeeklyPlanningInstructions,
+} from '@lume-hub/llm-orchestrator';
 import type {
   LlmChatInput,
   LlmChatResult,
@@ -252,10 +258,12 @@ function buildGeneralChatInstructions(): string {
   return [
     'Es o assistente operacional do LumeHub.',
     'Responde sempre em portugues europeu.',
-    'Sê claro, util e direto.',
+    'Mantem-te claro, util e direto.',
     'Usa apenas o contexto fornecido e nao inventes factos.',
     'Se faltarem dados, assume pouco e explica o limite.',
-  ].join(' ');
+    '',
+    buildWaNotifyChatInstructions(),
+  ].join('\n');
 }
 
 function buildGeneralChatUserText(input: LlmChatInput): string {
@@ -282,7 +290,11 @@ function buildScheduleInstructions(): string {
     'Devolve apenas JSON valido.',
     'Formato exato: {"candidates":[{"title":"string","dateHint":"YYYY-MM-DD|null","timeHint":"HH:MM|null","confidence":"low|medium|high","notes":["string"]}],"notes":["string"]}.',
     'Nao escrevas markdown nem texto fora do JSON.',
-  ].join(' ');
+    '',
+    buildWaNotifyScheduleInstructions(),
+    '',
+    buildWaNotifyStorageReferenceInstructions(),
+  ].join('\n');
 }
 
 function buildScheduleUserText(input: LlmScheduleParseInput): string {
@@ -310,12 +322,20 @@ function formatMemoryScope(input: LlmChatInput['memoryScope'] | LlmScheduleParse
     `- instructions_applied=${input.instructionsApplied ? 'sim' : 'nao'}`,
     `- knowledge_snippets=${input.knowledgeSnippetCount}`,
   ];
+  const instructions = String(input.instructionsContent ?? '').trim();
+  const instructionLines =
+    input.instructionsApplied && instructions
+      ? [
+          '- instrucoes_canonicas_do_grupo:',
+          truncateForPrompt(instructions, 1800),
+        ]
+      : [];
 
   const documents = input.knowledgeDocuments
     .slice(0, 3)
     .map((document) => `- doc=${document.documentId} | ${document.title} | ${document.filePath}`);
 
-  return [...lines, ...documents].join('\n');
+  return [...lines, ...instructionLines, ...documents].join('\n');
 }
 
 function buildWeeklyPlanningInstructions(): string {
@@ -323,7 +343,9 @@ function buildWeeklyPlanningInstructions(): string {
     'Devolve apenas JSON valido.',
     'Formato exato: {"weekId":"string","prompts":["string"]}.',
     'Cada prompt deve ser curto, claro e operacional.',
-  ].join(' ');
+    '',
+    buildWaNotifyWeeklyPlanningInstructions(),
+  ].join('\n');
 }
 
 function buildWeeklyPlanningUserText(input: WeeklyPromptPlanningInput): string {
@@ -435,6 +457,10 @@ function formatBullets(items: readonly string[] | undefined): string {
   }
 
   return items.map((item) => `- ${item}`).join('\n');
+}
+
+function truncateForPrompt(value: string, maxLength: number): string {
+  return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 
 function normaliseBaseUrl(value: string): string {
