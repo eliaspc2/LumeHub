@@ -4,6 +4,7 @@ import { CodexAuthRouterService } from '../application/services/CodexAuthRouterS
 import { CodexAccountScorer } from '../domain/services/CodexAccountScorer.js';
 import { CodexAccountSwitchPolicy } from '../domain/services/CodexAccountSwitchPolicy.js';
 import { CodexAccountUsageService } from '../domain/services/CodexAccountUsageService.js';
+import { CodexAccountQuotaService } from '../domain/services/CodexAccountQuotaService.js';
 import { CodexAuthCanonicalWriter } from '../domain/services/CodexAuthCanonicalWriter.js';
 import { CodexAccountRepository } from '../infrastructure/persistence/CodexAccountRepository.js';
 import type { CodexAuthRouterModuleContract } from '../public/contracts/index.js';
@@ -31,6 +32,12 @@ export class CodexAuthRouterModule extends BaseModule implements CodexAuthRouter
     const accountScorer = config.accountScorer ?? new CodexAccountScorer();
     const switchPolicy = config.switchPolicy ?? new CodexAccountSwitchPolicy(accountScorer);
     const usageService = config.usageService ?? new CodexAccountUsageService();
+    const quotaService =
+      config.quotaService ??
+      new CodexAccountQuotaService({
+        enabled: config.usageLimitsEnabled ?? true,
+        cacheTtlMs: config.usageLimitCacheTtlMs,
+      });
     const canonicalWriter =
       config.canonicalWriter ??
       new CodexAuthCanonicalWriter({
@@ -42,7 +49,7 @@ export class CodexAuthRouterModule extends BaseModule implements CodexAuthRouter
 
     this.service =
       config.service ??
-      new CodexAuthRouterService(repository, canonicalWriter, switchPolicy, usageService);
+      new CodexAuthRouterService(repository, canonicalWriter, switchPolicy, usageService, quotaService);
   }
 
   async start(): Promise<void> {

@@ -1537,6 +1537,56 @@ textarea {
   gap: 8px;
 }
 
+.codex-router-quota {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: #f7f9f4;
+}
+
+.codex-router-quota__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.codex-router-quota__header strong {
+  color: var(--ink-strong);
+}
+
+.codex-router-quota__header span,
+.codex-router-quota__empty {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.codex-router-quota__meter {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dfe7d8;
+}
+
+.codex-router-quota__meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #66884f 0%, #92b673 100%);
+}
+
+.codex-router-quota--warning .codex-router-quota__meter span {
+  background: linear-gradient(90deg, #b7791f 0%, #e2aa45 100%);
+}
+
+.codex-router-quota--neutral .codex-router-quota__meter span {
+  background: linear-gradient(90deg, #718096 0%, #a0aec0 100%);
+}
+
 .workspace-search-actions {
   display: flex;
   align-items: end;

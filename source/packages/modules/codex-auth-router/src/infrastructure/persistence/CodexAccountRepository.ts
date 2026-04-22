@@ -88,6 +88,7 @@ export class CodexAccountRepository {
             bytes: snapshot.bytes,
             lastModifiedAt: snapshot.lastModifiedAt,
             usage: mapAccountStateToUsage(state.accountStates[source.accountId]),
+            quota: null,
           } satisfies CodexAccount,
           tokenIdentityKey: snapshot.tokenIdentityKey,
         };

@@ -4,6 +4,7 @@ import type { CodexAuthCanonicalWriter } from '../domain/services/CodexAuthCanon
 import type { CodexAccountScorer } from '../domain/services/CodexAccountScorer.js';
 import type { CodexAccountSwitchPolicy } from '../domain/services/CodexAccountSwitchPolicy.js';
 import type { CodexAccountUsageService } from '../domain/services/CodexAccountUsageService.js';
+import type { CodexAccountQuotaService } from '../domain/services/CodexAccountQuotaService.js';
 
 export interface CodexAuthSourceConfig {
   readonly accountId: string;
@@ -22,10 +23,13 @@ export interface CodexAuthRouterModuleConfig {
   readonly backupHistoryRetentionLimit?: number;
   readonly sourceAccounts?: readonly CodexAuthSourceConfig[];
   readonly startByPreparingAuth?: boolean;
+  readonly usageLimitsEnabled?: boolean;
+  readonly usageLimitCacheTtlMs?: number;
   readonly repository?: CodexAccountRepository;
   readonly canonicalWriter?: CodexAuthCanonicalWriter;
   readonly accountScorer?: CodexAccountScorer;
   readonly switchPolicy?: CodexAccountSwitchPolicy;
   readonly usageService?: CodexAccountUsageService;
+  readonly quotaService?: CodexAccountQuotaService;
   readonly service?: CodexAuthRouterService;
 }

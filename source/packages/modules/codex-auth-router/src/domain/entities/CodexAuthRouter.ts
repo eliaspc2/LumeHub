@@ -11,6 +11,33 @@ export interface CodexUsageSnapshot {
   readonly cooldownUntil: string | null;
 }
 
+export interface CodexQuotaWindowSnapshot {
+  readonly windowSeconds: number | null;
+  readonly usedPercent: number | null;
+  readonly remainingPercent: number | null;
+  readonly resetAfterSeconds: number | null;
+  readonly resetAt: string | null;
+}
+
+export interface CodexQuotaCreditsSnapshot {
+  readonly hasCredits: boolean;
+  readonly unlimited: boolean;
+  readonly balance: string | null;
+  readonly approxLocalMessages: readonly number[];
+  readonly approxCloudMessages: readonly number[];
+}
+
+export interface CodexQuotaSnapshot {
+  readonly checkedAt: string;
+  readonly allowed: boolean;
+  readonly limitReached: boolean;
+  readonly planType: string | null;
+  readonly credits: CodexQuotaCreditsSnapshot;
+  readonly primaryWindow: CodexQuotaWindowSnapshot | null;
+  readonly secondaryWindow: CodexQuotaWindowSnapshot | null;
+  readonly fetchError: string | null;
+}
+
 export interface CodexAccount {
   readonly accountId: string;
   readonly label: string;
@@ -22,6 +49,7 @@ export interface CodexAccount {
   readonly bytes: number | null;
   readonly lastModifiedAt: string | null;
   readonly usage: CodexUsageSnapshot;
+  readonly quota: CodexQuotaSnapshot | null;
 }
 
 export interface CodexAccountSelection {

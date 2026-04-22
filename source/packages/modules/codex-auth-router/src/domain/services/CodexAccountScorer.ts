@@ -13,8 +13,9 @@ export class CodexAccountScorer {
     const priorityScore = Math.max(0, 20 - account.priority * 2);
     const kindBonus = account.kind === 'secondary' ? 6 : 0;
     const cooldownPenalty = inCooldown ? 1_000 : 0;
+    const quotaScore = scoreQuota(account);
 
-    return currentBonus + reliabilityScore + priorityScore + kindBonus - cooldownPenalty;
+    return currentBonus + reliabilityScore + priorityScore + kindBonus + quotaScore - cooldownPenalty;
   }
 
   isAvailable(account: CodexAccount, now: Date, ignoreCooldown = false): boolean {
@@ -27,9 +28,42 @@ export class CodexAccountScorer {
     }
 
     if (!account.usage.cooldownUntil) {
-      return true;
+      return isQuotaAvailable(account);
     }
 
-    return Date.parse(account.usage.cooldownUntil) <= now.getTime();
+    return Date.parse(account.usage.cooldownUntil) <= now.getTime() && isQuotaAvailable(account);
   }
+}
+
+function scoreQuota(account: CodexAccount): number {
+  const quota = account.quota;
+
+  if (!quota) {
+    return 0;
+  }
+
+  if (quota.fetchError) {
+    return -15;
+  }
+
+  const primaryRemaining = quota.primaryWindow?.remainingPercent;
+  const secondaryRemaining = quota.secondaryWindow?.remainingPercent;
+  const remaining =
+    primaryRemaining !== null && primaryRemaining !== undefined
+      ? primaryRemaining * 0.65 + (secondaryRemaining ?? primaryRemaining) * 0.35
+      : 0;
+  const creditBonus = quota.credits.unlimited ? 30 : quota.credits.hasCredits ? 12 : 0;
+  const limitPenalty = !quota.allowed || quota.limitReached ? 1_000 : 0;
+
+  return remaining + creditBonus - limitPenalty;
+}
+
+function isQuotaAvailable(account: CodexAccount): boolean {
+  const quota = account.quota;
+
+  if (!quota || quota.fetchError) {
+    return true;
+  }
+
+  return quota.allowed && !quota.limitReached;
 }

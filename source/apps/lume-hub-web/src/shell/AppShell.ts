@@ -5332,6 +5332,7 @@ export class AppShell {
                             </div>
                             <div class="guide-preview">
                               <p><strong>Estado</strong>: ${escapeHtml(availability.summary)}</p>
+                              <p><strong>Uso livre</strong>: ${escapeHtml(readCodexQuotaSummary(account))}</p>
                               <p><strong>Ultimo sucesso</strong>: ${escapeHtml(formatShortDateTime(account.usage.lastSuccessAt))}</p>
                               <p><strong>Ultima falha</strong>: ${escapeHtml(
                                 account.usage.lastFailureReason
@@ -5339,6 +5340,7 @@ export class AppShell {
                                   : formatShortDateTime(account.usage.lastFailureAt),
                               )}</p>
                             </div>
+                            ${renderCodexQuotaMeter(account)}
                             <div class="action-row">
                               ${renderUiActionButton({
                                 label: account.accountId === activeAccount ? 'Token em uso' : 'Usar este token',
@@ -5358,6 +5360,8 @@ export class AppShell {
                                   <li><strong>Prioridade</strong>: ${account.priority}</li>
                                   <li><strong>Sucessos</strong>: ${account.usage.successCount} · <strong>Falhas</strong>: ${account.usage.failureCount}</li>
                                   <li><strong>Cooldown</strong>: ${escapeHtml(formatShortDateTime(account.usage.cooldownUntil))}</li>
+                                  <li><strong>Limites lidos</strong>: ${escapeHtml(formatShortDateTime(account.quota?.checkedAt ?? null))}</li>
+                                  <li><strong>Diagnostico de limites</strong>: ${escapeHtml(account.quota?.fetchError ?? 'Sem erro na ultima leitura.')}</li>
                                 </ul>
                               </div>
                             </details>
@@ -12669,6 +12673,94 @@ function readCodexTokenAvailability(
     tone: 'neutral',
     summary: 'Pode entrar em uso quando precisares.',
   };
+}
+
+function readCodexQuotaSummary(account: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number]): string {
+  const quota = account.quota;
+
+  if (!quota) {
+    return 'Ainda sem leitura de limites.';
+  }
+
+  if (quota.fetchError) {
+    return 'Nao consegui ler os limites agora.';
+  }
+
+  if (quota.credits.unlimited) {
+    return 'Uso livre sem limite visivel.';
+  }
+
+  const freePercent = readCodexQuotaFreePercent(account);
+  const usedPercent = quota.primaryWindow?.usedPercent ?? quota.secondaryWindow?.usedPercent ?? null;
+  const resetAt = readCodexQuotaResetAt(account);
+  const pieces = [
+    freePercent === null ? null : `${freePercent}% livre`,
+    usedPercent === null ? null : `${usedPercent}% usado`,
+    quota.planType ? `plano ${quota.planType}` : null,
+    resetAt ? `renova ${formatShortDateTime(resetAt)}` : null,
+  ].filter((piece): piece is string => piece !== null);
+
+  if (quota.limitReached) {
+    return pieces.length > 0 ? `Limite atingido · ${pieces.join(' · ')}` : 'Limite atingido.';
+  }
+
+  return pieces.length > 0 ? pieces.join(' · ') : 'Limites lidos, sem percentagem detalhada.';
+}
+
+function renderCodexQuotaMeter(account: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number]): string {
+  const quota = account.quota;
+  const freePercent = readCodexQuotaFreePercent(account);
+  const checkedLabel = quota?.checkedAt ? `Lido ${formatShortDateTime(quota.checkedAt)}` : 'Ainda nao lido';
+  const meterTone = quota?.limitReached ? 'warning' : quota?.fetchError ? 'neutral' : 'positive';
+
+  if (freePercent === null) {
+    return `
+      <div class="codex-router-quota codex-router-quota--${meterTone}">
+        <div class="codex-router-quota__header">
+          <strong>Uso livre</strong>
+          <span>${escapeHtml(checkedLabel)}</span>
+        </div>
+        <div class="codex-router-quota__empty">${escapeHtml(quota?.fetchError ?? 'Sem percentagem disponivel ainda.')}</div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="codex-router-quota codex-router-quota--${meterTone}">
+      <div class="codex-router-quota__header">
+        <strong>${escapeHtml(`${freePercent}% livre`)}</strong>
+        <span>${escapeHtml(checkedLabel)}</span>
+      </div>
+      <div class="codex-router-quota__meter" aria-label="${escapeHtml(`${freePercent}% livre`)}">
+        <span style="width: ${Math.max(0, Math.min(100, freePercent))}%;"></span>
+      </div>
+    </div>
+  `;
+}
+
+function readCodexQuotaFreePercent(account: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number]): number | null {
+  const quota = account.quota;
+
+  if (!quota || quota.fetchError) {
+    return null;
+  }
+
+  if (quota.credits.unlimited) {
+    return 100;
+  }
+
+  const value = quota.primaryWindow?.remainingPercent ?? quota.secondaryWindow?.remainingPercent ?? null;
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value))) : null;
+}
+
+function readCodexQuotaResetAt(account: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number]): string | null {
+  const values = [account.quota?.primaryWindow?.resetAt, account.quota?.secondaryWindow?.resetAt]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => Date.parse(value))
+    .filter((value) => Number.isFinite(value) && value > Date.now())
+    .sort((left, right) => left - right);
+
+  return values.length > 0 ? new Date(values[0] as number).toISOString() : null;
 }
 
 function createCanonicalDefaultNotificationRules() {

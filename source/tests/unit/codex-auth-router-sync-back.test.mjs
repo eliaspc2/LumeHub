@@ -166,6 +166,80 @@ test('codex auth router treats canonical live as the active slot, not as a third
   }
 });
 
+test('codex auth router shows the real live account when persisted selection is stale', async () => {
+  const sandboxPath = await mkdtemp(join(tmpdir(), 'lume-hub-codex-visible-live-'));
+  const canonicalAuthFilePath = join(sandboxPath, 'auth.json');
+  const accountAFilePath = join(sandboxPath, 'secondary', 'account-a', 'auth.json');
+  const accountBFilePath = join(sandboxPath, 'secondary', 'account-b', 'auth.json');
+  const stateFilePath = join(sandboxPath, 'runtime', 'codex-auth-router.state.json');
+  const backupDirectoryPath = join(sandboxPath, 'backups');
+
+  try {
+    await mkdir(join(sandboxPath, 'runtime'), { recursive: true });
+    await mkdir(join(sandboxPath, 'secondary', 'account-a'), { recursive: true });
+    await mkdir(join(sandboxPath, 'secondary', 'account-b'), { recursive: true });
+    await writeFile(canonicalAuthFilePath, authJson('account-b', 'live-b'), 'utf8');
+    await writeFile(accountAFilePath, authJson('account-a', 'secondary-a'), 'utf8');
+    await writeFile(accountBFilePath, authJson('account-b', 'secondary-b'), 'utf8');
+    await writeFile(
+      stateFilePath,
+      JSON.stringify({
+        schemaVersion: 1,
+        enabled: true,
+        currentSelection: {
+          accountId: 'account-a',
+          label: 'Account A',
+          sourceFilePath: accountAFilePath,
+          canonicalAuthFilePath,
+          selectedAt: '2026-04-22T08:00:00.000Z',
+          switchPerformed: false,
+          backupFilePath: null,
+          reason: 'old_state',
+          contentHash: null,
+        },
+        accountStates: {},
+        switchHistory: [],
+        lastPreparedAt: null,
+        lastSwitchAt: null,
+        lastError: null,
+        updatedAt: null,
+      }),
+      'utf8',
+    );
+
+    const repository = new CodexAccountRepository({
+      canonicalAuthFilePath,
+      stateFilePath,
+      backupDirectoryPath,
+      sourceAccounts: [
+        {
+          accountId: 'account-a',
+          label: 'Account A',
+          filePath: accountAFilePath,
+          priority: 1,
+        },
+        {
+          accountId: 'account-b',
+          label: 'Account B',
+          filePath: accountBFilePath,
+          priority: 2,
+        },
+      ],
+    });
+    const writer = new CodexAuthCanonicalWriter({
+      canonicalAuthFilePath,
+      backupDirectoryPath,
+    });
+    const service = new CodexAuthRouterService(repository, writer);
+    const status = await service.getStatus();
+
+    assert.equal(status.currentSelection?.accountId, 'account-b');
+    assert.equal(status.currentSelection?.reason, 'canonical_live_detected');
+  } finally {
+    await rm(sandboxPath, { recursive: true, force: true });
+  }
+});
+
 function authJson(accountId, marker) {
   return JSON.stringify({
     auth_mode: 'chatgpt',

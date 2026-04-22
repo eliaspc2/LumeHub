@@ -16,6 +16,7 @@ import type {
 } from '../../domain/entities/CodexAuthRouter.js';
 import { CodexAccountSwitchPolicy } from '../../domain/services/CodexAccountSwitchPolicy.js';
 import { CodexAccountUsageService } from '../../domain/services/CodexAccountUsageService.js';
+import { CodexAccountQuotaService } from '../../domain/services/CodexAccountQuotaService.js';
 import { CodexAuthCanonicalWriter } from '../../domain/services/CodexAuthCanonicalWriter.js';
 import { CodexAccountRepository } from '../../infrastructure/persistence/CodexAccountRepository.js';
 
@@ -27,12 +28,13 @@ export class CodexAuthRouterService {
     private readonly canonicalWriter: CodexAuthCanonicalWriter,
     private readonly switchPolicy: CodexAccountSwitchPolicy = new CodexAccountSwitchPolicy(),
     private readonly usageService: CodexAccountUsageService = new CodexAccountUsageService(),
+    private readonly quotaService: CodexAccountQuotaService = new CodexAccountQuotaService(),
   ) {}
 
   async prepareAuthForRequest(input: PrepareAuthForRequestInput = {}): Promise<CodexAccountSelection> {
     const now = input.now ?? new Date();
     const state = await this.repository.readState();
-    const accounts = await this.repository.listAccounts(state);
+    const accounts = await this.readAccountsWithQuotas(state, now);
 
     if (!state.enabled) {
       return buildDisabledSelection(state, accounts, this.repository.getCanonicalAuthFilePath(), now, input.reason ?? null);
@@ -91,7 +93,7 @@ export class CodexAuthRouterService {
       throw new Error('Codex auth router switching is disabled.');
     }
 
-    const accounts = await this.repository.listAccounts(state);
+    const accounts = await this.readAccountsWithQuotas(state, now);
     const selectedAccount =
       this.switchPolicy.selectAccount(accounts, state, {
         preferredAccountId: accountId,
@@ -209,7 +211,7 @@ export class CodexAuthRouterService {
 
   async getStatus(): Promise<CodexAuthRouterStatus> {
     const state = await this.repository.readState();
-    const accounts = await this.repository.listAccounts(state);
+    const accounts = await this.readAccountsWithQuotas(state);
     const currentSelection = await resolveVisibleCurrentSelection(
       state,
       accounts,
@@ -231,6 +233,11 @@ export class CodexAuthRouterService {
       lastError: state.lastError,
       accountCount: accounts.filter((account) => account.exists).length,
     };
+  }
+
+  private async readAccountsWithQuotas(state: CodexAuthRouterState, now: Date = new Date()): Promise<readonly CodexAccount[]> {
+    const accounts = await this.repository.listAccounts(state);
+    return this.quotaService.enrichAccounts(accounts, now);
   }
 }
 
@@ -328,30 +335,33 @@ async function resolveVisibleCurrentSelection(
   accounts: readonly CodexAccount[],
   canonicalAuthFilePath: string,
 ): Promise<CodexAccountSelection | null> {
-  if (state.currentSelection && accounts.some((account) => account.accountId === state.currentSelection?.accountId)) {
-    return state.currentSelection;
-  }
-
   const canonicalAccountId = await readCanonicalAccountId(canonicalAuthFilePath);
   const accountFromCanonical = canonicalAccountId
     ? accounts.find((account) => account.accountId === canonicalAccountId)
     : null;
 
-  if (!accountFromCanonical) {
+  if (accountFromCanonical) {
+    return {
+      accountId: accountFromCanonical.accountId,
+      label: accountFromCanonical.label,
+      sourceFilePath: accountFromCanonical.sourceFilePath,
+      canonicalAuthFilePath,
+      selectedAt:
+        state.currentSelection?.accountId === accountFromCanonical.accountId
+          ? state.currentSelection.selectedAt
+          : new Date().toISOString(),
+      switchPerformed: false,
+      backupFilePath: null,
+      reason: state.currentSelection?.accountId === accountFromCanonical.accountId ? state.currentSelection.reason : 'canonical_live_detected',
+      contentHash: accountFromCanonical.contentHash,
+    };
+  }
+
+  if (state.currentSelection && accounts.some((account) => account.accountId === state.currentSelection?.accountId)) {
     return state.currentSelection;
   }
 
-  return {
-    accountId: accountFromCanonical.accountId,
-    label: accountFromCanonical.label,
-    sourceFilePath: accountFromCanonical.sourceFilePath,
-    canonicalAuthFilePath,
-    selectedAt: state.currentSelection?.selectedAt ?? new Date().toISOString(),
-    switchPerformed: false,
-    backupFilePath: null,
-    reason: state.currentSelection?.reason ?? null,
-    contentHash: accountFromCanonical.contentHash,
-  };
+  return state.currentSelection;
 }
 
 async function readCanonicalAccountId(canonicalAuthFilePath: string): Promise<string | null> {
