@@ -15,32 +15,9 @@ Regra editorial:
 
 Ronda ativa: `ui-ux-commercial-polish`.
 
-A `Wave 74` abriu a ronda com auditoria UI/UX page-by-page, correcao de foco/scroll automatico e contratos globais de densidade.
+A `Wave 75` fechou a separacao entre catalogo de grupos, workspace detalhado do grupo e resumo humano do WhatsApp.
 
 Waves ainda por executar:
-
-### Wave 75 - Grupos e WhatsApp sem repeticao operacional
-
-Objetivo:
-- reduzir repeticoes nos ecras com mais duplicacao textual
-- transformar listas repetidas em resumo + detalhe progressivo
-- manter claro quem pode agir, que grupo esta em foco e qual e o proximo passo
-
-Scope:
-- `/groups`
-- `/groups/:groupJid`
-- `/whatsapp`
-
-Obrigatorio:
-- `/groups` deve parecer catalogo curto de grupos, nao a pagina detalhada duplicada
-- `/groups/:groupJid` deve mostrar trabalho desse grupo sem repetir a lista global inteira
-- permissao WhatsApp/ACL deve aparecer como resumo humano antes do detalhe tecnico
-- repetir nomes de grupos, owners, `Assistente ligado` e `Com agendamento` so quando houver comparacao real
-
-Validacao:
-- criar `validate:wave75`
-- recarregar desktop e mobile das tres rotas em browser headless/CDP
-- confirmar que nao ha regressao de foco em inputs nem saltos de scroll no load inicial
 
 ### Wave 76 - Hoje, Calendario e LLM com resumo primeiro
 
@@ -115,7 +92,7 @@ Obrigatorio:
 A validacao consolidada atual e:
 
 - `cd /home/eliaspc/Documentos/lume-hub/source`
-- `corepack pnpm run validate:wave74`
+- `corepack pnpm run validate:wave75`
 
 ## Ronda seguinte reservada
 

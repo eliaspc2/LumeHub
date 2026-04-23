@@ -3165,6 +3165,8 @@ export class AppShell {
 
   private renderGroupsPage(page: UiPage<GroupManagementPageData>): string {
     const { groups, people, intelligence, contextPreview } = page.data;
+    const currentGroupRoute = this.currentRouter().resolveRoute(this.state.route);
+    const isGroupDetailRoute = Boolean(currentGroupRoute.params.groupJid);
     const selectedGroup =
       groups.find((group) => group.groupJid === this.state.groupManagementDraft.selectedGroupJid) ?? null;
     const selectedDocument =
@@ -3204,14 +3206,213 @@ export class AppShell {
     const reminderNextEventLabel = page.data.reminderPreviewEvent
       ? `${page.data.reminderPreviewEvent.title} em ${formatWeekEventMoment(page.data.reminderPreviewEvent)}`
       : 'Sem evento real ainda; preview com um exemplo guiado.';
+    const groupsWithOwners = groups.filter((group) => group.groupOwners.length > 0).length;
+    const groupsWithScheduling = groups.filter((group) => group.operationalSettings.schedulingEnabled).length;
+    const groupsReadyForOperation = groups.filter(
+      (group) => authorizedGroupJids.includes(group.groupJid) && group.groupOwners.length > 0,
+    ).length;
+    const suggestedGroup =
+      groups.find((group) => !authorizedGroupJids.includes(group.groupJid)) ??
+      groups.find((group) => group.groupOwners.length === 0) ??
+      groups[0] ??
+      null;
+
+    if (!isGroupDetailRoute) {
+      return `
+        <section class="surface hero surface--strong">
+          <div>
+            <p class="eyebrow">Catalogo de grupos</p>
+            <h2>Compara grupos rapidamente e abre o detalhe so quando precisares de mexer nesse grupo.</h2>
+            <p>${escapeHtml(page.description)}</p>
+            <div class="action-row">
+              ${
+                suggestedGroup
+                  ? renderUiActionButton({
+                      label: 'Abrir grupo sugerido',
+                      href: this.currentRouter().buildGroupRoute(suggestedGroup.groupJid),
+                      dataAttributes: {
+                        route: this.currentRouter().buildGroupRoute(suggestedGroup.groupJid),
+                      },
+                    })
+                  : ''
+              }
+              ${renderUiActionButton({
+                label: 'Ver WhatsApp',
+                href: '/whatsapp',
+                variant: 'secondary',
+                dataAttributes: { route: '/whatsapp' },
+              })}
+            </div>
+          </div>
+          <div class="hero-panel">
+            ${renderUiMetricCard({
+              title: 'Grupos conhecidos',
+              value: String(groups.length),
+              description: 'Catalogo global atualmente visivel no LumeHub.',
+              tone: groups.length > 0 ? 'positive' : 'warning',
+            })}
+            ${renderUiMetricCard({
+              title: 'Prontos a operar',
+              value: String(groupsReadyForOperation),
+              description: 'Com responsavel e assistente disponivel.',
+              tone: groupsReadyForOperation > 0 ? 'positive' : 'warning',
+            })}
+            ${renderUiMetricCard({
+              title: 'Com agendamento',
+              value: String(groupsWithScheduling),
+              description: 'Grupos onde o scheduling local continua ativo.',
+              tone: groupsWithScheduling > 0 ? 'positive' : 'neutral',
+            })}
+          </div>
+        </section>
+
+        <section class="surface content-card group-guided-flow">
+          <div class="card-header">
+            <div>
+              <h3>Como ler este catalogo</h3>
+              <p>Aqui so comparamos o que muda entre grupos: responsavel, assistente, modo e proximo passo.</p>
+            </div>
+            ${renderUiBadge({ label: `${groupsWithOwners}/${groups.length} com responsavel`, tone: groupsWithOwners === groups.length ? 'positive' : 'warning' })}
+          </div>
+          <div class="guided-step-grid">
+            <article class="guided-step-card guided-step-card--positive">
+              <strong>1. Comparar</strong>
+              <p>Olha primeiro para o resumo curto de cada grupo. O detalhe tecnico ficou fora desta pagina.</p>
+            </article>
+            <article class="guided-step-card guided-step-card--${activeGroups > 0 ? 'positive' : 'warning'}">
+              <strong>2. Ver quem esta pronto</strong>
+              <p>${escapeHtml(
+                activeGroups > 0
+                  ? `${activeGroups} grupo(s) ja podem usar o assistente neste momento.`
+                  : 'Nenhum grupo esta ligado ao assistente neste momento.',
+              )}</p>
+            </article>
+            <article class="guided-step-card guided-step-card--${suggestedGroup ? 'warning' : 'positive'}">
+              <strong>3. Abrir o grupo certo</strong>
+              <p>${escapeHtml(
+                suggestedGroup
+                  ? `Abre ${suggestedGroup.preferredSubject} se queres resolver o proximo bloqueio operacional.`
+                  : 'Todos os grupos parecem ter o essencial pronto; abre apenas o grupo que queres afinar.',
+              )}</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="content-grid">
+          <article class="surface content-card span-12">
+            <div class="card-header card-header--with-switch">
+              <div>
+                <h3>Catalogo curto de grupos</h3>
+                <p>Cada cartao mostra apenas estado, responsavel e o botao certo para entrar nesse grupo.</p>
+              </div>
+              <div class="card-header__actions card-header__actions--group-master">
+                ${renderUiBadge({ label: `${groups.length} grupos`, tone: 'neutral' })}
+                ${renderUiSwitch({
+                  label: 'Assistente nos grupos',
+                  checked: page.data.commandSettings.assistantEnabled,
+                  description: page.data.commandSettings.assistantEnabled
+                    ? `${activeGroups} grupo(s) ligados agora.`
+                    : 'Desligado em todos os grupos.',
+                  dataAttributes: {
+                    'group-action': 'toggle-assistant-master',
+                  },
+                })}
+              </div>
+            </div>
+            ${
+              groups.length > 0
+                ? `
+                    <div class="group-access-grid group-access-grid--catalog">
+                      ${groups
+                        .map((group) => {
+                          const groupAuthorized = authorizedGroupJids.includes(group.groupJid);
+                          const owners = describeGroupOwners(group, people);
+                          const nextStep = !groupAuthorized
+                            ? 'Abrir o grupo e ligar o assistente.'
+                            : group.groupOwners.length === 0
+                              ? 'Abrir o grupo e definir um responsavel.'
+                              : 'Abrir o grupo apenas se precisares de ajustar regras, lembretes ou conhecimento.';
+
+                          return `
+                            <article class="compact-record group-catalog-card">
+                              <div class="compact-record__header">
+                                <div>
+                                  <strong>${escapeHtml(group.preferredSubject)}</strong>
+                                  <p>${escapeHtml(owners)}</p>
+                                </div>
+                                <div class="ui-card__chips">
+                                  ${renderUiBadge({
+                                    label: groupAuthorized ? 'Assistente ligado' : 'Assistente bloqueado',
+                                    tone: groupAuthorized ? 'positive' : 'warning',
+                                    style: 'chip',
+                                  })}
+                                  ${renderUiBadge({
+                                    label: readableGroupMode(group.operationalSettings.mode),
+                                    tone: toneForGroupMode(group.operationalSettings.mode),
+                                    style: 'chip',
+                                  })}
+                                </div>
+                              </div>
+                              <div class="compact-record__body">
+                                <p>${escapeHtml(
+                                  groupAuthorized
+                                    ? 'Este grupo ja pode entrar na operacao do assistente.'
+                                    : 'Este grupo continua visivel, mas o assistente ainda nao esta ligado.',
+                                )}</p>
+                                <p><strong>Proximo passo</strong>: ${escapeHtml(nextStep)}</p>
+                              </div>
+                              <div class="action-row">
+                                ${renderUiActionButton({
+                                  label: 'Abrir grupo',
+                                  href: this.currentRouter().buildGroupRoute(group.groupJid),
+                                  dataAttributes: {
+                                    route: this.currentRouter().buildGroupRoute(group.groupJid),
+                                  },
+                                })}
+                                ${renderUiActionButton({
+                                  label: groupAuthorized ? 'Bloquear assistente' : 'Ligar assistente',
+                                  variant: 'secondary',
+                                  dataAttributes: {
+                                    'group-action': 'toggle-group-authorized',
+                                    'group-jid': group.groupJid,
+                                  },
+                                })}
+                              </div>
+                            </article>
+                          `;
+                        })
+                        .join('')}
+                    </div>
+                  `
+                : `
+                    <div class="inline-empty">
+                      <strong>Sem grupos conhecidos</strong>
+                      <p>Assim que entrarem grupos no catalogo, esta pagina passa a mostrar apenas a comparacao curta e o atalho para abrir cada grupo.</p>
+                    </div>
+                  `
+            }
+          </article>
+        </section>
+      `;
+    }
 
     return `
       <section class="surface hero surface--strong">
         <div>
-          <p class="eyebrow">Pagina do grupo</p>
-          <h2>Gerir owner, modo e politicas locais sem perder o contexto isolado de cada grupo.</h2>
-          <p>${escapeHtml(page.description)}</p>
+          <p class="eyebrow">Workspace do grupo</p>
+          <h2>${escapeHtml(selectedGroup?.preferredSubject ?? 'Grupo')}</h2>
+          <p>${escapeHtml(
+            selectedGroup
+              ? 'Aqui trabalhas apenas este grupo. O catalogo global ficou na pagina Grupos para evitar repeticao operacional.'
+              : page.description,
+          )}</p>
           <div class="action-row">
+            ${renderUiActionButton({
+              label: 'Voltar ao catalogo',
+              href: '/groups',
+              variant: 'secondary',
+              dataAttributes: { route: '/groups' },
+            })}
             ${renderUiActionButton({
               label: 'Atualizar preview',
               dataAttributes: { 'group-action': 'refresh-preview' },
@@ -3227,7 +3428,7 @@ export class AppShell {
             groups.length > 0
               ? `
                 <label class="ui-field group-page-switcher">
-                  <span class="ui-field__label">Trocar grupo nesta pagina</span>
+                  <span class="ui-field__label">Trocar para outro grupo</span>
                   <select class="ui-control" data-group-page-switcher>
                     ${groups
                       .map(
@@ -3236,7 +3437,7 @@ export class AppShell {
                       )
                       .join('')}
                   </select>
-                  <span class="ui-field__hint">Ao trocares aqui, abres logo o workspace operacional desse grupo.</span>
+                  <span class="ui-field__hint">Ao trocares aqui, abres logo o workspace operacional do grupo escolhido.</span>
                 </label>
               `
               : ''
@@ -3245,20 +3446,28 @@ export class AppShell {
         <div class="hero-panel">
           <div class="status-list">
             <article class="status-item status-item--${selectedGroup ? groupModeTone : 'warning'}">
-              <strong>Grupo em foco</strong>
+              <strong>Resumo do grupo</strong>
               <p>${escapeHtml(
                 selectedGroup
-                  ? `Estas a gerir ${selectedGroup.preferredSubject}. O owner principal agora e ${primaryOwnerLabel}.`
+                  ? `${primaryOwnerLabel} responde por este grupo. ${groupModeLabel.toLowerCase()} e ${assistantAuthorized ? 'assistente ligado' : 'assistente bloqueado'}.`
                   : 'Escolhe um grupo para veres owner, politicas locais, instrucoes e documentos.',
               )}</p>
             </article>
             <article class="status-item status-item--${
-              selectedGroup?.operationalSettings.memberTagPolicy === 'members_can_tag' ? 'positive' : 'warning'
+              !selectedGroup
+                ? 'warning'
+                : !assistantAuthorized || !intelligence?.instructions.exists
+                  ? 'warning'
+                  : 'positive'
             }">
-              <strong>Como este grupo responde</strong>
+              <strong>Proximo passo</strong>
               <p>${escapeHtml(
                 selectedGroup
-                  ? describeGroupMode(selectedGroup.operationalSettings.mode, selectedGroup.operationalSettings.allowLlmScheduling)
+                  ? !assistantAuthorized
+                    ? 'Liga o assistente se este grupo deve poder operar agora.'
+                    : !intelligence?.instructions.exists
+                      ? 'Guarda as instrucoes canonicas para este grupo antes de dependeres do contexto da LLM.'
+                      : 'Revê lembretes, documentos ou regras locais apenas se precisares de afinar a operacao.'
                   : 'Depois de escolheres um grupo, a pagina passa a explicar em linguagem curta o que o bot pode ou nao pode fazer aqui.',
               )}</p>
             </article>
@@ -3305,89 +3514,11 @@ export class AppShell {
       </section>
 
       <section class="content-grid">
-        <article class="surface content-card span-4">
-          <div class="card-header card-header--with-switch">
-            <div>
-              <h3>Passo 1. Escolher grupo</h3>
-              <p>Escolhe primeiro o grupo. Cada linha mostra o estado essencial e o proximo botao util.</p>
-            </div>
-            <div class="card-header__actions card-header__actions--group-master">
-              ${renderUiBadge({ label: `${groups.length} grupos`, tone: 'neutral' })}
-              ${renderUiSwitch({
-                label: 'Assistente nos grupos',
-                checked: page.data.commandSettings.assistantEnabled,
-                description: page.data.commandSettings.assistantEnabled
-                  ? `${activeGroups} grupo(s) ligados agora.`
-                  : 'Desligado em todos os grupos.',
-                dataAttributes: {
-                  'group-action': 'toggle-assistant-master',
-                },
-              })}
-            </div>
-          </div>
-          <div class="timeline">
-            ${groups
-              .map((group) => {
-                const isSelected = group.groupJid === selectedGroup?.groupJid;
-                const owners = describeGroupOwners(group, people);
-                const groupAuthorized = authorizedGroupJids.includes(group.groupJid);
-
-                return `
-                  <article class="timeline-item group-tile ${isSelected ? 'group-tile--selected' : ''}">
-                    <button
-                      type="button"
-                      class="group-tile__select"
-                      data-group-action="select-group"
-                      data-group-jid="${escapeHtml(group.groupJid)}"
-                    >
-                      <strong>${escapeHtml(group.preferredSubject)}</strong>
-                      <time>${escapeHtml(group.courseId ?? 'Sem curso associado')}</time>
-                      <p>${escapeHtml(owners)}</p>
-                    </button>
-                    <div class="group-tile__summary">
-                      <div class="ui-card__chips">
-                        ${renderUiBadge({
-                          label: groupAuthorized ? 'Assistente ligado' : 'Assistente bloqueado',
-                          tone: groupAuthorized ? 'positive' : 'warning',
-                          style: 'chip',
-                        })}
-                        ${renderUiBadge({
-                          label: readableGroupMode(group.operationalSettings.mode),
-                          tone: toneForGroupMode(group.operationalSettings.mode),
-                          style: 'chip',
-                        })}
-                      </div>
-                      <div class="action-row group-tile__actions">
-                        ${renderUiActionButton({
-                          label: isSelected ? 'A gerir' : 'Gerir',
-                          variant: isSelected ? 'primary' : 'secondary',
-                          dataAttributes: {
-                            'group-action': 'select-group',
-                            'group-jid': group.groupJid,
-                          },
-                        })}
-                        ${renderUiActionButton({
-                          label: groupAuthorized ? 'Bloquear assistente' : 'Ligar assistente',
-                          variant: 'secondary',
-                          dataAttributes: {
-                            'group-action': 'toggle-group-authorized',
-                            'group-jid': group.groupJid,
-                          },
-                        })}
-                      </div>
-                    </div>
-                  </article>
-                `;
-              })
-              .join('')}
-          </div>
-        </article>
-
-        <article class="surface content-card span-8">
+        <article class="surface content-card span-12">
           <div class="card-header">
             <div>
               <h3>Passo 2. Ver estado atual</h3>
-              <p>Resumo curto antes de mexeres em permissoes, automacao ou conhecimento.</p>
+              <p>Resumo curto deste grupo antes de mexeres em permissoes, automacao ou conhecimento.</p>
             </div>
             ${renderUiBadge({ label: selectedGroup ? selectedGroup.preferredSubject : 'Escolher grupo', tone: selectedGroup ? 'positive' : 'warning' })}
           </div>
@@ -4139,6 +4270,18 @@ export class AppShell {
         : snapshot.permissionSummary.authorizedGroups === 0
           ? 'Autoriza os grupos onde o assistente deve poder operar.'
           : 'A ligacao parece pronta; revê apenas grupos e responsaveis.';
+    const privateAssistantSummary = snapshot.settings.commands.allowPrivateAssistant
+      ? 'Os privados do assistente estao permitidos para contactos autorizados.'
+      : 'Os privados do assistente continuam fechados nesta configuracao.';
+    const directRepliesSummary = snapshot.settings.commands.directRepliesEnabled
+      ? 'As respostas por reply estao ligadas.'
+      : 'As respostas por reply continuam desligadas.';
+    const ownerTerminalSummary = snapshot.settings.commands.ownerTerminalEnabled
+      ? 'Os owners podem usar comandos mais fortes quando o contexto local o permitir.'
+      : 'Os comandos de owner estao recolhidos neste momento.';
+    const automationSummary = snapshot.settings.commands.schedulingEnabled
+      ? 'O canal esta autorizado a suportar scheduling onde o grupo tambem o permitir.'
+      : 'O scheduling global esta desligado, por isso o canal fica limitado a operacao sem agenda.';
 
     return `
       <section class="surface hero surface--strong">
@@ -4265,6 +4408,83 @@ export class AppShell {
           </div>
           <div class="guide-preview guide-preview--${repairTone(this.state.whatsappRepairFocus, snapshot)}">
             ${renderRepairChecklist(this.state.whatsappRepairFocus, snapshot)}
+          </div>
+        </div>
+      </section>
+
+      <section class="surface content-card">
+        <div class="card-header">
+          <div>
+            <h3>O que o canal pode fazer agora</h3>
+            <p>Resumo humano das permissoes antes do detalhe tecnico e dos logs.</p>
+          </div>
+          ${renderUiBadge({
+            label: snapshot.runtime.session.connected ? 'Canal pronto' : 'Canal a rever',
+            tone: snapshot.runtime.session.connected ? 'positive' : 'warning',
+          })}
+        </div>
+        <div class="summary-grid">
+          <div class="summary-column">
+            <div class="summary-column__header">
+              <h4>Grupos</h4>
+              <p>Onde o assistente ja pode operar sem voltares a abrir todos os detalhes.</p>
+            </div>
+            <div class="status-list">
+              <article class="status-item status-item--${
+                snapshot.permissionSummary.authorizedGroups > 0 ? 'positive' : 'warning'
+              }">
+                <strong>${escapeHtml(
+                  `${snapshot.permissionSummary.authorizedGroups}/${snapshot.permissionSummary.knownGroups} grupos autorizados`,
+                )}</strong>
+                <p>${escapeHtml(
+                  snapshot.settings.commands.assistantEnabled
+                    ? 'O switch global do assistente esta ligado para os grupos autorizados.'
+                    : 'O switch global do assistente continua desligado, por isso nenhum grupo responde.',
+                )}</p>
+              </article>
+            </div>
+          </div>
+          <div class="summary-column">
+            <div class="summary-column__header">
+              <h4>Privados e owners</h4>
+              <p>Leitura curta do que um owner ou contacto autorizado consegue fazer.</p>
+            </div>
+            <div class="status-list">
+              <article class="status-item status-item--${
+                snapshot.settings.commands.allowPrivateAssistant ? 'positive' : 'warning'
+              }">
+                <strong>${escapeHtml(
+                  snapshot.settings.commands.allowPrivateAssistant ? 'Privados permitidos' : 'Privados bloqueados',
+                )}</strong>
+                <p>${escapeHtml(`${privateAssistantSummary} ${directRepliesSummary}`)}</p>
+              </article>
+              <article class="status-item status-item--${
+                snapshot.settings.commands.ownerTerminalEnabled ? 'positive' : 'neutral'
+              }">
+                <strong>Owners</strong>
+                <p>${escapeHtml(ownerTerminalSummary)}</p>
+              </article>
+            </div>
+          </div>
+          <div class="summary-column">
+            <div class="summary-column__header">
+              <h4>Agenda e resposta</h4>
+              <p>Que tipo de operacao continua aberta neste canal.</p>
+            </div>
+            <div class="status-list">
+              <article class="status-item status-item--${
+                snapshot.settings.commands.schedulingEnabled ? 'positive' : 'warning'
+              }">
+                <strong>${escapeHtml(
+                  snapshot.settings.commands.schedulingEnabled ? 'Scheduling disponivel' : 'Scheduling desligado',
+                )}</strong>
+                <p>${escapeHtml(`${automationSummary} ${
+                  snapshot.settings.commands.autoReplyEnabled
+                    ? 'As respostas automaticas tambem estao ligadas.'
+                    : 'As respostas automaticas continuam desligadas.'
+                }`)}</p>
+              </article>
+            </div>
           </div>
         </div>
       </section>
@@ -4453,18 +4673,24 @@ export class AppShell {
           <div class="card-header">
             <div>
               <h3>Passo 2. Escolher grupos a operar</h3>
-              <p>O canal mostra os grupos conhecidos. A configuracao detalhada continua na pagina Grupos.</p>
+              <p>Esta pagina decide se o grupo entra ou nao na operacao. Regras locais, lembretes e conhecimento vivem em Grupos.</p>
             </div>
             ${renderUiBadge({ label: `${snapshot.groups.length} grupos`, tone: 'neutral' })}
           </div>
           ${
             snapshot.groups.length > 0
               ? `
-                  <div class="group-access-grid">
+                  <div class="group-access-grid group-access-grid--catalog">
                     ${snapshot.groups
-                      .map(
-                        (group) => `
-                          <article class="compact-record">
+                      .map((group) => {
+                        const nextStep = !group.assistantAuthorized
+                          ? 'Abrir o grupo e ligar o assistente.'
+                          : group.ownerLabels.length === 0
+                            ? 'Abrir o grupo e definir um responsavel.'
+                            : 'Abrir o grupo apenas se precisares de mudar regras locais.';
+
+                        return `
+                          <article class="compact-record group-catalog-card">
                             <div class="compact-record__header">
                               <div>
                                 <strong>${escapeHtml(group.preferredSubject)}</strong>
@@ -4472,8 +4698,14 @@ export class AppShell {
                               </div>
                               <div class="ui-card__chips">
                                 ${renderUiBadge({
-                                  label: group.assistantAuthorized ? 'Ligado' : 'Bloqueado',
+                                  label: group.assistantAuthorized ? 'Assistente ligado' : 'Assistente bloqueado',
                                   tone: group.assistantAuthorized ? 'positive' : 'warning',
+                                  style: 'chip',
+                                })}
+                                ${renderUiBadge({
+                                  label: group.knownToBot ? 'Grupo descoberto' : 'A rever discovery',
+                                  tone: group.knownToBot ? 'positive' : 'warning',
+                                  style: 'chip',
                                 })}
                               </div>
                             </div>
@@ -4483,25 +4715,17 @@ export class AppShell {
                                   ? 'Este grupo ja pode receber operacao do assistente.'
                                   : 'Este grupo esta visivel, mas o assistente ainda esta bloqueado.',
                               )}</p>
+                              <p><strong>Proximo passo</strong>: ${escapeHtml(nextStep)}</p>
                             </div>
                             <div class="action-row">
                               ${renderUiActionButton({
                                 label: 'Abrir grupo',
                                 href: this.currentRouter().buildGroupRoute(group.groupJid),
                                 dataAttributes: {
-                                  route: this.currentRouter().buildGroupRoute(group.groupJid),
-                                },
-                              })}
+                                    route: this.currentRouter().buildGroupRoute(group.groupJid),
+                                  },
+                                })}
                             </div>
-                            <details class="ui-details">
-                              <summary>Ver permissoes deste grupo</summary>
-                              <div class="ui-details__content">
-                                <p><strong>Calendario</strong>: ${escapeHtml(
-                                  `Membros ${readableCalendarAccessMode(group.calendarAccessPolicy.group)}, Responsavel ${readableCalendarAccessMode(group.calendarAccessPolicy.groupOwner)}, Admin ${readableCalendarAccessMode(group.calendarAccessPolicy.appOwner)}.`,
-                                )}</p>
-                                ${renderGroupEffectivePermissionList(group)}
-                              </div>
-                            </details>
                             ${
                               this.state.advancedDetailsEnabled
                                 ? `
@@ -4510,14 +4734,17 @@ export class AppShell {
                                       <div class="ui-details__content">
                                         <p>JID: ${escapeHtml(group.groupJid)}</p>
                                         <p>Alias: ${escapeHtml(group.aliases.join(', ') || 'sem alias')}</p>
+                                        <p>${escapeHtml(
+                                          `Calendario: membros ${readableCalendarAccessMode(group.calendarAccessPolicy.group)}, responsavel ${readableCalendarAccessMode(group.calendarAccessPolicy.groupOwner)}, admin ${readableCalendarAccessMode(group.calendarAccessPolicy.appOwner)}.`,
+                                        )}</p>
                                       </div>
                                     </details>
                                   `
                                 : ''
                             }
                           </article>
-                        `,
-                      )
+                        `;
+                      })
                       .join('')}
                   </div>
                 `

@@ -231,7 +231,7 @@ export class AppRouter {
       {
         route: this.groupDirectory.config.route,
         label: this.groupDirectory.config.label,
-        description: 'Espaco de cada grupo para estado atual, regras locais e contexto guardado.',
+        description: 'Catalogo curto de grupos e entrada para o workspace detalhado de cada grupo.',
         navigationPlacement: 'primary',
         render: async () => {
           const [groups, settings, people] = await Promise.all([
@@ -297,7 +297,7 @@ export class AppRouter {
       {
         route: this.whatsapp.config.route,
         label: this.whatsapp.config.label,
-        description: 'Ligacao do WhatsApp, grupos conhecidos e o que pode precisar de reparacao.',
+        description: 'Ligacao do WhatsApp, grupos conhecidos e o que o canal pode fazer neste momento.',
         navigationPlacement: 'primary',
         render: async () => {
           const workspace = await this.readQuery('whatsapp-workspace', () => this.client.getWhatsAppWorkspace());

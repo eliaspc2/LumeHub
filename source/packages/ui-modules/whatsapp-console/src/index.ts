@@ -18,7 +18,7 @@ export class WhatsAppConsoleUiModule {
     return {
       route: this.config.route,
       title: this.config.label,
-      description: 'Sessao, auth, discovery e grupos/conversas conhecidos do canal WhatsApp.',
+      description: 'Ligacao WhatsApp, grupos conhecidos e o que falta para o canal poder operar com seguranca.',
       sections: [
         {
           title: 'Sessao',

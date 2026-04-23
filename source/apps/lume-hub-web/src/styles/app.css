@@ -779,6 +779,10 @@ textarea {
   line-height: 1.55;
 }
 
+.group-catalog-card {
+  align-content: start;
+}
+
 .timeline--compact {
   gap: 10px;
 }
@@ -854,6 +858,10 @@ textarea {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
   gap: 16px;
+}
+
+.group-access-grid--catalog {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 }
 
 .group-page-switcher {
