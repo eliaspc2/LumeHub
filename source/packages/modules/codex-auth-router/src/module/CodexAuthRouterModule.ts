@@ -93,6 +93,10 @@ export class CodexAuthRouterModule extends BaseModule implements CodexAuthRouter
     return this.service.importAccount(input);
   }
 
+  async renameAccount(input: Parameters<CodexAuthRouterService['renameAccount']>[0]) {
+    return this.service.renameAccount(input);
+  }
+
   async setEnabled(enabled: boolean) {
     return this.service.setEnabled(enabled);
   }

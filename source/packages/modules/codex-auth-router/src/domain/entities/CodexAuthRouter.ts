@@ -154,6 +154,17 @@ export interface ImportedCodexAuthAccount {
   readonly created: boolean;
 }
 
+export interface RenameCodexAuthAccountInput {
+  readonly accountId: string;
+  readonly label: string;
+}
+
+export interface RenamedCodexAuthAccount {
+  readonly accountId: string;
+  readonly label: string;
+  readonly sourceFilePath: string;
+}
+
 export interface DiscoveredCodexAccountSource {
   readonly accountId: string;
   readonly label: string;

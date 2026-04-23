@@ -116,7 +116,7 @@ export interface HttpApiModules {
   };
   readonly codexAuthRouter?: Pick<
     CodexAuthRouterModuleContract,
-    'prepareAuthForRequest' | 'forceSwitch' | 'importAccount' | 'setEnabled' | 'getStatus' | 'refreshStatus'
+    'prepareAuthForRequest' | 'forceSwitch' | 'importAccount' | 'renameAccount' | 'setEnabled' | 'getStatus' | 'refreshStatus'
   >;
   readonly groupDirectory: Pick<
     GroupDirectoryModuleContract,
@@ -1568,6 +1568,34 @@ export class RouteRegistrar {
         });
         return {
           importedAccount,
+          status,
+        };
+      },
+    });
+    server.registerRoute({
+      method: 'PATCH',
+      path: '/api/settings/codex-auth-router/accounts/:accountId/label',
+      handler: async (context) => {
+        if (!this.modules.codexAuthRouter) {
+          throw new ApiError(404, 'Codex auth router is not configured.');
+        }
+
+        if (!context.body || typeof context.body !== 'object') {
+          throw new ApiError(400, 'Codex auth router rename payload must be an object.');
+        }
+
+        const label = readStringBodyField(context.body, 'label');
+        const renamedAccount = await this.modules.codexAuthRouter.renameAccount({
+          accountId: context.params.accountId,
+          label,
+        });
+        const status = await this.modules.codexAuthRouter.getStatus();
+        this.publish('settings.codex_auth_router.updated', {
+          renamedAccount,
+          status,
+        });
+        return {
+          renamedAccount,
           status,
         };
       },

@@ -20,7 +20,11 @@ import type {
   SenderAudienceRule,
   SenderAudienceRuleUpsertInput,
 } from '@lume-hub/audience-routing';
-import type { CodexAuthRouterStatus, ImportedCodexAuthAccount } from '@lume-hub/codex-auth-router';
+import type {
+  CodexAuthRouterStatus,
+  ImportedCodexAuthAccount,
+  RenamedCodexAuthAccount,
+} from '@lume-hub/codex-auth-router';
 import type { ConversationAuditRecord } from '@lume-hub/conversation';
 import type { HealthSnapshot } from '@lume-hub/health-monitor';
 import type { HostCompanionStatus } from '@lume-hub/host-lifecycle';
@@ -1313,6 +1317,24 @@ export class FrontendApiClient {
         method: 'POST',
         path: '/api/settings/codex-auth-router/accounts',
         body: input,
+      }),
+    );
+  }
+
+  async renameCodexAuthAccount(accountId: string, label: string): Promise<{
+    readonly renamedAccount: RenamedCodexAuthAccount;
+    readonly status: CodexAuthRouterStatus;
+  }> {
+    return this.expectOk(
+      await this.transport.request<{
+        readonly renamedAccount: RenamedCodexAuthAccount;
+        readonly status: CodexAuthRouterStatus;
+      }>({
+        method: 'PATCH',
+        path: `/api/settings/codex-auth-router/accounts/${encodeURIComponent(accountId)}/label`,
+        body: {
+          label,
+        },
       }),
     );
   }

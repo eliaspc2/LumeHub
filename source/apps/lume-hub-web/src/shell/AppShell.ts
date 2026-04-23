@@ -212,6 +212,11 @@ interface CodexRouterImportDraft {
   readonly importing: boolean;
 }
 
+interface CodexRouterRenameDraft {
+  readonly labels: Readonly<Record<string, string>>;
+  readonly savingAccountId: string | null;
+}
+
 interface AssistantRailMessage {
   readonly messageId: string;
   readonly role: 'user' | 'assistant' | 'system' | 'error';
@@ -251,6 +256,7 @@ interface AppShellState {
   readonly legacyAlertMigrationDraft: LegacyAlertMigrationDraft;
   readonly legacyAutomationMigrationDraft: LegacyAutomationMigrationDraft;
   readonly codexRouterImportDraft: CodexRouterImportDraft;
+  readonly codexRouterRenameDraft: CodexRouterRenameDraft;
   readonly assistantRailChat: AssistantRailChatState;
   readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
   readonly whatsappQrPreviewVisible: boolean;
@@ -399,6 +405,7 @@ export class AppShell {
       legacyAlertMigrationDraft: createEmptyLegacyAlertMigrationDraft(),
       legacyAutomationMigrationDraft: createEmptyLegacyAutomationMigrationDraft(),
       codexRouterImportDraft: createEmptyCodexRouterImportDraft(),
+      codexRouterRenameDraft: createEmptyCodexRouterRenameDraft(),
       assistantRailChat: createInitialAssistantRailChatState(),
       whatsappRepairFocus: 'auth',
       whatsappQrPreviewVisible: false,
@@ -5567,6 +5574,10 @@ export class AppShell {
                         (account) => {
                           const availability = readCodexTokenAvailability(account, activeAccountId);
                           const isActive = account.accountId === activeAccountId;
+                          const renameLabel = readCodexRouterRenameLabel(this.state.codexRouterRenameDraft, account);
+                          const renameBusy = this.state.codexRouterRenameDraft.savingAccountId === account.accountId;
+                          const renameSupported = account.kind === 'secondary';
+                          const renameChanged = renameLabel.trim() !== account.label;
 
                           return `
                           <article class="codex-router-account-card">
@@ -5599,6 +5610,33 @@ export class AppShell {
                                 },
                               })}
                             </div>
+                            ${
+                              renameSupported
+                                ? `
+                                    <div class="ui-form-grid ui-form-grid--double codex-router-rename-grid">
+                                      ${renderUiInputField({
+                                        label: 'Nome visivel',
+                                        value: renameLabel,
+                                        dataKey: `codexRouter.renameLabel.${account.accountId}`,
+                                        hint: 'Este nome aparece no router e no token em uso.',
+                                      })}
+                                      <div class="ui-field">
+                                        <span class="ui-field__label">Guardar nome</span>
+                                        ${renderUiActionButton({
+                                          label: renameBusy ? 'A guardar...' : 'Guardar nome',
+                                          variant: renameChanged ? 'primary' : 'secondary',
+                                          disabled: renameBusy || !renameChanged || renameLabel.trim().length === 0,
+                                          dataAttributes: {
+                                            'settings-action': 'rename-codex-account',
+                                            'codex-account-id': account.accountId,
+                                          },
+                                        })}
+                                        <span class="ui-field__hint">Muda apenas a etiqueta visivel deste token.</span>
+                                      </div>
+                                    </div>
+                                  `
+                                : ''
+                            }
                             <div class="codex-router-usage-grid">
                               ${renderCodexQuotaWindowCard('Janela 5h', account.quota ?? null, account.quota?.primaryWindow ?? null)}
                               ${renderCodexQuotaWindowCard('Janela semanal', account.quota ?? null, account.quota?.secondaryWindow ?? null)}
@@ -6480,6 +6518,28 @@ export class AppShell {
                   }
                 : reminder,
             ),
+          },
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (fieldKey.startsWith('codexRouter.renameLabel.')) {
+      const accountId = fieldKey.slice('codexRouter.renameLabel.'.length).trim();
+
+      if (!accountId) {
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        flowFeedback: null,
+        codexRouterRenameDraft: {
+          ...this.state.codexRouterRenameDraft,
+          labels: {
+            ...this.state.codexRouterRenameDraft.labels,
+            [accountId]: value,
           },
         },
       };
@@ -8157,6 +8217,81 @@ export class AppShell {
           codexRouterImportDraft: {
             ...draft,
             importing: false,
+          },
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
+    if (action === 'rename-codex-account') {
+      const accountId = dataset.codexAccountId?.trim() ?? '';
+
+      if (!accountId) {
+        return;
+      }
+
+      const settingsPage = this.readSettingsPageData();
+      const authRouterStatus = settingsPage?.data.settings.authRouterStatus;
+      const account = authRouterStatus?.accounts.find((entry) => entry.accountId === accountId) ?? null;
+      const nextLabel = account ? readCodexRouterRenameLabel(this.state.codexRouterRenameDraft, account).trim() : '';
+
+      if (!account || !nextLabel) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message: 'Falta um nome valido para guardar neste token.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        codexRouterRenameDraft: {
+          ...this.state.codexRouterRenameDraft,
+          savingAccountId: accountId,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: `A guardar o nome visivel de ${account.label}.`,
+        },
+      };
+      this.render();
+
+      try {
+        const result = await this.currentClient().renameCodexAuthAccount(accountId, nextLabel);
+        const nextLabels = {
+          ...this.state.codexRouterRenameDraft.labels,
+        };
+        delete nextLabels[accountId];
+        this.state = {
+          ...this.state,
+          codexRouterRenameDraft: {
+            labels: nextLabels,
+            savingAccountId: null,
+          },
+          flowFeedback: {
+            tone: 'positive',
+            message: `Nome guardado. O token passa a aparecer como ${result.renamedAccount.label}.`,
+          },
+        };
+        this.recordUxEvent('positive', `Codex router renomeou ${accountId} para ${result.renamedAccount.label}.`);
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel guardar o nome deste token. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          codexRouterRenameDraft: {
+            ...this.state.codexRouterRenameDraft,
+            savingAccountId: null,
           },
           flowFeedback: {
             tone: 'danger',
@@ -11219,6 +11354,13 @@ function createEmptyCodexRouterImportDraft(): CodexRouterImportDraft {
   };
 }
 
+function createEmptyCodexRouterRenameDraft(): CodexRouterRenameDraft {
+  return {
+    labels: {},
+    savingAccountId: null,
+  };
+}
+
 function resolveAssistantSchedulingGroupJid(
   selectedGroupJid: string,
   groups: readonly Group[],
@@ -12969,6 +13111,13 @@ function readCodexAuthLabel(snapshot: SettingsSnapshot): string {
 
 function readCodexTokenCountLabel(count: number): string {
   return `${count} token${count === 1 ? '' : 's'}`;
+}
+
+function readCodexRouterRenameLabel(
+  draft: CodexRouterRenameDraft,
+  account: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number],
+): string {
+  return draft.labels[account.accountId] ?? account.label;
 }
 
 function readCodexRouterEnabledLabel(enabled: boolean): string {

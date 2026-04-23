@@ -110,6 +110,60 @@ test('codex auth router updates an existing managed token without duplicating th
   }
 });
 
+test('codex auth router can rename an existing token without changing its file', async () => {
+  const sandboxPath = await mkdtemp(join(tmpdir(), 'lume-hub-codex-rename-'));
+  const canonicalAuthFilePath = join(sandboxPath, 'auth.json');
+  const stateFilePath = join(sandboxPath, 'runtime', 'codex-auth-router.state.json');
+  const backupDirectoryPath = join(sandboxPath, 'backups');
+  const managedAccountsDirectoryPath = join(sandboxPath, 'secondary');
+  const sourcesEnvironmentFilePath = join(sandboxPath, 'codex-auth-sources.env');
+  const existingAccountFilePath = join(managedAccountsDirectoryPath, 'account-a', 'auth.json');
+  const existingMetadataFilePath = join(managedAccountsDirectoryPath, 'account-a', 'meta.json');
+
+  try {
+    await mkdir(join(sandboxPath, 'runtime'), { recursive: true });
+    await mkdir(join(managedAccountsDirectoryPath, 'account-a'), { recursive: true });
+    await writeFile(canonicalAuthFilePath, authJson('canonical-account', 'canonical-live'), 'utf8');
+    await writeFile(existingAccountFilePath, authJson('account-a', 'managed-copy'), 'utf8');
+    await writeFile(existingMetadataFilePath, JSON.stringify({ accountId: 'account-a', label: 'Conta antiga' }, null, 2), 'utf8');
+    await writeFile(
+      sourcesEnvironmentFilePath,
+      'LUME_HUB_CODEX_AUTH_SOURCES="[{\\"accountId\\":\\"account-a\\",\\"label\\":\\"Conta antiga\\",\\"filePath\\":\\"' +
+        existingAccountFilePath.replaceAll('\\', '\\\\') +
+        '\\",\\"priority\\":1,\\"kind\\":\\"secondary\\"}]"\n',
+      'utf8',
+    );
+
+    const repository = new CodexAccountRepository({
+      canonicalAuthFilePath,
+      stateFilePath,
+      backupDirectoryPath,
+      sourcesEnvironmentFilePath,
+      managedAccountsDirectoryPath,
+    });
+    const writer = new CodexAuthCanonicalWriter({
+      canonicalAuthFilePath,
+      backupDirectoryPath,
+    });
+    const service = new CodexAuthRouterService(repository, writer);
+
+    const renamed = await service.renameAccount({
+      accountId: 'account-a',
+      label: 'Conta final',
+    });
+    const status = await service.getStatus();
+
+    assert.equal(renamed.label, 'Conta final');
+    assert.equal(renamed.sourceFilePath, existingAccountFilePath);
+    assert.equal(await readFile(existingAccountFilePath, 'utf8'), authJson('account-a', 'managed-copy'));
+    assert.match(await readFile(existingMetadataFilePath, 'utf8'), /Conta final/u);
+    assert.match(await readFile(sourcesEnvironmentFilePath, 'utf8'), /Conta final/u);
+    assert.equal(status.accounts.find((account) => account.accountId === 'account-a')?.label, 'Conta final');
+  } finally {
+    await rm(sandboxPath, { recursive: true, force: true });
+  }
+});
+
 function authJson(accountId, marker) {
   return JSON.stringify({
     auth_mode: 'chatgpt',

@@ -154,6 +154,40 @@ export class CodexAccountRepository {
     return updatedSource;
   }
 
+  async renameSource(accountId: string, label: string): Promise<DiscoveredCodexAccountSource> {
+    const nextLabel = label.trim();
+
+    if (!nextLabel) {
+      throw new Error('Codex auth router rename requires a non-empty label.');
+    }
+
+    const existingSources = await this.listSecondarySources();
+    const existingSource = existingSources.find((source) => source.accountId === accountId) ?? null;
+
+    if (!existingSource) {
+      throw new Error(`Codex auth router could not rename account '${accountId}' because it is unavailable.`);
+    }
+
+    const updatedSource: DiscoveredCodexAccountSource = {
+      ...existingSource,
+      label: nextLabel,
+    };
+
+    if (this.isManagedSourceFilePath(existingSource.filePath)) {
+      await this.writeManagedSourceMetadata(existingSource.filePath, {
+        accountId: existingSource.accountId,
+        label: nextLabel,
+      });
+    }
+
+    await this.persistDynamicSources([
+      ...existingSources.filter((source) => source.accountId !== accountId),
+      updatedSource,
+    ]);
+
+    return updatedSource;
+  }
+
   private async listDiscoveredSources(): Promise<readonly DiscoveredCodexAccountSource[]> {
     return buildSourceAccounts(
       this.canonicalAuthFilePath,
@@ -285,6 +319,16 @@ export class CodexAccountRepository {
   ): Promise<void> {
     const metadataFilePath = join(dirname(sourceFilePath), 'meta.json');
     await writeFileAtomically(metadataFilePath, JSON.stringify(metadata, null, 2));
+  }
+
+  private isManagedSourceFilePath(filePath: string): boolean {
+    if (!this.managedAccountsDirectoryPath) {
+      return false;
+    }
+
+    const managedDirectoryPath = resolve(this.managedAccountsDirectoryPath);
+    const managedRoot = `${managedDirectoryPath}${managedDirectoryPath.endsWith('/') ? '' : '/'}`;
+    return resolve(filePath).startsWith(managedRoot);
   }
 
   private async readManagedSourceLabel(sourceFilePath: string, fallbackAccountId: string): Promise<string> {

@@ -13,6 +13,8 @@ import type {
   ImportedCodexAuthAccount,
   ImportCodexAuthAccountInput,
   PrepareAuthForRequestInput,
+  RenamedCodexAuthAccount,
+  RenameCodexAuthAccountInput,
   ReportCodexAuthFailureInput,
   ReportCodexAuthSuccessInput,
 } from '../../domain/entities/CodexAuthRouter.js';
@@ -173,6 +175,28 @@ export class CodexAuthRouterService {
       label: source.label,
       sourceFilePath: source.filePath,
       created: existingAccount === null,
+    };
+  }
+
+  async renameAccount(input: RenameCodexAuthAccountInput): Promise<RenamedCodexAuthAccount> {
+    const accountId = input.accountId.trim();
+    const label = input.label.trim();
+
+    if (!accountId) {
+      throw new Error('Codex auth router rename requires accountId.');
+    }
+
+    if (!label) {
+      throw new Error('Codex auth router rename requires a visible label.');
+    }
+
+    const source = await this.repository.renameSource(accountId, label);
+    this.quotaService.clearCache();
+
+    return {
+      accountId: source.accountId,
+      label: source.label,
+      sourceFilePath: source.filePath,
     };
   }
 

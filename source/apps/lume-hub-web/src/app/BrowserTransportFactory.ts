@@ -684,6 +684,38 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       });
     }
 
+    if (request.method === 'PATCH' && /^\/api\/settings\/codex-auth-router\/accounts\/[^/]+\/label$/u.test(pathname)) {
+      const body = request.body as { readonly label?: string };
+      const label = typeof body?.label === 'string' ? body.label.trim() : '';
+      const match = pathname.match(/^\/api\/settings\/codex-auth-router\/accounts\/([^/]+)\/label$/u);
+      const accountId = match?.[1] ? decodeURIComponent(match[1]) : '';
+
+      if (!accountId) {
+        return this.error(400, 'Demo codex auth router rename requires accountId.');
+      }
+
+      if (!label) {
+        return this.error(400, 'Demo codex auth router rename requires label.');
+      }
+
+      const renamedAccount = renameDemoCodexAuthAccount(this.state, accountId, label);
+
+      if (!renamedAccount) {
+        return this.error(404, `Demo codex auth account ${accountId} not found.`);
+      }
+
+      const status = this.state.settings.authRouterStatus ?? failMissingDemoAuthRouter();
+      this.emit('settings.codex_auth_router.updated', {
+        mode: 'demo',
+        renamedAccount,
+        status,
+      });
+      return this.ok({
+        renamedAccount,
+        status,
+      });
+    }
+
     if (request.method === 'GET' && pathname === '/api/alerts/rules') {
       return this.ok(this.state.settings.adminSettings.alerts.rules);
     }
@@ -4202,6 +4234,61 @@ function importDemoCodexAuthAccount(
     label,
     sourceFilePath,
     created: existingAccount === null,
+  };
+}
+
+function renameDemoCodexAuthAccount(
+  state: DemoState,
+  accountId: string,
+  label: string,
+): {
+  readonly accountId: string;
+  readonly label: string;
+  readonly sourceFilePath: string;
+} | null {
+  const status = state.settings.authRouterStatus ?? failMissingDemoAuthRouter();
+  const targetAccount = status.accounts.find((account) => account.accountId === accountId) ?? null;
+
+  if (!targetAccount) {
+    return null;
+  }
+
+  const nextLabel = label.trim();
+
+  state.settings = {
+    ...state.settings,
+    authRouterStatus: {
+      ...status,
+      currentSelection:
+        status.currentSelection?.accountId === accountId
+          ? {
+              ...status.currentSelection,
+              label: nextLabel,
+            }
+          : status.currentSelection,
+      accounts: status.accounts.map((account) =>
+        account.accountId === accountId
+          ? {
+              ...account,
+              label: nextLabel,
+            }
+          : account,
+      ),
+      switchHistory: status.switchHistory.map((entry) =>
+        entry.accountId === accountId
+          ? {
+              ...entry,
+              label: nextLabel,
+            }
+          : entry,
+      ),
+    },
+  };
+
+  return {
+    accountId,
+    label: nextLabel,
+    sourceFilePath: targetAccount.sourceFilePath,
   };
 }
 
