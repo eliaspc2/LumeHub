@@ -107,13 +107,31 @@ export interface BackendRuntimePaths {
 export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): BackendRuntimePaths {
   const projectRoot = resolveProjectRoot(config.rootPath);
   const sourceRoot = resolveSourceRoot(projectRoot);
-  const dataRootPath = config.dataRootPath ?? resolve(projectRoot, 'runtime', 'lxd', 'host-mounts', 'data');
-  const configRootPath = config.configRootPath ?? resolve(dataRootPath, 'config');
-  const runtimeRootPath = config.runtimeRootPath ?? resolve(dataRootPath, 'runtime');
-  const codexAuthFile = config.codexAuthFile ?? '/home/eliaspc/.codex/auth.json';
-  const canonicalCodexAuthFile = config.canonicalCodexAuthFile ?? codexAuthFile;
-  const hostServiceName = config.hostServiceName ?? 'lume-hub-host.service';
-  const hostWorkingDirectory = config.hostWorkingDirectory ?? sourceRoot;
+  const dataRootPath =
+    config.dataRootPath ??
+    readPathFromEnv('LUME_HUB_DATA_DIR', 'LUME_HUB_DATA_ROOT') ??
+    resolve(projectRoot, 'runtime', 'lxd', 'host-mounts', 'data');
+  const configRootPath =
+    config.configRootPath ??
+    readPathFromEnv('LUME_HUB_CONFIG_DIR') ??
+    resolve(dataRootPath, 'config');
+  const runtimeRootPath =
+    config.runtimeRootPath ??
+    readPathFromEnv('LUME_HUB_RUNTIME_DIR') ??
+    resolve(dataRootPath, 'runtime');
+  const codexAuthFile =
+    config.codexAuthFile ??
+    readPathFromEnv('LUME_HUB_CODEX_AUTH_FILE', 'CODEX_AUTH_FILE') ??
+    '/home/eliaspc/.codex/auth.json';
+  const canonicalCodexAuthFile =
+    config.canonicalCodexAuthFile ??
+    readPathFromEnv('LUME_HUB_CANONICAL_CODEX_AUTH_FILE') ??
+    codexAuthFile;
+  const hostServiceName = config.hostServiceName ?? process.env.LUME_HUB_HOST_SERVICE_NAME ?? 'lume-hub-host.service';
+  const hostWorkingDirectory =
+    config.hostWorkingDirectory ??
+    readPathFromEnv('LUME_HUB_HOST_WORKING_DIRECTORY') ??
+    sourceRoot;
   const httpHost = config.httpHost ?? process.env.LUME_HUB_HTTP_HOST ?? process.env.LUMEHUB_HOST ?? '127.0.0.1';
   const httpPort =
     config.httpPort ??
@@ -122,12 +140,22 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
     18420;
   const webSocketPath = normaliseWebSocketPath(config.webSocketPath ?? process.env.LUME_HUB_WS_PATH ?? '/ws');
   const webDistRootPath =
-    config.webDistRootPath ?? resolve(sourceRoot, 'apps', 'lume-hub-web', 'dist');
+    config.webDistRootPath ??
+    readPathFromEnv('LUME_HUB_WEB_DIST_ROOT') ??
+    resolve(sourceRoot, 'apps', 'lume-hub-web', 'dist');
   const frontendDefaultMode = config.frontendDefaultMode ?? 'live';
-  const whatsappAuthRootPath = config.whatsappAuthRootPath ?? resolve(runtimeRootPath, 'whatsapp-auth');
-  const workspaceAgentRootPath = config.workspaceAgentRootPath ?? projectRoot;
+  const whatsappAuthRootPath =
+    config.whatsappAuthRootPath ??
+    readPathFromEnv('LUME_HUB_WHATSAPP_AUTH_ROOT') ??
+    resolve(runtimeRootPath, 'whatsapp-auth');
+  const workspaceAgentRootPath =
+    config.workspaceAgentRootPath ??
+    readPathFromEnv('LUME_HUB_WORKSPACE_AGENT_ROOT') ??
+    projectRoot;
   const workspaceAgentRunLogFilePath =
-    config.workspaceAgentRunLogFilePath ?? resolve(runtimeRootPath, 'workspace-agent-runs.json');
+    config.workspaceAgentRunLogFilePath ??
+    readPathFromEnv('LUME_HUB_WORKSPACE_AGENT_RUN_LOG') ??
+    resolve(runtimeRootPath, 'workspace-agent-runs.json');
   const waNotifySchedulesRootPath =
     config.waNotifySchedulesRootPath ?? '/home/eliaspc/Containers/wa-notify/data/schedules';
   const waNotifyAlertsFilePath = config.waNotifyAlertsFilePath ?? '/home/eliaspc/Containers/wa-notify/data/alerts.json';
@@ -147,15 +175,29 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
     settingsFilePath: config.settingsFilePath ?? resolve(runtimeRootPath, 'system-settings.json'),
     queueFilePath: config.queueFilePath ?? resolve(runtimeRootPath, 'instruction-queue.json'),
     powerStateFilePath:
-      config.powerStateFilePath ?? resolve(projectRoot, 'runtime', 'host', 'state', 'power-policy-state.json'),
+      config.powerStateFilePath ??
+      readPathFromEnv('LUME_HUB_POWER_STATE_FILE') ??
+      resolve(projectRoot, 'runtime', 'host', 'state', 'power-policy-state.json'),
     inhibitorStatePath:
-      config.inhibitorStatePath ?? resolve(projectRoot, 'runtime', 'host', 'state', 'sleep-inhibitor.json'),
+      config.inhibitorStatePath ??
+      readPathFromEnv('LUME_HUB_INHIBITOR_STATE_FILE') ??
+      resolve(projectRoot, 'runtime', 'host', 'state', 'sleep-inhibitor.json'),
     hostStateFilePath:
-      config.hostStateFilePath ?? resolve(projectRoot, 'runtime', 'host', 'state', 'host-runtime-state.json'),
-    backendStateFilePath: config.backendStateFilePath ?? resolve(runtimeRootPath, 'host-state.json'),
+      config.hostStateFilePath ??
+      readPathFromEnv('LUME_HUB_HOST_STATE_FILE') ??
+      resolve(projectRoot, 'runtime', 'host', 'state', 'host-runtime-state.json'),
+    backendStateFilePath:
+      config.backendStateFilePath ??
+      readPathFromEnv('LUME_HUB_BACKEND_STATE_FILE') ??
+      resolve(runtimeRootPath, 'host-state.json'),
     backendRuntimeStateFilePath:
-      config.backendRuntimeStateFilePath ?? resolve(runtimeRootPath, 'backend-runtime-state.json'),
-    systemdUserPath: config.systemdUserPath ?? resolve(projectRoot, 'runtime', 'host', 'systemd-user'),
+      config.backendRuntimeStateFilePath ??
+      readPathFromEnv('LUME_HUB_BACKEND_RUNTIME_STATE_FILE') ??
+      resolve(runtimeRootPath, 'backend-runtime-state.json'),
+    systemdUserPath:
+      config.systemdUserPath ??
+      readPathFromEnv('LUME_HUB_SYSTEMD_USER_PATH') ??
+      resolve(projectRoot, 'runtime', 'host', 'systemd-user'),
     codexAuthFile,
     canonicalCodexAuthFile,
     codexAuthRouterStateFilePath:
@@ -165,6 +207,7 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
     hostWorkingDirectory,
     hostExecStart:
       config.hostExecStart ??
+      readPathFromEnv('LUME_HUB_HOST_EXEC_START') ??
       `/usr/bin/env node ${resolve(sourceRoot, 'apps', 'lume-hub-host', 'dist', 'apps', 'lume-hub-host', 'src', 'main.js')}`,
     hostServiceName,
     httpHost,
@@ -183,6 +226,18 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
     automationsRunLogFilePath: resolve(runtimeRootPath, 'automations-run-log.json'),
     automationsFiredStateFilePath: resolve(runtimeRootPath, 'automations-fired-state.json'),
   };
+}
+
+function readPathFromEnv(...names: readonly string[]): string | undefined {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return undefined;
 }
 
 export function resolveBackendEnvironment(config: BackendRuntimeConfig = {}): ModuleEnvironment {

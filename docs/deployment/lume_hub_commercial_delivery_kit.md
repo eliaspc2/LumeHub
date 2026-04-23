@@ -13,6 +13,12 @@ O `LumeHub` pode ser entregue como:
 
 O `LumeHub` nao deve ser vendido como `um container unico` enquanto o `host companion` continuar obrigatorio para energia, autostart e ownership do OAuth Codex.
 
+Excecao operacional honesta para entrega rapida:
+
+- para `Windows` e `Docker Desktop`, existe agora um bundle portatil com `backend + companion embebido` dentro do mesmo container
+- esse bundle e adequado para instalacao simples por outra pessoa
+- continua a nao prometer controlo do `host OS` fora do container
+
 ## Artefactos entregaveis
 
 Gerar a release a partir de `/home/eliaspc/Documentos/lume-hub/source`:
@@ -35,6 +41,12 @@ Artefactos do host companion:
 - `runtime/host/current/bin/lume-hub-host`
 - `runtime/host/current/release-manifest.json`
 - `runtime/host/systemd-user/lume-hub-host.service`
+
+Artefactos do bundle portatil:
+
+- `runtime/portable-bundles/lume-hub-docker-desktop-<release-id>/`
+- `runtime/portable-bundles/lume-hub-docker-desktop-<release-id>.zip`
+- `runtime/portable-bundles/lume-hub-docker-desktop-<release-id>.tar.gz`
 
 ## Montagens canonicas
 
@@ -68,6 +80,17 @@ systemctl --user enable --now lume-hub-host.service
 ```
 
 7. Abrir o frontend do backend e confirmar `Hoje`, `WhatsApp`, `LumeHub` e `Codex Router`.
+
+## Install ainda mais simples para Windows
+
+1. Gerar o bundle com `pnpm run package:docker-desktop`.
+2. Entregar o `.zip` gerado em `runtime/portable-bundles/`.
+3. No PC de destino:
+   - instalar `Docker Desktop`
+   - extrair o zip
+   - colocar `auth.json` em `auth\` ou preencher `OPENAI_API_KEY` no `.env`
+   - fazer duplo clique em `scripts\start-lumehub.cmd`
+4. Abrir `http://localhost:18420/today`.
 
 ## Update curto
 
@@ -124,3 +147,7 @@ Sinais esperados:
 Se perguntarem "posso entregar o container + instrucoes?", a resposta correta e:
 
 > Podes entregar o backend preparado para container com instrucoes e mounts canonicos, mas deves entregar tambem o `host companion` fora do container. Hoje isto nao e um produto de container unico, porque o PC anfitriao ainda gere energia, autostart e OAuth Codex.
+
+Se perguntarem "e para Windows, ha uma forma mais simples?", a resposta correta passa a ser:
+
+> Sim. Para Windows podes entregar o bundle Docker Desktop do LumeHub. Ele corre `backend + companion embebido` no mesmo container, com scripts `.cmd`, volumes locais e instalacao muito mais simples. O limite honesto e que isso nao passa a controlar o Windows fora do container.

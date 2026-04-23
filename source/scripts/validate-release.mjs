@@ -38,18 +38,33 @@ try {
   assert.equal(hostManifest.paths.state, 'runtime/host/state');
   assert.equal(hostManifest.paths.backendBridgeState, 'runtime/lxd/host-mounts/data/runtime/host-state.json');
 
-  const backendProcess = spawn(result.backend.entrypointPath, {
-    cwd: result.backend.stagePath,
-    stdio: 'ignore',
-  });
-  await delay(500);
-  assert.equal(backendProcess.exitCode, null);
-  backendProcess.kill('SIGTERM');
-  assert.equal(await waitForExitCode(backendProcess, { allowSignals: ['SIGTERM'] }), 0);
-
   const authFilePath = resolve(sandboxPath, 'auth', 'auth.json');
   await mkdir(dirname(authFilePath), { recursive: true });
   await writeFile(authFilePath, '{"account":"validation","token":"release"}\n', 'utf8');
+
+  const backendProcess = spawn(result.backend.entrypointPath, {
+    cwd: result.backend.stagePath,
+    stdio: 'ignore',
+    env: {
+      ...process.env,
+      LUME_HUB_HTTP_PORT: '18431',
+      LUME_HUB_HTTP_HOST: '127.0.0.1',
+      CODEX_AUTH_FILE: authFilePath,
+      LUME_HUB_CODEX_AUTH_FILE: authFilePath,
+      LUME_HUB_DATA_DIR: resolve(runtimeRoot, 'lxd', 'host-mounts', 'data'),
+      LUME_HUB_CONFIG_DIR: resolve(runtimeRoot, 'lxd', 'host-mounts', 'data', 'config'),
+      LUME_HUB_RUNTIME_DIR: resolve(runtimeRoot, 'lxd', 'host-mounts', 'data', 'runtime'),
+      LUME_HUB_WEB_DIST_ROOT: resolve(result.backend.stagePath, 'apps', 'lume-hub-web', 'dist'),
+    },
+  });
+  await waitForHttp('http://127.0.0.1:18431/api/runtime/diagnostics');
+  const todayResponse = await fetch('http://127.0.0.1:18431/today');
+  assert.equal(todayResponse.status, 200);
+  const todayHtml = await todayResponse.text();
+  assert.match(todayHtml, /LumeHub/u);
+  assert.equal(backendProcess.exitCode, null);
+  backendProcess.kill('SIGTERM');
+  assert.equal(await waitForExitCode(backendProcess, { allowSignals: ['SIGTERM'] }), 0);
 
   const hostProcess = spawn(result.host.entrypointPath, {
     cwd: result.host.stagePath,
@@ -95,6 +110,24 @@ function delay(milliseconds) {
   return new Promise((resolvePromise) => {
     setTimeout(resolvePromise, milliseconds);
   });
+}
+
+async function waitForHttp(url, timeoutMs = 10_000) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt <= timeoutMs) {
+    try {
+      const response = await fetch(url);
+
+      if (response.ok) {
+        return;
+      }
+    } catch {}
+
+    await delay(150);
+  }
+
+  throw new Error(`Timed out while waiting for '${url}'.`);
 }
 
 function waitForExitCode(childProcess, options = {}) {

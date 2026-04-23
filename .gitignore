@@ -15,5 +15,6 @@ runtime/host/state/*
 runtime/host/*.env
 runtime/host/wave*-wa-redundancy/*
 runtime/host/systemd-user/*.service
+runtime/portable-bundles/*
 *.log
 .DS_Store

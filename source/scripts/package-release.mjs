@@ -74,6 +74,9 @@ async function publishBackendRelease({ sourceRoot, stagePath, bundleFilePath, re
   await cp(resolve(sourceRoot, 'apps', 'lume-hub-backend', 'dist'), resolve(stagePath, 'dist'), {
     recursive: true,
   });
+  await cp(resolve(sourceRoot, 'apps', 'lume-hub-web', 'dist'), resolve(stagePath, 'apps', 'lume-hub-web', 'dist'), {
+    recursive: true,
+  });
   await populateRuntimeNodeModules(stagePath, sourceRoot);
 
   await writeJson(resolve(stagePath, 'package.json'), {
@@ -132,8 +135,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 APP_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 export CODEX_AUTH_FILE="\${CODEX_AUTH_FILE:-/codex/auth.json}"
+export LUME_HUB_CODEX_AUTH_FILE="\${LUME_HUB_CODEX_AUTH_FILE:-$CODEX_AUTH_FILE}"
 export LUME_HUB_DATA_DIR="\${LUME_HUB_DATA_DIR:-/srv/lume-hub/data}"
+export LUME_HUB_CONFIG_DIR="\${LUME_HUB_CONFIG_DIR:-$LUME_HUB_DATA_DIR/config}"
+export LUME_HUB_RUNTIME_DIR="\${LUME_HUB_RUNTIME_DIR:-$LUME_HUB_DATA_DIR/runtime}"
 export LUME_HUB_LOG_DIR="\${LUME_HUB_LOG_DIR:-/srv/lume-hub/logs}"
+export LUME_HUB_WEB_DIST_ROOT="\${LUME_HUB_WEB_DIST_ROOT:-$APP_ROOT/apps/lume-hub-web/dist}"
 if [[ -x /opt/node-v20-current/bin/node ]]; then
   NODE_BIN="/opt/node-v20-current/bin/node"
 else
@@ -176,6 +183,7 @@ exec "$NODE_BIN" "$APP_ROOT/dist/apps/lume-hub-backend/src/main.js"
       '# Published Backend Release',
       '',
       '- entrypoint: `bin/lume-hub-backend`',
+      '- bundled web ui: `apps/lume-hub-web/dist`',
       '- service unit reference: `systemd/lume-hub-backend.service`',
       '- data mount: `/srv/lume-hub/data`',
       '- logs mount: `/srv/lume-hub/logs`',
@@ -490,25 +498,58 @@ async function copyExternalDependencyTree(packageName, sourceRoot, workspaceRequ
 }
 
 async function resolveExternalPackagePath(packageName, sourceRoot, workspaceRequire) {
-  try {
-    return realpath(dirname(workspaceRequire.resolve(`${packageName}/package.json`)));
-  } catch {
-    const pnpmRootPath = resolve(sourceRoot, 'node_modules', '.pnpm');
-    const pnpmEntries = await readdir(pnpmRootPath);
+  for (const request of [`${packageName}/package.json`, packageName]) {
+    try {
+      const resolvedPath = workspaceRequire.resolve(request);
+      return findPackageRootForResolvedPath(resolvedPath, packageName);
+    } catch {
+      // Try the next resolution strategy.
+    }
+  }
 
-    for (const entry of pnpmEntries) {
-      const packageJsonPath = resolve(pnpmRootPath, entry, 'node_modules', ...packageName.split('/'), 'package.json');
+  const pnpmRootPath = resolve(sourceRoot, 'node_modules', '.pnpm');
+  const pnpmEntries = await readdir(pnpmRootPath);
 
-      try {
-        await access(packageJsonPath);
-        return realpath(dirname(packageJsonPath));
-      } catch {
-        // Continue searching.
+  for (const entry of pnpmEntries) {
+    const packageJsonPath = resolve(pnpmRootPath, entry, 'node_modules', ...packageName.split('/'), 'package.json');
+
+    try {
+      await access(packageJsonPath);
+      return realpath(dirname(packageJsonPath));
+    } catch {
+      // Continue searching.
+    }
+  }
+
+  throw new Error(`Unable to resolve external dependency '${packageName}' from '${sourceRoot}'.`);
+}
+
+async function findPackageRootForResolvedPath(resolvedPath, packageName) {
+  let currentPath = dirname(resolvedPath);
+
+  while (true) {
+    const manifestPath = resolve(currentPath, 'package.json');
+
+    try {
+      const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+
+      if (manifest.name === packageName) {
+        return realpath(currentPath);
       }
+    } catch {
+      // Keep walking upwards until a matching manifest is found.
     }
 
-    throw new Error(`Unable to resolve external dependency '${packageName}' from '${sourceRoot}'.`);
+    const parentPath = dirname(currentPath);
+
+    if (parentPath === currentPath) {
+      break;
+    }
+
+    currentPath = parentPath;
   }
+
+  throw new Error(`Unable to find package root for resolved dependency '${packageName}'.`);
 }
 
 async function listWorkspacePackageJsonPaths(sourceRoot) {

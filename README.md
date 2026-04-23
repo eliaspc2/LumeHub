@@ -258,6 +258,7 @@ Entrega comercial honesta:
 - [lume_hub_gap_audit.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_gap_audit.md)
 - [lume_hub_lxd_runtime_plan.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_lxd_runtime_plan.md)
 - [lume_hub_release_publish.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_release_publish.md)
+- [lume_hub_docker_desktop_bundle.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_docker_desktop_bundle.md)
 - [lume_hub_commercial_delivery_kit.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_commercial_delivery_kit.md)
 
 ## Estado atual

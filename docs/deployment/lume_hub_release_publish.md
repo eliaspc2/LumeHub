@@ -5,6 +5,7 @@ Guia canonico para gerar e publicar os artefactos do `Lume Hub`.
 Para entrega comercial, usar tambem:
 
 - [lume_hub_commercial_delivery_kit.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_commercial_delivery_kit.md)
+- [lume_hub_docker_desktop_bundle.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_docker_desktop_bundle.md)
 
 ## Comando principal
 
@@ -25,6 +26,23 @@ Nota honesta:
 - o backend fica preparado como artefacto para runtime containerizado
 - o `host companion` continua a ser entregue fora do container
 - isto nao deve ser apresentado como produto de `um container unico`
+
+## Bundle rapido para Windows e Docker Desktop
+
+Quando a prioridade for empacotar facil para outra pessoa, especialmente em `Windows`, usar:
+
+```bash
+PATH=/opt/node-v20-current/bin:$PATH /opt/node-v20-current/bin/corepack pnpm run package:docker-desktop
+```
+
+Este comando gera:
+
+- bundle de pasta em `runtime/portable-bundles/`
+- zip pronto a entregar
+- tarball alternativo
+
+O bundle inclui `backend + companion embebido + compose + scripts Windows`.
+Continua a ser uma entrega honesta: simplifica muito a instalacao, mas nao controla o sistema operativo anfitriao fora do container.
 
 ## Backend publicado
 
