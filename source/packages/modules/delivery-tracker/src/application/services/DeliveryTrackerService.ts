@@ -64,6 +64,7 @@ export class DeliveryTrackerService {
         status: 'waiting_confirmation',
         attempts: currentJob.attempts + 1,
         lastError: null,
+        lastOutboundObservationAt: currentJob.lastOutboundObservationAt ?? startedAt,
       }),
       {
         groupJid: query.groupJid ?? job.groupJid,

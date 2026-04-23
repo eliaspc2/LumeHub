@@ -230,6 +230,13 @@ Validacao canonica atual da ronda:
 
 - `validate:wave74`
 
+Trabalho ja reservado para a ronda seguinte:
+
+- abrir `gui-simplification-pass-2` depois de fechar a `Wave 78`
+- arrancar a ronda com fix de alertas falsos e substituicao de `Atalhos principais` por `Radar live` em `Hoje`
+- fazer uma nova revisao headless das rotas live antes de mexer no layout dessa ronda
+- acrescentar um modulo `official-update-sync` para descobrir e descarregar updates a partir do repo oficial, com toggle `on/off`
+
 ## Trabalho futuro fora do scope atual
 
 ### 1. `alerts` e `automations`

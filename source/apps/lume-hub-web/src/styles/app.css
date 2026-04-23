@@ -2250,6 +2250,15 @@ textarea {
   line-height: 1.5;
 }
 
+.today-live-radar {
+  max-height: 420px;
+  overflow: auto;
+}
+
+.today-live-radar__item {
+  gap: 6px;
+}
+
 .week-section-note {
   margin: 6px 0 0;
   color: var(--ink-soft);

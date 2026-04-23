@@ -54,6 +54,10 @@ export class IssueCollector {
     }
 
     if (job.status === 'waiting_confirmation') {
+      if (job.lastOutboundObservationAt) {
+        return undefined;
+      }
+
       return elapsedMinutes > config.waitingConfirmationGraceMinutes
         ? 'waiting_confirmation_timeout'
         : undefined;

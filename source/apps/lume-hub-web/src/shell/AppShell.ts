@@ -1169,6 +1169,7 @@ export class AppShell {
 
   private renderTodayPage(page: UiPage<DashboardSnapshot>): string {
     const snapshot = page.data;
+    const liveEvents = this.state.liveEvents.slice(0, 5);
     const readyTone = snapshot.readiness.ready ? 'positive' : 'warning';
     const nextStep =
       snapshot.watchdog.openIssues > 0
@@ -1244,36 +1245,52 @@ export class AppShell {
 
         <article class="surface content-card span-5">
           <div class="card-header">
-            <h3>Atalhos principais</h3>
-            ${renderUiBadge({ label: 'Uso diario', tone: 'positive' })}
-          </div>
-          <div class="card-grid">
-            ${renderUiRecordCard({
-              title: 'Criar agendamento',
-              subtitle: 'Abrir a semana e preparar a proxima aula.',
-              badgeLabel: 'Semana',
-              badgeTone: 'positive',
-              bodyHtml: `<div class="action-row">${renderUiActionButton({ label: 'Ver agenda', href: '/week', dataAttributes: { route: '/week' } })}</div>`,
-            })}
-            ${renderUiRecordCard({
-              title: 'Distribuir mensagem',
-              subtitle: 'Preparar e confirmar o proximo envio.',
-              badgeLabel: 'Distribuicoes',
-              badgeTone: 'warning',
-              bodyHtml: `<div class="action-row">${renderUiActionButton({ label: 'Abrir distribuicoes', href: '/distributions', dataAttributes: { route: '/distributions' } })}</div>`,
-            })}
-            ${renderUiRecordCard({
-              title: 'Rever WhatsApp',
-              subtitle: 'Confirmar ligacao, grupos e QR quando fizer falta.',
-              badgeLabel: readableSessionPhase(snapshot.whatsapp.phase),
-              badgeTone: toneForSessionPhase(snapshot.whatsapp.phase),
-              bodyHtml: `<div class="action-row">${renderUiActionButton({ label: 'Abrir WhatsApp', href: '/whatsapp', dataAttributes: { route: '/whatsapp' } })}</div>`,
+            <div>
+              <h3>Radar live</h3>
+              <p>Janela curta com o que acabou de acontecer no sistema, no chat e no runtime.</p>
+            </div>
+            ${renderUiBadge({
+              label: liveEvents.length > 0 ? `${liveEvents.length} sinais` : 'A escutar',
+              tone: liveEvents.length > 0 ? 'positive' : 'neutral',
             })}
           </div>
-            </article>
-          </section>
-        </div>
-      </details>
+          <div class="timeline timeline--compact today-live-radar">
+            ${
+              liveEvents.length > 0
+                ? liveEvents
+                    .map(
+                      (event) => {
+                        const toneClass = event.topic.includes('failed')
+                          ? 'timeline-item--danger'
+                          : event.topic.includes('warning')
+                            ? 'timeline-item--warning'
+                            : '';
+
+                        return `
+                        <article class="timeline-item today-live-radar__item${toneClass ? ` ${toneClass}` : ''}">
+                          <strong>${escapeHtml(readableTodayLiveEventTitle(event.topic))}</strong>
+                          <p>${escapeHtml(describeTodayLiveEvent(event))}</p>
+                          <time>${escapeHtml(formatShortDateTime(event.emittedAt))}</time>
+                        </article>
+                      `;
+                      },
+                    )
+                    .join('')
+                : `
+                    <article class="timeline-item">
+                      <strong>Sem ruido desnecessario</strong>
+                      <p>Assim que houver um envio, resposta, alerta real ou mudanca de runtime, aparece aqui.</p>
+                      <time>Radar pronto</time>
+                    </article>
+                  `
+            }
+          </div>
+          <div class="action-row">
+            ${renderUiActionButton({ label: 'Abrir WhatsApp', href: '/whatsapp', variant: 'secondary', dataAttributes: { route: '/whatsapp' } })}
+            ${renderUiActionButton({ label: 'Ver distribuicoes', href: '/distributions', variant: 'secondary', dataAttributes: { route: '/distributions' } })}
+          </div>
+        </article>
+      </section>
     `;
   }
 
@@ -12950,6 +12967,60 @@ function readableInstructionActionStatus(status: Instruction['actions'][number][
     case 'skipped':
       return 'ignorado';
   }
+}
+
+function readableTodayLiveEventTitle(topic: string): string {
+  if (topic.startsWith('instruction.reminder.')) {
+    return 'Lembrete';
+  }
+
+  if (topic.startsWith('instruction.distribution.')) {
+    return 'Distribuicao';
+  }
+
+  if (topic.startsWith('conversation.reply.')) {
+    return 'Resposta a mensagem';
+  }
+
+  if (topic.startsWith('conversation.inbound.')) {
+    return 'Mensagem recebida';
+  }
+
+  if (topic.startsWith('watchdog.')) {
+    return 'Alerta operacional';
+  }
+
+  if (topic.startsWith('whatsapp.')) {
+    return 'WhatsApp';
+  }
+
+  return topic.replaceAll('.', ' ');
+}
+
+function describeTodayLiveEvent(event: FrontendUiEvent): string {
+  const payload = event.payload;
+
+  if (!payload || typeof payload !== 'object') {
+    return summarizeTelemetryMessage(event.topic);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const summary = [
+    typeof record.groupLabel === 'string' ? record.groupLabel : null,
+    typeof record.eventTitle === 'string' ? record.eventTitle : null,
+    typeof record.targetLabel === 'string' ? record.targetLabel : null,
+    typeof record.reason === 'string' ? record.reason : null,
+    typeof record.error === 'string' ? record.error : null,
+    typeof record.message === 'string' ? record.message : null,
+  ]
+    .filter((value): value is string => Boolean(value && value.trim().length > 0))
+    .join(' · ');
+
+  if (summary.length > 0) {
+    return summarizeTelemetryMessage(summary);
+  }
+
+  return summarizeTelemetryMessage(event.topic);
 }
 
 function toneForMediaType(mediaType: MediaAssetSnapshot['mediaType']): UiTone {

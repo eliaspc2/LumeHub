@@ -127,7 +127,11 @@ export class WatchdogService {
     const elapsedMinutes = (now.getTime() - Date.parse(job.sendAt)) / 60_000;
 
     if (issue.kind === 'waiting_confirmation_timeout') {
-      return job.status !== 'waiting_confirmation' || elapsedMinutes <= config.waitingConfirmationGraceMinutes;
+      return (
+        job.status !== 'waiting_confirmation'
+        || elapsedMinutes <= config.waitingConfirmationGraceMinutes
+        || Boolean(job.lastOutboundObservationAt)
+      );
     }
 
     return elapsedMinutes <= config.overdueGraceMinutes;

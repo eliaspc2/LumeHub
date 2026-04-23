@@ -48,6 +48,7 @@ Objetivo:
 - tornar as paginas de operacao diaria mais rapidas de perceber
 - esconder ruido tecnico ate ser necessario
 - reduzir chips/contadores vazios
+- alinhar `Calendario` com um calendario mensal real, em vez de parecer apenas uma vista semanal tecnica
 
 Scope:
 - `/today`
@@ -56,6 +57,8 @@ Scope:
 
 Obrigatorio:
 - `Hoje` deve responder em poucos segundos: estado, risco, proximo passo
+- `Calendario` deve mostrar um calendario mensal real como leitura base
+- a semana passa a ser zoom operacional, filtro ou detalhe do mes, nao a unica vista canonica da UI
 - `Calendario` deve esconder estados a zero por defeito
 - `LLM` deve separar melhor pergunta segura de alteracao real de agenda
 - copy deve continuar pensada para utilizador pouco tecnico
@@ -113,6 +116,141 @@ A validacao consolidada atual e:
 
 - `cd /home/eliaspc/Documentos/lume-hub/source`
 - `corepack pnpm run validate:wave74`
+
+## Ronda seguinte reservada
+
+Depois de fechar a `Wave 78`, abrir a ronda `gui-simplification-pass-2`.
+
+Motivo:
+
+- a shell ficou melhor, mas o produto ainda pode parecer assoberbante quando uma pagina junta resumo, diagnostico, labels repetidas e varias acoes primarias ao mesmo tempo
+- o proximo passo ja nao e "mais polish"; e simplificar a leitura operacional para reduzir fadiga e hesitacao
+- revisao headless das rotas live confirma excesso de blocos simultaneos em `Hoje`, `Grupos`, `LumeHub` e `Codex Router`
+- nesta ronda entram tambem:
+  - um modulo novo para descarregar updates do LumeHub a partir do repo oficial
+  - um radar live compacto em `Hoje` no lugar de atalhos pouco uteis
+
+### Wave 79 - Alertas falsos e Hoje com radar live
+
+Objetivo:
+- corrigir sinais de alerta falsos antes de abrir nova simplificacao visual
+- substituir `Atalhos principais` em `Hoje` por um radar live compacto e realmente util
+
+Scope:
+- `watchdog`
+- tracking de reminders e reconciliacao de entrega
+- homepage `/today`
+
+Obrigatorio:
+- auditar os alertas ativos vistos em `Hoje` e no inbox operacional para separar falha real de falso positivo
+- se o problema vier do `watchdog`, do tracking de entrega ou da reconciliacao de ACK/accepted, fechar primeiro esse bug no runtime
+- o contador de problemas em `Hoje` so pode subir por falha operacional com valor claro para o operador
+- `Hoje` deixa de ter o bloco `Atalhos principais`
+- no lugar entra uma janela pequena `Radar live` com sinais recentes de runtime, chats, envios e alertas reais
+- o radar deve privilegiar linguagem curta, timestamps legiveis e leitura de cima para baixo
+- se nao houver eventos, mostrar estado tranquilo em vez de caixa vazia ou ruido tecnico
+
+Validacao:
+- criar `validate:wave79`
+- produzir pelo menos um caso real ou reproduzido que antes gerava alerta falso e confirmar que deixa de contaminar `Hoje`
+- abrir `/today` em browser headless/CDP em `desktop` e `mobile` para confirmar que o radar cabe bem sem espaco morto
+
+### Wave 80 - Shell e hierarquia com menos carga simultanea
+
+Objetivo:
+- reduzir a sensacao de excesso logo no primeiro viewport
+- limitar quantas decisoes e quantas acoes primarias aparecem ao mesmo tempo
+- reforcar a leitura "resumo primeiro, detalhe depois"
+
+Scope:
+- shell global
+- headers de pagina
+- barras de estado
+- action rows e blocos de resumo partilhados
+
+Obrigatorio:
+- cada pagina deve abrir com um resumo unico e uma zona principal de trabalho, sem competir com tres ou quatro blocos equivalentes
+- cada area deve ter no maximo uma acao primaria visivel; as restantes passam para secundarias ou menus coerentes
+- chips, badges e linhas de copy que apenas repetem o titulo ou o estado principal devem sair da vista base
+- detalhe tecnico e estados raros devem usar o mesmo contrato de divulgacao progressiva em vez de excecoes por pagina
+- a ronda deve partir de revisao headless/screenshot das rotas live antes de mexer no layout, para atacar ruido real em vez de abstrato
+
+Validacao:
+- criar `validate:wave80`
+- validar `desktop` e `mobile` em browser headless/CDP nas rotas com maior densidade
+- confirmar menos ruido no first viewport sem regressao de foco, scroll ou acessibilidade base
+
+### Wave 81 - Fluxos summary-first e linguagem mais direta
+
+Objetivo:
+- fazer com que o operador pouco tecnico perceba cada pagina em poucos segundos
+- trocar texto explicativo por estado atual, decisao e proximo passo
+- cortar metadado repetido em listas, cards e vazios
+
+Scope:
+- `/today`
+- `/groups`
+- `/groups/:groupJid`
+- `/whatsapp`
+- `/assistant`
+- `/settings`
+- `/codex-router`
+
+Obrigatorio:
+- as paginas base devem responder primeiro a "o que importa agora?" e so depois mostrar o resto
+- loading, empty e erro devem ser curtos, humanos e orientados a acao
+- listas e cards nao devem repetir o mesmo owner, grupo, modo ou estado em varios sitios sem comparacao real
+- nomes tecnicos como `jid`, `runtime`, `diagnostics`, `provider` e hashes ficam fora da vista base quando houver traducao humana possivel
+- `Hoje` deve perder blocos paralelos quando o mesmo estado ja aparece no resumo
+- `Grupos` deve separar melhor catalogo, detalhe e configuracao para evitar um "mural" de caixas
+- `LumeHub` e `Codex Router` devem reduzir cartoes concorrentes sem perder o proximo passo util
+
+Validacao:
+- criar `validate:wave81`
+- validar escrita em inputs da LLM e dos formularios sem perda de foco
+- rever screenshots desktop/mobile das paginas alvo para confirmar reducao de ruido e espaco morto
+
+### Wave 82 - Modulo `official-update-sync` para updates via repo oficial
+
+Objetivo:
+- permitir ao LumeHub descobrir, descarregar e preparar updates a partir do repositorio oficial
+- reduzir dependencia de procedimentos manuais dispersos no host
+- dar ao operador uma leitura clara da versao atual, update disponivel e estado do download
+
+Scope:
+- novo modulo backend
+- integracao com `lume-hub-host` para fetch e staging local
+- superficie minima de operador na UI
+
+Obrigatorio:
+- usar apenas o repo oficial configurado como upstream canonico do LumeHub
+- suportar pelo menos `check update`, `download update` e `preparar apply`, sem auto-aplicar por defeito
+- guardar metadata de versao atual, versao remota, commit/tag e ultima verificacao
+- descarregar para staging claro e validado antes de qualquer apply
+- a UI deve ter um toggle `updates ligados/desligados` para permitir ao operador activar ou cortar esta capacidade sem mexer em config manual
+- a vista base deve falar em versao atual, update disponivel e estado; branch, hash e detalhe git ficam recolhidos
+
+Validacao:
+- criar `validate:wave82`
+- testar com fixture git local a simular o upstream oficial, sem depender de internet publica
+- smoke HTTP/UI da verificacao e do download preparado
+
+### Wave 83 - Limpeza final da ronda `gui-simplification-pass-2`
+
+Objetivo:
+- fechar a ronda e consolidar simplificacao visual, copy e modulo de updates
+- relancar o LumeHub no fim da limpeza
+
+Obrigatorio:
+- consolidar a validacao final em `validate:wave83`
+- remover validadores intermédios `79..82`, se ja estiverem cobertos
+- atualizar README, gap audit e esta lista para declarar a ronda fechada
+- relancar no fim:
+  - `bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh restart`
+  - se for a partir de sessao automatizada, usar `setsid bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh restart >/tmp/lumehub-wave-restart.log 2>&1 < /dev/null &`
+- validar a seguir:
+  - `bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh status`
+  - `curl -fsS http://127.0.0.1:18420/api/runtime/diagnostics`
 
 ## Ultimas rondas fechadas
 

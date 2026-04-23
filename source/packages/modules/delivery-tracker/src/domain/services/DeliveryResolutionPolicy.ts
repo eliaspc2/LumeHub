@@ -31,6 +31,7 @@ export class DeliveryResolutionPolicy {
         status: 'waiting_confirmation',
         lastOutboundObservationAt:
           observedAttempt?.observation?.observedAt
+          ?? sortedAttempts[0]?.startedAt
           ?? job.lastOutboundObservationAt
           ?? null,
       };
