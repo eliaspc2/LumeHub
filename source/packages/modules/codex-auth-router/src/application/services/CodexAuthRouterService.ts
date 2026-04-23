@@ -10,6 +10,8 @@ import type {
   CodexAuthSwitchRecord,
   CodexFailureKind,
   ForceCodexAuthSwitchInput,
+  ImportedCodexAuthAccount,
+  ImportCodexAuthAccountInput,
   PrepareAuthForRequestInput,
   ReportCodexAuthFailureInput,
   ReportCodexAuthSuccessInput,
@@ -18,7 +20,7 @@ import { CodexAccountSwitchPolicy } from '../../domain/services/CodexAccountSwit
 import { CodexAccountUsageService } from '../../domain/services/CodexAccountUsageService.js';
 import { CodexAccountQuotaService } from '../../domain/services/CodexAccountQuotaService.js';
 import { CodexAuthCanonicalWriter } from '../../domain/services/CodexAuthCanonicalWriter.js';
-import { CodexAccountRepository } from '../../infrastructure/persistence/CodexAccountRepository.js';
+import { CodexAccountRepository, deriveCodexAuthIdentity } from '../../infrastructure/persistence/CodexAccountRepository.js';
 
 const MAX_SWITCH_HISTORY = 25;
 
@@ -138,6 +140,40 @@ export class CodexAuthRouterService {
 
     await this.repository.saveState(nextState);
     return selection;
+  }
+
+  async importAccount(input: ImportCodexAuthAccountInput): Promise<ImportedCodexAuthAccount> {
+    const authJson = input.authJson.trim();
+
+    if (!authJson) {
+      throw new Error('Codex auth import requires auth.json contents.');
+    }
+
+    const identity = deriveCodexAuthIdentity(authJson);
+    const accountId = identity?.accountId?.trim() ?? '';
+
+    if (!accountId) {
+      throw new Error('Nao foi possivel identificar a conta neste auth.json.');
+    }
+
+    const status = await this.getStatus();
+    const existingAccount = status.accounts.find((account) => account.accountId === accountId) ?? null;
+    const label = input.label?.trim() || existingAccount?.label || buildImportedAccountLabel(accountId);
+    const source = await this.repository.upsertManagedSource({
+      accountId,
+      label,
+      authJson,
+      preferredFilePath: existingAccount?.kind === 'secondary' ? existingAccount.sourceFilePath : null,
+    });
+
+    this.quotaService.clearCache();
+
+    return {
+      accountId: source.accountId,
+      label: source.label,
+      sourceFilePath: source.filePath,
+      created: existingAccount === null,
+    };
   }
 
   async setEnabled(enabled: boolean): Promise<CodexAuthRouterStatus> {
@@ -413,6 +449,10 @@ function inferFailureKind(reason: string): CodexFailureKind {
   }
 
   return 'unknown';
+}
+
+function buildImportedAccountLabel(accountId: string): string {
+  return `account-${accountId.slice(0, 8)}`;
 }
 
 function failNoAccount(preferredAccountId: string | null): never {

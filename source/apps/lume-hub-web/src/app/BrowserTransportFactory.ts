@@ -659,6 +659,31 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       return this.ok(status);
     }
 
+    if (request.method === 'POST' && pathname === '/api/settings/codex-auth-router/accounts') {
+      const body = request.body as { readonly authJson?: string; readonly label?: string };
+      const authJson = typeof body?.authJson === 'string' ? body.authJson : '';
+
+      if (!authJson.trim()) {
+        return this.error(400, 'Demo codex auth router import requires authJson.');
+      }
+
+      const importedAccount = importDemoCodexAuthAccount(this.state, {
+        authJson,
+        label: typeof body?.label === 'string' ? body.label : '',
+      });
+      const status = this.state.settings.authRouterStatus ?? failMissingDemoAuthRouter();
+
+      this.emit('settings.codex_auth_router.updated', {
+        mode: 'demo',
+        importedAccount,
+        status,
+      });
+      return this.ok({
+        importedAccount,
+        status,
+      });
+    }
+
     if (request.method === 'GET' && pathname === '/api/alerts/rules') {
       return this.ok(this.state.settings.adminSettings.alerts.rules);
     }
@@ -4112,6 +4137,74 @@ function forceDemoCodexAuthRouterSwitch(
   });
 }
 
+function importDemoCodexAuthAccount(
+  state: DemoState,
+  input: {
+    readonly authJson: string;
+    readonly label: string;
+  },
+): {
+  readonly accountId: string;
+  readonly label: string;
+  readonly sourceFilePath: string;
+  readonly created: boolean;
+} {
+  const status = state.settings.authRouterStatus ?? failMissingDemoAuthRouter();
+  const accountId = readDemoCodexAccountId(input.authJson);
+
+  if (!accountId) {
+    throw new Error('Nao foi possivel identificar a conta neste auth.json de preview.');
+  }
+
+  const existingAccount = status.accounts.find((account) => account.accountId === accountId) ?? null;
+  const label = input.label.trim() || existingAccount?.label || `account-${accountId.slice(0, 8)}`;
+  const sourceFilePath =
+    existingAccount?.sourceFilePath ?? `/home/eliaspc/.codex/imported/${accountId}/auth.json`;
+  const nextAccount = {
+    ...(existingAccount ?? {
+      priority: status.accounts.length + 1,
+      kind: 'secondary' as const,
+      exists: true,
+      contentHash: `demo-hash-${accountId}`,
+      bytes: input.authJson.length,
+      lastModifiedAt: new Date().toISOString(),
+      usage: {
+        successCount: 0,
+        failureCount: 0,
+        consecutiveFailures: 0,
+        lastSuccessAt: null,
+        lastFailureAt: null,
+        lastFailureKind: null,
+        lastFailureReason: null,
+        cooldownUntil: null,
+      },
+      quota: null,
+    }),
+    accountId,
+    label,
+    sourceFilePath,
+    exists: true,
+    bytes: input.authJson.length,
+    lastModifiedAt: new Date().toISOString(),
+  };
+
+  state.settings = {
+    ...state.settings,
+    authRouterStatus: {
+      ...status,
+      accounts: [...status.accounts.filter((account) => account.accountId !== accountId), nextAccount],
+      accountCount: [...status.accounts.filter((account) => account.accountId !== accountId), nextAccount].length,
+    },
+  };
+
+  return {
+    accountId,
+    label,
+    sourceFilePath,
+    created: existingAccount === null,
+  };
+}
+
 function updateDemoCodexAuthRouterState(
   state: DemoState,
   options: {
@@ -4208,6 +4301,19 @@ function sanitizeTimestampForFile(value: string): string {
 
 function failMissingDemoAuthRouter(): never {
   throw new Error('Demo codex auth router is not available.');
+}
+
+function readDemoCodexAccountId(authJson: string): string {
+  try {
+    const parsed = JSON.parse(authJson) as {
+      readonly tokens?: {
+        readonly account_id?: unknown;
+      };
+    };
+    return typeof parsed.tokens?.account_id === 'string' ? parsed.tokens.account_id.trim() : '';
+  } catch {
+    return '';
+  }
 }
 
 function readDemoTargetGroupJids(payload: Record<string, unknown>): string[] {

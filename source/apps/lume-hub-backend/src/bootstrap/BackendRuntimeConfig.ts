@@ -36,6 +36,8 @@ export interface BackendRuntimeConfig {
   readonly canonicalCodexAuthFile?: string;
   readonly codexAuthRouterStateFilePath?: string;
   readonly codexAuthRouterBackupDirectoryPath?: string;
+  readonly codexAuthSourcesEnvironmentFilePath?: string;
+  readonly codexAuthManagedAccountsDirectoryPath?: string;
   readonly codexAuthSources?: readonly CodexAuthSourceConfig[];
   readonly startByPreparingCodexAuth?: boolean;
   readonly operationalTickIntervalMs?: number;
@@ -84,6 +86,8 @@ export interface BackendRuntimePaths {
   readonly canonicalCodexAuthFile: string;
   readonly codexAuthRouterStateFilePath: string;
   readonly codexAuthRouterBackupDirectoryPath: string;
+  readonly codexAuthSourcesEnvironmentFilePath: string;
+  readonly codexAuthManagedAccountsDirectoryPath: string;
   readonly hostWorkingDirectory: string;
   readonly hostExecStart: string;
   readonly hostServiceName: string;
@@ -204,6 +208,10 @@ export function resolveBackendRuntimePaths(config: BackendRuntimeConfig = {}): B
       config.codexAuthRouterStateFilePath ?? resolve(runtimeRootPath, 'codex-auth-router.state.json'),
     codexAuthRouterBackupDirectoryPath:
       config.codexAuthRouterBackupDirectoryPath ?? resolve(runtimeRootPath, 'codex-auth-router-backups'),
+    codexAuthSourcesEnvironmentFilePath:
+      config.codexAuthSourcesEnvironmentFilePath ?? resolve(projectRoot, 'runtime', 'host', 'codex-auth-sources.env'),
+    codexAuthManagedAccountsDirectoryPath:
+      config.codexAuthManagedAccountsDirectoryPath ?? resolveDefaultCodexAuthManagedAccountsDirectory(projectRoot),
     hostWorkingDirectory,
     hostExecStart:
       config.hostExecStart ??
@@ -282,6 +290,14 @@ function readPortFromEnv(rawValue: string | undefined): number | undefined {
   }
 
   return value;
+}
+
+function resolveDefaultCodexAuthManagedAccountsDirectory(projectRoot: string): string {
+  const legacyDirectory = '/home/eliaspc/Documentos/codex-auth-backups/secondary';
+
+  return existsSync(legacyDirectory)
+    ? legacyDirectory
+    : resolve(projectRoot, 'runtime', 'host', 'codex-auth-managed', 'secondary');
 }
 
 function normaliseWebSocketPath(path: string): string {

@@ -178,6 +178,8 @@ export class ModuleLoader {
       canonicalAuthFilePath: paths.canonicalCodexAuthFile,
       stateFilePath: paths.codexAuthRouterStateFilePath,
       backupDirectoryPath: paths.codexAuthRouterBackupDirectoryPath,
+      sourcesEnvironmentFilePath: paths.codexAuthSourcesEnvironmentFilePath,
+      managedAccountsDirectoryPath: paths.codexAuthManagedAccountsDirectoryPath,
       sourceAccounts: codexAuthSources,
       startByPreparingAuth: this.config.startByPreparingCodexAuth ?? false,
     });

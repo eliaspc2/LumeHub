@@ -141,6 +141,19 @@ export interface ForceCodexAuthSwitchInput {
   readonly now?: Date;
 }
 
+export interface ImportCodexAuthAccountInput {
+  readonly authJson: string;
+  readonly label?: string | null;
+  readonly now?: Date;
+}
+
+export interface ImportedCodexAuthAccount {
+  readonly accountId: string;
+  readonly label: string;
+  readonly sourceFilePath: string;
+  readonly created: boolean;
+}
+
 export interface DiscoveredCodexAccountSource {
   readonly accountId: string;
   readonly label: string;

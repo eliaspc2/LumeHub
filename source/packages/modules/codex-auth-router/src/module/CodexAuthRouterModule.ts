@@ -27,6 +27,8 @@ export class CodexAuthRouterModule extends BaseModule implements CodexAuthRouter
         canonicalAuthFilePath: config.canonicalAuthFilePath,
         stateFilePath: config.stateFilePath,
         backupDirectoryPath: config.backupDirectoryPath,
+        sourcesEnvironmentFilePath: config.sourcesEnvironmentFilePath,
+        managedAccountsDirectoryPath: config.managedAccountsDirectoryPath,
         sourceAccounts: config.sourceAccounts,
       });
     const accountScorer = config.accountScorer ?? new CodexAccountScorer();
@@ -85,6 +87,10 @@ export class CodexAuthRouterModule extends BaseModule implements CodexAuthRouter
 
   async forceSwitch(accountId: string, input?: Parameters<CodexAuthRouterService['forceSwitch']>[1]) {
     return this.service.forceSwitch(accountId, input);
+  }
+
+  async importAccount(input: Parameters<CodexAuthRouterService['importAccount']>[0]) {
+    return this.service.importAccount(input);
   }
 
   async setEnabled(enabled: boolean) {

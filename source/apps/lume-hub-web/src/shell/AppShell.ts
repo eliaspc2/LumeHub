@@ -206,6 +206,12 @@ interface LegacyAutomationMigrationDraft {
   readonly report: LegacyAutomationImportReportSnapshot | null;
 }
 
+interface CodexRouterImportDraft {
+  readonly label: string;
+  readonly authJson: string;
+  readonly importing: boolean;
+}
+
 interface AssistantRailMessage {
   readonly messageId: string;
   readonly role: 'user' | 'assistant' | 'system' | 'error';
@@ -244,6 +250,7 @@ interface AppShellState {
   readonly legacyScheduleMigrationDraft: LegacyScheduleMigrationDraft;
   readonly legacyAlertMigrationDraft: LegacyAlertMigrationDraft;
   readonly legacyAutomationMigrationDraft: LegacyAutomationMigrationDraft;
+  readonly codexRouterImportDraft: CodexRouterImportDraft;
   readonly assistantRailChat: AssistantRailChatState;
   readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
   readonly whatsappQrPreviewVisible: boolean;
@@ -391,6 +398,7 @@ export class AppShell {
       legacyScheduleMigrationDraft: createEmptyLegacyScheduleMigrationDraft(),
       legacyAlertMigrationDraft: createEmptyLegacyAlertMigrationDraft(),
       legacyAutomationMigrationDraft: createEmptyLegacyAutomationMigrationDraft(),
+      codexRouterImportDraft: createEmptyCodexRouterImportDraft(),
       assistantRailChat: createInitialAssistantRailChatState(),
       whatsappRepairFocus: 'auth',
       whatsappQrPreviewVisible: false,
@@ -5404,6 +5412,7 @@ export class AppShell {
     const routerEnabledLabel = authRouterStatus ? readCodexRouterEnabledLabel(authRouterStatus.enabled) : 'Indisponivel';
     const activeTokenLabel = authRouterStatus?.currentSelection?.label ?? 'A rever';
     const routerTone: UiTone = authRouterStatus ? (authRouterStatus.enabled ? 'positive' : 'warning') : 'warning';
+    const importDraft = this.state.codexRouterImportDraft;
 
     return `
       <section class="content-grid">
@@ -5468,6 +5477,42 @@ export class AppShell {
                       disabled: !authRouterStatus.enabled,
                       dataAttributes: { 'settings-action': 'prepare-codex-router' },
                     })}
+                  </div>
+                  <div class="guide-preview codex-router-import-card">
+                    <div class="card-header">
+                      <div>
+                        <h4>Adicionar novo token</h4>
+                        <p>Cole aqui o <code>auth.json</code> completo de outra conta. O router identifica a conta, guarda-a em <code>secondary</code> e passa a listá-la nesta pagina.</p>
+                      </div>
+                      ${renderUiBadge({
+                        label: importDraft.importing ? 'A importar' : 'Entrada manual',
+                        tone: importDraft.importing ? 'warning' : 'neutral',
+                      })}
+                    </div>
+                    <div class="ui-form-grid">
+                      ${renderUiInputField({
+                        label: 'Nome visivel',
+                        value: importDraft.label,
+                        dataKey: 'codexRouter.importLabel',
+                        placeholder: 'Ex.: Conta Andre reserva',
+                        hint: 'Opcional. Se deixares vazio, o sistema cria um nome tecnico pela conta.',
+                      })}
+                      ${renderUiTextAreaField({
+                        label: 'Conteudo do auth.json',
+                        value: importDraft.authJson,
+                        dataKey: 'codexRouter.importAuthJson',
+                        placeholder: '{"tokens": {...}}',
+                        hint: 'Cola o JSON completo. O UI nao mostra os segredos depois de importar.',
+                        rows: 8,
+                      })}
+                    </div>
+                    <div class="action-row">
+                      ${renderUiActionButton({
+                        label: 'Adicionar token',
+                        disabled: importDraft.importing || importDraft.authJson.trim().length === 0,
+                        dataAttributes: { 'settings-action': 'import-codex-account' },
+                      })}
+                    </div>
                   </div>
                   <details class="ui-details">
                     <summary>Ver detalhe tecnico</summary>
@@ -6550,6 +6595,18 @@ export class AppShell {
             ...this.state.legacyScheduleMigrationDraft,
             fileName: value,
           },
+        };
+        this.render();
+        return;
+      case 'codexRouter.importLabel':
+      case 'codexRouter.importAuthJson':
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          codexRouterImportDraft: {
+            ...this.state.codexRouterImportDraft,
+            [fieldKey === 'codexRouter.importLabel' ? 'label' : 'authJson']: value,
+          } as CodexRouterImportDraft,
         };
         this.render();
         return;
@@ -8033,6 +8090,74 @@ export class AppShell {
         const message = `Nao foi possivel trocar o token do Codex. ${readErrorMessage(error)}`;
         this.state = {
           ...this.state,
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
+    if (action === 'import-codex-account') {
+      const draft = this.state.codexRouterImportDraft;
+      const authJson = draft.authJson.trim();
+
+      if (!authJson) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message: 'Falta colar o conteudo do auth.json para adicionar a conta.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        codexRouterImportDraft: {
+          ...draft,
+          importing: true,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A importar o novo token para o Codex Router.',
+        },
+      };
+      this.render();
+
+      try {
+        const result = await this.currentClient().importCodexAuthAccount({
+          authJson,
+          label: draft.label.trim() || undefined,
+        });
+        this.state = {
+          ...this.state,
+          codexRouterImportDraft: createEmptyCodexRouterImportDraft(),
+          flowFeedback: {
+            tone: 'positive',
+            message: result.importedAccount.created
+              ? `Conta ${result.importedAccount.label} adicionada ao router.`
+              : `Conta ${result.importedAccount.label} atualizada no router.`,
+          },
+        };
+        this.recordUxEvent(
+          'positive',
+          `Codex router ${result.importedAccount.created ? 'adicionou' : 'atualizou'} ${result.importedAccount.accountId}.`,
+        );
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel importar o token do Codex. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          codexRouterImportDraft: {
+            ...draft,
+            importing: false,
+          },
           flowFeedback: {
             tone: 'danger',
             message,
@@ -11083,6 +11208,14 @@ function createEmptyLegacyAutomationMigrationDraft(): LegacyAutomationMigrationD
     previewLoading: false,
     applying: false,
     report: null,
+  };
+}
+
+function createEmptyCodexRouterImportDraft(): CodexRouterImportDraft {
+  return {
+    label: '',
+    authJson: '',
+    importing: false,
   };
 }
 

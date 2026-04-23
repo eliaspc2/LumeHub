@@ -15,6 +15,8 @@ export interface HostModuleLoaderOptions {
   readonly codexAuthRouterBackupDirectoryPath?: string;
   readonly codexAuthRouterBackupHistoryDirectoryPath?: string;
   readonly codexAuthRouterBackupHistoryRetentionLimit?: number;
+  readonly codexAuthSourcesEnvironmentFilePath?: string;
+  readonly codexAuthManagedAccountsDirectoryPath?: string;
   readonly codexAuthSources?: readonly CodexAuthSourceConfig[];
   readonly codexAuthBackupSyncEnabled?: boolean;
   readonly codexAuthBackupSyncRepoPath?: string;
@@ -59,6 +61,10 @@ export class HostModuleLoader {
         this.options.codexAuthRouterStateFilePath ??
         resolve(rootPath, 'runtime/host/state/codex-auth-router.state.json'),
       backupDirectoryPath: codexAuthRouterBackupDirectoryPath,
+      sourcesEnvironmentFilePath:
+        this.options.codexAuthSourcesEnvironmentFilePath ?? resolve(rootPath, 'runtime/host/codex-auth-sources.env'),
+      managedAccountsDirectoryPath:
+        this.options.codexAuthManagedAccountsDirectoryPath ?? resolveDefaultCodexAuthManagedAccountsDirectory(rootPath),
       backupHistoryDirectoryPath: codexAuthRouterBackupHistoryDirectoryPath,
       backupHistoryRetentionLimit: this.options.codexAuthRouterBackupHistoryRetentionLimit ?? 5,
       sourceAccounts: codexAuthSources,
@@ -133,6 +139,14 @@ function resolveDefaultCodexAuthBackupRepositoryPath(): string | undefined {
   const repositoryPath = '/home/eliaspc/Documentos/codex-auth-backups';
 
   return existsSync(join(repositoryPath, '.git')) ? repositoryPath : undefined;
+}
+
+function resolveDefaultCodexAuthManagedAccountsDirectory(rootPath: string): string {
+  const legacyDirectory = '/home/eliaspc/Documentos/codex-auth-backups/secondary';
+
+  return existsSync(legacyDirectory)
+    ? legacyDirectory
+    : resolve(rootPath, 'runtime/host/codex-auth-managed/secondary');
 }
 
 function readCodexAuthSourcesFromEnv(): readonly CodexAuthSourceConfig[] | undefined {

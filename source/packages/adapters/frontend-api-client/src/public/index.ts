@@ -20,7 +20,7 @@ import type {
   SenderAudienceRule,
   SenderAudienceRuleUpsertInput,
 } from '@lume-hub/audience-routing';
-import type { CodexAuthRouterStatus } from '@lume-hub/codex-auth-router';
+import type { CodexAuthRouterStatus, ImportedCodexAuthAccount } from '@lume-hub/codex-auth-router';
 import type { ConversationAuditRecord } from '@lume-hub/conversation';
 import type { HealthSnapshot } from '@lume-hub/health-monitor';
 import type { HostCompanionStatus } from '@lume-hub/host-lifecycle';
@@ -1294,6 +1294,25 @@ export class FrontendApiClient {
         body: {
           accountId,
         },
+      }),
+    );
+  }
+
+  async importCodexAuthAccount(input: {
+    readonly authJson: string;
+    readonly label?: string;
+  }): Promise<{
+    readonly importedAccount: ImportedCodexAuthAccount;
+    readonly status: CodexAuthRouterStatus;
+  }> {
+    return this.expectOk(
+      await this.transport.request<{
+        readonly importedAccount: ImportedCodexAuthAccount;
+        readonly status: CodexAuthRouterStatus;
+      }>({
+        method: 'POST',
+        path: '/api/settings/codex-auth-router/accounts',
+        body: input,
       }),
     );
   }

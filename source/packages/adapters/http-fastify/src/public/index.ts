@@ -116,7 +116,7 @@ export interface HttpApiModules {
   };
   readonly codexAuthRouter?: Pick<
     CodexAuthRouterModuleContract,
-    'prepareAuthForRequest' | 'forceSwitch' | 'setEnabled' | 'getStatus' | 'refreshStatus'
+    'prepareAuthForRequest' | 'forceSwitch' | 'importAccount' | 'setEnabled' | 'getStatus' | 'refreshStatus'
   >;
   readonly groupDirectory: Pick<
     GroupDirectoryModuleContract,
@@ -1541,6 +1541,35 @@ export class RouteRegistrar {
           status,
         });
         return status;
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/settings/codex-auth-router/accounts',
+      handler: async (context) => {
+        if (!this.modules.codexAuthRouter) {
+          throw new ApiError(404, 'Codex auth router is not configured.');
+        }
+
+        if (!context.body || typeof context.body !== 'object') {
+          throw new ApiError(400, 'Codex auth router account payload must be an object.');
+        }
+
+        const authJson = readStringBodyField(context.body, 'authJson');
+        const label = readOptionalStringBodyField(context.body, 'label');
+        const importedAccount = await this.modules.codexAuthRouter.importAccount({
+          authJson,
+          label,
+        });
+        const status = await this.modules.codexAuthRouter.getStatus();
+        this.publish('settings.codex_auth_router.updated', {
+          importedAccount,
+          status,
+        });
+        return {
+          importedAccount,
+          status,
+        };
       },
     });
   }
