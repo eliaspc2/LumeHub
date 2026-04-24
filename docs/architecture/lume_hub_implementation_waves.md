@@ -91,7 +91,7 @@ Obrigatorio:
 
 A validacao consolidada atual e:
 
-- `cd /home/eliaspc/Documentos/lume-hub/source`
+- `cd /home/eliaspc/Documentos/Git/lume-hub/source`
 - `corepack pnpm run validate:wave75`
 
 ## Ronda seguinte reservada
@@ -286,12 +286,12 @@ Estado canonico deixado:
 
 Antes de abrir uma wave nova, ler:
 
-1. `/home/eliaspc/Documentos/lume-hub/AGENTS.md`
-2. `/home/eliaspc/Documentos/lume-hub/README.md`
-3. `/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_rewrite_master_prompt.md`
-4. `/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_modular_implementation_spec.md`
+1. `/home/eliaspc/Documentos/Git/lume-hub/AGENTS.md`
+2. `/home/eliaspc/Documentos/Git/lume-hub/README.md`
+3. `/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_rewrite_master_prompt.md`
+4. `/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_modular_implementation_spec.md`
 5. este ficheiro
-6. `/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_gap_audit.md`
+6. `/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_gap_audit.md`
 
 Se surgir uma nova wave:
 

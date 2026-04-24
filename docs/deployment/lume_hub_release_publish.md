@@ -4,8 +4,8 @@ Guia canonico para gerar e publicar os artefactos do `Lume Hub`.
 
 Para entrega comercial, usar tambem:
 
-- [lume_hub_commercial_delivery_kit.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_commercial_delivery_kit.md)
-- [lume_hub_docker_desktop_bundle.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_docker_desktop_bundle.md)
+- [lume_hub_commercial_delivery_kit.md](/home/eliaspc/Documentos/Git/lume-hub/docs/deployment/lume_hub_commercial_delivery_kit.md)
+- [lume_hub_docker_desktop_bundle.md](/home/eliaspc/Documentos/Git/lume-hub/docs/deployment/lume_hub_docker_desktop_bundle.md)
 
 ## Comando principal
 
@@ -81,11 +81,11 @@ Artefactos locais gerados:
 
 Entry point no host:
 
-- `/home/eliaspc/Documentos/lume-hub/runtime/host/current/bin/lume-hub-host`
+- `/home/eliaspc/Documentos/Git/lume-hub/runtime/host/current/bin/lume-hub-host`
 
 Unit file de utilizador:
 
-- `/home/eliaspc/Documentos/lume-hub/runtime/host/systemd-user/lume-hub-host.service`
+- `/home/eliaspc/Documentos/Git/lume-hub/runtime/host/systemd-user/lume-hub-host.service`
 
 ## Publicacao final recomendada
 

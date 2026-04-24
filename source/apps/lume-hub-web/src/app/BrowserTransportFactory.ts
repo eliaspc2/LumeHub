@@ -1791,7 +1791,7 @@ function createDemoState(): DemoState {
         enabled: true,
         serviceName: 'lume-hub-host.service',
         manifestPath: '/home/eliaspc/.config/systemd/user/lume-hub-host.service',
-        workingDirectory: '/home/eliaspc/Documentos/lume-hub/runtime/host/current',
+        workingDirectory: '/home/eliaspc/Documentos/Git/lume-hub/runtime/host/current',
         execStart: '/opt/node-v20.20.1-linux-x64/bin/node ./dist/main.js',
         installedAt: iso(-1_440),
       },
@@ -2466,7 +2466,7 @@ function createDemoReminderPolicy(groupJid: string): GroupReminderPolicySnapshot
 function createDemoWorkspaceFile(relativePath: string, content: string): WorkspaceFileContentSnapshot {
   return {
     relativePath,
-    absolutePath: `/home/eliaspc/Documentos/lume-hub/${relativePath}`,
+    absolutePath: `/home/eliaspc/Documentos/Git/lume-hub/${relativePath}`,
     content,
     sizeBytes: new TextEncoder().encode(content).byteLength,
     truncated: false,
@@ -2899,7 +2899,7 @@ function tokenizeDemoQuery(query: string): readonly string[] {
 }
 
 function buildDemoGroupRootPath(groupJid: string): string {
-  return `/home/eliaspc/Documentos/lume-hub/runtime/demo-data/groups/${encodeURIComponent(groupJid)}`;
+  return `/home/eliaspc/Documentos/Git/lume-hub/runtime/demo-data/groups/${encodeURIComponent(groupJid)}`;
 }
 
 function buildDemoGroupInstructionsPath(groupJid: string): string {

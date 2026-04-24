@@ -251,15 +251,15 @@ Entrega comercial honesta:
 
 ## Documentos mais importantes
 
-- [AGENTS.md](/home/eliaspc/Documentos/lume-hub/AGENTS.md)
-- [lume_hub_rewrite_master_prompt.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_rewrite_master_prompt.md)
-- [lume_hub_modular_implementation_spec.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_modular_implementation_spec.md)
-- [lume_hub_implementation_waves.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_implementation_waves.md)
-- [lume_hub_gap_audit.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_gap_audit.md)
-- [lume_hub_lxd_runtime_plan.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_lxd_runtime_plan.md)
-- [lume_hub_release_publish.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_release_publish.md)
-- [lume_hub_docker_desktop_bundle.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_docker_desktop_bundle.md)
-- [lume_hub_commercial_delivery_kit.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_commercial_delivery_kit.md)
+- [AGENTS.md](/home/eliaspc/Documentos/Git/lume-hub/AGENTS.md)
+- [lume_hub_rewrite_master_prompt.md](/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_rewrite_master_prompt.md)
+- [lume_hub_modular_implementation_spec.md](/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_modular_implementation_spec.md)
+- [lume_hub_implementation_waves.md](/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_implementation_waves.md)
+- [lume_hub_gap_audit.md](/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_gap_audit.md)
+- [lume_hub_lxd_runtime_plan.md](/home/eliaspc/Documentos/Git/lume-hub/docs/deployment/lume_hub_lxd_runtime_plan.md)
+- [lume_hub_release_publish.md](/home/eliaspc/Documentos/Git/lume-hub/docs/deployment/lume_hub_release_publish.md)
+- [lume_hub_docker_desktop_bundle.md](/home/eliaspc/Documentos/Git/lume-hub/docs/deployment/lume_hub_docker_desktop_bundle.md)
+- [lume_hub_commercial_delivery_kit.md](/home/eliaspc/Documentos/Git/lume-hub/docs/deployment/lume_hub_commercial_delivery_kit.md)
 
 ## Estado atual
 
@@ -272,8 +272,8 @@ O `LumeHub` ja tem:
 - `Migracao` retirada da navegacao comercial depois do cutover; imports legacy ficam como manutencao tecnica fora da UI normal
 - pagina `Codex Router` propria para preparar a melhor conta e fazer switch manual com backup antes de trocar; quando um token esteve ativo em `/home/eliaspc/.codex/auth.json`, o auth live e sincronizado de volta para a origem secundaria antes de sair, preservando refreshes feitos pelo Codex
 - endpoint `GET /api/migrations/readiness`
-- checklist de `shadow mode` em [lume_hub_shadow_mode_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md)
-- checklist de cutover em [lume_hub_live_cutover_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_live_cutover_checklist.md)
+- checklist de `shadow mode` em [lume_hub_shadow_mode_checklist.md](/home/eliaspc/Documentos/Git/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md)
+- checklist de cutover em [lume_hub_live_cutover_checklist.md](/home/eliaspc/Documentos/Git/lume-hub/docs/deployment/lume_hub_live_cutover_checklist.md)
 
 Em `2026-04-06`, o bloqueador principal para substituir de vez o `WA-notify` ja nao e tecnico: passa a ser a execucao real da semana paralela e a decisao final de cutover.
 O `LumeHub` ja separa readiness de migracao, checklist de `shadow mode` e consola do `codex auto router` por paginas diferentes, mas o cutover total do `WA-notify` continua dependente de uma semana paralela real antes da decisao final.
@@ -319,7 +319,7 @@ O storage canonico de inteligencia por grupo ja ficou aberto com:
 O `assistant-context` ja usa `llm/instructions.md` como fonte canonica de instrucoes por grupo.
 Tambem ja existe retrieval isolado por grupo a partir de `knowledge/index.json` e documentos markdown da pasta `knowledge/`, para evitar mistura de contexto entre grupos com referencias parecidas.
 O runtime live do assistente e do scheduling ja audita de forma visivel que instrucoes e snippets locais de grupo entraram em cada run relevante.
-O template canonico inicial para preencher `llm/instructions.md` por grupo ficou em [lume_hub_group_llm_instructions_template.md](/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_group_llm_instructions_template.md).
+O template canonico inicial para preencher `llm/instructions.md` por grupo ficou em [lume_hub_group_llm_instructions_template.md](/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_group_llm_instructions_template.md).
 O storage canonico de media recebida tambem ja ficou aberto com:
 
 - `data/runtime/media/assets/<assetId>/binary`

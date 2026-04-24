@@ -35,15 +35,15 @@ O container e apenas o local de execucao.
 ## Caminhos canonicos no host
 
 - source tree:
-  - `/home/eliaspc/Documentos/lume-hub/source`
+  - `/home/eliaspc/Documentos/Git/lume-hub/source`
 - docs do projeto:
-  - `/home/eliaspc/Documentos/lume-hub/docs`
+  - `/home/eliaspc/Documentos/Git/lume-hub/docs`
 - staging para artefactos:
-  - `/home/eliaspc/Documentos/lume-hub/runtime/lxd/release-bundles`
+  - `/home/eliaspc/Documentos/Git/lume-hub/runtime/lxd/release-bundles`
 - staging para bind mounts:
-  - `/home/eliaspc/Documentos/lume-hub/runtime/lxd/host-mounts/app-release`
-  - `/home/eliaspc/Documentos/lume-hub/runtime/lxd/host-mounts/data`
-  - `/home/eliaspc/Documentos/lume-hub/runtime/lxd/host-mounts/logs`
+  - `/home/eliaspc/Documentos/Git/lume-hub/runtime/lxd/host-mounts/app-release`
+  - `/home/eliaspc/Documentos/Git/lume-hub/runtime/lxd/host-mounts/data`
+  - `/home/eliaspc/Documentos/Git/lume-hub/runtime/lxd/host-mounts/logs`
 - auth OAuth canonica no host:
   - `/home/eliaspc/.codex/auth.json`
 
@@ -61,11 +61,11 @@ O container e apenas o local de execucao.
 ## Caminhos canonicos no host companion
 
 - runtime host:
-  - `/home/eliaspc/Documentos/lume-hub/runtime/host`
+  - `/home/eliaspc/Documentos/Git/lume-hub/runtime/host`
 - estado local:
-  - `/home/eliaspc/Documentos/lume-hub/runtime/host/state`
+  - `/home/eliaspc/Documentos/Git/lume-hub/runtime/host/state`
 - manifests de `systemd --user`:
-  - `/home/eliaspc/Documentos/lume-hub/runtime/host/systemd-user`
+  - `/home/eliaspc/Documentos/Git/lume-hub/runtime/host/systemd-user`
 
 ## Fluxo ideal
 

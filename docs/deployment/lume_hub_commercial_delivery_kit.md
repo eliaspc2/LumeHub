@@ -21,7 +21,7 @@ Excecao operacional honesta para entrega rapida:
 
 ## Artefactos entregaveis
 
-Gerar a release a partir de `/home/eliaspc/Documentos/lume-hub/source`:
+Gerar a release a partir de `/home/eliaspc/Documentos/Git/lume-hub/source`:
 
 ```bash
 PATH=/opt/node-v20-current/bin:$PATH /opt/node-v20-current/bin/corepack pnpm run validate:release

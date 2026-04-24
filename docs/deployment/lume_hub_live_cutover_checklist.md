@@ -11,7 +11,7 @@ Objetivo:
 - correr primeiro:
   - `corepack pnpm run validate:wave51`
 - seguir a semana paralela em:
-  - [lume_hub_shadow_mode_checklist.md](/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md)
+  - [lume_hub_shadow_mode_checklist.md](/home/eliaspc/Documentos/Git/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md)
 - confirmar na pagina `Configuracao`:
   - `Shadow mode e readiness de migracao`
   - ausencia de bloqueadores tecnicos no snapshot live

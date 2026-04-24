@@ -23,7 +23,7 @@ const { AppBootstrap } = await import(
 );
 
 const WEB_DIST_ROOT = fileURLToPath(new URL('../apps/lume-hub-web/dist/', import.meta.url));
-const OBSOLETE_VALIDATOR_PATH = '/home/eliaspc/Documentos/lume-hub/source/scripts/validate-wave50.mjs';
+const OBSOLETE_VALIDATOR_PATH = '/home/eliaspc/Documentos/Git/lume-hub/source/scripts/validate-wave50.mjs';
 
 async function pathExists(path) {
   try {
@@ -152,24 +152,24 @@ await withLiveRuntime(async ({ baseUrl }) => {
   assert.doesNotMatch(settingsDom, /Contas conhecidas pelo router/u);
 
   const implementationWavesDoc = await readFile(
-    '/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_implementation_waves.md',
+    '/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_implementation_waves.md',
     'utf8',
   );
   const gapAuditDoc = await readFile(
-    '/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_gap_audit.md',
+    '/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_gap_audit.md',
     'utf8',
   );
   const shadowModeDoc = await readFile(
-    '/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md',
+    '/home/eliaspc/Documentos/Git/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md',
     'utf8',
   );
   const cutoverDoc = await readFile(
-    '/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_live_cutover_checklist.md',
+    '/home/eliaspc/Documentos/Git/lume-hub/docs/deployment/lume_hub_live_cutover_checklist.md',
     'utf8',
   );
-  const rootReadme = await readFile('/home/eliaspc/Documentos/lume-hub/README.md', 'utf8');
-  const sourceReadme = await readFile('/home/eliaspc/Documentos/lume-hub/source/README.md', 'utf8');
-  const packageJson = JSON.parse(await readFile('/home/eliaspc/Documentos/lume-hub/source/package.json', 'utf8'));
+  const rootReadme = await readFile('/home/eliaspc/Documentos/Git/lume-hub/README.md', 'utf8');
+  const sourceReadme = await readFile('/home/eliaspc/Documentos/Git/lume-hub/source/README.md', 'utf8');
+  const packageJson = JSON.parse(await readFile('/home/eliaspc/Documentos/Git/lume-hub/source/package.json', 'utf8'));
 
   assert.match(implementationWavesDoc, /A `Wave 51` ja fechou a limpeza final curta dessa ronda/u);
   assert.match(implementationWavesDoc, /### Wave 52 - Fundacao do modelo `group-first`/u);

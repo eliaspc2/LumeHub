@@ -286,22 +286,22 @@ await withLiveRuntime(async ({ baseUrl, groupJid, fetchMock }) => {
 });
 
 const implementationWavesDoc = await readFile(
-  '/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_implementation_waves.md',
+  '/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_implementation_waves.md',
   'utf8',
 );
 const gapAuditDoc = await readFile(
-  '/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_gap_audit.md',
+  '/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_gap_audit.md',
   'utf8',
 );
-const rootReadme = await readFile('/home/eliaspc/Documentos/lume-hub/README.md', 'utf8');
-const sourceReadme = await readFile('/home/eliaspc/Documentos/lume-hub/source/README.md', 'utf8');
-const packageJson = JSON.parse(await readFile('/home/eliaspc/Documentos/lume-hub/source/package.json', 'utf8'));
+const rootReadme = await readFile('/home/eliaspc/Documentos/Git/lume-hub/README.md', 'utf8');
+const sourceReadme = await readFile('/home/eliaspc/Documentos/Git/lume-hub/source/README.md', 'utf8');
+const packageJson = JSON.parse(await readFile('/home/eliaspc/Documentos/Git/lume-hub/source/package.json', 'utf8'));
 const appRouterSource = await readFile(
-  '/home/eliaspc/Documentos/lume-hub/source/apps/lume-hub-web/src/app/AppRouter.ts',
+  '/home/eliaspc/Documentos/Git/lume-hub/source/apps/lume-hub-web/src/app/AppRouter.ts',
   'utf8',
 );
 const appShellSource = await readFile(
-  '/home/eliaspc/Documentos/lume-hub/source/apps/lume-hub-web/src/shell/AppShell.ts',
+  '/home/eliaspc/Documentos/Git/lume-hub/source/apps/lume-hub-web/src/shell/AppShell.ts',
   'utf8',
 );
 
@@ -326,7 +326,7 @@ assert.equal(
 for (const wave of GROUP_FIRST_VALIDATOR_WAVES) {
   assert.equal(packageJson.scripts[`validate:wave${wave}`], undefined);
   assert.equal(
-    await fileExists(`/home/eliaspc/Documentos/lume-hub/source/scripts/validate-wave${wave}.mjs`),
+    await fileExists(`/home/eliaspc/Documentos/Git/lume-hub/source/scripts/validate-wave${wave}.mjs`),
     false,
   );
 }

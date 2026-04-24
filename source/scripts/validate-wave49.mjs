@@ -27,12 +27,12 @@ const LEGACY_SCHEDULES_SOURCE_FILE = '/home/eliaspc/Containers/wa-notify/data/sc
 const LEGACY_ALERTS_SOURCE_FILE = '/home/eliaspc/Containers/wa-notify/data/alerts.json';
 const LEGACY_AUTOMATIONS_SOURCE_FILE = '/home/eliaspc/Containers/wa-notify/data/automations.json';
 const OBSOLETE_VALIDATORS = [
-  '/home/eliaspc/Documentos/lume-hub/source/scripts/validate-wave43.mjs',
-  '/home/eliaspc/Documentos/lume-hub/source/scripts/validate-wave44.mjs',
-  '/home/eliaspc/Documentos/lume-hub/source/scripts/validate-wave45.mjs',
-  '/home/eliaspc/Documentos/lume-hub/source/scripts/validate-wave46.mjs',
-  '/home/eliaspc/Documentos/lume-hub/source/scripts/validate-wave47.mjs',
-  '/home/eliaspc/Documentos/lume-hub/source/scripts/validate-wave48.mjs',
+  '/home/eliaspc/Documentos/Git/lume-hub/source/scripts/validate-wave43.mjs',
+  '/home/eliaspc/Documentos/Git/lume-hub/source/scripts/validate-wave44.mjs',
+  '/home/eliaspc/Documentos/Git/lume-hub/source/scripts/validate-wave45.mjs',
+  '/home/eliaspc/Documentos/Git/lume-hub/source/scripts/validate-wave46.mjs',
+  '/home/eliaspc/Documentos/Git/lume-hub/source/scripts/validate-wave47.mjs',
+  '/home/eliaspc/Documentos/Git/lume-hub/source/scripts/validate-wave48.mjs',
 ];
 
 async function withLiveRuntime(run) {
@@ -221,25 +221,25 @@ await withLiveRuntime(async ({ baseUrl }) => {
   );
 
   const cutoverDoc = await readFile(
-    '/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_live_cutover_checklist.md',
+    '/home/eliaspc/Documentos/Git/lume-hub/docs/deployment/lume_hub_live_cutover_checklist.md',
     'utf8',
   );
   const shadowModeDoc = await readFile(
-    '/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md',
+    '/home/eliaspc/Documentos/Git/lume-hub/docs/deployment/lume_hub_shadow_mode_checklist.md',
     'utf8',
   );
   const implementationWavesDoc = await readFile(
-    '/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_implementation_waves.md',
+    '/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_implementation_waves.md',
     'utf8',
   );
   const gapAuditDoc = await readFile(
-    '/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_gap_audit.md',
+    '/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_gap_audit.md',
     'utf8',
   );
-  const rootReadme = await readFile('/home/eliaspc/Documentos/lume-hub/README.md', 'utf8');
-  const sourceReadme = await readFile('/home/eliaspc/Documentos/lume-hub/source/README.md', 'utf8');
+  const rootReadme = await readFile('/home/eliaspc/Documentos/Git/lume-hub/README.md', 'utf8');
+  const sourceReadme = await readFile('/home/eliaspc/Documentos/Git/lume-hub/source/README.md', 'utf8');
   const packageJson = JSON.parse(
-    await readFile('/home/eliaspc/Documentos/lume-hub/source/package.json', 'utf8'),
+    await readFile('/home/eliaspc/Documentos/Git/lume-hub/source/package.json', 'utf8'),
   );
 
   assert.match(cutoverDoc, /validate:wave49/u);

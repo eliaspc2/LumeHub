@@ -4,13 +4,13 @@ Ponto de entrada para qualquer agente/LLM que trabalhe neste novo projeto.
 
 ## Ordem de leitura obrigatoria
 
-1. `/home/eliaspc/Documentos/lume-hub/README.md`
-2. `/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_rewrite_master_prompt.md`
-3. `/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_modular_implementation_spec.md`
-4. `/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_implementation_waves.md`
-5. `/home/eliaspc/Documentos/lume-hub/docs/architecture/lume_hub_gap_audit.md`
-6. `/home/eliaspc/Documentos/lume-hub/docs/deployment/lume_hub_lxd_runtime_plan.md`
-7. `/home/eliaspc/Documentos/lume-hub/runtime/lxd/README.md`
+1. `/home/eliaspc/Documentos/Git/lume-hub/README.md`
+2. `/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_rewrite_master_prompt.md`
+3. `/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_modular_implementation_spec.md`
+4. `/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_implementation_waves.md`
+5. `/home/eliaspc/Documentos/Git/lume-hub/docs/architecture/lume_hub_gap_audit.md`
+6. `/home/eliaspc/Documentos/Git/lume-hub/docs/deployment/lume_hub_lxd_runtime_plan.md`
+7. `/home/eliaspc/Documentos/Git/lume-hub/runtime/lxd/README.md`
 
 ## Regras rapidas
 

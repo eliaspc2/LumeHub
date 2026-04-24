@@ -243,8 +243,8 @@ Trabalho ja reservado para a ronda seguinte:
 
 Estado atual:
 - os antigos stubs removidos na `Wave 17` foram substituidos por implementacoes reais:
-  - [message-alerts](/home/eliaspc/Documentos/lume-hub/source/packages/modules/message-alerts)
-  - [automations](/home/eliaspc/Documentos/lume-hub/source/packages/modules/automations)
+  - [message-alerts](/home/eliaspc/Documentos/Git/lume-hub/source/packages/modules/message-alerts)
+  - [automations](/home/eliaspc/Documentos/Git/lume-hub/source/packages/modules/automations)
 - a pagina `Configuracao` ja suporta preview/apply dos ficheiros legacy:
   - [alerts.json](/home/eliaspc/Containers/wa-notify/data/alerts.json)
   - [automations.json](/home/eliaspc/Containers/wa-notify/data/automations.json)
