@@ -8143,8 +8143,7 @@ export class AppShell {
         return;
       }
 
-      const settingsPage = this.readSettingsPageData();
-      const account = settingsPage?.data.settings.authRouterStatus?.accounts.find((entry) => entry.accountId === accountId) ?? null;
+      const account = page.data.settings.authRouterStatus?.accounts.find((entry) => entry.accountId === accountId) ?? null;
       const accountLabel = account?.label ?? accountId;
 
       this.state = {
@@ -8307,8 +8306,7 @@ export class AppShell {
         return;
       }
 
-      const settingsPage = this.readSettingsPageData();
-      const authRouterStatus = settingsPage?.data.settings.authRouterStatus;
+      const authRouterStatus = page.data.settings.authRouterStatus;
       const account = authRouterStatus?.accounts.find((entry) => entry.accountId === accountId) ?? null;
       const nextLabel = account ? readCodexRouterRenameLabel(this.state.codexRouterRenameDraft, account).trim() : '';
 
