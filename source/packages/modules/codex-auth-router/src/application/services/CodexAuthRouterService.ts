@@ -300,6 +300,21 @@ export class CodexAuthRouterService {
     return this.getStatus();
   }
 
+  async refreshAccountQuota(accountId: string): Promise<CodexAuthRouterStatus> {
+    const targetAccountId = accountId.trim();
+
+    if (!targetAccountId) {
+      throw new Error('Codex auth router quota refresh requires accountId.');
+    }
+
+    const state = await this.repository.readState();
+    const accounts = await this.repository.listAccounts(state);
+    const targetAccount = accounts.find((account) => account.accountId === targetAccountId) ?? failMissingRefreshAccount(targetAccountId);
+
+    await this.quotaService.refreshAccount(targetAccount);
+    return this.getStatus();
+  }
+
   private async readAccountsWithQuotas(state: CodexAuthRouterState, now: Date = new Date()): Promise<readonly CodexAccount[]> {
     const accounts = await this.repository.listAccounts(state);
     return this.quotaService.enrichAccounts(accounts, now);
@@ -489,6 +504,10 @@ function failNoAccount(preferredAccountId: string | null): never {
 
 function failMissingAccount(accountId: string): never {
   throw new Error(`Codex auth router could not force switch because account '${accountId}' is unavailable.`);
+}
+
+function failMissingRefreshAccount(accountId: string): never {
+  throw new Error(`Codex auth router could not refresh quota because account '${accountId}' is unavailable.`);
 }
 
 function failNoCurrentSelection(): never {

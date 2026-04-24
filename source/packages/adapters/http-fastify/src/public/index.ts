@@ -116,7 +116,14 @@ export interface HttpApiModules {
   };
   readonly codexAuthRouter?: Pick<
     CodexAuthRouterModuleContract,
-    'prepareAuthForRequest' | 'forceSwitch' | 'importAccount' | 'renameAccount' | 'setEnabled' | 'getStatus' | 'refreshStatus'
+    | 'prepareAuthForRequest'
+    | 'forceSwitch'
+    | 'importAccount'
+    | 'renameAccount'
+    | 'setEnabled'
+    | 'getStatus'
+    | 'refreshStatus'
+    | 'refreshAccountQuota'
   >;
   readonly groupDirectory: Pick<
     GroupDirectoryModuleContract,
@@ -1496,6 +1503,22 @@ export class RouteRegistrar {
         this.publish('settings.codex_auth_router.updated', {
           status,
           refreshed: true,
+        });
+        return status;
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/settings/codex-auth-router/accounts/:accountId/refresh-quota',
+      handler: async (context) => {
+        if (!this.modules.codexAuthRouter) {
+          throw new ApiError(404, 'Codex auth router is not configured.');
+        }
+
+        const status = await this.modules.codexAuthRouter.refreshAccountQuota(context.params.accountId);
+        this.publish('settings.codex_auth_router.updated', {
+          status,
+          refreshedAccountId: context.params.accountId,
         });
         return status;
       },

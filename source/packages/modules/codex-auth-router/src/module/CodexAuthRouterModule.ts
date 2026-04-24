@@ -109,6 +109,10 @@ export class CodexAuthRouterModule extends BaseModule implements CodexAuthRouter
     return this.service.refreshStatus();
   }
 
+  async refreshAccountQuota(accountId: string) {
+    return this.service.refreshAccountQuota(accountId);
+  }
+
   async health() {
     const status = await this.service.getStatus();
 

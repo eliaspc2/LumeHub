@@ -23,4 +23,5 @@ export interface CodexAuthRouterModuleContract {
   setEnabled(enabled: boolean): Promise<import('../../domain/entities/CodexAuthRouter.js').CodexAuthRouterStatus>;
   getStatus(): Promise<import('../../domain/entities/CodexAuthRouter.js').CodexAuthRouterStatus>;
   refreshStatus(): Promise<import('../../domain/entities/CodexAuthRouter.js').CodexAuthRouterStatus>;
+  refreshAccountQuota(accountId: string): Promise<import('../../domain/entities/CodexAuthRouter.js').CodexAuthRouterStatus>;
 }

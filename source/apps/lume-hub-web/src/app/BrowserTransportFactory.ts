@@ -634,6 +634,28 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       return this.ok(status);
     }
 
+    if (request.method === 'POST' && /^\/api\/settings\/codex-auth-router\/accounts\/[^/]+\/refresh-quota$/u.test(pathname)) {
+      const match = pathname.match(/^\/api\/settings\/codex-auth-router\/accounts\/([^/]+)\/refresh-quota$/u);
+      const accountId = match?.[1] ? decodeURIComponent(match[1]) : '';
+
+      if (!accountId) {
+        return this.error(400, 'Demo codex auth router quota refresh requires accountId.');
+      }
+
+      const status = refreshDemoCodexAuthAccountQuota(this.state, accountId);
+
+      if (!status) {
+        return this.error(404, `Demo codex auth account ${accountId} not found.`);
+      }
+
+      this.emit('settings.codex_auth_router.updated', {
+        mode: 'demo',
+        refreshedAccountId: accountId,
+        status,
+      });
+      return this.ok(status);
+    }
+
     if (request.method === 'POST' && pathname === '/api/settings/codex-auth-router/switch') {
       const body = request.body as { readonly accountId?: string };
       const accountId = typeof body?.accountId === 'string' ? body.accountId : '';
@@ -4167,6 +4189,69 @@ function forceDemoCodexAuthRouterSwitch(
     reason: 'demo_manual_force_switch',
     event: 'force_switch',
   });
+}
+
+function refreshDemoCodexAuthAccountQuota(
+  state: DemoState,
+  accountId: string,
+): NonNullable<SettingsSnapshot['authRouterStatus']> | null {
+  const status = state.settings.authRouterStatus ?? failMissingDemoAuthRouter();
+  const nowIso = new Date().toISOString();
+  let refreshed = false;
+  const accounts = status.accounts.map((account) => {
+    if (account.accountId !== accountId) {
+      return account;
+    }
+
+    refreshed = true;
+    return {
+      ...account,
+      quota: account.quota
+        ? {
+            ...account.quota,
+            checkedAt: nowIso,
+            fetchError: null,
+          }
+        : {
+            checkedAt: nowIso,
+            allowed: true,
+            limitReached: false,
+            planType: 'plus',
+            credits: {
+              hasCredits: false,
+              unlimited: false,
+              balance: null,
+              approxLocalMessages: [],
+              approxCloudMessages: [],
+            },
+            primaryWindow: {
+              windowSeconds: 18_000,
+              usedPercent: 0,
+              remainingPercent: 100,
+              resetAfterSeconds: null,
+              resetAt: null,
+            },
+            secondaryWindow: null,
+            fetchError: null,
+          },
+    };
+  });
+
+  if (!refreshed) {
+    return null;
+  }
+
+  const nextStatus: NonNullable<SettingsSnapshot['authRouterStatus']> = {
+    ...status,
+    accounts,
+  };
+
+  state.settings = {
+    ...state.settings,
+    authRouterStatus: nextStatus,
+  };
+
+  return nextStatus;
 }
 
 function importDemoCodexAuthAccount(

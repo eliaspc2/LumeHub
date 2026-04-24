@@ -217,6 +217,10 @@ interface CodexRouterRenameDraft {
   readonly savingAccountId: string | null;
 }
 
+interface CodexRouterQuotaRefreshDraft {
+  readonly refreshingAccountId: string | null;
+}
+
 interface AssistantRailMessage {
   readonly messageId: string;
   readonly role: 'user' | 'assistant' | 'system' | 'error';
@@ -257,6 +261,7 @@ interface AppShellState {
   readonly legacyAutomationMigrationDraft: LegacyAutomationMigrationDraft;
   readonly codexRouterImportDraft: CodexRouterImportDraft;
   readonly codexRouterRenameDraft: CodexRouterRenameDraft;
+  readonly codexRouterQuotaRefreshDraft: CodexRouterQuotaRefreshDraft;
   readonly assistantRailChat: AssistantRailChatState;
   readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
   readonly whatsappQrPreviewVisible: boolean;
@@ -406,6 +411,7 @@ export class AppShell {
       legacyAutomationMigrationDraft: createEmptyLegacyAutomationMigrationDraft(),
       codexRouterImportDraft: createEmptyCodexRouterImportDraft(),
       codexRouterRenameDraft: createEmptyCodexRouterRenameDraft(),
+      codexRouterQuotaRefreshDraft: createEmptyCodexRouterQuotaRefreshDraft(),
       assistantRailChat: createInitialAssistantRailChatState(),
       whatsappRepairFocus: 'auth',
       whatsappQrPreviewVisible: false,
@@ -5578,6 +5584,8 @@ export class AppShell {
                           const renameBusy = this.state.codexRouterRenameDraft.savingAccountId === account.accountId;
                           const renameSupported = account.kind === 'secondary';
                           const renameChanged = renameLabel.trim() !== account.label;
+                          const quotaRefreshBusy =
+                            this.state.codexRouterQuotaRefreshDraft.refreshingAccountId === account.accountId;
 
                           return `
                           <article class="codex-router-account-card">
@@ -5606,6 +5614,15 @@ export class AppShell {
                                 disabled: !authRouterStatus.enabled || !account.exists || isActive,
                                 dataAttributes: {
                                   'settings-action': 'switch-codex-account',
+                                  'codex-account-id': account.accountId,
+                                },
+                              })}
+                              ${renderUiActionButton({
+                                label: quotaRefreshBusy ? 'A reler limites...' : 'Reler limites',
+                                variant: 'secondary',
+                                disabled: quotaRefreshBusy || !account.exists,
+                                dataAttributes: {
+                                  'settings-action': 'refresh-codex-account-quota',
                                   'codex-account-id': account.accountId,
                                 },
                               })}
@@ -8108,6 +8125,60 @@ export class AppShell {
         const message = `Nao foi possivel atualizar a troca automatica de tokens do Codex. ${readErrorMessage(error)}`;
         this.state = {
           ...this.state,
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
+    if (action === 'refresh-codex-account-quota') {
+      const accountId = dataset.codexAccountId?.trim() ?? '';
+
+      if (!accountId) {
+        return;
+      }
+
+      const settingsPage = this.readSettingsPageData();
+      const account = settingsPage?.data.settings.authRouterStatus?.accounts.find((entry) => entry.accountId === accountId) ?? null;
+      const accountLabel = account?.label ?? accountId;
+
+      this.state = {
+        ...this.state,
+        codexRouterQuotaRefreshDraft: {
+          refreshingAccountId: accountId,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: `A reler os limites de ${accountLabel} diretamente pelo backup deste token.`,
+        },
+      };
+      this.render();
+
+      try {
+        const status = await this.currentClient().refreshCodexAuthAccountQuota(accountId);
+        const refreshedAccount = status.accounts.find((entry) => entry.accountId === accountId) ?? null;
+        this.state = {
+          ...this.state,
+          codexRouterQuotaRefreshDraft: createEmptyCodexRouterQuotaRefreshDraft(),
+          flowFeedback: {
+            tone: refreshedAccount?.quota?.fetchError ? 'warning' : 'positive',
+            message: refreshedAccount?.quota?.fetchError
+              ? `Limites relidos, mas o provider devolveu aviso: ${refreshedAccount.quota.fetchError}`
+              : `Limites de ${refreshedAccount?.label ?? accountLabel} relidos a partir do backup.`,
+          },
+        };
+        this.recordUxEvent('positive', `Codex router releu limites de ${accountId} a partir do backup.`);
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel reler os limites deste token. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          codexRouterQuotaRefreshDraft: createEmptyCodexRouterQuotaRefreshDraft(),
           flowFeedback: {
             tone: 'danger',
             message,
@@ -11358,6 +11429,12 @@ function createEmptyCodexRouterRenameDraft(): CodexRouterRenameDraft {
   return {
     labels: {},
     savingAccountId: null,
+  };
+}
+
+function createEmptyCodexRouterQuotaRefreshDraft(): CodexRouterQuotaRefreshDraft {
+  return {
+    refreshingAccountId: null,
   };
 }
 

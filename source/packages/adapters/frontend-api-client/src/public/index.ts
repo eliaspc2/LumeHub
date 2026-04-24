@@ -1290,6 +1290,15 @@ export class FrontendApiClient {
     );
   }
 
+  async refreshCodexAuthAccountQuota(accountId: string): Promise<CodexAuthRouterStatus> {
+    return this.expectOk(
+      await this.transport.request<CodexAuthRouterStatus>({
+        method: 'POST',
+        path: `/api/settings/codex-auth-router/accounts/${encodeURIComponent(accountId)}/refresh-quota`,
+      }),
+    );
+  }
+
   async forceCodexAuthSwitch(accountId: string): Promise<CodexAuthRouterStatus> {
     return this.expectOk(
       await this.transport.request<CodexAuthRouterStatus>({

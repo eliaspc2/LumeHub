@@ -92,6 +92,26 @@ export class CodexAccountQuotaService {
     this.cache.clear();
   }
 
+  clearAccountCache(account: Pick<CodexAccount, 'sourceFilePath' | 'contentHash'>): void {
+    if (account.contentHash) {
+      this.cache.delete(buildCacheKey(account.sourceFilePath, account.contentHash));
+      return;
+    }
+
+    const cachePrefix = `${account.sourceFilePath}:`;
+
+    for (const cacheKey of this.cache.keys()) {
+      if (cacheKey.startsWith(cachePrefix)) {
+        this.cache.delete(cacheKey);
+      }
+    }
+  }
+
+  async refreshAccount(account: CodexAccount, now: Date = new Date()): Promise<CodexQuotaSnapshot> {
+    this.clearAccountCache(account);
+    return this.readQuota(account, now);
+  }
+
   async readQuota(account: CodexAccount, now: Date = new Date()): Promise<CodexQuotaSnapshot> {
     if (!this.enabled) {
       return buildUnavailableQuota(now, 'Leitura de limites desativada neste runtime.');
@@ -101,7 +121,7 @@ export class CodexAccountQuotaService {
       return buildUnavailableQuota(now, 'Ficheiro OAuth em falta.');
     }
 
-    const cacheKey = `${account.sourceFilePath}:${account.contentHash ?? 'missing'}`;
+    const cacheKey = buildCacheKey(account.sourceFilePath, account.contentHash);
     const cached = this.cache.get(cacheKey);
 
     if (cached && cached.expiresAt > now.getTime()) {
@@ -318,6 +338,10 @@ function normaliseCacheTtlMs(value: number | undefined): number {
   }
 
   return Math.max(10_000, Math.min(10 * 60_000, Math.trunc(value as number)));
+}
+
+function buildCacheKey(sourceFilePath: string, contentHash: string | null): string {
+  return `${sourceFilePath}:${contentHash ?? 'missing'}`;
 }
 
 function readGlobalFetch(): FetchLike | null {
