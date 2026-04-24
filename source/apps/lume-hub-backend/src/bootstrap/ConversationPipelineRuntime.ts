@@ -377,7 +377,19 @@ function sameJid(left: string | null | undefined, right: string | null | undefin
 
 function normaliseJid(value: string | null | undefined): string | null {
   const trimmed = value?.trim();
-  return trimmed ? trimmed : null;
+  if (!trimmed) {
+    return null;
+  }
+
+  const separatorIndex = trimmed.indexOf('@');
+  if (separatorIndex < 0) {
+    return trimmed;
+  }
+
+  const userPart = trimmed.slice(0, separatorIndex).replace(/:\d+$/u, '');
+  const domainPart = trimmed.slice(separatorIndex + 1).toLowerCase();
+
+  return `${userPart}@${domainPart}`;
 }
 
 function toErrorMessage(error: unknown): string {

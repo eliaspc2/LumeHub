@@ -45,6 +45,7 @@ import { BackendRuntimeStateRepository } from './BackendRuntimeStateRepository.j
 import {
   resolveBackendRuntimePaths,
   resolveCodexAuthSources,
+  resolveConversationMaxInboundAgeMs,
   type BackendRuntimeConfig,
   type BackendRuntimePaths,
 } from './BackendRuntimeConfig.js';
@@ -512,6 +513,7 @@ export class ModuleLoader {
       conversation: conversationModule,
       outboundSignalSource: whatsAppWorkspaceRuntime.gateway,
       replyDeliveryRepository: conversationReplyDeliveryRepository,
+      maxInboundAgeMs: resolveConversationMaxInboundAgeMs(this.config),
       uiEventPublisher: webSocketGateway.publisher,
     });
 

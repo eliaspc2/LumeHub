@@ -173,7 +173,7 @@ test('conversation pipeline matches WA-notify group gating: tag or reply to bot,
       async getRuntimeSnapshot() {
         return {
           session: {
-            selfJid: '351910000099@s.whatsapp.net',
+            selfJid: '351910000099:15@s.whatsapp.net',
           },
         };
       },

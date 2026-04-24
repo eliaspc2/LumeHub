@@ -51,6 +51,7 @@ export interface BackendRuntimeConfig {
   readonly whatsappAutoConnect?: boolean;
   readonly whatsappSocketFactory?: BaileysSocketFactory;
   readonly whatsappVersionResolver?: BaileysVersionResolver;
+  readonly conversationMaxInboundAgeMs?: number;
   readonly llmFetch?: typeof fetch;
   readonly llmCodexClientVersion?: string;
   readonly openAiCompatBaseUrl?: string;
@@ -269,6 +270,10 @@ export function resolveCodexAuthSources(
   return configuredSources ?? readCodexAuthSourcesFromEnv(process.env.LUME_HUB_CODEX_AUTH_SOURCES);
 }
 
+export function resolveConversationMaxInboundAgeMs(config: BackendRuntimeConfig = {}): number | undefined {
+  return config.conversationMaxInboundAgeMs ?? readPositiveIntegerFromEnv(process.env.LUME_HUB_CONVERSATION_MAX_INBOUND_AGE_MS);
+}
+
 export function resolveProjectRoot(rootPath = process.cwd()): string {
   return rootPath.endsWith('/source') ? dirname(rootPath) : rootPath;
 }
@@ -286,6 +291,20 @@ function readPortFromEnv(rawValue: string | undefined): number | undefined {
   const value = Number(rawValue);
 
   if (!Number.isInteger(value) || value <= 0 || value > 65_535) {
+    return undefined;
+  }
+
+  return value;
+}
+
+function readPositiveIntegerFromEnv(rawValue: string | undefined): number | undefined {
+  if (!rawValue) {
+    return undefined;
+  }
+
+  const value = Number(rawValue);
+
+  if (!Number.isInteger(value) || value <= 0) {
     return undefined;
   }
 

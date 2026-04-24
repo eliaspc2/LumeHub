@@ -141,6 +141,7 @@ export LUME_HUB_CONFIG_DIR="\${LUME_HUB_CONFIG_DIR:-$LUME_HUB_DATA_DIR/config}"
 export LUME_HUB_RUNTIME_DIR="\${LUME_HUB_RUNTIME_DIR:-$LUME_HUB_DATA_DIR/runtime}"
 export LUME_HUB_LOG_DIR="\${LUME_HUB_LOG_DIR:-/srv/lume-hub/logs}"
 export LUME_HUB_WEB_DIST_ROOT="\${LUME_HUB_WEB_DIST_ROOT:-$APP_ROOT/apps/lume-hub-web/dist}"
+export LUME_HUB_CONVERSATION_MAX_INBOUND_AGE_MS="\${LUME_HUB_CONVERSATION_MAX_INBOUND_AGE_MS:-86400000}"
 if [[ -x /opt/node-v20-current/bin/node ]]; then
   NODE_BIN="/opt/node-v20-current/bin/node"
 else
@@ -166,6 +167,7 @@ exec "$NODE_BIN" "$APP_ROOT/dist/apps/lume-hub-backend/src/main.js"
       'Environment=CODEX_AUTH_FILE=/codex/auth.json',
       'Environment=LUME_HUB_DATA_DIR=/srv/lume-hub/data',
       'Environment=LUME_HUB_LOG_DIR=/srv/lume-hub/logs',
+      'Environment=LUME_HUB_CONVERSATION_MAX_INBOUND_AGE_MS=86400000',
       'ExecStart=/srv/lume-hub/app/current/bin/lume-hub-backend',
       'Restart=always',
       'RestartSec=5',
