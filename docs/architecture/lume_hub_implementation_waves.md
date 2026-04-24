@@ -15,35 +15,9 @@ Regra editorial:
 
 Ronda ativa: `ui-ux-commercial-polish`.
 
-A `Wave 75` fechou a separacao entre catalogo de grupos, workspace detalhado do grupo e resumo humano do WhatsApp.
+A `Wave 76` fechou `Hoje`, `Calendario` e `LLM` com leitura de resumo primeiro.
 
 Waves ainda por executar:
-
-### Wave 76 - Hoje, Calendario e LLM com resumo primeiro
-
-Objetivo:
-- tornar as paginas de operacao diaria mais rapidas de perceber
-- esconder ruido tecnico ate ser necessario
-- reduzir chips/contadores vazios
-- alinhar `Calendario` com um calendario mensal real, em vez de parecer apenas uma vista semanal tecnica
-
-Scope:
-- `/today`
-- `/week`
-- `/assistant`
-
-Obrigatorio:
-- `Hoje` deve responder em poucos segundos: estado, risco, proximo passo
-- `Calendario` deve mostrar um calendario mensal real como leitura base
-- a semana passa a ser zoom operacional, filtro ou detalhe do mes, nao a unica vista canonica da UI
-- `Calendario` deve esconder estados a zero por defeito
-- `LLM` deve separar melhor pergunta segura de alteracao real de agenda
-- copy deve continuar pensada para utilizador pouco tecnico
-
-Validacao:
-- criar `validate:wave76`
-- validar rotas desktop/mobile
-- verificar input da LLM a escrever varios caracteres sem perder foco
 
 ### Wave 77 - LumeHub, Codex Router e rotas tecnicas por papel
 
@@ -92,7 +66,7 @@ Obrigatorio:
 A validacao consolidada atual e:
 
 - `cd /home/eliaspc/Documentos/Git/lume-hub/source`
-- `corepack pnpm run validate:wave75`
+- `corepack pnpm run validate:wave76`
 
 ## Ronda seguinte reservada
 

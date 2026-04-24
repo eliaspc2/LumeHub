@@ -360,6 +360,17 @@ interface WeekCalendarDayView {
   readonly isToday: boolean;
 }
 
+interface MonthCalendarDayView {
+  readonly localDate: string;
+  readonly dayOfMonth: string;
+  readonly weekdayShortLabel: string;
+  readonly inFocusMonth: boolean;
+  readonly isToday: boolean;
+  readonly isFocusWeek: boolean;
+  readonly events: readonly WeekPlannerSnapshot['events'][number][];
+  readonly notifications: WeekCalendarDayView['notifications'];
+}
+
 export class AppShell {
   private root: HTMLElement | null = null;
   private readonly bootstraps = new Map<FrontendTransportMode, WebAppBootstrap>();
@@ -1192,6 +1203,36 @@ export class AppShell {
     const snapshot = page.data;
     const liveEvents = this.state.liveEvents.slice(0, 5);
     const readyTone = snapshot.readiness.ready ? 'positive' : 'warning';
+    const riskSummary =
+      snapshot.watchdog.openIssues > 0
+        ? {
+            label: 'Risco com acao',
+            tone: 'warning' as const,
+            text: `${snapshot.watchdog.openIssues} problema(s) confirmado(s). Comeca por esses antes de preparar novos envios.`,
+          }
+        : snapshot.whatsapp.phase !== 'open'
+          ? {
+              label: 'Risco no WhatsApp',
+              tone: 'warning' as const,
+              text: 'A ligacao WhatsApp nao esta aberta. Sem isso, respostas e avisos podem nao sair.',
+            }
+          : snapshot.distributions.failed + snapshot.distributions.partialFailed > 0
+            ? {
+                label: 'Risco em envios',
+                tone: 'warning' as const,
+                text: `${snapshot.distributions.failed + snapshot.distributions.partialFailed} envio(s) precisam de revisao antes de continuar.`,
+              }
+            : snapshot.distributions.running + snapshot.distributions.queued > 0
+              ? {
+                  label: 'A acompanhar',
+                  tone: 'neutral' as const,
+                  text: 'Ha envios em curso ou em fila. Mantem o radar aberto ate fecharem.',
+                }
+              : {
+                  label: 'Baixo risco',
+                  tone: 'positive' as const,
+                  text: 'Sem problemas confirmados, WhatsApp ligado e sem fila operacional critica.',
+                };
     const nextStep =
       snapshot.watchdog.openIssues > 0
         ? 'Comeca pelos problemas que o sistema encontrou e confirmou.'
@@ -1205,7 +1246,7 @@ export class AppShell {
       <section class="surface hero surface--strong">
         <div>
           <p class="eyebrow">Entrada principal</p>
-          <h2>Ves em poucos segundos se esta tudo bem e o que fazer a seguir.</h2>
+          <h2>Resumo primeiro: estado, risco e proximo passo sem procurar no resto da pagina.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({ label: 'Ver agenda', href: '/week', dataAttributes: { route: '/week' } })}
@@ -1213,21 +1254,23 @@ export class AppShell {
             ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', variant: 'secondary', dataAttributes: { route: '/groups' } })}
           </div>
         </div>
-        <div class="hero-panel">
-          ${renderUiPanelCard({
-            title: 'Pronto para operar',
-            badgeLabel: snapshot.readiness.ready ? 'Pronto' : 'Rever',
-            badgeTone: readyTone,
-            contentHtml: `<p>${escapeHtml(
+        <div class="hero-panel status-list">
+          <article class="status-item status-item--${readyTone}">
+            <strong>Estado: ${escapeHtml(snapshot.readiness.ready ? 'pronto para operar' : 'precisa de revisao')}</strong>
+            <p>${escapeHtml(
               snapshot.readiness.ready
-                ? 'O sistema parece utilizavel e a ligacao local responde bem.'
-                : 'Ainda ha sinais a rever antes de confiares plenamente na operacao.',
-            )}</p>`,
-          })}
-          ${renderUiPanelCard({
-            title: 'Proximo passo recomendado',
-            contentHtml: `<p>${escapeHtml(nextStep)}</p>`,
-          })}
+                ? 'O sistema responde e pode ser usado no dia a dia.'
+                : 'Ha sinais a rever antes de confiar plenamente na operacao.',
+            )}</p>
+          </article>
+          <article class="status-item status-item--${riskSummary.tone}">
+            <strong>Risco: ${escapeHtml(riskSummary.label)}</strong>
+            <p>${escapeHtml(riskSummary.text)}</p>
+          </article>
+          <article class="status-item">
+            <strong>Proximo passo</strong>
+            <p>${escapeHtml(nextStep)}</p>
+          </article>
         </div>
       </section>
 
@@ -1325,6 +1368,9 @@ export class AppShell {
     const editingEvent = page.data.events.find((event) => event.eventId === draft.eventId) ?? null;
     const groupsByJid = new Map(groups.map((group) => [group.groupJid, group]));
     const weekDays = buildWeekCalendarDays(page.data);
+    const monthDays = buildMonthCalendarDays(page.data);
+    const monthLabel = formatCalendarMonthLabel(monthDays.find((day) => day.inFocusMonth)?.localDate ?? weekDays[0]?.localDate ?? '');
+    const monthActiveDays = monthDays.filter((day) => day.inFocusMonth && day.events.length > 0).length;
     const occupiedDays = weekDays.filter((day) => day.events.length > 0).length;
     const busiestDay = weekDays.reduce<WeekCalendarDayView | null>(
       (best, day) => (!best || day.events.length > best.events.length ? day : best),
@@ -1398,7 +1444,7 @@ export class AppShell {
       <section class="surface hero surface--strong">
         <div>
           <p class="eyebrow">Calendario operacional</p>
-          <h2>Primeiro ves a semana em resumo. A grelha completa fica abaixo so para quando precisares de detalhe.</h2>
+          <h2>Primeiro ves o mes. A semana fica como zoom operacional quando precisares de detalhe.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
@@ -1415,16 +1461,16 @@ export class AppShell {
         </div>
         <div class="hero-panel">
           ${renderUiPanelCard({
-            title: 'Semana em foco',
+            title: 'Mes em foco',
             badgeLabel: `${schedulableGroups.length} grupo(s) com agenda`,
             badgeTone: 'neutral',
             contentHtml: `<p>${escapeHtml(
-              `${page.data.focusWeekRangeLabel}. Timezone ${page.data.timezone}. ${distributionGroups.length} grupo(s) desta ronda seguem apenas em distribuicao.`,
+              `${monthLabel}. A semana ${page.data.focusWeekLabel} aparece destacada dentro do mes. ${distributionGroups.length} grupo(s) seguem apenas em distribuicao.`,
             )}</p>`,
           })}
           ${renderUiPanelCard({
             title: 'Proximo passo',
-            badgeLabel: occupiedDays > 0 ? `${occupiedDays} dia(s) com agenda` : 'Semana vazia',
+            badgeLabel: monthActiveDays > 0 ? `${monthActiveDays} dia(s) com agenda` : 'Mes vazio',
             badgeTone: page.data.diagnostics.eventCount > 0 ? 'positive' : 'neutral',
             contentHtml: `<p>${escapeHtml(
               `${weekHeadline} ${
@@ -1435,6 +1481,65 @@ export class AppShell {
             )}</p>`,
           })}
         </div>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-12">
+          <div class="card-header">
+            <div>
+              <h3>Calendario mensal</h3>
+              <p class="week-section-note">Esta e a leitura base. A semana destacada e so o zoom onde os eventos podem ser editados agora.</p>
+            </div>
+            ${renderUiBadge({
+              label: monthActiveDays > 0 ? `${monthActiveDays} dia(s) com eventos` : 'Sem eventos no mes',
+              tone: monthActiveDays > 0 ? 'positive' : 'neutral',
+            })}
+          </div>
+          <div class="month-calendar" data-month-calendar>
+            ${WEEK_DAY_OPTIONS.map((option) => `<div class="month-calendar__weekday">${escapeHtml(option.shortLabel)}</div>`).join('')}
+            ${monthDays
+              .map(
+                (day) => `
+                  <section class="month-calendar__day${day.inFocusMonth ? '' : ' month-calendar__day--outside'}${day.isToday ? ' month-calendar__day--today' : ''}${day.isFocusWeek ? ' month-calendar__day--focus-week' : ''}" data-month-day="${escapeHtml(day.localDate)}">
+                    <div class="month-calendar__day-header">
+                      <strong>${escapeHtml(day.dayOfMonth)}</strong>
+                      <span>${escapeHtml(day.weekdayShortLabel)}</span>
+                    </div>
+                    ${
+                      day.events.length > 0
+                        ? `
+                          <div class="month-calendar__events">
+                            ${day.events
+                              .slice(0, 3)
+                              .map(
+                                (event) => `
+                                  <button class="month-calendar__event" type="button" data-flow-action="schedule-load-event" data-flow-value="${escapeHtml(event.eventId)}">
+                                    <strong>${escapeHtml(event.startTime)}</strong>
+                                    <span>${escapeHtml(event.title)}</span>
+                                  </button>
+                                `,
+                              )
+                              .join('')}
+                            ${
+                              day.events.length > 3
+                                ? `<p class="detail-line">+${day.events.length - 3} evento(s) no dia.</p>`
+                                : ''
+                            }
+                          </div>
+                          <div class="month-calendar__badges">
+                            ${renderWeekNotificationBadges(day.notifications, { includeQuietState: false })}
+                          </div>
+                        `
+                        : day.inFocusMonth
+                          ? '<p class="month-calendar__quiet">Sem evento</p>'
+                          : ''
+                    }
+                  </section>
+                `,
+              )
+              .join('')}
+          </div>
+        </article>
       </section>
 
       <section class="content-grid">
@@ -1868,21 +1973,7 @@ export class AppShell {
                         })}
                       </div>
                       <div class="week-calendar__day-meta">
-                        ${renderUiBadge({
-                          label: `Por enviar ${day.notifications.pendingNotifications}`,
-                          tone: day.notifications.pendingNotifications > 0 ? 'neutral' : 'positive',
-                          style: 'chip',
-                        })}
-                        ${renderUiBadge({
-                          label: `A confirmar ${day.notifications.waitingConfirmationNotifications}`,
-                          tone: day.notifications.waitingConfirmationNotifications > 0 ? 'warning' : 'neutral',
-                          style: 'chip',
-                        })}
-                        ${renderUiBadge({
-                          label: `Fechados ${day.notifications.sentNotifications}`,
-                          tone: day.notifications.sentNotifications > 0 ? 'positive' : 'neutral',
-                          style: 'chip',
-                        })}
+                        ${renderWeekNotificationBadges(day.notifications)}
                       </div>
                       <div class="action-row week-calendar__day-actions">
                         ${renderUiActionButton({
@@ -2117,7 +2208,7 @@ export class AppShell {
       <section class="surface hero surface--strong llm-hero">
         <div class="llm-hero__copy">
           <p class="eyebrow">Assistente LLM</p>
-          <h2>Pergunta aqui sem sair da pagina. A parte da agenda so abre quando quiseres preparar uma mudanca real.</h2>
+          <h2>Comeca por uma pergunta segura. A agenda real fica separada e so muda com preview.</h2>
           <p>${escapeHtml(page.description)}</p>
           <div class="action-row">
             ${renderUiActionButton({
@@ -2135,16 +2226,16 @@ export class AppShell {
           </div>
         </div>
         <div class="hero-panel status-list">
-          <article class="status-item">
-            <strong>Como responde agora</strong>
+          <article class="status-item status-item--positive">
+            <strong>Pergunta segura</strong>
             <p>${escapeHtml(chatScopeSummary)}</p>
           </article>
-          <article class="status-item">
-            <strong>Se so queres perguntar</strong>
-            <p>Escreve no chat abaixo e le a resposta aqui. Nada segue para o WhatsApp.</p>
+          <article class="status-item status-item--neutral">
+            <strong>Nao envia nem mexe na agenda</strong>
+            <p>O chat abaixo responde nesta pagina. Nao manda WhatsApp e nao aplica alteracoes.</p>
           </article>
           <article class="status-item status-item--${actionStatusTone}">
-            <strong>${escapeHtml(actionStatusLabel)}</strong>
+            <strong>Agenda real: ${escapeHtml(actionStatusLabel)}</strong>
             <p>${escapeHtml(actionStatusSummary)}</p>
           </article>
           <details class="ui-details">
@@ -2165,8 +2256,8 @@ export class AppShell {
         <article class="surface content-card span-12 llm-chat-workbench">
           <div class="card-header">
             <div>
-              <h3>Perguntar sem sair da pagina</h3>
-              <p>Usa o chat para pensar em global ou com contexto de um grupo. A resposta fica sempre aqui na interface.</p>
+              <h3>Pergunta segura: nao envia nada</h3>
+              <p>Usa o chat para pensar em global ou com contexto de um grupo. A resposta fica sempre aqui e nao altera a agenda.</p>
             </div>
             ${renderUiBadge({
               label: this.state.assistantRailChat.sending ? 'A responder' : `Contexto ${chatContextLabel}`,
@@ -2268,8 +2359,8 @@ export class AppShell {
             <div class="ui-details__content llm-disclosure__content">
               <div class="card-header">
                 <div>
-                  <h3>Mudar a agenda com a LLM</h3>
-                  <p>So abres este bloco quando queres uma alteracao real. Primeiro ves o preview. So depois decides se aplicas.</p>
+                  <h3>Alterar agenda: preview obrigatorio</h3>
+                  <p>Este bloco e o unico sitio onde a LLM prepara uma mudanca real. Primeiro ves o preview. So depois decides se aplicas.</p>
                 </div>
                 ${renderUiBadge({
                   label: previewStatusLabel,
@@ -11572,6 +11663,65 @@ function describeWeekNotificationMix(input: {
   return segments.length > 0 ? segments.join(', ') : 'Sem lembretes abertos nesta leitura.';
 }
 
+function renderWeekNotificationBadges(
+  input: WeekCalendarDayView['notifications'],
+  options: { readonly includeQuietState?: boolean } = {},
+): string {
+  const badges: string[] = [];
+
+  if (input.pendingNotifications > 0) {
+    badges.push(renderUiBadge({ label: `Por enviar ${input.pendingNotifications}`, tone: 'neutral', style: 'chip' }));
+  }
+
+  if (input.waitingConfirmationNotifications > 0) {
+    badges.push(renderUiBadge({ label: `A confirmar ${input.waitingConfirmationNotifications}`, tone: 'warning', style: 'chip' }));
+  }
+
+  if (input.sentNotifications > 0) {
+    badges.push(renderUiBadge({ label: `Fechados ${input.sentNotifications}`, tone: 'positive', style: 'chip' }));
+  }
+
+  if (badges.length === 0 && options.includeQuietState !== false) {
+    badges.push(renderUiBadge({ label: 'Sem estados abertos', tone: 'neutral', style: 'chip' }));
+  }
+
+  return badges.join('');
+}
+
+function renderWeekEventBadges(event: WeekPlannerSnapshot['events'][number], ruleCountLabel: string): string {
+  const badges: string[] = [];
+
+  if (event.notificationRuleLabels.length > 0) {
+    badges.push(renderUiBadge({ label: ruleCountLabel, tone: 'positive', style: 'chip' }));
+  }
+
+  if (event.reminderLifecycle.generated > 0) {
+    badges.push(renderUiBadge({ label: `Gerados ${event.reminderLifecycle.generated}`, tone: 'neutral', style: 'chip' }));
+  }
+
+  if (event.reminderLifecycle.prepared > 0) {
+    badges.push(renderUiBadge({ label: `Preparados ${event.reminderLifecycle.prepared}`, tone: 'warning', style: 'chip' }));
+  }
+
+  if (event.reminderLifecycle.sent > 0) {
+    badges.push(renderUiBadge({ label: `Enviados ${event.reminderLifecycle.sent}`, tone: 'positive', style: 'chip' }));
+  }
+
+  if (event.notifications.waitingConfirmation > 0) {
+    badges.push(renderUiBadge({ label: `A confirmar ${event.notifications.waitingConfirmation}`, tone: 'warning', style: 'chip' }));
+  }
+
+  if (event.notifications.sent > 0) {
+    badges.push(renderUiBadge({ label: `Fechados ${event.notifications.sent}`, tone: 'positive', style: 'chip' }));
+  }
+
+  if (badges.length === 0) {
+    badges.push(renderUiBadge({ label: 'Sem estados abertos', tone: 'neutral', style: 'chip' }));
+  }
+
+  return badges.join('');
+}
+
 function describeWeekDaySummary(day: WeekCalendarDayView): string {
   if (day.events.length === 0) {
     return 'Sem eventos planeados neste dia.';
@@ -11744,32 +11894,7 @@ function renderWeekCalendarEventCard(
           : 'Ainda nao existe um proximo disparo planeado para este evento.',
       )}</p>
       <div class="ui-card__chips">
-        ${renderUiBadge({ label: ruleCountLabel, tone: 'positive', style: 'chip' })}
-        ${renderUiBadge({
-          label: `Gerados ${event.reminderLifecycle.generated}`,
-          tone: event.reminderLifecycle.generated > 0 ? 'neutral' : 'positive',
-          style: 'chip',
-        })}
-        ${renderUiBadge({
-          label: `Preparados ${event.reminderLifecycle.prepared}`,
-          tone: event.reminderLifecycle.prepared > 0 ? 'warning' : 'neutral',
-          style: 'chip',
-        })}
-        ${renderUiBadge({
-          label: `Enviados ${event.reminderLifecycle.sent}`,
-          tone: event.reminderLifecycle.sent > 0 ? 'positive' : 'neutral',
-          style: 'chip',
-        })}
-        ${renderUiBadge({
-          label: `A confirmar ${event.notifications.waitingConfirmation}`,
-          tone: event.notifications.waitingConfirmation > 0 ? 'warning' : 'neutral',
-          style: 'chip',
-        })}
-        ${renderUiBadge({
-          label: `Fechados ${event.notifications.sent}`,
-          tone: event.notifications.sent > 0 ? 'positive' : 'neutral',
-          style: 'chip',
-        })}
+        ${renderWeekEventBadges(event, ruleCountLabel)}
         ${
           group
             ? renderUiBadge({
@@ -11836,11 +11961,12 @@ function describeWeekCalendarEventStatus(event: WeekPlannerSnapshot['events'][nu
   }
 
   if (event.notifications.pending > 0 || event.reminderLifecycle.generated > 0) {
+    const pendingWork = event.reminderLifecycle.generated > 0 ? event.reminderLifecycle.generated : event.notifications.pending;
     return {
       label:
-        event.reminderLifecycle.generated === 1
+        pendingWork === 1
           ? '1 lembrete por preparar'
-          : `${event.reminderLifecycle.generated} por preparar`,
+          : `${pendingWork} por preparar`,
       tone: 'neutral',
     };
   }
@@ -11898,6 +12024,73 @@ function buildWeekCalendarDays(snapshot: WeekPlannerSnapshot): readonly WeekCale
       isToday: localDate === today,
     };
   });
+}
+
+function buildMonthCalendarDays(snapshot: WeekPlannerSnapshot): readonly MonthCalendarDayView[] {
+  const weekDates = resolveIsoWeekDates(snapshot.focusWeekLabel);
+  const today = new Date().toISOString().slice(0, 10);
+  const anchorDate = parseIsoDate(weekDates[0] ?? snapshot.events[0]?.localDate ?? today);
+  const firstOfMonth = new Date(Date.UTC(anchorDate.getUTCFullYear(), anchorDate.getUTCMonth(), 1));
+  const lastOfMonth = new Date(Date.UTC(anchorDate.getUTCFullYear(), anchorDate.getUTCMonth() + 1, 0));
+  const gridStart = new Date(firstOfMonth);
+  const firstWeekday = gridStart.getUTCDay() || 7;
+  gridStart.setUTCDate(firstOfMonth.getUTCDate() - firstWeekday + 1);
+  const gridEnd = new Date(lastOfMonth);
+  const lastWeekday = gridEnd.getUTCDay() || 7;
+  gridEnd.setUTCDate(lastOfMonth.getUTCDate() + (7 - lastWeekday));
+  const focusWeekDates = new Set(weekDates);
+  const days: MonthCalendarDayView[] = [];
+
+  for (const cursor = new Date(gridStart); cursor <= gridEnd; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+    const localDate = cursor.toISOString().slice(0, 10);
+    const events = snapshot.events
+      .filter((event) => event.localDate === localDate)
+      .slice()
+      .sort(
+        (left, right) =>
+          left.startTime.localeCompare(right.startTime) ||
+          left.title.localeCompare(right.title) ||
+          left.eventId.localeCompare(right.eventId),
+      );
+
+    days.push({
+      localDate,
+      dayOfMonth: String(cursor.getUTCDate()),
+      weekdayShortLabel: WEEK_DAY_OPTIONS[(cursor.getUTCDay() + 6) % 7]?.shortLabel ?? '',
+      inFocusMonth: cursor.getUTCMonth() === anchorDate.getUTCMonth(),
+      isToday: localDate === today,
+      isFocusWeek: focusWeekDates.has(localDate),
+      events,
+      notifications: {
+        pendingNotifications: events.reduce((sum, event) => sum + event.notifications.pending, 0),
+        waitingConfirmationNotifications: events.reduce(
+          (sum, event) => sum + event.notifications.waitingConfirmation,
+          0,
+        ),
+        sentNotifications: events.reduce((sum, event) => sum + event.notifications.sent, 0),
+      },
+    });
+  }
+
+  return days;
+}
+
+function parseIsoDate(value: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
+
+  if (!match) {
+    return new Date();
+  }
+
+  const year = Number.parseInt(match[1] ?? '', 10);
+  const month = Number.parseInt(match[2] ?? '', 10) - 1;
+  const day = Number.parseInt(match[3] ?? '', 10);
+
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return new Date();
+  }
+
+  return new Date(Date.UTC(year, month, day));
 }
 
 function resolveIsoWeekDates(weekLabel: string): readonly string[] {
@@ -12013,6 +12206,31 @@ function formatWeekDayDateLabel(localDate: string): string {
   }
 
   return `${safeDay} ${monthLabels[monthIndex]}`;
+}
+
+function formatCalendarMonthLabel(localDate: string): string {
+  const [year, month] = localDate.split('-');
+  const monthLabels = [
+    'Janeiro',
+    'Fevereiro',
+    'Marco',
+    'Abril',
+    'Maio',
+    'Junho',
+    'Julho',
+    'Agosto',
+    'Setembro',
+    'Outubro',
+    'Novembro',
+    'Dezembro',
+  ];
+  const monthIndex = Number.parseInt(month ?? '', 10) - 1;
+
+  if (!year || !month || monthIndex < 0 || monthIndex >= monthLabels.length) {
+    return localDate || 'Mes atual';
+  }
+
+  return `${monthLabels[monthIndex]} ${year}`;
 }
 
 function resolveDistributionDraft(
