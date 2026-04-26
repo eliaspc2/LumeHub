@@ -15,6 +15,46 @@ interface RawBaileysMediaMessage {
   readonly contextInfo?: RawBaileysMessageContextInfo;
 }
 
+interface RawBaileysFutureProofMessage {
+  readonly message?: RawBaileysMessageContent;
+}
+
+interface RawBaileysDeviceSentMessage {
+  readonly message?: RawBaileysMessageContent;
+}
+
+interface RawBaileysMessageContent {
+  readonly conversation?: string;
+  readonly extendedTextMessage?: {
+    readonly text?: string;
+    readonly contextInfo?: RawBaileysMessageContextInfo;
+  };
+  readonly imageMessage?: RawBaileysMediaMessage & {
+    readonly caption?: string;
+  };
+  readonly videoMessage?: RawBaileysMediaMessage & {
+    readonly caption?: string;
+    readonly seconds?: number;
+  };
+  readonly documentMessage?: RawBaileysMediaMessage & {
+    readonly caption?: string;
+    readonly fileName?: string;
+  };
+  readonly audioMessage?: RawBaileysMediaMessage & {
+    readonly seconds?: number;
+  };
+  readonly messageContextInfo?: RawBaileysMessageContextInfo;
+  readonly deviceSentMessage?: RawBaileysDeviceSentMessage;
+  readonly ephemeralMessage?: RawBaileysFutureProofMessage;
+  readonly viewOnceMessage?: RawBaileysFutureProofMessage;
+  readonly documentWithCaptionMessage?: RawBaileysFutureProofMessage;
+  readonly viewOnceMessageV2?: RawBaileysFutureProofMessage;
+  readonly viewOnceMessageV2Extension?: RawBaileysFutureProofMessage;
+  readonly editedMessage?: RawBaileysFutureProofMessage;
+  readonly groupMentionedMessage?: RawBaileysFutureProofMessage;
+  readonly botInvokeMessage?: RawBaileysFutureProofMessage;
+}
+
 export interface RawBaileysMessageEnvelope {
   readonly key?: {
     readonly id?: string;
@@ -22,27 +62,7 @@ export interface RawBaileysMessageEnvelope {
     readonly participant?: string;
     readonly fromMe?: boolean;
   };
-  readonly message?: {
-    readonly conversation?: string;
-    readonly extendedTextMessage?: {
-      readonly text?: string;
-      readonly contextInfo?: RawBaileysMessageContextInfo;
-    };
-    readonly imageMessage?: RawBaileysMediaMessage & {
-      readonly caption?: string;
-    };
-    readonly videoMessage?: RawBaileysMediaMessage & {
-      readonly caption?: string;
-      readonly seconds?: number;
-    };
-    readonly documentMessage?: RawBaileysMediaMessage & {
-      readonly caption?: string;
-      readonly fileName?: string;
-    };
-    readonly audioMessage?: RawBaileysMediaMessage & {
-      readonly seconds?: number;
-    };
-  };
+  readonly message?: RawBaileysMessageContent;
   readonly messageTimestamp?: number | string | { readonly low?: number };
   readonly pushName?: string;
 }

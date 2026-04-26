@@ -335,7 +335,7 @@ function evaluateInboundProcessing(
   readonly wasTagged: boolean;
   readonly isReplyToBot: boolean;
 } {
-  const wasTagged = matchesOwnJid(message.mentionedJids, selfJid);
+  const wasTagged = matchesOwnJid(message.mentionedJids, selfJid) || hasTextualLumeTag(message.text);
   const isReplyToBot = message.quotedParticipantJid ? sameJid(message.quotedParticipantJid, selfJid) : false;
   const ageMs = Math.max(0, now.getTime() - Date.parse(message.timestamp));
   const safeMaxInboundAgeMs = Number.isFinite(maxInboundAgeMs) && maxInboundAgeMs > 0
@@ -390,6 +390,16 @@ function normaliseJid(value: string | null | undefined): string | null {
   const domainPart = trimmed.slice(separatorIndex + 1).toLowerCase();
 
   return `${userPart}@${domainPart}`;
+}
+
+function hasTextualLumeTag(text: string | null | undefined): boolean {
+  const value = text?.trim();
+
+  if (!value) {
+    return false;
+  }
+
+  return /(^|\s)@lume(?:hub)?\b/iu.test(value);
 }
 
 function toErrorMessage(error: unknown): string {

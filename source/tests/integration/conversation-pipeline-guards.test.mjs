@@ -379,3 +379,137 @@ test('conversation pipeline matches WA-notify group gating: tag or reply to bot,
     await runtime.stop();
   }
 });
+
+test('conversation pipeline accepts plain @lume text when WhatsApp mention metadata is missing', async () => {
+  const inboundSource = new FakeInboundSource();
+  const conversationCalls = [];
+  const sentMessages = [];
+
+  const runtime = new ConversationPipelineRuntime({
+    inboundSource,
+    assistantContext: {
+      async recordMessage() {},
+    },
+    whatsAppRuntime: {
+      async getRuntimeSnapshot() {
+        return {
+          session: {
+            selfJid: '351910000099:15@s.whatsapp.net',
+          },
+        };
+      },
+      async sendText(input) {
+        const result = {
+          messageId: `wamid.reply.${sentMessages.length + 1}`,
+          chatJid: input.chatJid,
+          acceptedAt: new Date().toISOString(),
+          idempotencyKey: input.idempotencyKey,
+        };
+        sentMessages.push({
+          ...input,
+          messageId: result.messageId,
+        });
+        return result;
+      },
+    },
+    peopleMemory: {
+      async findByIdentifiers() {
+        return undefined;
+      },
+      async upsertByIdentifiers(input) {
+        return {
+          personId: 'person-ana',
+          displayName: input.displayName,
+          identifiers: input.identifiers,
+          globalRoles: input.globalRoles ?? [],
+        };
+      },
+    },
+    conversation: {
+      async handleIncomingMessage(input) {
+        conversationCalls.push(input);
+        return {
+          shouldReply: true,
+          replyText: 'Texto com @lume aceite.',
+          targetChatType: 'group',
+          targetChatJid: input.chatJid,
+          reason: null,
+          auditId: 'conversation-audit-textual-tag',
+          agentResult: {
+            plan: {
+              intent: 'casual_chat',
+              selectedTools: ['chat_reply'],
+              allowReply: true,
+              replyMode: 'same_chat',
+              notes: [],
+            },
+            session: {
+              classification: {
+                intent: 'casual_chat',
+              },
+              policyContext: {},
+              assistantAllowed: true,
+              assistantAccess: {
+                allowed: true,
+                actorRole: 'member',
+                chatType: 'group',
+                groupJid: '120363400000000001@g.us',
+                interactionPolicy: 'members_can_tag',
+                reasonCode: 'group_member_allowed',
+                summary: 'Qualquer membro pode dirigir o bot aqui por tag ou reply.',
+              },
+              chatContext: {},
+              schedulingContext: null,
+            },
+            memoryUsage: {
+              scope: 'none',
+              groupJid: null,
+              groupLabel: null,
+              instructionsSource: null,
+              instructionsApplied: false,
+              knowledgeSnippetCount: 0,
+              knowledgeDocuments: [],
+            },
+            schedulingInsight: null,
+            scheduleApplyPreview: null,
+            scheduleApplyResult: null,
+            toolResults: [],
+            replyText: 'Texto com @lume aceite.',
+            distributionPlan: null,
+            enqueuedInstruction: null,
+            ownerCommandResult: null,
+            scheduleParseResult: null,
+            llmChatResult: null,
+          },
+        };
+      },
+    },
+  });
+
+  try {
+    await runtime.start();
+
+    await inboundSource.emit({
+      messageId: 'wamid.group.textual-tag',
+      chatJid: '120363400000000001@g.us',
+      participantJid: '351910000001@s.whatsapp.net',
+      groupJid: '120363400000000001@g.us',
+      fromMe: false,
+      text: '@lume podes responder mesmo sem mention metadata?',
+      timestamp: new Date().toISOString(),
+      semanticFingerprint: 'fresh-textual-tag',
+      pushName: 'Ana',
+      mentionedJids: [],
+    });
+
+    await waitFor(() => {
+      assert.equal(conversationCalls.length, 1);
+      assert.equal(sentMessages.length, 1);
+    });
+
+    assert.equal(conversationCalls[0]?.wasTagged, true);
+    assert.equal(sentMessages[0]?.chatJid, '120363400000000001@g.us');
+  } finally {
+    await runtime.stop();
+  }
+});

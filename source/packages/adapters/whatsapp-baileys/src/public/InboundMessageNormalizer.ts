@@ -21,19 +21,24 @@ function normalizeTimestamp(value: RawBaileysMessageEnvelope['messageTimestamp']
 }
 
 function extractText(payload: RawBaileysMessageEnvelope): string | undefined {
-  return payload.message?.conversation
-    ?? payload.message?.extendedTextMessage?.text
-    ?? payload.message?.imageMessage?.caption
-    ?? payload.message?.videoMessage?.caption
-    ?? payload.message?.documentMessage?.caption;
+  const content = unwrapMessageContent(payload.message);
+
+  return content?.conversation
+    ?? content?.extendedTextMessage?.text
+    ?? content?.imageMessage?.caption
+    ?? content?.videoMessage?.caption
+    ?? content?.documentMessage?.caption;
 }
 
 function extractContextInfo(payload: RawBaileysMessageEnvelope) {
-  return payload.message?.extendedTextMessage?.contextInfo
-    ?? payload.message?.imageMessage?.contextInfo
-    ?? payload.message?.videoMessage?.contextInfo
-    ?? payload.message?.documentMessage?.contextInfo
-    ?? payload.message?.audioMessage?.contextInfo;
+  const content = unwrapMessageContent(payload.message);
+
+  return content?.extendedTextMessage?.contextInfo
+    ?? content?.imageMessage?.contextInfo
+    ?? content?.videoMessage?.contextInfo
+    ?? content?.documentMessage?.contextInfo
+    ?? content?.audioMessage?.contextInfo
+    ?? content?.messageContextInfo;
 }
 
 function fingerprintFor(participantJid: string, text: string): string {
@@ -79,4 +84,33 @@ export class InboundMessageNormalizer {
 
 function dedupeStrings(values: readonly string[]): readonly string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function unwrapMessageContent(message: RawBaileysMessageEnvelope['message']): RawBaileysMessageEnvelope['message'] {
+  if (!message) {
+    return undefined;
+  }
+
+  let current = message;
+
+  for (let index = 0; index < 5; index += 1) {
+    const nested =
+      current.deviceSentMessage?.message
+      ?? current.groupMentionedMessage?.message
+      ?? current.botInvokeMessage?.message
+      ?? current.ephemeralMessage?.message
+      ?? current.viewOnceMessage?.message
+      ?? current.documentWithCaptionMessage?.message
+      ?? current.viewOnceMessageV2?.message
+      ?? current.viewOnceMessageV2Extension?.message
+      ?? current.editedMessage?.message;
+
+    if (!nested) {
+      break;
+    }
+
+    current = nested;
+  }
+
+  return current;
 }
