@@ -405,5 +405,6 @@ Neste momento:
   - objetivo fechado: paridade tecnica com o `WA-notify`, readiness live de migracao, suite verde e limpeza final da ronda
 - regra de processo:
   - qualquer nova ronda de waves deve terminar com uma wave final de limpeza do repositorio
+  - cada wave intermédia deve incluir limpeza local do que tornou obsoleto, em vez de empurrar sempre esse lixo para a wave final
 - o runtime `Live` atual continua a ser o estado canonico do produto novo
 - mas a migracao total do `WA-notify` so deve ser decidida depois da semana paralela real

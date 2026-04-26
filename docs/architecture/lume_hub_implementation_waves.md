@@ -8,8 +8,28 @@ Regra editorial:
 - o plano ativo deve ficar curto e legivel
 - novas waves so devem ser criadas quando existir trabalho suficientemente coeso, validavel e com fronteira clara
 - sempre que abrir uma nova ronda de waves, essa ronda deve terminar com uma wave final de limpeza
+- cada wave, mesmo quando nao for a wave final da ronda, deve incluir limpeza local obrigatoria do que tornou obsoleto
 - cada pedido deve executar apenas uma wave
 - se o utilizador pedir mais do que uma wave na mesma sequencia, assumir erro de instrucao, nao executar as waves extra e pedir/esperar clarificacao explicita
+
+## Contrato transversal de limpeza
+
+Toda a wave deve reservar capacidade para housekeeping do proprio scope.
+
+Isto significa:
+
+- remover labels, copy, cards, toggles, estados, stubs e caminhos provisórios que a propria wave substituiu
+- reduzir repeticao visual e tecnica na area tocada, em vez de empurrar sempre esse lixo para a wave final
+- se a wave tocar packaging, runtime ou bundles gerados, correr pelo menos:
+  - `corepack pnpm --dir /home/eliaspc/Documentos/Git/lume-hub/source run clean:runtime`
+- se o `dry-run` mostrar artefactos stale inequivocos criados por rondas anteriores, aplicar:
+  - `corepack pnpm --dir /home/eliaspc/Documentos/Git/lume-hub/source run clean:runtime -- --apply`
+- se a limpeza for larga, transversal ou arriscada para o live, registar a pendencia e fechá-la na wave final da ronda
+
+Logo:
+
+- a wave normal faz limpeza local do que mexeu
+- a wave final faz consolidacao, poda intermedia de validadores/docs e relancamento final quando aplicavel
 
 ## Estado atual
 
@@ -40,6 +60,7 @@ Obrigatorio:
 - `Workspace` deve deixar de repetir dezenas de acoes iguais por ficheiro
 - `Media` deve evitar JIDs crus na vista base quando houver label humana
 - rotas tecnicas devem mostrar impacto e proximo passo antes do log/diagnostico
+- a propria wave deve remover copy, blocos e acao repetida que fiquem mortos nas rotas tecnicas tocadas
 
 Validacao:
 - criar `validate:wave77`
@@ -56,6 +77,7 @@ Obrigatorio:
 - consolidar a validacao final em `validate:wave78`
 - remover validadores intermédios `74..77`, se ja estiverem cobertos
 - atualizar README, gap audit e esta lista para declarar a ronda fechada
+- rever e fechar limpeza pendente acumulada nas `Wave 77` e na ronda `ui-ux-commercial-polish`, incluindo artefactos runtime gerados que ja nao sejam necessarios
 - relancar no fim:
   - `bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh restart`
   - se for a partir de sessao automatizada, usar `setsid bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh restart >/tmp/lumehub-wave-restart.log 2>&1 < /dev/null &`
@@ -100,6 +122,7 @@ Obrigatorio:
 - no lugar entra uma janela pequena `Radar live` com sinais recentes de runtime, chats, envios e alertas reais
 - o radar deve privilegiar linguagem curta, timestamps legiveis e leitura de cima para baixo
 - se nao houver eventos, mostrar estado tranquilo em vez de caixa vazia ou ruido tecnico
+- limpar alertas falsos, copy residual e sinais redundantes que deixem de fazer sentido depois da correcao
 
 Validacao:
 - criar `validate:wave79`
@@ -125,6 +148,7 @@ Obrigatorio:
 - chips, badges e linhas de copy que apenas repetem o titulo ou o estado principal devem sair da vista base
 - detalhe tecnico e estados raros devem usar o mesmo contrato de divulgacao progressiva em vez de excecoes por pagina
 - a ronda deve partir de revisao headless/screenshot das rotas live antes de mexer no layout, para atacar ruido real em vez de abstrato
+- a wave deve apagar componentes de shell e wrappers que fiquem apenas como camada morta depois da simplificacao
 
 Validacao:
 - criar `validate:wave80`
@@ -155,6 +179,7 @@ Obrigatorio:
 - `Hoje` deve perder blocos paralelos quando o mesmo estado ja aparece no resumo
 - `Grupos` deve separar melhor catalogo, detalhe e configuracao para evitar um "mural" de caixas
 - `LumeHub` e `Codex Router` devem reduzir cartoes concorrentes sem perder o proximo passo util
+- remover linguagem tecnica, placeholders e metadado residual que a propria simplificacao torne obsoletos
 
 Validacao:
 - criar `validate:wave81`
@@ -180,6 +205,7 @@ Obrigatorio:
 - descarregar para staging claro e validado antes de qualquer apply
 - a UI deve ter um toggle `updates ligados/desligados` para permitir ao operador activar ou cortar esta capacidade sem mexer em config manual
 - a vista base deve falar em versao atual, update disponivel e estado; branch, hash e detalhe git ficam recolhidos
+- a wave deve deixar housekeeping claro para staging, bundles e artefactos temporarios criados pelo modulo de updates
 
 Validacao:
 - criar `validate:wave82`
@@ -196,6 +222,7 @@ Obrigatorio:
 - consolidar a validacao final em `validate:wave83`
 - remover validadores intermédios `79..82`, se ja estiverem cobertos
 - atualizar README, gap audit e esta lista para declarar a ronda fechada
+- rever e fechar limpeza pendente acumulada nas `Wave 79..82`, incluindo artefactos runtime e docs provisórias da ronda
 - relancar no fim:
   - `bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh restart`
   - se for a partir de sessao automatizada, usar `setsid bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh restart >/tmp/lumehub-wave-restart.log 2>&1 < /dev/null &`
@@ -274,6 +301,8 @@ Se surgir uma nova wave:
 - criar `scripts/validate-waveX.mjs`
 - declarar explicitamente quando vale a pena o utilizador testar
 - se houver edicao de frontend, recarregar a rota mexida num browser headless e confirmar que nao ha ecra branco nem erro relevante de runtime/consola
+- incluir limpeza local obrigatoria do proprio scope antes de declarar a wave fechada
+- se a wave tocar runtime, packaging ou bundles gerados, correr `clean:runtime` em `dry-run`
 - se for aberta uma nova ronda, reservar desde logo a ultima wave dessa ronda para limpeza final
 
 Rebuild minimo esperado:
