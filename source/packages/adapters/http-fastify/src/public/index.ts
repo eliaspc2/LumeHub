@@ -120,6 +120,7 @@ export interface HttpApiModules {
     | 'forceSwitch'
     | 'importAccount'
     | 'renameAccount'
+    | 'removeAccount'
     | 'setEnabled'
     | 'getStatus'
     | 'refreshStatus'
@@ -1619,6 +1620,26 @@ export class RouteRegistrar {
         });
         return {
           renamedAccount,
+          status,
+        };
+      },
+    });
+    server.registerRoute({
+      method: 'DELETE',
+      path: '/api/settings/codex-auth-router/accounts/:accountId',
+      handler: async (context) => {
+        if (!this.modules.codexAuthRouter) {
+          throw new ApiError(404, 'Codex auth router is not configured.');
+        }
+
+        const removedAccount = await this.modules.codexAuthRouter.removeAccount(context.params.accountId);
+        const status = await this.modules.codexAuthRouter.getStatus();
+        this.publish('settings.codex_auth_router.updated', {
+          removedAccount,
+          status,
+        });
+        return {
+          removedAccount,
           status,
         };
       },

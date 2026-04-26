@@ -57,6 +57,7 @@ Scope:
 
 Obrigatorio:
 - `Codex Router` deve manter uso livre, token em uso e troca manual, mas com diagnostico tecnico recolhido
+- o delete basico de token pode ser funcional e curto nesta ronda, mas o aperfeicoamento de UX fica em queue para clarificar melhor `retirar do router` vs `apagar copia gerida`
 - `Workspace` deve deixar de repetir dezenas de acoes iguais por ficheiro
 - `Media` deve evitar JIDs crus na vista base quando houver label humana
 - rotas tecnicas devem mostrar impacto e proximo passo antes do log/diagnostico

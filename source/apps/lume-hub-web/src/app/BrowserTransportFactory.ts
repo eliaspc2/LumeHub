@@ -738,6 +738,47 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       });
     }
 
+    if (request.method === 'DELETE' && /^\/api\/settings\/codex-auth-router\/accounts\/[^/]+$/u.test(pathname)) {
+      const match = pathname.match(/^\/api\/settings\/codex-auth-router\/accounts\/([^/]+)$/u);
+      const accountId = match?.[1] ? decodeURIComponent(match[1]) : '';
+
+      if (!accountId) {
+        return this.error(400, 'Demo codex auth router remove requires accountId.');
+      }
+
+      const status = this.state.settings.authRouterStatus ?? failMissingDemoAuthRouter();
+      const targetAccount = status.accounts.find((account) => account.accountId === accountId) ?? null;
+
+      if (!targetAccount) {
+        return this.error(404, `Demo codex auth account ${accountId} not found.`);
+      }
+
+      if (targetAccount.kind !== 'secondary') {
+        return this.error(409, 'Demo codex auth router only removes secondary accounts.');
+      }
+
+      if (status.currentSelection?.accountId === accountId) {
+        return this.error(409, 'Troca primeiro para outro token antes de apagares esta conta do router.');
+      }
+
+      const removedAccount = removeDemoCodexAuthAccount(this.state, accountId);
+
+      if (!removedAccount) {
+        return this.error(404, `Demo codex auth account ${accountId} not found.`);
+      }
+
+      const nextStatus = this.state.settings.authRouterStatus ?? failMissingDemoAuthRouter();
+      this.emit('settings.codex_auth_router.updated', {
+        mode: 'demo',
+        removedAccount,
+        status: nextStatus,
+      });
+      return this.ok({
+        removedAccount,
+        status: nextStatus,
+      });
+    }
+
     if (request.method === 'GET' && pathname === '/api/alerts/rules') {
       return this.ok(this.state.settings.adminSettings.alerts.rules);
     }
@@ -4374,6 +4415,42 @@ function renameDemoCodexAuthAccount(
     accountId,
     label: nextLabel,
     sourceFilePath: targetAccount.sourceFilePath,
+  };
+}
+
+function removeDemoCodexAuthAccount(
+  state: DemoState,
+  accountId: string,
+): {
+  readonly accountId: string;
+  readonly label: string;
+  readonly sourceFilePath: string;
+  readonly removedStoredFile: boolean;
+} | null {
+  const status = state.settings.authRouterStatus ?? failMissingDemoAuthRouter();
+  const targetAccount = status.accounts.find((account) => account.accountId === accountId) ?? null;
+
+  if (!targetAccount) {
+    return null;
+  }
+
+  const nextAccounts = status.accounts.filter((account) => account.accountId !== accountId);
+
+  state.settings = {
+    ...state.settings,
+    authRouterStatus: {
+      ...status,
+      accounts: nextAccounts,
+      accountCount: nextAccounts.length,
+      switchHistory: status.switchHistory.filter((entry) => entry.accountId !== accountId),
+    },
+  };
+
+  return {
+    accountId,
+    label: targetAccount.label,
+    sourceFilePath: targetAccount.sourceFilePath,
+    removedStoredFile: targetAccount.sourceFilePath.includes('/imported/'),
   };
 }
 

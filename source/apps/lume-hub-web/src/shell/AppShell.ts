@@ -221,6 +221,10 @@ interface CodexRouterQuotaRefreshDraft {
   readonly refreshingAccountId: string | null;
 }
 
+interface CodexRouterDeleteDraft {
+  readonly deletingAccountId: string | null;
+}
+
 interface AssistantRailMessage {
   readonly messageId: string;
   readonly role: 'user' | 'assistant' | 'system' | 'error';
@@ -262,6 +266,7 @@ interface AppShellState {
   readonly codexRouterImportDraft: CodexRouterImportDraft;
   readonly codexRouterRenameDraft: CodexRouterRenameDraft;
   readonly codexRouterQuotaRefreshDraft: CodexRouterQuotaRefreshDraft;
+  readonly codexRouterDeleteDraft: CodexRouterDeleteDraft;
   readonly assistantRailChat: AssistantRailChatState;
   readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
   readonly whatsappQrPreviewVisible: boolean;
@@ -423,6 +428,7 @@ export class AppShell {
       codexRouterImportDraft: createEmptyCodexRouterImportDraft(),
       codexRouterRenameDraft: createEmptyCodexRouterRenameDraft(),
       codexRouterQuotaRefreshDraft: createEmptyCodexRouterQuotaRefreshDraft(),
+      codexRouterDeleteDraft: createEmptyCodexRouterDeleteDraft(),
       assistantRailChat: createInitialAssistantRailChatState(),
       whatsappRepairFocus: 'auth',
       whatsappQrPreviewVisible: false,
@@ -5677,6 +5683,8 @@ export class AppShell {
                           const renameChanged = renameLabel.trim() !== account.label;
                           const quotaRefreshBusy =
                             this.state.codexRouterQuotaRefreshDraft.refreshingAccountId === account.accountId;
+                          const deleteBusy = this.state.codexRouterDeleteDraft.deletingAccountId === account.accountId;
+                          const deleteSupported = account.kind === 'secondary';
 
                           return `
                           <article class="codex-router-account-card">
@@ -5717,6 +5725,19 @@ export class AppShell {
                                   'codex-account-id': account.accountId,
                                 },
                               })}
+                              ${
+                                deleteSupported
+                                  ? renderUiActionButton({
+                                      label: deleteBusy ? 'A apagar...' : 'Apagar do router',
+                                      variant: 'secondary',
+                                      disabled: deleteBusy || isActive,
+                                      dataAttributes: {
+                                        'settings-action': 'remove-codex-account',
+                                        'codex-account-id': account.accountId,
+                                      },
+                                    })
+                                  : ''
+                              }
                             </div>
                             ${
                               renameSupported
@@ -8464,6 +8485,84 @@ export class AppShell {
       return;
     }
 
+    if (action === 'remove-codex-account') {
+      const settingsPage = this.readSettingsPageData();
+
+      if (!settingsPage) {
+        return;
+      }
+
+      const accountId = dataset.codexAccountId?.trim() ?? '';
+
+      if (!accountId) {
+        return;
+      }
+
+      const people = buildSettingsPeopleViews(settingsPage.data.people, settingsPage.data.settings);
+      const pendingConfirmation = !options.confirmed
+        ? this.buildSettingsConfirmation(action, dataset, settingsPage.data.settings, people)
+        : null;
+
+      if (pendingConfirmation) {
+        this.state = {
+          ...this.state,
+          pendingConfirmation,
+          flowFeedback: {
+            tone: 'warning',
+            message: pendingConfirmation.description,
+          },
+        };
+        this.recordUxEvent('warning', `Confirmacao pedida: ${pendingConfirmation.title}`);
+        this.render();
+        return;
+      }
+
+      const account =
+        settingsPage.data.settings.authRouterStatus?.accounts.find((entry) => entry.accountId === accountId) ?? null;
+      const accountLabel = account?.label ?? accountId;
+
+      this.state = {
+        ...this.state,
+        codexRouterDeleteDraft: {
+          deletingAccountId: accountId,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: `A retirar ${accountLabel} do Codex Router.`,
+        },
+      };
+      this.render();
+
+      try {
+        const result = await this.currentClient().removeCodexAuthAccount(accountId);
+        this.state = {
+          ...this.state,
+          codexRouterDeleteDraft: createEmptyCodexRouterDeleteDraft(),
+          flowFeedback: {
+            tone: 'positive',
+            message: result.removedAccount.removedStoredFile
+              ? `${result.removedAccount.label} saiu do router e a copia gerida foi apagada.`
+              : `${result.removedAccount.label} saiu do router. A origem externa ficou intacta.`,
+          },
+        };
+        this.recordUxEvent('positive', `Codex router removeu ${accountId}.`);
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel apagar este token do router. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          codexRouterDeleteDraft: createEmptyCodexRouterDeleteDraft(),
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
     if (action === 'toggle-command-setting') {
       const settingsPage = this.readSettingsPageData();
 
@@ -10611,6 +10710,25 @@ export class AppShell {
       }
     }
 
+    if (action === 'remove-codex-account') {
+      const accountId = dataset.codexAccountId?.trim() ?? '';
+      const account = snapshot.authRouterStatus?.accounts.find((entry) => entry.accountId === accountId) ?? null;
+
+      if (account?.kind === 'secondary') {
+        return {
+          domain: 'settings',
+          key: `remove-codex-account:${account.accountId}`,
+          action,
+          dataset,
+          title: `Apagar ${account.label} do Codex Router?`,
+          description:
+            'A conta deixa de aparecer no Codex Router. Se a origem for gerida pelo router, a copia guardada tambem e apagada.',
+          confirmLabel: 'Apagar conta',
+          tone: 'danger',
+        };
+      }
+    }
+
     return null;
   }
 
@@ -11524,6 +11642,12 @@ function createEmptyCodexRouterRenameDraft(): CodexRouterRenameDraft {
 function createEmptyCodexRouterQuotaRefreshDraft(): CodexRouterQuotaRefreshDraft {
   return {
     refreshingAccountId: null,
+  };
+}
+
+function createEmptyCodexRouterDeleteDraft(): CodexRouterDeleteDraft {
+  return {
+    deletingAccountId: null,
   };
 }
 

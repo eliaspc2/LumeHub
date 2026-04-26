@@ -264,6 +264,122 @@ test('codex auth router refreshes one token quota from backup without activating
   }
 });
 
+test('codex auth router can remove a secondary token without touching the canonical auth', async () => {
+  const sandboxPath = await mkdtemp(join(tmpdir(), 'lume-hub-codex-remove-'));
+  const canonicalAuthFilePath = join(sandboxPath, 'auth.json');
+  const stateFilePath = join(sandboxPath, 'runtime', 'codex-auth-router.state.json');
+  const backupDirectoryPath = join(sandboxPath, 'backups');
+  const managedAccountsDirectoryPath = join(sandboxPath, 'secondary');
+  const sourcesEnvironmentFilePath = join(sandboxPath, 'codex-auth-sources.env');
+  const existingAccountFilePath = join(managedAccountsDirectoryPath, 'account-a', 'auth.json');
+
+  try {
+    await mkdir(join(sandboxPath, 'runtime'), { recursive: true });
+    await mkdir(join(managedAccountsDirectoryPath, 'account-a'), { recursive: true });
+    await writeFile(canonicalAuthFilePath, authJson('canonical-account', 'canonical-live'), 'utf8');
+    await writeFile(existingAccountFilePath, authJson('account-a', 'managed-copy'), 'utf8');
+    await writeFile(
+      sourcesEnvironmentFilePath,
+      'LUME_HUB_CODEX_AUTH_SOURCES="' +
+        JSON.stringify([
+          {
+            accountId: 'account-a',
+            label: 'Conta A',
+            filePath: existingAccountFilePath,
+            priority: 1,
+            kind: 'secondary',
+          },
+        ])
+          .replaceAll('\\', '\\\\')
+          .replaceAll('"', '\\"') +
+        '"\n',
+      'utf8',
+    );
+
+    const repository = new CodexAccountRepository({
+      canonicalAuthFilePath,
+      stateFilePath,
+      backupDirectoryPath,
+      sourcesEnvironmentFilePath,
+      managedAccountsDirectoryPath,
+    });
+    const writer = new CodexAuthCanonicalWriter({
+      canonicalAuthFilePath,
+      backupDirectoryPath,
+    });
+    const service = new CodexAuthRouterService(repository, writer);
+
+    const removed = await service.removeAccount('account-a');
+    const status = await service.getStatus();
+
+    assert.equal(removed.accountId, 'account-a');
+    assert.equal(removed.label, 'Conta A');
+    assert.equal(removed.removedStoredFile, true);
+    await assert.rejects(readFile(existingAccountFilePath, 'utf8'), /ENOENT/u);
+    assert.doesNotMatch(await readFile(sourcesEnvironmentFilePath, 'utf8'), /account-a/u);
+    assert.equal(status.accounts.some((account) => account.accountId === 'account-a'), false);
+    assert.equal(await readFile(canonicalAuthFilePath, 'utf8'), authJson('canonical-account', 'canonical-live'));
+  } finally {
+    await rm(sandboxPath, { recursive: true, force: true });
+  }
+});
+
+test('codex auth router refuses to remove the active token', async () => {
+  const sandboxPath = await mkdtemp(join(tmpdir(), 'lume-hub-codex-remove-active-'));
+  const canonicalAuthFilePath = join(sandboxPath, 'auth.json');
+  const stateFilePath = join(sandboxPath, 'runtime', 'codex-auth-router.state.json');
+  const backupDirectoryPath = join(sandboxPath, 'backups');
+  const managedAccountsDirectoryPath = join(sandboxPath, 'secondary');
+  const sourcesEnvironmentFilePath = join(sandboxPath, 'codex-auth-sources.env');
+  const existingAccountFilePath = join(managedAccountsDirectoryPath, 'account-a', 'auth.json');
+
+  try {
+    await mkdir(join(sandboxPath, 'runtime'), { recursive: true });
+    await mkdir(join(managedAccountsDirectoryPath, 'account-a'), { recursive: true });
+    await writeFile(canonicalAuthFilePath, authJson('canonical-account', 'canonical-live'), 'utf8');
+    await writeFile(existingAccountFilePath, authJson('account-a', 'managed-copy'), 'utf8');
+    await writeFile(
+      sourcesEnvironmentFilePath,
+      'LUME_HUB_CODEX_AUTH_SOURCES="' +
+        JSON.stringify([
+          {
+            accountId: 'account-a',
+            label: 'Conta A',
+            filePath: existingAccountFilePath,
+            priority: 1,
+            kind: 'secondary',
+          },
+        ])
+          .replaceAll('\\', '\\\\')
+          .replaceAll('"', '\\"') +
+        '"\n',
+      'utf8',
+    );
+
+    const repository = new CodexAccountRepository({
+      canonicalAuthFilePath,
+      stateFilePath,
+      backupDirectoryPath,
+      sourcesEnvironmentFilePath,
+      managedAccountsDirectoryPath,
+    });
+    const writer = new CodexAuthCanonicalWriter({
+      canonicalAuthFilePath,
+      backupDirectoryPath,
+    });
+    const service = new CodexAuthRouterService(repository, writer);
+
+    await service.forceSwitch('account-a', { reason: 'test-active-switch' });
+
+    await assert.rejects(
+      service.removeAccount('account-a'),
+      /Troca primeiro para outro token antes de apagares esta conta do router\./u,
+    );
+  } finally {
+    await rm(sandboxPath, { recursive: true, force: true });
+  }
+});
+
 function authJson(accountId, marker) {
   return JSON.stringify({
     auth_mode: 'chatgpt',

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, readdir, rename, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 
 import { AtomicJsonWriter } from '@lume-hub/persistence-group-files';
@@ -186,6 +186,41 @@ export class CodexAccountRepository {
     ]);
 
     return updatedSource;
+  }
+
+  async removeSource(accountId: string): Promise<{
+    readonly accountId: string;
+    readonly label: string;
+    readonly sourceFilePath: string;
+    readonly removedStoredFile: boolean;
+  }> {
+    const existingSources = await this.listSecondarySources();
+    const existingSource = existingSources.find((source) => source.accountId === accountId) ?? null;
+
+    if (!existingSource) {
+      throw new Error(`Codex auth router could not remove account '${accountId}' because it is unavailable.`);
+    }
+
+    const dynamicSources = await this.readDynamicSources();
+    const isDynamicSource = dynamicSources.some((source) => source.accountId === accountId);
+    const removedStoredFile = this.isManagedSourceFilePath(existingSource.filePath);
+
+    if (!isDynamicSource && !removedStoredFile) {
+      throw new Error(`Codex auth router could not remove account '${accountId}' because this source is fixed in code.`);
+    }
+
+    await this.persistDynamicSources(existingSources.filter((source) => source.accountId !== accountId));
+
+    if (removedStoredFile) {
+      await rm(dirname(existingSource.filePath), { recursive: true, force: true });
+    }
+
+    return {
+      accountId: existingSource.accountId,
+      label: existingSource.label,
+      sourceFilePath: existingSource.filePath,
+      removedStoredFile,
+    };
   }
 
   private async listDiscoveredSources(): Promise<readonly DiscoveredCodexAccountSource[]> {

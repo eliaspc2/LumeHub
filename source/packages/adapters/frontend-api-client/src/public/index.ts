@@ -23,6 +23,7 @@ import type {
 import type {
   CodexAuthRouterStatus,
   ImportedCodexAuthAccount,
+  RemovedCodexAuthAccount,
   RenamedCodexAuthAccount,
 } from '@lume-hub/codex-auth-router';
 import type { ConversationAuditRecord } from '@lume-hub/conversation';
@@ -1344,6 +1345,21 @@ export class FrontendApiClient {
         body: {
           label,
         },
+      }),
+    );
+  }
+
+  async removeCodexAuthAccount(accountId: string): Promise<{
+    readonly removedAccount: RemovedCodexAuthAccount;
+    readonly status: CodexAuthRouterStatus;
+  }> {
+    return this.expectOk(
+      await this.transport.request<{
+        readonly removedAccount: RemovedCodexAuthAccount;
+        readonly status: CodexAuthRouterStatus;
+      }>({
+        method: 'DELETE',
+        path: `/api/settings/codex-auth-router/accounts/${encodeURIComponent(accountId)}`,
       }),
     );
   }

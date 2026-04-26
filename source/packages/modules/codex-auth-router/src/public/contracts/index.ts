@@ -20,6 +20,7 @@ export interface CodexAuthRouterModuleContract {
   renameAccount(
     input: import('../../domain/entities/CodexAuthRouter.js').RenameCodexAuthAccountInput,
   ): Promise<import('../../domain/entities/CodexAuthRouter.js').RenamedCodexAuthAccount>;
+  removeAccount(accountId: string): Promise<import('../../domain/entities/CodexAuthRouter.js').RemovedCodexAuthAccount>;
   setEnabled(enabled: boolean): Promise<import('../../domain/entities/CodexAuthRouter.js').CodexAuthRouterStatus>;
   getStatus(): Promise<import('../../domain/entities/CodexAuthRouter.js').CodexAuthRouterStatus>;
   refreshStatus(): Promise<import('../../domain/entities/CodexAuthRouter.js').CodexAuthRouterStatus>;

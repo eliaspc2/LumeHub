@@ -13,6 +13,7 @@ import type {
   ImportedCodexAuthAccount,
   ImportCodexAuthAccountInput,
   PrepareAuthForRequestInput,
+  RemovedCodexAuthAccount,
   RenamedCodexAuthAccount,
   RenameCodexAuthAccountInput,
   ReportCodexAuthFailureInput,
@@ -198,6 +199,36 @@ export class CodexAuthRouterService {
       label: source.label,
       sourceFilePath: source.filePath,
     };
+  }
+
+  async removeAccount(accountId: string): Promise<RemovedCodexAuthAccount> {
+    const targetAccountId = accountId.trim();
+
+    if (!targetAccountId) {
+      throw new Error('Codex auth router remove requires accountId.');
+    }
+
+    const state = await this.repository.readState();
+
+    if (state.currentSelection?.accountId === targetAccountId) {
+      throw new Error('Troca primeiro para outro token antes de apagares esta conta do router.');
+    }
+
+    const removedAccount = await this.repository.removeSource(targetAccountId);
+    this.quotaService.clearCache();
+
+    const nextAccountStates = {
+      ...state.accountStates,
+    };
+    delete nextAccountStates[targetAccountId];
+
+    await this.repository.saveState({
+      ...state,
+      accountStates: nextAccountStates,
+      updatedAt: new Date().toISOString(),
+    });
+
+    return removedAccount;
   }
 
   async setEnabled(enabled: boolean): Promise<CodexAuthRouterStatus> {

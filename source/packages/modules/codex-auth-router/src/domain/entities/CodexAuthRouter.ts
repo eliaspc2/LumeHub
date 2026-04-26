@@ -165,6 +165,13 @@ export interface RenamedCodexAuthAccount {
   readonly sourceFilePath: string;
 }
 
+export interface RemovedCodexAuthAccount {
+  readonly accountId: string;
+  readonly label: string;
+  readonly sourceFilePath: string;
+  readonly removedStoredFile: boolean;
+}
+
 export interface DiscoveredCodexAccountSource {
   readonly accountId: string;
   readonly label: string;
