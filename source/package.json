@@ -10,6 +10,7 @@
     "typecheck": "corepack pnpm -r --if-present typecheck",
     "build": "corepack pnpm -r --if-present build",
     "test": "corepack pnpm -r --if-present test && corepack pnpm run test:unit && corepack pnpm run test:integration && corepack pnpm run test:e2e",
+    "clean:runtime": "node ./scripts/clean-runtime-artifacts.mjs",
     "test:unit": "node --test ./tests/unit",
     "test:integration": "node --test ./tests/integration",
     "test:e2e": "node --test ./tests/e2e",

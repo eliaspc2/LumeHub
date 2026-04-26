@@ -249,6 +249,13 @@ Entrega comercial honesta:
 - `data`, `logs` e `auth` ficam fora do bundle aplicacional
 - isto nao deve ser vendido como `um container unico` enquanto energia, autostart e OAuth Codex dependerem do host companion
 
+Housekeeping minimo do repo/runtime:
+
+- desenvolver sempre em `source/`, nao dentro de `runtime/`
+- bundles antigos de `runtime/host/releases/` e `runtime/lxd/release-bundles/` sao historico descartavel
+- usar `pnpm --dir source run clean:runtime` para revisar lixo gerado
+- usar `pnpm --dir source run clean:runtime -- --apply` para apagar artefactos antigos sem tocar no `current` live
+
 ## Documentos mais importantes
 
 - [AGENTS.md](/home/eliaspc/Documentos/Git/lume-hub/AGENTS.md)
