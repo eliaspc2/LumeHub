@@ -16,7 +16,7 @@ import { ActiveReferenceResolver } from '../../domain/services/ActiveReferenceRe
 import { ConversationRelevanceRanker } from '../../domain/services/ConversationRelevanceRanker.js';
 import { ConversationHistoryRepository } from '../../infrastructure/persistence/ConversationHistoryRepository.js';
 
-const DEFAULT_RECENT_HISTORY_LIMIT = 10;
+const DEFAULT_RECENT_HISTORY_LIMIT = 60;
 const DEFAULT_RELEVANT_HISTORY_LIMIT = 8;
 
 export class AssistantContextBuilder {

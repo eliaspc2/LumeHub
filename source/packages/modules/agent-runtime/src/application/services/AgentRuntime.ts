@@ -38,6 +38,11 @@ import { ToolCallPolicy } from '../../domain/services/ToolCallPolicy.js';
 import { ToolRegistry } from '../../domain/services/ToolRegistry.js';
 
 const DEFAULT_SCHEDULE_DURATION_MINUTES = 60;
+const LLM_CONTEXT_MIN_MESSAGE_LIMIT = 30;
+const LLM_CONTEXT_MAX_MESSAGE_LIMIT = 50;
+const LLM_CONTEXT_TIMELINE_MARGIN_MESSAGES = 2;
+const LLM_CONTEXT_CONTIGUOUS_GAP_MS = 15 * 60 * 1000;
+const LLM_CONTEXT_MESSAGE_MAX_LENGTH = 800;
 const GENERIC_CANDIDATE_TITLES = new Set(['evento sem titulo explicito', 'evento sem título explicito']);
 const DAY_LABEL_TO_INDEX = new Map<string, number>([
   ['segunda', 1],
@@ -78,6 +83,8 @@ interface SchedulingRoutingDecision {
   readonly route: 'schedule' | 'manual_only' | 'distribution_only';
   readonly blockingReason: string | null;
 }
+
+type AgentContextMessage = AgentTurnResult['session']['chatContext']['recentMessages'][number];
 
 export class AgentRuntime {
   constructor(
@@ -861,14 +868,78 @@ function summariseContext(
   chatContext: AgentTurnResult['session']['chatContext'],
   memoryUsage: AgentMemoryUsage,
 ): readonly string[] {
+  const conversationMessages = selectConversationContextMessages(chatContext.recentMessages);
+
   return [
     chatContext.group ? `grupo=${chatContext.group.preferredSubject}` : null,
     chatContext.activeReference ? `referente=${chatContext.activeReference.label}` : null,
     memoryUsage.scope === 'group'
       ? `memoria=${memoryUsage.groupLabel ?? memoryUsage.groupJid ?? 'grupo'}:${memoryUsage.instructionsSource ?? 'sem_fonte'}:${memoryUsage.knowledgeSnippetCount}_snippets`
       : null,
-    ...chatContext.relevantMessages.slice(-3).map((message) => `${message.role}:${message.text}`),
+    `historico_recente_disponivel=${chatContext.recentMessages.length}`,
+    `historico_recente_enviado=${conversationMessages.length}`,
+    `historico_recente_politica=min${LLM_CONTEXT_MIN_MESSAGE_LIMIT}_max${LLM_CONTEXT_MAX_MESSAGE_LIMIT}_gap${Math.round(LLM_CONTEXT_CONTIGUOUS_GAP_MS / 60000)}min_margem${LLM_CONTEXT_TIMELINE_MARGIN_MESSAGES}`,
+    ...conversationMessages.map((message, index) => summariseRecentMessageForPrompt(message, index)),
   ].filter((value): value is string => Boolean(value));
+}
+
+function selectConversationContextMessages(
+  messages: AgentTurnResult['session']['chatContext']['recentMessages'],
+): readonly AgentContextMessage[] {
+  if (messages.length <= LLM_CONTEXT_MIN_MESSAGE_LIMIT) {
+    return messages;
+  }
+
+  const newestIndex = messages.length - 1;
+  let startIndex = Math.max(0, messages.length - LLM_CONTEXT_MIN_MESSAGE_LIMIT);
+
+  for (let index = startIndex - 1; index >= 0; index -= 1) {
+    const nextMessage = messages[index + 1];
+    const candidate = messages[index];
+
+    if (newestIndex - index + 1 > LLM_CONTEXT_MAX_MESSAGE_LIMIT - LLM_CONTEXT_TIMELINE_MARGIN_MESSAGES) {
+      break;
+    }
+
+    if (!areMessagesTimelineClose(candidate, nextMessage)) {
+      break;
+    }
+
+    startIndex = index;
+  }
+
+  const marginStartIndex = Math.max(0, startIndex - LLM_CONTEXT_TIMELINE_MARGIN_MESSAGES);
+  const selected = messages.slice(marginStartIndex);
+
+  return selected.slice(Math.max(0, selected.length - LLM_CONTEXT_MAX_MESSAGE_LIMIT));
+}
+
+function areMessagesTimelineClose(
+  olderMessage: AgentContextMessage,
+  newerMessage: AgentContextMessage,
+): boolean {
+  const olderTimestamp = Date.parse(olderMessage.createdAt);
+  const newerTimestamp = Date.parse(newerMessage.createdAt);
+
+  if (!Number.isFinite(olderTimestamp) || !Number.isFinite(newerTimestamp)) {
+    return false;
+  }
+
+  return newerTimestamp - olderTimestamp <= LLM_CONTEXT_CONTIGUOUS_GAP_MS;
+}
+
+function summariseRecentMessageForPrompt(
+  message: AgentTurnResult['session']['chatContext']['recentMessages'][number],
+  index: number,
+): string {
+  const sender = message.senderDisplayName?.trim() || message.personId?.trim() || message.role;
+  const createdAt = message.createdAt?.trim() || 'sem_data';
+  const text = truncatePromptLine(message.text.replace(/\s+/gu, ' ').trim(), LLM_CONTEXT_MESSAGE_MAX_LENGTH);
+  return `historico_recente_${String(index + 1).padStart(2, '0')} timestamp=${createdAt} role=${message.role} sender=${sender} text=${text}`;
+}
+
+function truncatePromptLine(value: string, maxLength: number): string {
+  return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
 }
 
 function buildFanoutFacts(distributionPlan: DistributionPlan, enqueuedInstruction: AgentTurnResult['enqueuedInstruction']): readonly string[] {
