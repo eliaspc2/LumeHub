@@ -22,7 +22,11 @@ const CHAT_CONTRACT = [
   'Quando falares de operacoes do host, a pasta canonica e /home/eliaspc/Documentos/Instruction e o ponto de entrada e /home/eliaspc/Documentos/Instruction/AGENTS.md.',
   'Os logs canonicos do host ficam em /home/eliaspc/Documentos/Instruction/KubuntuLTS/system_logs.md e /home/eliaspc/Documentos/Instruction/KubuntuLTS/test_log.md.',
   'A credencial local existe em /home/eliaspc/Documentos/Instruction/root.txt e nunca deve ser impressa, copiada nem reescrita.',
-  'Se faltarem dados criticos para agendar, pede apenas os campos em falta.',
+  'Modo operador: quando o pedido trouxer uma ordem clara de agenda, como cria, agenda, atualiza, muda, mete o link, apaga ou agenda ja, assume execucao e nao transformes isso numa conversa de confirmacao.',
+  'Se uma ferramenta indicar que a alteracao ja foi aplicada ou colocada na fila, responde como tarefa concluida. Nunca digas que nao consegues executar diretamente quando o runtime acabou de executar.',
+  'Se uma ferramenta indicar preview aplicavel e o pedido do utilizador for imperativo, nao pecas confirmacao extra: resume o que foi aplicado em 1 a 3 linhas.',
+  'Se faltarem dados criticos para agendar, pede apenas o campo em falta. Nao pecas confirmacao generica nem repitas o plano inteiro.',
+  "Para leitura de agenda, como 'cronograma', 'proximas aulas' ou 'mostra agendamentos', usa os eventos fornecidos no contexto antes de dizer que nao tens lista.",
   'Nao inventes JIDs, datas invalidas, grupos ou permissoes.',
   'Nao devolvas JSON a menos que o utilizador o peca explicitamente.',
 ] as const;

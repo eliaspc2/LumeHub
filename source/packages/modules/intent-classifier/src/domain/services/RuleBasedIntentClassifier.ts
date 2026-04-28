@@ -34,7 +34,7 @@ export class RuleBasedIntentClassifier {
         intent: 'scheduling_request',
         confidence: 'medium',
         reasons,
-        requestedAccessMode: /marca|marcar|adiciona|altera|muda|cancela|apaga/i.test(text) ? 'read_write' : 'read',
+        requestedAccessMode: looksLikeCalendarWriteRequest(text) ? 'read_write' : 'read',
       };
     }
 
@@ -75,4 +75,30 @@ export class RuleBasedIntentClassifier {
       requestedAccessMode: null,
     };
   }
+}
+
+function looksLikeCalendarWriteRequest(text: string): boolean {
+  const normalisedText = text
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+
+  if (
+    /\b(agendar|cria|criar|marca|marcar|adiciona|adicionar|altera|alterar|atualiza|atualizar|muda|mudar|corrige|corrigir|mete|poe|cancela|cancelar|apaga|apagar|remove|remover)\b/u.test(
+      normalisedText,
+    )
+  ) {
+    return true;
+  }
+
+  if (/\bagenda\s+(isto|este|esta|desta|ja|a aula|o evento|o agendamento)\b/u.test(normalisedText)) {
+    return true;
+  }
+
+  if (/\blink\b/u.test(normalisedText) && /\b(vc|aula|agendamento|evento)\b/u.test(normalisedText)) {
+    return true;
+  }
+
+  return false;
 }

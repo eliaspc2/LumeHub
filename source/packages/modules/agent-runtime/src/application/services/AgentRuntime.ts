@@ -16,6 +16,7 @@ import type {
   LlmScheduleCandidate,
   LlmScheduleParseResult,
 } from '@lume-hub/llm-orchestrator';
+import type { NotificationRuleDefinitionInput } from '@lume-hub/notification-rules';
 import type { OwnerControlModuleContract } from '@lume-hub/owner-control';
 import type { WeeklyPlannerEventSummary, WeeklyPlannerModuleContract, WeeklyPlannerSnapshot } from '@lume-hub/weekly-planner';
 
@@ -121,7 +122,13 @@ export class AgentRuntime {
 
   async applyScheduleAction(input: AgentScheduleApplyInput): Promise<AgentScheduleApplyResult> {
     const preview = await this.previewScheduleApply(input);
+    return this.applySchedulePreview(preview, input);
+  }
 
+  private async applySchedulePreview(
+    preview: AgentScheduleApplyPreview,
+    input: AgentScheduleApplyInput,
+  ): Promise<AgentScheduleApplyResult> {
     if (!preview.canApply || !preview.previewFingerprint || !preview.operation || !preview.groupJid || !preview.weekId) {
       throw new Error(preview.blockingReason ?? 'Scheduling preview is not ready to apply.');
     }
@@ -310,6 +317,11 @@ export class AgentRuntime {
       const schedulingMemoryUsage = schedulingContext
         ? buildMemoryUsage(schedulingContext.chatContext, targetGroupJid)
         : buildMemoryUsage(chatContext, targetGroupJid);
+      const weekSnapshot = targetGroupJid
+        ? await this.weeklyPlanner.getWeekSnapshot({
+            groupJid: targetGroupJid,
+          })
+        : null;
       schedulingInsight = {
         requestedAccessMode,
         resolvedGroupJids: schedulingContext?.resolvedGroupJids ?? [],
@@ -346,7 +358,12 @@ export class AgentRuntime {
         scheduleParseResult = await this.llmOrchestrator.parseSchedules({
           text: input.text,
           contextSummary: summariseContext(chatContext, schedulingMemoryUsage),
-          domainFacts: buildSchedulingFacts(schedulingContext?.chatContext ?? chatContext, schedulingMemoryUsage, targetGroupJid),
+          domainFacts: buildSchedulingFacts(
+            schedulingContext?.chatContext ?? chatContext,
+            schedulingMemoryUsage,
+            targetGroupJid,
+            weekSnapshot,
+          ),
           memoryScope: toLlmMemoryScope(schedulingMemoryUsage),
         });
         toolResults.push({
@@ -357,42 +374,102 @@ export class AgentRuntime {
         });
 
         if (requestedAccessMode === 'read_write' && input.allowActions) {
-          scheduleApplyPreview = await this.previewScheduleApply({
-            ...input,
+          const scheduleEvaluation = {
+            classification,
+            chatContext,
+            schedulingContext: schedulingContext ?? {
+              chatContext,
+              requestedAccessMode,
+              resolvedGroupJids: targetGroupJid ? [targetGroupJid] : [],
+            },
+            schedulingMemoryUsage,
+            targetGroupJid,
+            targetGroupLabel: weekSnapshot?.groups.find((group) => group.groupJid === targetGroupJid)?.preferredSubject
+              ?? targetGroup?.preferredSubject
+              ?? schedulingContext?.chatContext.group?.preferredSubject
+              ?? null,
+            targetGroup,
             requestedAccessMode,
-          });
-          toolResults.push({
-            toolName: 'schedule_apply',
-            status: scheduleApplyPreview.canApply ? 'success' : 'blocked',
-            summary: scheduleApplyPreview.canApply
-              ? `schedule_apply_preview:${scheduleApplyPreview.operation ?? 'unknown'}`
-              : `schedule_apply_blocked:${scheduleApplyPreview.blockingReason ?? 'indefinido'}`,
-            data: scheduleApplyPreview,
-          });
+            hasAccess,
+            weekSnapshot,
+            parseResult: scheduleParseResult,
+            routingDecision,
+          } satisfies SchedulingEvaluation;
+          const directExecution = looksLikeDirectScheduleExecutionRequest(input.text);
+          const candidateIndexes =
+            directExecution && scheduleParseResult.candidates.length > 1
+              ? scheduleParseResult.candidates.map((_candidate, index) => index)
+              : [0];
+          const appliedScheduleResults: AgentScheduleApplyResult[] = [];
+          const blockedSchedulePreviews: AgentScheduleApplyPreview[] = [];
+
+          for (const candidateIndex of candidateIndexes) {
+            const currentPreview = this.buildScheduleApplyPreview(scheduleEvaluation, input, candidateIndex);
+
+            if (candidateIndex === 0) {
+              scheduleApplyPreview = currentPreview;
+            }
+
+            toolResults.push({
+              toolName: 'schedule_apply',
+              status: currentPreview.canApply ? 'success' : 'blocked',
+              summary: currentPreview.canApply
+                ? `schedule_apply_preview:${candidateIndex + 1}:${currentPreview.operation ?? 'unknown'}`
+                : `schedule_apply_blocked:${candidateIndex + 1}:${currentPreview.blockingReason ?? 'indefinido'}`,
+              data: currentPreview,
+            });
+
+            if (!directExecution) {
+              continue;
+            }
+
+            if (currentPreview.canApply) {
+              const currentResult = await this.applySchedulePreview(currentPreview, {
+                ...input,
+                requestedAccessMode,
+              });
+              appliedScheduleResults.push(currentResult);
+              toolResults.push({
+                toolName: 'schedule_apply',
+                status: 'success',
+                summary: `schedule_apply_executed:${currentResult.appliedEvent?.eventId ?? currentResult.instruction.instructionId}`,
+                data: currentResult,
+              });
+            } else {
+              blockedSchedulePreviews.push(currentPreview);
+            }
+          }
+
+          if (directExecution) {
+            scheduleApplyResult = appliedScheduleResults[0] ?? null;
+            replyText = buildScheduleBatchReply(appliedScheduleResults, blockedSchedulePreviews);
+          }
         }
 
-        llmChatResult = await this.llmOrchestrator.chat({
-          text: input.text,
-          intent: classification.intent,
-          contextSummary: summariseContext(chatContext, schedulingMemoryUsage),
-          domainFacts: [
-            ...buildSchedulingFacts(schedulingContext?.chatContext ?? chatContext, schedulingMemoryUsage, targetGroupJid),
-            `schedule_candidates=${scheduleParseResult.candidates.length}`,
-            ...scheduleParseResult.candidates.map(
-              (candidate) =>
-                `candidato:${candidate.title}:${candidate.dateHint ?? 'sem_data'}:${candidate.timeHint ?? 'sem_hora'}`,
-            ),
-            ...(scheduleApplyPreview
-              ? [
-                  `schedule_preview_operation=${scheduleApplyPreview.operation ?? 'indefinida'}`,
-                  `schedule_preview_can_apply=${scheduleApplyPreview.canApply}`,
-                  `schedule_preview_summary=${scheduleApplyPreview.summary}`,
-                ]
-              : []),
-          ],
-          memoryScope: toLlmMemoryScope(schedulingMemoryUsage),
-        });
-        replyText = llmChatResult.text;
+        if (!replyText) {
+          llmChatResult = await this.llmOrchestrator.chat({
+            text: input.text,
+            intent: classification.intent,
+            contextSummary: summariseContext(chatContext, schedulingMemoryUsage),
+            domainFacts: [
+              ...buildSchedulingFacts(schedulingContext?.chatContext ?? chatContext, schedulingMemoryUsage, targetGroupJid, weekSnapshot),
+              `schedule_candidates=${scheduleParseResult.candidates.length}`,
+              ...scheduleParseResult.candidates.map(
+                (candidate) =>
+                  `candidato:${candidate.title}:${candidate.dateHint ?? 'sem_data'}:${candidate.timeHint ?? 'sem_hora'}`,
+              ),
+              ...(scheduleApplyPreview
+                ? [
+                    `schedule_preview_operation=${scheduleApplyPreview.operation ?? 'indefinida'}`,
+                    `schedule_preview_can_apply=${scheduleApplyPreview.canApply}`,
+                    `schedule_preview_summary=${scheduleApplyPreview.summary}`,
+                  ]
+                : []),
+            ],
+            memoryScope: toLlmMemoryScope(schedulingMemoryUsage),
+          });
+          replyText = llmChatResult.text;
+        }
       }
     } else {
       llmChatResult = await this.llmOrchestrator.chat({
@@ -489,6 +566,7 @@ export class AgentRuntime {
   private buildScheduleApplyPreview(
     evaluation: SchedulingEvaluation,
     input: AgentScheduleActionInput,
+    candidateIndex = 0,
   ): AgentScheduleApplyPreview {
     if (evaluation.classification.intent !== 'scheduling_request') {
       return createBlockedSchedulePreview({
@@ -545,7 +623,18 @@ export class AgentRuntime {
       });
     }
 
-    const candidate = evaluation.parseResult.candidates[0];
+    const candidate = evaluation.parseResult.candidates[candidateIndex];
+
+    if (!candidate) {
+      return createBlockedSchedulePreview({
+        requestText: input.text,
+        requestedAccessMode: evaluation.requestedAccessMode,
+        groupJid: evaluation.targetGroupJid,
+        groupLabel: evaluation.targetGroupLabel,
+        weekId: evaluation.weekSnapshot.focusWeekLabel,
+        blockingReason: 'A LLM nao devolveu esse candidato de agendamento.',
+      });
+    }
     const targetEvent = resolveScheduleTargetEvent(input.text, candidate, evaluation.weekSnapshot.events);
     const operation = resolveScheduleOperation(input.text, targetEvent);
     const localDate = resolveLocalDateFromHint(candidate.dateHint, evaluation.weekSnapshot.focusWeekLabel);
@@ -654,6 +743,7 @@ export class AgentRuntime {
               startTime: preview.candidate.startTime ?? '',
               durationMinutes: preview.candidate.durationMinutes ?? DEFAULT_SCHEDULE_DURATION_MINUTES,
               notes: preview.candidate.notes,
+              notificationRules: extractNotificationRulesFromRequest(input.text) ?? undefined,
             },
       deleteEventId: preview.operation === 'delete' ? preview.targetEvent?.eventId ?? null : null,
     };
@@ -690,6 +780,81 @@ function resolveSchedulingRoutingDecision(group: Group | null): SchedulingRoutin
     route: 'schedule',
     blockingReason: null,
   };
+}
+
+function looksLikeDirectScheduleExecutionRequest(text: string): boolean {
+  const normalisedText = normaliseTitleForMatch(text);
+
+  if (
+    /\b(agendar|cria|criar|marca|marcar|adiciona|adicionar|faz primeiro|faz isto|muda|mudar|altera|alterar|atualiza|atualizar|corrige|corrigir|mete|poe|cancela|cancelar|apaga|apagar|remove|remover)\b/u.test(
+      normalisedText,
+    )
+  ) {
+    return true;
+  }
+
+  if (/\bagenda\s+(isto|este|esta|desta|ja|a aula|o evento|o agendamento)\b/u.test(normalisedText)) {
+    return true;
+  }
+
+  return /\blink\b/u.test(normalisedText) && /\b(vc|aula|agendamento|evento)\b/u.test(normalisedText);
+}
+
+function buildScheduleBatchReply(
+  appliedResults: readonly AgentScheduleApplyResult[],
+  blockedPreviews: readonly AgentScheduleApplyPreview[],
+): string {
+  if (appliedResults.length === 0) {
+    return blockedPreviews[0]
+      ? buildScheduleBlockedReply(blockedPreviews[0])
+      : 'Ainda nao apliquei: nao consegui extrair um agendamento aplicavel deste pedido.';
+  }
+
+  if (appliedResults.length === 1 && blockedPreviews.length === 0) {
+    return buildScheduleAppliedReply(appliedResults[0]);
+  }
+
+  const appliedSummary = appliedResults.map(summariseAppliedScheduleResult).filter(Boolean).slice(0, 5).join('; ');
+  const blockedSummary =
+    blockedPreviews.length > 0
+      ? ` Nao apliquei ${blockedPreviews.length}: ${blockedPreviews.map((preview) => preview.blockingReason ?? 'bloqueado').join('; ')}.`
+      : '';
+
+  return `Feito: apliquei ${appliedResults.length} agendamento(s)${appliedSummary ? `: ${appliedSummary}` : ''}.${blockedSummary}`;
+}
+
+function buildScheduleAppliedReply(result: AgentScheduleApplyResult): string {
+  const operation = result.preview.operation ?? 'create';
+
+  if (operation === 'delete') {
+    return `Feito: removi ${result.preview.targetEvent ? `"${result.preview.targetEvent.title}"` : 'o evento pedido'} da agenda.`;
+  }
+
+  if (result.appliedEvent) {
+    const verb = operation === 'update' ? 'atualizei' : 'criei';
+    const reminders = result.appliedEvent.notificationRuleLabels.length > 0
+      ? ` Lembretes: ${result.appliedEvent.notificationRuleLabels.join(', ')}.`
+      : '';
+    return `Feito: ${verb} "${result.appliedEvent.title}" para ${result.appliedEvent.localDate} as ${result.appliedEvent.startTime}.${reminders}`;
+  }
+
+  return `Feito: ${result.preview.summary}`;
+}
+
+function summariseAppliedScheduleResult(result: AgentScheduleApplyResult): string {
+  if (result.preview.operation === 'delete') {
+    return result.preview.targetEvent?.title ?? 'evento removido';
+  }
+
+  if (!result.appliedEvent) {
+    return result.preview.summary;
+  }
+
+  return `${result.appliedEvent.title} (${result.appliedEvent.localDate} ${result.appliedEvent.startTime})`;
+}
+
+function buildScheduleBlockedReply(preview: AgentScheduleApplyPreview): string {
+  return `Ainda nao apliquei: ${preview.blockingReason ?? 'faltam dados para aplicar com seguranca'}. Diz so esse dado em falta e eu aplico.`;
 }
 
 function summariseContext(
@@ -1026,7 +1191,169 @@ function parseDurationMinutes(text: string): number | null {
 
 function extractScheduleNotes(text: string): string | null {
   const match = /(?:nota(?:s)?|observa(?:cao|ção|coes|ções)|obs)\s*[:\-]\s*(.+)$/iu.exec(text);
-  return match?.[1]?.trim() || null;
+
+  if (match?.[1]?.trim()) {
+    return match[1].trim();
+  }
+
+  const url = extractFirstUrl(text);
+  return url ? `Link: ${url}` : null;
+}
+
+function extractNotificationRulesFromRequest(text: string): readonly NotificationRuleDefinitionInput[] | null {
+  const normalisedText = normaliseTitleForMatch(text);
+
+  if (!/\b(lembrete|lembretes|alerta|alertas|aviso|avisos)\b/u.test(normalisedText)) {
+    return null;
+  }
+
+  const rules: NotificationRuleDefinitionInput[] = [];
+  const link = extractFirstUrl(text);
+  const ownDayTime = extractFixedTimeAfter(normalisedText, ['proprio dia', 'mesmo dia', 'hoje']);
+  const previousDayTime = extractFixedTimeAfter(normalisedText, ['dia anterior', 'dia antes', 'dia de antes', 'vespera']);
+  const beforeMinutes = extractRelativeMinutes(normalisedText, 'antes');
+  const afterMinutes = extractRelativeMinutes(normalisedText, 'depois') ?? extractPassedRelativeMinutes(normalisedText);
+
+  if (ownDayTime) {
+    rules.push({
+      kind: 'fixed_local_time',
+      daysBeforeEvent: 0,
+      localTime: ownDayTime,
+      enabled: true,
+      label: `No proprio dia as ${ownDayTime}`,
+      messageTemplate: 'Hoje temos {{event_title}} as {{event_time}}.',
+      llmPromptTemplate:
+        'Escreve um lembrete curto em portugues europeu para WhatsApp. Contexto: hoje o grupo {{group_label}} tem {{event_title}} as {{event_time}}.',
+    });
+  }
+
+  if (previousDayTime) {
+    rules.push({
+      kind: 'fixed_local_time',
+      daysBeforeEvent: 1,
+      localTime: previousDayTime,
+      enabled: true,
+      label: `Dia anterior as ${previousDayTime}`,
+      messageTemplate: 'Amanha temos {{event_title}} as {{event_time}}.',
+      llmPromptTemplate:
+        'Escreve um lembrete curto em portugues europeu para WhatsApp. Contexto: amanha o grupo {{group_label}} tem {{event_title}} as {{event_time}}.',
+    });
+  }
+
+  if (beforeMinutes !== null) {
+    rules.push({
+      kind: 'relative_before_event',
+      daysBeforeEvent: 0,
+      offsetMinutesBeforeEvent: beforeMinutes,
+      enabled: true,
+      label: describeMinutesRule(beforeMinutes, 'antes'),
+      messageTemplate: link
+        ? `Daqui a {{minutes_until_event}} min temos {{event_title}}. Link: ${link}`
+        : 'Daqui a {{minutes_until_event}} min temos {{event_title}}.',
+      llmPromptTemplate: link
+        ? `Escreve um ultimo lembrete curto em portugues europeu para WhatsApp. Contexto: faltam {{minutes_until_event}} minutos para {{event_title}} em {{event_datetime}} no grupo {{group_label}}. Inclui este link: ${link}`
+        : 'Escreve um ultimo lembrete curto em portugues europeu para WhatsApp. Contexto: faltam {{minutes_until_event}} minutos para {{event_title}} em {{event_datetime}} no grupo {{group_label}}.',
+    });
+  }
+
+  if (afterMinutes !== null) {
+    const closesTest = /\b(fechar|fecha|encerra|termina).*\bteste\b|\bteste\b.*\b(fechar|fecha|encerra|termina)\b/u.test(
+      normalisedText,
+    );
+    rules.push({
+      kind: 'relative_after_event',
+      offsetMinutesAfterEvent: afterMinutes,
+      enabled: true,
+      label: describeMinutesRule(afterMinutes, 'depois'),
+      messageTemplate: closesTest
+        ? 'Ultima oportunidade: o teste de {{event_title}} vai fechar.'
+        : 'Ja passou {{minutes_since_event}} min desde {{event_title}}.',
+      llmPromptTemplate: closesTest
+        ? 'Escreve uma mensagem curta em portugues europeu para WhatsApp. Contexto: ja passou {{event_title}} em {{event_datetime}} no grupo {{group_label}} e o teste vai fechar. Escreve como ultima oportunidade.'
+        : 'Escreve uma mensagem curta em portugues europeu para WhatsApp. Contexto: ja passaram {{minutes_since_event}} minutos desde {{event_title}} em {{event_datetime}} para o grupo {{group_label}}.',
+    });
+  }
+
+  return rules.length > 0 ? rules : null;
+}
+
+function extractFirstUrl(text: string): string | null {
+  const match = /https?:\/\/[^\s<>"')]+/iu.exec(text);
+  return match?.[0] ?? null;
+}
+
+function extractFixedTimeAfter(text: string, anchors: readonly string[]): string | null {
+  for (const anchor of anchors) {
+    const index = text.indexOf(anchor);
+
+    if (index < 0) {
+      continue;
+    }
+
+    const afterAnchor = text.slice(index, index + 80);
+    const time = normaliseLooseTime(afterAnchor);
+
+    if (time) {
+      return time;
+    }
+  }
+
+  return null;
+}
+
+function extractRelativeMinutes(text: string, direction: 'antes' | 'depois'): number | null {
+  const match = new RegExp(`\\b(\\d{1,3})\\s*(min|mins|minuto|minutos|h|hora|horas)\\s+${direction}\\b`, 'u').exec(text);
+
+  if (!match) {
+    return null;
+  }
+
+  return normaliseRelativeDuration(match[1], match[2]);
+}
+
+function extractPassedRelativeMinutes(text: string): number | null {
+  const match = /\bpassad[oa]s?\s+(\d{1,3})\s*(min|mins|minuto|minutos|h|hora|horas)\b/u.exec(text);
+
+  if (!match) {
+    return null;
+  }
+
+  return normaliseRelativeDuration(match[1], match[2]);
+}
+
+function normaliseRelativeDuration(value: string, unit: string): number | null {
+  const amount = Number(value);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+
+  return /^h|hora/u.test(unit) ? amount * 60 : amount;
+}
+
+function normaliseLooseTime(text: string): string | null {
+  const match = /\b(\d{1,2})(?::|h)(\d{2})?\b/u.exec(text);
+
+  if (!match) {
+    return null;
+  }
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2] ?? 0);
+
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return null;
+  }
+
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function describeMinutesRule(minutes: number, direction: 'antes' | 'depois'): string {
+  if (minutes % 60 === 0 && minutes >= 60) {
+    return `${minutes / 60}h ${direction}`;
+  }
+
+  return `${minutes} min ${direction}`;
 }
 
 function buildScheduleDiff(

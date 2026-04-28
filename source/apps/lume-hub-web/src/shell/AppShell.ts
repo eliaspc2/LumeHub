@@ -8493,21 +8493,16 @@ export class AppShell {
     }
 
     if (action === 'remove-codex-account') {
-      const settingsPage = this.readSettingsPageData();
-
-      if (!settingsPage) {
-        return;
-      }
-
       const accountId = dataset.codexAccountId?.trim() ?? '';
 
       if (!accountId) {
         return;
       }
 
+      const authRouterStatus = page.data.settings.authRouterStatus;
+      const account = authRouterStatus?.accounts.find((entry) => entry.accountId === accountId) ?? null;
+
       if (!options.confirmed && this.state.codexRouterDeleteDraft.confirmingAccountId !== accountId) {
-        const account =
-          settingsPage.data.settings.authRouterStatus?.accounts.find((entry) => entry.accountId === accountId) ?? null;
         const accountLabel = account?.label ?? accountId;
         this.state = {
           ...this.state,
@@ -8525,8 +8520,6 @@ export class AppShell {
         return;
       }
 
-      const account =
-        settingsPage.data.settings.authRouterStatus?.accounts.find((entry) => entry.accountId === accountId) ?? null;
       const accountLabel = account?.label ?? accountId;
 
       this.state = {
