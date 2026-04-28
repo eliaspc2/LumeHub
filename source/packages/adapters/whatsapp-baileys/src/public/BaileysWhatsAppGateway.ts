@@ -63,6 +63,7 @@ export interface BaileysSocketLike {
   };
   readonly user?: {
     readonly id?: string | null;
+    readonly lid?: string | null;
     readonly name?: string | null;
     readonly notify?: string | null;
   };
@@ -130,6 +131,17 @@ interface BaileysLoggerLike {
 
 const DEFAULT_QR_TTL_MS = 60_000;
 const OBSERVED_ACK = 1;
+const RAW_MESSAGE_WRAPPER_KEYS = [
+  'deviceSentMessage',
+  'groupMentionedMessage',
+  'botInvokeMessage',
+  'ephemeralMessage',
+  'viewOnceMessage',
+  'documentWithCaptionMessage',
+  'viewOnceMessageV2',
+  'viewOnceMessageV2Extension',
+  'editedMessage',
+] as const;
 
 export class BaileysWhatsAppGateway
   implements IWhatsAppGateway, IGroupMetadataProvider, IOutboundSignalSource, IWhatsAppLiveRuntime
@@ -207,6 +219,7 @@ export class BaileysWhatsAppGateway
       lastDisconnectReason: null,
       lastError: null,
       selfJid: null,
+      selfLid: null,
       pushName: null,
     };
   }
@@ -395,7 +408,15 @@ export class BaileysWhatsAppGateway
   async ingestInboundEnvelope(payload: RawBaileysMessageEnvelope): Promise<NormalizedInboundMessage | undefined> {
     const normalized = this.normalizer.normalize(payload);
 
-    if (!normalized || this.seenMessageIds.has(normalized.messageId) || this.isSemanticDuplicate(normalized)) {
+    if (!normalized) {
+      console.warn(
+        '[whatsapp-inbound] normalize_failed',
+        JSON.stringify(buildInboundNormalizeFailureSummary(payload)),
+      );
+      return undefined;
+    }
+
+    if (this.seenMessageIds.has(normalized.messageId) || this.isSemanticDuplicate(normalized)) {
       return undefined;
     }
 
@@ -529,6 +550,7 @@ export class BaileysWhatsAppGateway
         lastConnectedAt: now.toISOString(),
         lastError: null,
         selfJid: normaliseJid(this.socket?.user?.id ?? null),
+        selfLid: normaliseJid(this.socket?.user?.lid ?? null),
         pushName: normaliseLabel(this.socket?.user?.name ?? this.socket?.user?.notify ?? null),
       };
       await this.emitRuntimeEvent('session');
@@ -1432,6 +1454,102 @@ function toEmbeddedBinary(value: unknown): Uint8Array | null {
 function readUnreadCount(chat: Chat): number {
   const value = (chat as { readonly unreadCount?: unknown }).unreadCount;
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function buildInboundNormalizeFailureSummary(payload: RawBaileysMessageEnvelope): Record<string, unknown> {
+  const { leafMessage, wrapperChain } = unwrapMessageForDebug(payload.message);
+
+  return {
+    messageId: payload.key?.id?.trim() || null,
+    chatJid: payload.key?.remoteJid?.trim() || null,
+    participantJid: payload.key?.participant?.trim() || null,
+    fromMe: payload.key?.fromMe ?? false,
+    topLevelKeys: listOwnKeys(payload.message),
+    wrapperChain,
+    leafKeys: listOwnKeys(leafMessage),
+    conversationText: readConversationText(payload.message),
+    extendedText: readExtendedText(payload.message),
+    leafConversationText: readConversationText(leafMessage),
+    leafExtendedText: readExtendedText(leafMessage),
+    topLevelMentions: readMentionedJids(payload.message),
+    leafMentions: readMentionedJids(leafMessage),
+  };
+}
+
+function unwrapMessageForDebug(
+  message: RawBaileysMessageEnvelope['message'],
+): {
+  readonly leafMessage: Record<string, unknown> | null;
+  readonly wrapperChain: readonly string[];
+} {
+  let current = asRecord(message);
+  const wrapperChain: string[] = [];
+
+  for (let index = 0; index < RAW_MESSAGE_WRAPPER_KEYS.length && current; index += 1) {
+    const wrapperKey = RAW_MESSAGE_WRAPPER_KEYS.find((key) => {
+      const wrapper = asRecord(current?.[key]);
+      return asRecord(wrapper?.message) !== null;
+    });
+
+    if (!wrapperKey) {
+      break;
+    }
+
+    wrapperChain.push(wrapperKey);
+    current = asRecord(asRecord(current[wrapperKey])?.message);
+  }
+
+  return {
+    leafMessage: current,
+    wrapperChain,
+  };
+}
+
+function listOwnKeys(value: unknown): readonly string[] {
+  const record = asRecord(value);
+  return record ? Object.keys(record) : [];
+}
+
+function readConversationText(value: unknown): string | null {
+  const record = asRecord(value);
+  return typeof record?.conversation === 'string' && record.conversation.trim()
+    ? record.conversation.trim()
+    : null;
+}
+
+function readExtendedText(value: unknown): string | null {
+  const record = asRecord(value);
+  const extendedTextMessage = asRecord(record?.extendedTextMessage);
+
+  return typeof extendedTextMessage?.text === 'string' && extendedTextMessage.text.trim()
+    ? extendedTextMessage.text.trim()
+    : null;
+}
+
+function readMentionedJids(value: unknown): readonly string[] {
+  const record = asRecord(value);
+  const candidates = [
+    asRecord(asRecord(record?.extendedTextMessage)?.contextInfo),
+    asRecord(record?.messageContextInfo),
+    asRecord(asRecord(record?.imageMessage)?.contextInfo),
+    asRecord(asRecord(record?.videoMessage)?.contextInfo),
+    asRecord(asRecord(record?.documentMessage)?.contextInfo),
+    asRecord(asRecord(record?.audioMessage)?.contextInfo),
+  ];
+
+  for (const candidate of candidates) {
+    const mentioned = candidate?.mentionedJid;
+
+    if (Array.isArray(mentioned)) {
+      return mentioned.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0);
+    }
+  }
+
+  return [];
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
 }
 
 function isNonEmptyString(value: string | undefined): value is string {

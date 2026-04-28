@@ -175,6 +175,7 @@ export interface WhatsAppSessionSnapshot {
   readonly lastDisconnectReason: string | null;
   readonly lastError: string | null;
   readonly selfJid: string | null;
+  readonly selfLid?: string | null;
   readonly pushName: string | null;
 }
 

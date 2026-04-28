@@ -31,6 +31,7 @@ interface WhatsAppReplyRuntimeLike {
   getRuntimeSnapshot(): Promise<{
     readonly session: {
       readonly selfJid: string | null;
+      readonly selfLid?: string | null;
     };
   }>;
   sendText(input: {
@@ -84,6 +85,16 @@ export class ConversationPipelineRuntime {
     this.started = true;
     this.detachInboundListener = this.config.inboundSource.subscribeInbound((message) => {
       void this.handleInbound(message).catch((error) => {
+        console.warn(
+          '[conversation] reply_failed',
+          JSON.stringify({
+            messageId: message.messageId,
+            chatJid: message.chatJid,
+            groupJid: message.groupJid ?? null,
+            text: message.text.slice(0, 200),
+            error: toErrorMessage(error),
+          }),
+        );
         this.publish('conversation.reply.failed', {
           messageId: message.messageId,
           chatJid: message.chatJid,
@@ -115,9 +126,28 @@ export class ConversationPipelineRuntime {
 
   private async handleInbound(message: NormalizedInboundMessage): Promise<void> {
     const runtimeSnapshot = await this.config.whatsAppRuntime.getRuntimeSnapshot();
-    const inboundDecision = evaluateInboundProcessing(message, runtimeSnapshot.session.selfJid, new Date(), this.config.maxInboundAgeMs);
+    const inboundDecision = evaluateInboundProcessing(
+      message,
+      [runtimeSnapshot.session.selfJid, runtimeSnapshot.session.selfLid],
+      new Date(),
+      this.config.maxInboundAgeMs,
+    );
 
     if (!inboundDecision.accepted) {
+      console.warn(
+        '[conversation] inbound_ignored',
+        JSON.stringify({
+          messageId: message.messageId,
+          chatJid: message.chatJid,
+          groupJid: message.groupJid ?? null,
+          reason: inboundDecision.reason,
+          ageMs: inboundDecision.ageMs,
+          wasTagged: inboundDecision.wasTagged,
+          isReplyToBot: inboundDecision.isReplyToBot,
+          mentionedJids: message.mentionedJids ?? [],
+          text: message.text.slice(0, 200),
+        }),
+      );
       this.publish('conversation.inbound.ignored', {
         messageId: message.messageId,
         chatJid: message.chatJid,
@@ -319,13 +349,16 @@ export class ConversationPipelineRuntime {
   }
 }
 
-function matchesOwnJid(mentionedJids: readonly string[] | undefined, selfJid: string | null): boolean {
-  return (mentionedJids ?? []).some((candidate) => sameJid(candidate, selfJid));
+function matchesOwnJid(
+  mentionedJids: readonly string[] | undefined,
+  selfJids: readonly (string | null | undefined)[],
+): boolean {
+  return (mentionedJids ?? []).some((candidate) => selfJids.some((selfJid) => sameJid(candidate, selfJid)));
 }
 
 function evaluateInboundProcessing(
   message: NormalizedInboundMessage,
-  selfJid: string | null,
+  selfJids: readonly (string | null | undefined)[],
   now: Date,
   maxInboundAgeMs = DEFAULT_MAX_INBOUND_AGE_MS,
 ): {
@@ -335,8 +368,10 @@ function evaluateInboundProcessing(
   readonly wasTagged: boolean;
   readonly isReplyToBot: boolean;
 } {
-  const wasTagged = matchesOwnJid(message.mentionedJids, selfJid) || hasTextualLumeTag(message.text);
-  const isReplyToBot = message.quotedParticipantJid ? sameJid(message.quotedParticipantJid, selfJid) : false;
+  const wasTagged = matchesOwnJid(message.mentionedJids, selfJids) || hasTextualLumeTag(message.text);
+  const isReplyToBot = message.quotedParticipantJid
+    ? selfJids.some((selfJid) => sameJid(message.quotedParticipantJid, selfJid))
+    : false;
   const ageMs = Math.max(0, now.getTime() - Date.parse(message.timestamp));
   const safeMaxInboundAgeMs = Number.isFinite(maxInboundAgeMs) && maxInboundAgeMs > 0
     ? Math.trunc(maxInboundAgeMs)

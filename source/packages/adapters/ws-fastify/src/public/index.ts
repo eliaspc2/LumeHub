@@ -37,8 +37,12 @@ export class WebSocketSessionRegistry {
   }
 
   publish(event: UiEventEnvelope): void {
-    for (const listener of this.listeners.values()) {
-      listener(event);
+    for (const [sessionId, listener] of this.listeners.entries()) {
+      try {
+        listener(event);
+      } catch {
+        this.listeners.delete(sessionId);
+      }
     }
   }
 
@@ -96,12 +100,18 @@ export class WebSocketGateway {
     });
 
     this.webSocketServer.on('connection', (socket: WebSocket) => {
-      const session = this.connect((event) => {
+      let session: WebSocketSession;
+      session = this.connect((event) => {
         if (socket.readyState !== socket.OPEN) {
           return;
         }
 
-        socket.send(JSON.stringify(event));
+        try {
+          socket.send(JSON.stringify(event));
+        } catch {
+          session.close();
+          safeTerminate(socket);
+        }
       });
 
       const closeSession = () => {

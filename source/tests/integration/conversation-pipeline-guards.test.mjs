@@ -174,6 +174,7 @@ test('conversation pipeline matches WA-notify group gating: tag or reply to bot,
         return {
           session: {
             selfJid: '351910000099:15@s.whatsapp.net',
+            selfLid: '232276864532729:15@lid',
           },
         };
       },
@@ -310,6 +311,19 @@ test('conversation pipeline matches WA-notify group gating: tag or reply to bot,
     });
 
     await inboundSource.emit({
+      messageId: 'wamid.group.tagged-lid',
+      chatJid: '120363400000000001@g.us',
+      participantJid: '135875669303359@lid',
+      groupJid: '120363400000000001@g.us',
+      fromMe: false,
+      text: 'Assim falha',
+      timestamp: new Date().toISOString(),
+      semanticFingerprint: 'fresh-tagged-lid',
+      pushName: 'Carla',
+      mentionedJids: ['232276864532729:15@lid'],
+    });
+
+    await inboundSource.emit({
       messageId: 'wamid.group.reply-to-bot',
       chatJid: '120363400000000001@g.us',
       participantJid: '351910000001@s.whatsapp.net',
@@ -323,58 +337,65 @@ test('conversation pipeline matches WA-notify group gating: tag or reply to bot,
       quotedParticipantJid: '351910000099@s.whatsapp.net',
     });
 
+    await inboundSource.emit({
+      messageId: 'wamid.group.reply-to-bot-lid',
+      chatJid: '120363400000000001@g.us',
+      participantJid: '135875669303359@lid',
+      groupJid: '120363400000000001@g.us',
+      fromMe: false,
+      text: 'Sem tag, a responder ao Lume por lid.',
+      timestamp: new Date().toISOString(),
+      semanticFingerprint: 'fresh-reply-to-bot-lid',
+      pushName: 'Carla',
+      mentionedJids: [],
+      quotedParticipantJid: '232276864532729:15@lid',
+    });
+
     await waitFor(() => {
-      assert.equal(conversationCalls.length, 2);
-      assert.equal(sentMessages.length, 2);
-      assert.equal(recordedMessages.length, 4);
+      assert.equal(conversationCalls.length, 4);
+      assert.equal(sentMessages.length, 4);
+      assert.equal(recordedMessages.length, 8);
     });
 
     assert.equal(sentMessages[0].chatJid, '120363400000000001@g.us');
     assert.equal(sentMessages[1].chatJid, '120363400000000001@g.us');
     assert.deepEqual(
       recordedMessages.map((entry) => entry.role).sort(),
-      ['assistant', 'assistant', 'user', 'user'],
+      ['assistant', 'assistant', 'assistant', 'assistant', 'user', 'user', 'user', 'user'],
     );
 
-    await outboundSignalSource.emitObservation({
-      messageId: sentMessages[0].messageId,
-      chatJid: sentMessages[0].chatJid,
-      observedAt: new Date().toISOString(),
-      source: 'test.observation',
-    });
-    await outboundSignalSource.emitConfirmation({
-      messageId: sentMessages[0].messageId,
-      chatJid: sentMessages[0].chatJid,
-      confirmedAt: new Date().toISOString(),
-      source: 'test.confirmation',
-      ack: 2,
-    });
-    await outboundSignalSource.emitObservation({
-      messageId: sentMessages[1].messageId,
-      chatJid: sentMessages[1].chatJid,
-      observedAt: new Date().toISOString(),
-      source: 'test.observation',
-    });
-    await outboundSignalSource.emitConfirmation({
-      messageId: sentMessages[1].messageId,
-      chatJid: sentMessages[1].chatJid,
-      confirmedAt: new Date().toISOString(),
-      source: 'test.confirmation',
-      ack: 2,
-    });
+    for (const sentMessage of sentMessages) {
+      await outboundSignalSource.emitObservation({
+        messageId: sentMessage.messageId,
+        chatJid: sentMessage.chatJid,
+        observedAt: new Date().toISOString(),
+        source: 'test.observation',
+      });
+      await outboundSignalSource.emitConfirmation({
+        messageId: sentMessage.messageId,
+        chatJid: sentMessage.chatJid,
+        confirmedAt: new Date().toISOString(),
+        source: 'test.confirmation',
+        ack: 2,
+      });
+    }
 
     const deliveryLog = await replyDeliveryRepository.read();
-    assert.equal(deliveryLog.entries.length, 2);
+    assert.equal(deliveryLog.entries.length, 4);
     assert.equal(deliveryLog.entries[0].sourceMessageId, 'wamid.group.tagged');
     assert.equal(deliveryLog.entries[0].state, 'confirmed');
     assert.equal(deliveryLog.entries[0].outboundMessageId, sentMessages[0].messageId);
     assert.equal(deliveryLog.entries[0].targetChatType, 'group');
     assert.equal(deliveryLog.entries[0].ack, 2);
-    assert.equal(deliveryLog.entries[1].sourceMessageId, 'wamid.group.reply-to-bot');
+    assert.equal(deliveryLog.entries[1].sourceMessageId, 'wamid.group.tagged-lid');
     assert.equal(deliveryLog.entries[1].state, 'confirmed');
     assert.equal(deliveryLog.entries[1].outboundMessageId, sentMessages[1].messageId);
     assert.equal(deliveryLog.entries[1].targetChatType, 'group');
     assert.equal(deliveryLog.entries[1].ack, 2);
+    assert.equal(deliveryLog.entries[2].sourceMessageId, 'wamid.group.reply-to-bot');
+    assert.equal(deliveryLog.entries[2].state, 'confirmed');
+    assert.equal(deliveryLog.entries[3].sourceMessageId, 'wamid.group.reply-to-bot-lid');
+    assert.equal(deliveryLog.entries[3].state, 'confirmed');
   } finally {
     await runtime.stop();
   }

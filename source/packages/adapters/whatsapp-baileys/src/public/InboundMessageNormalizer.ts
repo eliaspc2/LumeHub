@@ -30,15 +30,18 @@ function extractText(payload: RawBaileysMessageEnvelope): string | undefined {
     ?? content?.documentMessage?.caption;
 }
 
-function extractContextInfo(payload: RawBaileysMessageEnvelope) {
+function extractContextInfos(payload: RawBaileysMessageEnvelope): readonly Record<string, unknown>[] {
   const content = unwrapMessageContent(payload.message);
 
-  return content?.extendedTextMessage?.contextInfo
-    ?? content?.imageMessage?.contextInfo
-    ?? content?.videoMessage?.contextInfo
-    ?? content?.documentMessage?.contextInfo
-    ?? content?.audioMessage?.contextInfo
-    ?? content?.messageContextInfo;
+  return [
+    content?.extendedTextMessage?.contextInfo,
+    content?.imageMessage?.contextInfo,
+    content?.videoMessage?.contextInfo,
+    content?.documentMessage?.contextInfo,
+    content?.audioMessage?.contextInfo,
+    readRecord(content)?.contextInfo,
+    content?.messageContextInfo,
+  ].map(readRecord).filter((entry): entry is Record<string, unknown> => entry !== null);
 }
 
 function fingerprintFor(participantJid: string, text: string): string {
@@ -62,8 +65,10 @@ export class InboundMessageNormalizer {
 
     const isGroup = chatJid.endsWith('@g.us');
     const participantJid = (payload.key?.participant?.trim() || chatJid);
-    const contextInfo = extractContextInfo(payload);
-    const mentionedJids = dedupeStrings(contextInfo?.mentionedJid ?? []);
+    const contextInfos = extractContextInfos(payload);
+    const mentionedJids = dedupeStrings(contextInfos.flatMap((contextInfo) => readStringArray(contextInfo.mentionedJid)));
+    const quotedMessageId = readFirstString(contextInfos, 'stanzaId');
+    const quotedParticipantJid = readFirstString(contextInfos, 'participant');
 
     return {
       messageId,
@@ -76,8 +81,8 @@ export class InboundMessageNormalizer {
       semanticFingerprint: fingerprintFor(participantJid, text),
       pushName: payload.pushName?.trim() || undefined,
       ...(mentionedJids.length > 0 ? { mentionedJids } : {}),
-      ...(contextInfo?.stanzaId?.trim() ? { quotedMessageId: contextInfo.stanzaId.trim() } : {}),
-      ...(contextInfo?.participant?.trim() ? { quotedParticipantJid: contextInfo.participant.trim() } : {}),
+      ...(quotedMessageId ? { quotedMessageId } : {}),
+      ...(quotedParticipantJid ? { quotedParticipantJid } : {}),
     };
   }
 }
@@ -91,19 +96,25 @@ function unwrapMessageContent(message: RawBaileysMessageEnvelope['message']): Ra
     return undefined;
   }
 
-  let current = message;
+  let current: unknown = message;
 
   for (let index = 0; index < 5; index += 1) {
+    const currentRecord = readRecord(current);
+    if (!currentRecord) {
+      return undefined;
+    }
+
     const nested =
-      current.deviceSentMessage?.message
-      ?? current.groupMentionedMessage?.message
-      ?? current.botInvokeMessage?.message
-      ?? current.ephemeralMessage?.message
-      ?? current.viewOnceMessage?.message
-      ?? current.documentWithCaptionMessage?.message
-      ?? current.viewOnceMessageV2?.message
-      ?? current.viewOnceMessageV2Extension?.message
-      ?? current.editedMessage?.message;
+      readNestedMessage(currentRecord, 'deviceSentMessage')
+      ?? readNestedMessage(currentRecord, 'groupMentionedMessage')
+      ?? readNestedMessage(currentRecord, 'botInvokeMessage')
+      ?? readNestedMessage(currentRecord, 'ephemeralMessage')
+      ?? readNestedMessage(currentRecord, 'viewOnceMessage')
+      ?? readNestedMessage(currentRecord, 'documentWithCaptionMessage')
+      ?? readNestedMessage(currentRecord, 'viewOnceMessageV2')
+      ?? readNestedMessage(currentRecord, 'viewOnceMessageV2Extension')
+      ?? readNestedMessage(currentRecord, 'editedMessage')
+      ?? readFirstGenericNestedMessage(currentRecord);
 
     if (!nested) {
       break;
@@ -112,5 +123,45 @@ function unwrapMessageContent(message: RawBaileysMessageEnvelope['message']): Ra
     current = nested;
   }
 
-  return current;
+  return current as RawBaileysMessageEnvelope['message'];
+}
+
+function readNestedMessage(record: Record<string, unknown>, key: string): unknown {
+  return readRecord(readRecord(record[key])?.message);
+}
+
+function readFirstGenericNestedMessage(record: Record<string, unknown>): unknown {
+  for (const value of Object.values(record)) {
+    const nestedMessage = readRecord(readRecord(value)?.message);
+
+    if (nestedMessage) {
+      return nestedMessage;
+    }
+  }
+
+  return undefined;
+}
+
+function readRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function readFirstString(records: readonly Record<string, unknown>[], key: string): string | undefined {
+  for (const record of records) {
+    const value = readString(record[key]);
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+function readStringArray(value: unknown): readonly string[] {
+  return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
 }

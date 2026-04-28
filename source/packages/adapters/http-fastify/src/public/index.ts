@@ -2236,6 +2236,7 @@ function createEmptyWhatsAppRuntimeSnapshot(): WhatsAppRuntimeSnapshot {
       lastDisconnectReason: null,
       lastError: null,
       selfJid: null,
+      selfLid: null,
       pushName: null,
     },
     qr: {

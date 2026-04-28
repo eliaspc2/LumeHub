@@ -222,6 +222,7 @@ interface CodexRouterQuotaRefreshDraft {
 }
 
 interface CodexRouterDeleteDraft {
+  readonly confirmingAccountId: string | null;
   readonly deletingAccountId: string | null;
 }
 
@@ -5683,6 +5684,8 @@ export class AppShell {
                           const renameChanged = renameLabel.trim() !== account.label;
                           const quotaRefreshBusy =
                             this.state.codexRouterQuotaRefreshDraft.refreshingAccountId === account.accountId;
+                          const deleteConfirming =
+                            this.state.codexRouterDeleteDraft.confirmingAccountId === account.accountId;
                           const deleteBusy = this.state.codexRouterDeleteDraft.deletingAccountId === account.accountId;
                           const deleteSupported = account.kind === 'secondary';
 
@@ -5728,8 +5731,12 @@ export class AppShell {
                               ${
                                 deleteSupported
                                   ? renderUiActionButton({
-                                      label: deleteBusy ? 'A apagar...' : 'Apagar do router',
-                                      variant: 'secondary',
+                                      label: deleteBusy
+                                        ? 'A apagar...'
+                                        : deleteConfirming
+                                          ? 'Confirmar apagar'
+                                          : 'Apagar do router',
+                                      variant: deleteConfirming ? 'primary' : 'secondary',
                                       disabled: deleteBusy || isActive,
                                       dataAttributes: {
                                         'settings-action': 'remove-codex-account',
@@ -8498,21 +8505,22 @@ export class AppShell {
         return;
       }
 
-      const people = buildSettingsPeopleViews(settingsPage.data.people, settingsPage.data.settings);
-      const pendingConfirmation = !options.confirmed
-        ? this.buildSettingsConfirmation(action, dataset, settingsPage.data.settings, people)
-        : null;
-
-      if (pendingConfirmation) {
+      if (!options.confirmed && this.state.codexRouterDeleteDraft.confirmingAccountId !== accountId) {
+        const account =
+          settingsPage.data.settings.authRouterStatus?.accounts.find((entry) => entry.accountId === accountId) ?? null;
+        const accountLabel = account?.label ?? accountId;
         this.state = {
           ...this.state,
-          pendingConfirmation,
+          codexRouterDeleteDraft: {
+            confirmingAccountId: accountId,
+            deletingAccountId: null,
+          },
           flowFeedback: {
             tone: 'warning',
-            message: pendingConfirmation.description,
+            message: `Clica novamente para retirar ${accountLabel} do Codex Router.`,
           },
         };
-        this.recordUxEvent('warning', `Confirmacao pedida: ${pendingConfirmation.title}`);
+        this.recordUxEvent('warning', `Confirmacao pedida: apagar ${accountLabel} do Codex Router.`);
         this.render();
         return;
       }
@@ -8524,6 +8532,7 @@ export class AppShell {
       this.state = {
         ...this.state,
         codexRouterDeleteDraft: {
+          confirmingAccountId: accountId,
           deletingAccountId: accountId,
         },
         flowFeedback: {
@@ -11647,6 +11656,7 @@ function createEmptyCodexRouterQuotaRefreshDraft(): CodexRouterQuotaRefreshDraft
 
 function createEmptyCodexRouterDeleteDraft(): CodexRouterDeleteDraft {
   return {
+    confirmingAccountId: null,
     deletingAccountId: null,
   };
 }
