@@ -1612,8 +1612,29 @@ textarea {
 
 .codex-router-account-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+}
+
+.codex-router-rename-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.codex-router-rename-save {
+  gap: 6px;
+}
+
+.codex-router-rename-save__button {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.codex-router-rename-save__button .ui-button {
+  width: fit-content;
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 0.88rem;
 }
 
 .codex-router-control-card {
@@ -2688,6 +2709,10 @@ textarea {
   .month-calendar {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+
+  .codex-router-account-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 960px) {
@@ -2802,6 +2827,10 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .codex-router-account-list {
+    grid-template-columns: 1fr;
+  }
+
   .week-event-card__stats {
     grid-template-columns: 1fr;
   }
@@ -2853,6 +2882,10 @@ textarea {
   }
 
   .month-calendar {
+    grid-template-columns: 1fr;
+  }
+
+  .codex-router-account-list {
     grid-template-columns: 1fr;
   }
 

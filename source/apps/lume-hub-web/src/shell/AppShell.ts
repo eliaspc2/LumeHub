@@ -5749,24 +5749,26 @@ export class AppShell {
                             ${
                               renameSupported
                                 ? `
-                                    <div class="ui-form-grid ui-form-grid--double codex-router-rename-grid">
+                                    <div class="codex-router-rename-stack">
                                       ${renderUiInputField({
                                         label: 'Nome visivel',
                                         value: renameLabel,
                                         dataKey: `codexRouter.renameLabel.${account.accountId}`,
                                         hint: 'Este nome aparece no router e no token em uso.',
                                       })}
-                                      <div class="ui-field">
+                                      <div class="ui-field codex-router-rename-save">
                                         <span class="ui-field__label">Guardar nome</span>
-                                        ${renderUiActionButton({
-                                          label: renameBusy ? 'A guardar...' : 'Guardar nome',
-                                          variant: renameChanged ? 'primary' : 'secondary',
-                                          disabled: renameBusy || !renameChanged || renameLabel.trim().length === 0,
-                                          dataAttributes: {
-                                            'settings-action': 'rename-codex-account',
-                                            'codex-account-id': account.accountId,
-                                          },
-                                        })}
+                                        <div class="codex-router-rename-save__button">
+                                          ${renderUiActionButton({
+                                            label: renameBusy ? 'A guardar...' : 'Guardar nome',
+                                            variant: renameChanged ? 'primary' : 'secondary',
+                                            disabled: renameBusy || !renameChanged || renameLabel.trim().length === 0,
+                                            dataAttributes: {
+                                              'settings-action': 'rename-codex-account',
+                                              'codex-account-id': account.accountId,
+                                            },
+                                          })}
+                                        </div>
                                         <span class="ui-field__hint">Muda apenas a etiqueta visivel deste token.</span>
                                       </div>
                                     </div>
