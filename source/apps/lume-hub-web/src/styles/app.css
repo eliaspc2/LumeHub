@@ -184,6 +184,31 @@ textarea {
   gap: 12px;
 }
 
+.shell-nav__footer {
+  margin-top: auto;
+  padding: 14px 12px 10px;
+  border-top: 1px solid var(--line-soft);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(238, 242, 240, 0.95) 0%, rgba(230, 235, 231, 0.98) 100%);
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+.shell-nav__footer-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.shell-nav__footer strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink-soft);
+  font-size: 0.98rem;
+}
+
 .nav-section {
   display: grid;
   gap: 6px;
@@ -2224,6 +2249,10 @@ textarea {
     background-color 140ms ease,
     border-color 140ms ease,
     transform 140ms ease;
+}
+
+.ui-button--static {
+  pointer-events: none;
 }
 
 .ui-button:hover,

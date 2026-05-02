@@ -65,6 +65,7 @@ type ActionDataset = Readonly<Record<string, string | undefined>>;
 
 const ADVANCED_DETAILS_STORAGE_KEY = 'lumehub.web.advanced_details';
 const UX_TELEMETRY_STORAGE_KEY = 'lumehub.web.ux_telemetry';
+const LUMEHUB_WEB_VERSION = '0.1.0';
 const WEEK_DAY_OPTIONS = [
   { value: 'segunda-feira', label: 'Segunda-feira', shortLabel: 'Seg' },
   { value: 'terca-feira', label: 'Terca-feira', shortLabel: 'Ter' },
@@ -1040,6 +1041,10 @@ export class AppShell {
                 </div>
               `
               : ''}
+          <div class="shell-nav__footer" aria-label="Versao do software">
+            <span class="shell-nav__footer-label">Versao</span>
+            <strong>${escapeHtml(`v${LUMEHUB_WEB_VERSION}`)}</strong>
+          </div>
           </nav>
         </aside>
 
@@ -11250,7 +11255,7 @@ export class AppShell {
       return;
     }
 
-    for (const link of this.root.querySelectorAll<HTMLElement>('[data-route]')) {
+    for (const link of this.root.querySelectorAll<HTMLElement>('.shell-nav [data-route]')) {
       link.addEventListener('click', (event) => {
         event.preventDefault();
         const nextRoute = link.dataset.route;
