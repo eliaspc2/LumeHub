@@ -28,6 +28,7 @@
     "validate:wave72": "corepack pnpm run typecheck && corepack pnpm run build && node --test ./tests/unit/notification-rule-policy-engine.test.mjs ./tests/unit/codex-auth-router-enabled.test.mjs ./tests/unit/codex-auth-router-multi-account.test.mjs && node ./scripts/validate-release.mjs && node --experimental-global-webcrypto ./scripts/validate-wave72.mjs",
     "validate:wave73": "corepack pnpm run typecheck && corepack pnpm run build && node --test ./tests/unit/codex-auth-router-enabled.test.mjs ./tests/unit/codex-auth-router-multi-account.test.mjs ./tests/unit/codex-auth-router-sync-back.test.mjs ./tests/unit/codex-auth-router-quota.test.mjs ./tests/unit/system-power-inhibitor.test.mjs ./tests/unit/llm-prompt-contracts.test.mjs && node ./scripts/validate-wave73.mjs",
     "validate:wave78": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave78.mjs",
+    "validate:wave79": "corepack pnpm run typecheck && corepack pnpm run build && node ./scripts/validate-wave79.mjs",
     "package:docker-desktop": "corepack pnpm -r --if-present build && node ./scripts/package-docker-desktop-bundle.mjs"
   },
   "devDependencies": {

@@ -90,7 +90,7 @@ try {
   assert.doesNotMatch(whatsappDom.stdout, /data-kind="mode"/u);
 
   assert.match(todayDom.stdout, /O que merece atencao agora/u);
-  assert.match(todayDom.stdout, /Atalhos principais/u);
+  assert.match(todayDom.stdout, /Radar live/u);
   assert.doesNotMatch(todayDom.stdout, /Distribuicoes e ritmo de trabalho/u);
   assert.doesNotMatch(todayDom.stdout, /Host companion/u);
   assert.doesNotMatch(todayDom.stdout, /Saude do sistema/u);

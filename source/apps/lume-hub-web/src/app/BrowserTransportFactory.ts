@@ -1455,13 +1455,13 @@ function createDemoState(): DemoState {
       sourceType: 'incoming_message',
       sourceMessageId: 'wamid.demo.004',
       mode: 'confirmed',
-      status: 'partial_failed',
+      status: 'completed',
       targetGroupJids: [groups[0].groupJid, groups[3].groupJid],
       actionCounts: {
         pending: 0,
         running: 0,
-        completed: 1,
-        failed: 1,
+        completed: 2,
+        failed: 0,
         skipped: 0,
       },
       createdAt: iso(-90),
@@ -1469,32 +1469,7 @@ function createDemoState(): DemoState {
     },
   ];
 
-  const watchdogIssues: WatchdogIssue[] = [
-    {
-      issueId: 'issue-overdue-001',
-      kind: 'job_overdue',
-      jobId: 'job-ballet-001',
-      weekId: '2026-W13',
-      groupJid: groups[0].groupJid,
-      groupLabel: groups[0].preferredSubject,
-      openedAt: iso(-42),
-      status: 'open',
-      summary: 'Aviso importante ultrapassou a hora prevista sem confirmacao.',
-      resolvedAt: null,
-    },
-    {
-      issueId: 'issue-confirmation-002',
-      kind: 'waiting_confirmation_timeout',
-      jobId: 'job-pilates-007',
-      weekId: '2026-W13',
-      groupJid: groups[2].groupJid,
-      groupLabel: groups[2].preferredSubject,
-      openedAt: iso(-130),
-      status: 'open',
-      summary: 'Mensagem observada mas sem confirmacao forte dentro da janela esperada.',
-      resolvedAt: null,
-    },
-  ];
+  const watchdogIssues: WatchdogIssue[] = [];
 
   const demoAlertRules: readonly MessageAlertRule[] = [
     {

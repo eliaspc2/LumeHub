@@ -47,33 +47,17 @@ Estado canonico deixado:
 - validadores intermédios `74..77` ficaram removidos
 - docs, README e backlog ficaram alinhados ao estado final
 
+Wave 79 fechou o fix de alertas falsos e o radar live em `Hoje`.
+
+Estado canonico deixado:
+
+- `Hoje` passou a usar radar live compacto, filtrado para sinais uteis
+- o contador de risco deixou de tratar ruido parcial como alerta alto
+- o demo seed deixou de fabricar falsos positivos em `Hoje`
+- validacao consolidada: `validate:wave79`
+
 Waves ainda por executar:
 
-### Wave 79 - Alertas falsos e Hoje com radar live
-
-Objetivo:
-- corrigir sinais de alerta falsos antes de abrir nova simplificacao visual
-- substituir `Atalhos principais` em `Hoje` por um radar live compacto e realmente util
-
-Scope:
-- `watchdog`
-- tracking de reminders e reconciliacao de entrega
-- homepage `/today`
-
-Obrigatorio:
-- auditar os alertas ativos vistos em `Hoje` e no inbox operacional para separar falha real de falso positivo
-- se o problema vier do `watchdog`, do tracking de entrega ou da reconciliacao de ACK/accepted, fechar primeiro esse bug no runtime
-- o contador de problemas em `Hoje` so pode subir por falha operacional com valor claro para o operador
-- `Hoje` deixa de ter o bloco `Atalhos principais`
-- no lugar entra uma janela pequena `Radar live` com sinais recentes de runtime, chats, envios e alertas reais
-- o radar deve privilegiar linguagem curta, timestamps legiveis e leitura de cima para baixo
-- se nao houver eventos, mostrar estado tranquilo em vez de caixa vazia ou ruido tecnico
-- limpar alertas falsos, copy residual e sinais redundantes que deixem de fazer sentido depois da correcao
-
-Validacao:
-- criar `validate:wave79`
-- produzir pelo menos um caso real ou reproduzido que antes gerava alerta falso e confirmar que deixa de contaminar `Hoje`
-- abrir `/today` em browser headless/CDP em `desktop` e `mobile` para confirmar que o radar cabe bem sem espaco morto
 
 ### Wave 80 - Shell e hierarquia com menos carga simultanea
 
@@ -212,13 +196,13 @@ Estado canonico deixado:
 - kit de entrega comercial honesto para `backend containerizado + host companion`
 - validadores intermédios da ronda removidos; a serie ficou consolidada em `validate:wave72`
 
-A ronda `ui-ux-commercial-polish` ficou fechada com a limpeza final da `Wave 78`.
+A ronda `ui-ux-commercial-polish` ficou fechada com a limpeza final da `Wave 79`.
 Estado canonico deixado:
 
 - a shell ficou menos tecnica e mais compacta nas areas tocadas
 - `LumeHub`, `Codex Router` e rotas tecnicas por papel ficaram alinhadas com mais detalhe progressivo e menos repeticao visual
 - a limpeza final consolidou os validadores e fechou a ronda com relancamento do LumeHub
-- a serie ficou consolidada em `validate:wave78`
+- a serie ficou consolidada em `validate:wave79`
 
 A `Wave 73` fechou o cutover operacional de avisos e ownership OAuth.
 Estado canonico deixado:

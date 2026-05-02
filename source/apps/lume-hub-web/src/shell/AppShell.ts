@@ -1208,7 +1208,7 @@ export class AppShell {
 
   private renderTodayPage(page: UiPage<DashboardSnapshot>): string {
     const snapshot = page.data;
-    const liveEvents = this.state.liveEvents.slice(0, 5);
+    const liveEvents = filterTodayRadarEvents(this.state.liveEvents).slice(0, 5);
     const readyTone = snapshot.readiness.ready ? 'positive' : 'warning';
     const riskSummary =
       snapshot.watchdog.openIssues > 0
@@ -1218,36 +1218,46 @@ export class AppShell {
             text: `${snapshot.watchdog.openIssues} problema(s) confirmado(s). Comeca por esses antes de preparar novos envios.`,
           }
         : snapshot.whatsapp.phase !== 'open'
-          ? {
+            ? {
               label: 'Risco no WhatsApp',
               tone: 'warning' as const,
               text: 'A ligacao WhatsApp nao esta aberta. Sem isso, respostas e avisos podem nao sair.',
             }
-          : snapshot.distributions.failed + snapshot.distributions.partialFailed > 0
+          : snapshot.distributions.failed > 0
             ? {
-                label: 'Risco em envios',
-                tone: 'warning' as const,
-                text: `${snapshot.distributions.failed + snapshot.distributions.partialFailed} envio(s) precisam de revisao antes de continuar.`,
-              }
-            : snapshot.distributions.running + snapshot.distributions.queued > 0
+              label: 'Risco em envios',
+              tone: 'warning' as const,
+              text: `${snapshot.distributions.failed} envio(s) falharam e precisam de revisao antes de continuar.`,
+            }
+            : snapshot.distributions.partialFailed > 0
               ? {
                   label: 'A acompanhar',
                   tone: 'neutral' as const,
-                  text: 'Ha envios em curso ou em fila. Mantem o radar aberto ate fecharem.',
+                  text: `${snapshot.distributions.partialFailed} envio(s) tiveram falha parcial. Continua a acompanhar sem bloquear o resto.`,
                 }
-              : {
-                  label: 'Baixo risco',
-                  tone: 'positive' as const,
-                  text: 'Sem problemas confirmados, WhatsApp ligado e sem fila operacional critica.',
-                };
+              : snapshot.distributions.running + snapshot.distributions.queued > 0
+                ? {
+                    label: 'A acompanhar',
+                    tone: 'neutral' as const,
+                    text: 'Ha envios em curso ou em fila. Mantem o radar aberto ate fecharem.',
+                  }
+                : {
+                    label: 'Baixo risco',
+                    tone: 'positive' as const,
+                    text: 'Sem problemas confirmados, WhatsApp ligado e sem fila operacional critica.',
+                  };
     const nextStep =
       snapshot.watchdog.openIssues > 0
         ? 'Comeca pelos problemas que o sistema encontrou e confirmou.'
         : snapshot.whatsapp.phase !== 'open'
           ? 'Abre o WhatsApp e confirma a ligacao antes de continuares.'
-          : snapshot.distributions.running + snapshot.distributions.queued > 0
-            ? 'Confirma os envios em curso antes de preparares novos.'
-            : 'Abre a agenda da semana e prepara o proximo agendamento.';
+          : snapshot.distributions.failed > 0
+            ? 'Revê os envios que falharam antes de criares novos.'
+            : snapshot.distributions.partialFailed > 0
+              ? 'Revê os envios com falha parcial e continua com o resto.'
+              : snapshot.distributions.running + snapshot.distributions.queued > 0
+                ? 'Confirma os envios em curso antes de preparares novos.'
+                : 'Abre a agenda da semana e prepara o proximo agendamento.';
 
     return `
       <section class="surface hero surface--strong">
@@ -1293,8 +1303,14 @@ export class AppShell {
           <div class="card-header">
             <h3>O que merece atencao agora</h3>
             ${renderUiBadge({
-              label: snapshot.watchdog.openIssues > 0 ? 'Agir agora' : 'Tudo sob controlo',
-              tone: snapshot.watchdog.openIssues > 0 ? 'warning' : 'positive',
+              label:
+                snapshot.watchdog.openIssues > 0 || snapshot.distributions.failed > 0
+                  ? 'Agir agora'
+                  : 'Tudo sob controlo',
+              tone:
+                snapshot.watchdog.openIssues > 0 || snapshot.distributions.failed > 0
+                  ? 'warning'
+                  : 'positive',
             })}
           </div>
           <ul>
@@ -1307,10 +1323,13 @@ export class AppShell {
                         `<li><strong>${escapeHtml(issue.groupLabel)}</strong>: ${escapeHtml(issue.summary)}</li>`,
                     )
                     .join('')
-                : '<li>Sem problemas abertos neste momento.</li>'
+                : snapshot.distributions.failed > 0
+                  ? `<li>${snapshot.distributions.failed} envio(s) falharam e precisam de revisao.</li>`
+                  : snapshot.distributions.partialFailed > 0
+                    ? `<li>${snapshot.distributions.partialFailed} envio(s) com falha parcial. Continua a acompanhar.</li>`
+                    : '<li>Sem problemas confirmados neste momento.</li>'
             }
             <li>${snapshot.distributions.queued} envios em fila e ${snapshot.distributions.running} a decorrer.</li>
-            <li>${snapshot.distributions.partialFailed} com falha parcial e ${snapshot.distributions.failed} falhados.</li>
           </ul>
         </article>
 
@@ -13920,6 +13939,18 @@ function readableTodayLiveEventTitle(topic: string): string {
   }
 
   return topic.replaceAll('.', ' ');
+}
+
+function filterTodayRadarEvents(events: readonly FrontendUiEvent[]): readonly FrontendUiEvent[] {
+  return events.filter((event) =>
+    event.topic.startsWith('instruction.')
+    || event.topic.startsWith('conversation.')
+    || event.topic.startsWith('watchdog.')
+    || event.topic.startsWith('whatsapp.')
+    || event.topic.startsWith('delivery.')
+    || event.topic.startsWith('runtime.')
+    || event.topic.startsWith('host.'),
+  );
 }
 
 function describeTodayLiveEvent(event: FrontendUiEvent): string {

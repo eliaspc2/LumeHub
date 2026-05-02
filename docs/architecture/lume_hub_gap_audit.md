@@ -208,17 +208,18 @@ Estado canonico deixado:
 
 Nao restam gaps ativos nesta ronda.
 A `Wave 78` fechou a limpeza final, consolidou os validadores e relancou o LumeHub.
+A `Wave 79` fechou o fix de alertas falsos e o radar live em `Hoje`.
 
 Estado canonico deixado:
 
 - a shell ficou mais compacta e menos tecnica nas areas tocadas
 - a leitura operacional da pagina ficou menos repetitiva
-- o fecho da ronda ficou consolidado em `validate:wave78`
+- o fecho da ronda ficou consolidado em `validate:wave79`
 
 Trabalho ja reservado para a ronda seguinte:
 
 - abrir `gui-simplification-pass-2`
-- arrancar a ronda com fix de alertas falsos e substituicao de `Atalhos principais` por `Radar live` em `Hoje`
+- arrancar a ronda com simplificacao de shell e hierarquia com menos carga simultanea
 - fazer uma nova revisao headless das rotas live antes de mexer no layout dessa ronda
 - acrescentar um modulo `official-update-sync` para descobrir e descarregar updates a partir do repo oficial, com toggle `on/off`
 
