@@ -4669,6 +4669,11 @@ export class AppShell {
                     variant: snapshot.settings.whatsapp.enabled ? 'secondary' : 'primary',
                     dataAttributes: { 'whatsapp-action': 'toggle-whatsapp-enabled' },
                   })}
+                  ${renderUiActionButton({
+                    label: 'Trocar conta WhatsApp',
+                    variant: 'secondary',
+                    dataAttributes: { 'whatsapp-action': 'reset-whatsapp-session' },
+                  })}
                 </div>
                 <div class="status-list">
                   <article class="status-item status-item--${snapshot.runtime.session.sessionPresent ? 'positive' : 'warning'}">
@@ -6279,6 +6284,14 @@ export class AppShell {
               dataAttributes: { 'settings-action': 'toggle-whatsapp-enabled' },
             })}
           </div>
+          <div class="action-row">
+            ${renderUiActionButton({
+              label: 'Trocar conta WhatsApp',
+              variant: 'secondary',
+              dataAttributes: { 'settings-action': 'reset-whatsapp-session' },
+            })}
+          </div>
+          <p class="section-hint">Remove a sessao atual e abre novo QR para emparelhar outra conta operadora.</p>
           ${
             whatsappWorkspace.runtime.qr.available && whatsappWorkspace.runtime.qr.svg
               ? `
@@ -8862,6 +8875,22 @@ export class AppShell {
       return;
     }
 
+    if (action === 'reset-whatsapp-session') {
+      const settingsPage = this.readSettingsPageData();
+
+      if (!settingsPage) {
+        return;
+      }
+
+      await this.runSettingsMutation(
+        async () => {
+          await this.currentClient().resetWhatsAppSession();
+        },
+        'A sessao WhatsApp foi limpa e ficou pronto um novo QR para emparelhar outra conta.',
+      );
+      return;
+    }
+
     if (action === 'reset-local-ui-state') {
       localStorage.removeItem(ADVANCED_DETAILS_STORAGE_KEY);
       localStorage.removeItem(UX_TELEMETRY_STORAGE_KEY);
@@ -10737,6 +10766,16 @@ export class AppShell {
       return;
     }
 
+    if (action === 'reset-whatsapp-session') {
+      await this.runWhatsAppMutation(
+        async () => {
+          await this.currentClient().resetWhatsAppSession();
+        },
+        'A sessao WhatsApp foi limpa e ficou pronto um novo QR para emparelhar outra conta.',
+      );
+      return;
+    }
+
     if (action === 'toggle-private-assistant-global') {
       await this.runWhatsAppMutation(
         async () => {
@@ -11026,6 +11065,20 @@ export class AppShell {
       }
     }
 
+    if (action === 'reset-whatsapp-session') {
+      return {
+        domain: 'settings',
+        key: 'reset-whatsapp-session',
+        action,
+        dataset,
+        title: 'Trocar a conta WhatsApp?',
+        description:
+          'Isto remove a sessao atual, apaga a autenticacao guardada e volta a pedir QR para emparelhar outra conta.',
+        confirmLabel: 'Trocar conta',
+        tone: 'danger',
+      };
+    }
+
     if (action === 'remove-codex-account') {
       const accountId = dataset.codexAccountId?.trim() ?? '';
       const account = snapshot.authRouterStatus?.accounts.find((entry) => entry.accountId === accountId) ?? null;
@@ -11063,6 +11116,20 @@ export class AppShell {
         title: 'Desligar o canal WhatsApp?',
         description: 'Isto para o canal inteiro ate voltares a liga-lo. Faz sentido confirmar antes de mexer numa operacao tao sensivel.',
         confirmLabel: 'Desligar canal',
+        tone: 'danger',
+      };
+    }
+
+    if (action === 'reset-whatsapp-session') {
+      return {
+        domain: 'whatsapp',
+        key: 'reset-whatsapp-session',
+        action,
+        dataset,
+        title: 'Trocar a conta WhatsApp?',
+        description:
+          'Isto remove a sessao atual, apaga a autenticacao guardada e volta a pedir QR para emparelhar outra conta.',
+        confirmLabel: 'Trocar conta',
         tone: 'danger',
       };
     }

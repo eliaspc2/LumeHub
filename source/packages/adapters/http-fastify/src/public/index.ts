@@ -187,6 +187,7 @@ export interface HttpApiModules {
   readonly whatsappRuntime?: {
     getRuntimeSnapshot(): Promise<WhatsAppRuntimeSnapshot>;
     refreshWorkspace(): Promise<WhatsAppRuntimeSnapshot>;
+    resetSession(): Promise<WhatsAppRuntimeSnapshot>;
     applySettings(settings: Partial<WhatsAppSettings>): Promise<WhatsAppRuntimeSnapshot>;
     sendText(input: {
       readonly chatJid: string;
@@ -1169,6 +1170,20 @@ export class RouteRegistrar {
         await this.modules.whatsappRuntime?.refreshWorkspace();
         const snapshot = await this.getWhatsAppWorkspaceSnapshot();
         this.publish('whatsapp.workspace.refreshed', snapshot.runtime);
+        return snapshot;
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/whatsapp/reset-session',
+      handler: async () => {
+        if (!this.modules.whatsappRuntime) {
+          throw new ApiError(404, 'WhatsApp runtime is not configured.');
+        }
+
+        await this.modules.whatsappRuntime.resetSession();
+        const snapshot = await this.getWhatsAppWorkspaceSnapshot();
+        this.publish('whatsapp.session.reset', snapshot.runtime);
         return snapshot;
       },
     });

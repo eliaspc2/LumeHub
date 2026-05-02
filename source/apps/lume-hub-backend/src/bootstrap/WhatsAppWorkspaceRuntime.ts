@@ -80,6 +80,13 @@ export class WhatsAppWorkspaceRuntime {
     return snapshot;
   }
 
+  async resetSession(): Promise<WhatsAppRuntimeSnapshot> {
+    const snapshot = await this.config.gateway.resetSession();
+    await this.syncDiscoveredWorkspace(snapshot);
+    this.publish('whatsapp.session.reset', snapshot);
+    return snapshot;
+  }
+
   async getRuntimeSnapshot(): Promise<WhatsAppRuntimeSnapshot> {
     return this.config.gateway.getRuntimeSnapshot();
   }

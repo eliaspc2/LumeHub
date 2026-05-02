@@ -237,6 +237,7 @@ export interface IWhatsAppLiveRuntime {
   start(): Promise<void>;
   stop(): Promise<void>;
   applyRuntimeFlags(flags: Partial<WhatsAppRuntimeFlags>): Promise<WhatsAppRuntimeSnapshot>;
+  resetSession(): Promise<WhatsAppRuntimeSnapshot>;
   refreshWorkspace(): Promise<WhatsAppRuntimeSnapshot>;
   getRuntimeSnapshot(): Promise<WhatsAppRuntimeSnapshot>;
   subscribeRuntime(listener: (event: WhatsAppRuntimeEvent) => void | Promise<void>): () => void;

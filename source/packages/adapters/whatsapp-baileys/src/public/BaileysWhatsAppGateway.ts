@@ -326,6 +326,42 @@ export class BaileysWhatsAppGateway
     return this.getRuntimeSnapshot();
   }
 
+  async resetSession(): Promise<WhatsAppRuntimeSnapshot> {
+    const nowIso = new Date().toISOString();
+
+    this.clearReconnectTimer();
+    await this.detachCurrentSocket({
+      logout: true,
+    });
+    await this.sessionStore.clearSession(this.accountId);
+    this.clearQrSnapshot();
+    this.clearWorkspaceCache();
+    this.reconnectAttempts = 0;
+    await this.refreshSessionPresence();
+    this.sessionSnapshot = {
+      ...this.sessionSnapshot,
+      phase: this.runtimeFlags.enabled ? (this.startRequested && this.autoConnect ? 'connecting' : 'idle') : 'disabled',
+      connected: false,
+      loginRequired: true,
+      sessionPresent: false,
+      lastQrAt: null,
+      lastConnectedAt: null,
+      lastDisconnectAt: nowIso,
+      lastDisconnectReason: 'session_reset',
+      lastError: null,
+      selfJid: null,
+      selfLid: null,
+      pushName: null,
+    };
+    await this.emitRuntimeEvent('session');
+
+    if (this.runtimeFlags.enabled && this.startRequested && this.autoConnect) {
+      await this.ensureSocket();
+    }
+
+    return this.getRuntimeSnapshot();
+  }
+
   async getRuntimeSnapshot(): Promise<WhatsAppRuntimeSnapshot> {
     return {
       flags: {
@@ -1048,6 +1084,16 @@ export class BaileysWhatsAppGateway
       updatedAt: null,
       expiresAt: null,
     };
+  }
+
+  private clearWorkspaceCache(): void {
+    this.seenMessageIds.clear();
+    this.semanticSeenAt.clear();
+    this.messageIdToChatJid.clear();
+    this.discoveredGroups.clear();
+    this.discoveredConversations.clear();
+    this.contactLabels.clear();
+    this.seenInboundMediaMessageIds.clear();
   }
 
   private shouldReconnect(disconnectReason: number | null): boolean {

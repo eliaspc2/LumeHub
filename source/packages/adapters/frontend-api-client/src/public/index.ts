@@ -1129,6 +1129,15 @@ export class FrontendApiClient {
     );
   }
 
+  async resetWhatsAppSession(): Promise<WhatsAppWorkspaceSnapshot> {
+    return this.expectOk(
+      await this.transport.request<WhatsAppWorkspaceSnapshot>({
+        method: 'POST',
+        path: '/api/whatsapp/reset-session',
+      }),
+    );
+  }
+
   async listPeople(): Promise<readonly Person[]> {
     return this.expectOk(
       await this.transport.request<readonly Person[]>({

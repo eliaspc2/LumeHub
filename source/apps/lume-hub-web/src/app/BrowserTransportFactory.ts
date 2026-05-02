@@ -590,6 +590,15 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       return this.ok(buildWhatsAppWorkspaceSnapshot(this.state));
     }
 
+    if (request.method === 'POST' && pathname === '/api/whatsapp/reset-session') {
+      const snapshot = resetDemoWhatsAppSession(this.state);
+      this.emit('whatsapp.session.reset', {
+        mode: 'demo',
+        authExists: snapshot.runtime.session.sessionPresent,
+      });
+      return this.ok(snapshot);
+    }
+
     if (request.method === 'GET' && pathname === '/api/watchdog/issues') {
       return this.ok(this.state.watchdogIssues);
     }
@@ -2959,6 +2968,15 @@ function ensureDemoTrailingNewline(value: string): string {
 }
 
 function buildDashboardSnapshot(state: DemoState): DashboardSnapshot {
+  const whatsappEnabled = state.settings.adminSettings.whatsapp.enabled;
+  const authExists = state.settings.hostStatus.auth.exists;
+  const whatsappConnected = whatsappEnabled && authExists;
+  const whatsappPhase: DashboardSnapshot['whatsapp']['phase'] = !whatsappEnabled
+    ? 'disabled'
+    : authExists
+      ? 'open'
+      : 'qr_pending';
+
   return {
     health: {
       status: 'healthy',
@@ -3022,9 +3040,9 @@ function buildDashboardSnapshot(state: DemoState): DashboardSnapshot {
       lastError: state.settings.hostStatus.runtime.lastError,
     },
     whatsapp: {
-      phase: state.settings.adminSettings.whatsapp.enabled ? 'open' : 'disabled',
-      connected: state.settings.adminSettings.whatsapp.enabled,
-      loginRequired: !state.settings.adminSettings.whatsapp.enabled,
+      phase: whatsappPhase,
+      connected: whatsappConnected,
+      loginRequired: !whatsappEnabled || !authExists,
       discoveredGroups: state.groups.length,
       discoveredConversations:
         state.people.filter((person) => person.identifiers.some((identifier) => identifier.kind === 'whatsapp_jid')).length +
@@ -3054,6 +3072,8 @@ function buildDemoMigrationReadinessSnapshot(state: DemoState): MigrationReadine
   const codexAuthReady = Boolean(
     state.settings.llmRuntime.providerReadiness.find((provider) => provider.providerId === 'codex-oauth')?.ready,
   );
+  const whatsappEnabled = state.settings.adminSettings.whatsapp.enabled;
+  const authExists = state.settings.hostStatus.auth.exists;
   const checklist: MigrationReadinessSnapshot['checklist'] = [
     {
       itemId: 'runtime',
@@ -3073,10 +3093,10 @@ function buildDemoMigrationReadinessSnapshot(state: DemoState): MigrationReadine
     {
       itemId: 'whatsapp',
       label: 'WhatsApp pronto para semana paralela',
-      status: state.settings.adminSettings.whatsapp.enabled ? 'ready' : 'blocked',
-      summary: state.settings.adminSettings.whatsapp.enabled
+      status: whatsappEnabled && authExists ? 'ready' : 'blocked',
+      summary: whatsappEnabled && authExists
         ? `${state.groups.length} grupo(s) e ${state.externalPrivateConversations.length + state.people.length} conversa(s) visiveis.`
-        : 'O canal WhatsApp ainda esta desligado neste preview.',
+        : 'O canal WhatsApp ainda nao tem uma sessao ativa neste preview.',
     },
     {
       itemId: 'legacy',
@@ -3133,9 +3153,9 @@ function buildDemoMigrationReadinessSnapshot(state: DemoState): MigrationReadine
       fallbackReason: state.settings.llmRuntime.fallbackReason,
     },
     whatsapp: {
-      phase: state.settings.adminSettings.whatsapp.enabled ? 'open' : 'disabled',
-      connected: state.settings.adminSettings.whatsapp.enabled,
-      loginRequired: !state.settings.adminSettings.whatsapp.enabled,
+      phase: whatsappEnabled ? (authExists ? 'open' : 'qr_pending') : 'disabled',
+      connected: whatsappEnabled && authExists,
+      loginRequired: !whatsappEnabled || !authExists,
       discoveredGroups: state.groups.length,
       discoveredConversations: state.externalPrivateConversations.length + state.people.length,
     },
@@ -3178,7 +3198,7 @@ function buildDemoMigrationReadinessSnapshot(state: DemoState): MigrationReadine
       },
       {
         label: 'WhatsApp e descoberta',
-        tone: state.settings.adminSettings.whatsapp.enabled ? 'positive' : 'warning',
+        tone: state.settings.adminSettings.whatsapp.enabled && state.settings.hostStatus.auth.exists ? 'positive' : 'warning',
         waNotify: 'Canal produtivo com grupos e conversas conhecidos.',
         lumeHub: `${state.groups.length} grupo(s) e ${state.externalPrivateConversations.length + state.people.length} conversa(s) visiveis no snapshot atual.`,
       },
@@ -3273,6 +3293,8 @@ function buildWhatsAppWorkspaceSnapshot(state: DemoState): WhatsAppWorkspaceSnap
 
   const commands = state.settings.adminSettings.commands;
   const whatsappEnabled = state.settings.adminSettings.whatsapp.enabled;
+  const authExists = state.settings.hostStatus.auth.exists;
+  const whatsappConnected = whatsappEnabled && authExists;
   const allowAllGroups = commands.authorizedGroupJids.length === 0;
   const allowAllPrivateChats = commands.authorizedPrivateJids.length === 0;
 
@@ -3323,24 +3345,24 @@ function buildWhatsAppWorkspaceSnapshot(state: DemoState): WhatsAppWorkspaceSnap
     },
     runtime: {
       session: {
-        phase: whatsappEnabled ? 'open' : 'disabled',
-        connected: whatsappEnabled,
-        loginRequired: !whatsappEnabled,
-        sessionPresent: state.settings.hostStatus.auth.exists,
-        lastQrAt: whatsappEnabled ? null : state.settings.hostStatus.runtime.updatedAt,
-        lastConnectedAt: whatsappEnabled ? state.settings.hostStatus.runtime.updatedAt : null,
-        lastDisconnectAt: whatsappEnabled ? null : state.settings.hostStatus.runtime.updatedAt,
-        lastDisconnectReason: whatsappEnabled ? null : 'disabled_for_preview',
+        phase: !whatsappEnabled ? 'disabled' : whatsappConnected ? 'open' : 'qr_pending',
+        connected: whatsappConnected,
+        loginRequired: !whatsappEnabled || !authExists,
+        sessionPresent: authExists,
+        lastQrAt: whatsappEnabled && !authExists ? state.settings.hostStatus.runtime.updatedAt : null,
+        lastConnectedAt: whatsappConnected ? state.settings.hostStatus.runtime.updatedAt : null,
+        lastDisconnectAt: whatsappEnabled && !authExists ? state.settings.hostStatus.runtime.updatedAt : null,
+        lastDisconnectReason: !whatsappEnabled ? 'disabled_for_preview' : !authExists ? 'session_reset' : null,
         lastError: null,
         selfJid: '351910000099@s.whatsapp.net',
         pushName: 'Conta LumeHub Demo',
       },
       qr: {
-        available: !whatsappEnabled,
-        value: !whatsappEnabled ? 'lumehub-demo-qr' : null,
+        available: whatsappEnabled && !authExists,
+        value: whatsappEnabled && !authExists ? 'lumehub-demo-qr' : null,
         svg: null,
-        updatedAt: !whatsappEnabled ? state.settings.hostStatus.runtime.updatedAt : null,
-        expiresAt: !whatsappEnabled ? state.settings.hostStatus.runtime.updatedAt : null,
+        updatedAt: whatsappEnabled && !authExists ? state.settings.hostStatus.runtime.updatedAt : null,
+        expiresAt: whatsappEnabled && !authExists ? state.settings.hostStatus.runtime.updatedAt : null,
       },
       discoveredGroups: groupSummaries.length,
       discoveredConversations: conversations.length,
@@ -3370,6 +3392,28 @@ function buildWhatsAppWorkspaceSnapshot(state: DemoState): WhatsAppWorkspaceSnap
       appOwners: appOwners.length,
     },
   };
+}
+
+function resetDemoWhatsAppSession(state: DemoState): WhatsAppWorkspaceSnapshot {
+  const now = new Date().toISOString();
+  state.settings = {
+    ...state.settings,
+    hostStatus: {
+      ...state.settings.hostStatus,
+      auth: {
+        ...state.settings.hostStatus.auth,
+        exists: false,
+      },
+      runtime: {
+        ...state.settings.hostStatus.runtime,
+        lastHeartbeatAt: now,
+        updatedAt: now,
+        lastError: null,
+      },
+    },
+  };
+
+  return buildWhatsAppWorkspaceSnapshot(state);
 }
 
 function upsertDemoSchedule(state: DemoState, payload: Record<string, unknown>): WeeklyPlannerEventSummary {
