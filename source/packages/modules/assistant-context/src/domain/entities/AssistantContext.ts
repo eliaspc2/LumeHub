@@ -1,6 +1,6 @@
 import type { CalendarAccessMode, Group } from '@lume-hub/group-directory';
 import type { GroupKnowledgeSnippet } from '@lume-hub/group-knowledge';
-import type { PersonNote } from '@lume-hub/people-memory';
+import type { Person, PersonNote } from '@lume-hub/people-memory';
 
 export type AssistantChatType = 'group' | 'private';
 export type AssistantMessageRole = 'user' | 'assistant' | 'system';
@@ -68,6 +68,7 @@ export interface AssistantChatContext {
   readonly relevantMessages: readonly AssistantContextMessageExcerpt[];
   readonly activeReference: AssistantContextReference | null;
   readonly personNotes: readonly PersonNote[];
+  readonly appOwners: readonly Pick<Person, 'personId' | 'displayName' | 'identifiers'>[];
   readonly groupInstructions: string | null;
   readonly groupInstructionsSource: import('@lume-hub/group-directory').GroupLlmInstructionsSource;
   readonly groupKnowledgeSnippets: readonly GroupKnowledgeSnippet[];

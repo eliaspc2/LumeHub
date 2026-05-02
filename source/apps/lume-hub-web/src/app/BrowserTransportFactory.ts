@@ -91,6 +91,7 @@ const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
     streamingEnabled: true,
   },
   ui: {
+    codexRouterVisible: true,
     defaultNotificationRules: [
       {
         kind: 'relative_before_event',

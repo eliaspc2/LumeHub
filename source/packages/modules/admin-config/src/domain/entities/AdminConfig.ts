@@ -155,6 +155,7 @@ export interface LlmRuntimeStatusInput {
 
 export interface UiSettings {
   readonly defaultNotificationRules: readonly NotificationRuleDefinitionInput[];
+  readonly codexRouterVisible: boolean;
 }
 
 export interface AdminSettings {
@@ -202,6 +203,7 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
     definitions: [],
   },
   ui: {
+    codexRouterVisible: true,
     defaultNotificationRules: [
       {
         kind: 'relative_before_event',

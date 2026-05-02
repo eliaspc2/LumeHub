@@ -17,7 +17,7 @@ export interface AssistantContextModuleConfig {
   readonly groupKnowledge?: Pick<GroupKnowledgeModuleContract, 'retrieveRelevantSnippets'>;
   readonly peopleMemory?: Pick<
     PeopleMemoryModuleContract,
-    'findPersonById' | 'listImportantNotes'
+    'findPersonById' | 'listImportantNotes' | 'listPeople'
   >;
   readonly repository?: ConversationHistoryRepository;
   readonly historyReader?: ConversationHistoryReader;

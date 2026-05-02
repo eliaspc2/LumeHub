@@ -11,6 +11,7 @@ import {
   type CommandsPolicySettings,
   type LlmRuntimeStatusSnapshot,
   type MessageAlertsSettings,
+  type UiSettings,
   type WhatsAppSettings,
 } from '@lume-hub/admin-config';
 import type { AgentRuntimeModuleContract } from '@lume-hub/agent-runtime';
@@ -1419,15 +1420,28 @@ export class RouteRegistrar {
           throw new ApiError(400, 'UI settings payload must be an object.');
         }
 
-        const defaultNotificationRules = (context.body as { defaultNotificationRules?: unknown }).defaultNotificationRules;
+        const payload = context.body as { defaultNotificationRules?: unknown; codexRouterVisible?: unknown };
+        let update: Partial<UiSettings> = {};
 
-        if (!Array.isArray(defaultNotificationRules)) {
-          throw new ApiError(400, 'defaultNotificationRules must be an array.');
+        if (payload.defaultNotificationRules !== undefined) {
+          if (!Array.isArray(payload.defaultNotificationRules)) {
+            throw new ApiError(400, 'defaultNotificationRules must be an array.');
+          }
+
+          update = {
+            ...update,
+            defaultNotificationRules: payload.defaultNotificationRules,
+          };
         }
 
-        const settings = await this.modules.adminConfig.updateUiSettings({
-          defaultNotificationRules,
-        });
+        if (payload.codexRouterVisible !== undefined) {
+          update = {
+            ...update,
+            codexRouterVisible: readOptionalBooleanValue(payload.codexRouterVisible, 'codexRouterVisible'),
+          };
+        }
+
+        const settings = await this.modules.adminConfig.updateUiSettings(update);
         this.publish('settings.ui.updated', settings.ui);
         return settings;
       },
@@ -2130,6 +2144,7 @@ function normaliseAdminSettings(input: Partial<AdminSettings>): AdminSettings {
     ui: {
       ...DEFAULT_ADMIN_SETTINGS.ui,
       ...(input.ui ?? {}),
+      codexRouterVisible: input.ui?.codexRouterVisible ?? DEFAULT_ADMIN_SETTINGS.ui.codexRouterVisible,
       defaultNotificationRules: Array.isArray(input.ui?.defaultNotificationRules)
         ? input.ui.defaultNotificationRules
         : DEFAULT_ADMIN_SETTINGS.ui.defaultNotificationRules,

@@ -873,6 +873,7 @@ function summariseContext(
   return [
     chatContext.group ? `grupo=${chatContext.group.preferredSubject}` : null,
     chatContext.activeReference ? `referente=${chatContext.activeReference.label}` : null,
+    ...chatContext.appOwners.map((owner, index) => `app_owner_${index + 1}=${owner.displayName}:${owner.identifiers.map((identifier) => `${identifier.kind}:${identifier.value}`).join('|') || 'sem_contacto'}`),
     memoryUsage.scope === 'group'
       ? `memoria=${memoryUsage.groupLabel ?? memoryUsage.groupJid ?? 'grupo'}:${memoryUsage.instructionsSource ?? 'sem_fonte'}:${memoryUsage.knowledgeSnippetCount}_snippets`
       : null,
@@ -963,6 +964,7 @@ function buildGeneralFacts(
   return [
     chatContext.activeReference ? `referente_ativo=${chatContext.activeReference.label}` : null,
     chatContext.group ? `grupo_atual=${chatContext.group.preferredSubject}` : null,
+    ...chatContext.appOwners.map((owner) => `app_owner=${owner.displayName}`),
     chatContext.personNotes[0] ? `nota=${chatContext.personNotes[0].text}` : null,
     ...buildMemoryFacts(memoryUsage),
   ].filter((value): value is string => Boolean(value));

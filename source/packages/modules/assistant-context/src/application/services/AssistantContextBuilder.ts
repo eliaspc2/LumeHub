@@ -25,7 +25,7 @@ export class AssistantContextBuilder {
     private readonly historyReader: ConversationHistoryReader,
     private readonly ranker: ConversationRelevanceRanker,
     private readonly activeReferenceResolver: ActiveReferenceResolver,
-    private readonly peopleMemory: Pick<PeopleMemoryModuleContract, 'findPersonById' | 'listImportantNotes'>,
+    private readonly peopleMemory: Pick<PeopleMemoryModuleContract, 'findPersonById' | 'listImportantNotes' | 'listPeople'>,
     private readonly groupDirectory: Pick<
       GroupDirectoryModuleContract,
       'findByJid' | 'getGroupLlmInstructions' | 'getGroupPolicy'
@@ -77,6 +77,13 @@ export class AssistantContextBuilder {
         })
       : [];
     const groupPolicy = group ? await this.groupDirectory.getGroupPolicy(group.groupJid) : null;
+    const appOwners = (await this.peopleMemory.listPeople())
+      .filter((person) => person.globalRoles.includes('app_owner'))
+      .map((person) => ({
+        personId: person.personId,
+        displayName: person.displayName,
+        identifiers: person.identifiers,
+      }));
 
     return {
       chatJid: input.chatJid,
@@ -97,6 +104,7 @@ export class AssistantContextBuilder {
       relevantMessages,
       activeReference,
       personNotes,
+      appOwners,
       groupInstructions: groupInstructions?.content ?? null,
       groupInstructionsSource: groupInstructions?.source ?? 'missing',
       groupKnowledgeSnippets,

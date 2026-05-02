@@ -107,6 +107,7 @@ export interface AssistantPageData {
 export interface SettingsPageData {
   readonly settings: SettingsSnapshot;
   readonly people: readonly Person[];
+  readonly whatsappWorkspace: import('@lume-hub/frontend-api-client').WhatsAppWorkspaceSnapshot;
 }
 
 export interface CodexRouterPageData {
@@ -159,10 +160,14 @@ export class AppRouter {
   ) {}
 
   navigation(): AppNavigationSections {
+    const cachedSettings = this.queryClient.get<SettingsSnapshot>('settings');
     const items = this.routes().map((route) => ({
       route: route.route,
       label: route.label,
-      placement: route.navigationPlacement ?? 'hidden',
+      placement:
+        route.route === '/codex-router' && cachedSettings?.adminSettings.ui.codexRouterVisible === false
+          ? 'hidden'
+          : route.navigationPlacement ?? 'hidden',
     }));
 
     return {
@@ -502,14 +507,16 @@ export class AppRouter {
   }
 
   private async readSettingsPageData(): Promise<SettingsPageData> {
-    const [settings, people] = await Promise.all([
+    const [settings, people, whatsappWorkspace] = await Promise.all([
       this.readQuery('settings', () => this.client.getSettings()),
       this.readOptionalPeople(),
+      this.readQuery('whatsapp-workspace', () => this.client.getWhatsAppWorkspace()),
     ]);
 
     return {
       settings,
       people,
+      whatsappWorkspace,
     } satisfies SettingsPageData;
   }
 

@@ -71,6 +71,7 @@ function normaliseSettings(input: Partial<AdminSettings>): AdminSettings {
     ui: {
       ...DEFAULT_ADMIN_SETTINGS.ui,
       ...(input.ui ?? {}),
+      codexRouterVisible: input.ui?.codexRouterVisible ?? DEFAULT_ADMIN_SETTINGS.ui.codexRouterVisible,
       defaultNotificationRules: Array.isArray(input.ui?.defaultNotificationRules)
         ? input.ui.defaultNotificationRules
         : DEFAULT_ADMIN_SETTINGS.ui.defaultNotificationRules,

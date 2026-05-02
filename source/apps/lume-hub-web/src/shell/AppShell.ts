@@ -226,6 +226,12 @@ interface CodexRouterDeleteDraft {
   readonly deletingAccountId: string | null;
 }
 
+interface AppOwnerDraft {
+  readonly displayName: string;
+  readonly phoneNumber: string;
+  readonly saving: boolean;
+}
+
 interface AssistantRailMessage {
   readonly messageId: string;
   readonly role: 'user' | 'assistant' | 'system' | 'error';
@@ -268,6 +274,7 @@ interface AppShellState {
   readonly codexRouterRenameDraft: CodexRouterRenameDraft;
   readonly codexRouterQuotaRefreshDraft: CodexRouterQuotaRefreshDraft;
   readonly codexRouterDeleteDraft: CodexRouterDeleteDraft;
+  readonly appOwnerDraft: AppOwnerDraft;
   readonly assistantRailChat: AssistantRailChatState;
   readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
   readonly whatsappQrPreviewVisible: boolean;
@@ -430,6 +437,7 @@ export class AppShell {
       codexRouterRenameDraft: createEmptyCodexRouterRenameDraft(),
       codexRouterQuotaRefreshDraft: createEmptyCodexRouterQuotaRefreshDraft(),
       codexRouterDeleteDraft: createEmptyCodexRouterDeleteDraft(),
+      appOwnerDraft: createEmptyAppOwnerDraft(),
       assistantRailChat: createInitialAssistantRailChatState(),
       whatsappRepairFocus: 'auth',
       whatsappQrPreviewVisible: false,
@@ -6140,7 +6148,11 @@ export class AppShell {
 
   private renderSettingsPage(page: UiPage<SettingsPageData>): string {
     const snapshot = page.data.settings;
+    const whatsappWorkspace = page.data.whatsappWorkspace;
     const people = buildSettingsPeopleViews(page.data.people, snapshot);
+    const appOwners = people.filter((person) => person.globalRoles.includes('app_owner'));
+    const primaryAppOwner = appOwners[0] ?? null;
+    const appOwnerDraft = resolveAppOwnerDraft(this.state.appOwnerDraft, primaryAppOwner);
     const enabledCommandSettings = PRODUCT_COMMAND_SETTING_KEYS.filter((key) => snapshot.adminSettings.commands[key]).length;
     const defaultRuleSummary =
       snapshot.adminSettings.ui.defaultNotificationRules.length > 0
@@ -6161,7 +6173,7 @@ export class AppShell {
         : snapshot.llmRuntime.mode === 'fallback'
           ? 'Fallback deterministico'
           : 'LLM live desligada';
-    const appOwnerCount = people.filter((person) => person.globalRoles.includes('app_owner')).length;
+    const appOwnerCount = appOwners.length;
     const privateAuthorizedCount = people.filter((person) => person.privateAssistantAuthorized).length;
     const llmAuthLabel = readCodexAuthLabel(snapshot);
     const powerMode = snapshot.powerStatus.policy.mode;
@@ -6175,31 +6187,113 @@ export class AppShell {
     const routerTone: UiTone = authRouterStatus ? (authRouterStatus.enabled ? 'positive' : 'warning') : 'warning';
     const visibleTokenLabel = readCodexTokenCountLabel(authRouterStatus?.accountCount ?? 0);
     const hostRuntimeTone: UiTone = snapshot.hostStatus.runtime.lastError ? 'warning' : 'positive';
+    const codexRouterVisible = snapshot.adminSettings.ui.codexRouterVisible;
+    const whatsAppTone: UiTone = whatsappWorkspace.runtime.session.connected ? 'positive' : whatsappWorkspace.runtime.qr.available ? 'warning' : 'neutral';
+    const whatsAppLabel = whatsappWorkspace.runtime.session.connected
+      ? 'WhatsApp ligado'
+      : whatsappWorkspace.runtime.qr.available
+        ? 'QR pronto'
+        : 'Sem QR ativo';
 
     return `
       <section class="surface hero surface--strong">
         <div>
-          <p class="eyebrow">LumeHub</p>
-          <h2>Painel base do produto: regras globais e saude operacional sem ruido tecnico.</h2>
-          <p>Esta pagina e para operar o produto. WhatsApp e Codex Router ficam separados para cada pessoa perceber onde deve mexer.</p>
+          <p class="eyebrow">Configuracoes gerais</p>
+          <h2>Centro de controlo da app: owner, WhatsApp, menus, reset e regras globais.</h2>
+          <p>Esta zona junta o que define a instalacao. As paginas de trabalho ficam para operar grupos, calendario, WhatsApp e tokens quando estiverem visiveis.</p>
           <div class="action-row">
             ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', dataAttributes: { route: '/groups' } })}
             ${renderUiActionButton({ label: 'Abrir WhatsApp', href: '/whatsapp', variant: 'secondary', dataAttributes: { route: '/whatsapp' } })}
-            ${renderUiActionButton({ label: 'Abrir Codex Router', href: '/codex-router', variant: 'secondary', dataAttributes: { route: '/codex-router' } })}
+            ${
+              codexRouterVisible
+                ? renderUiActionButton({ label: 'Abrir Codex Router', href: '/codex-router', variant: 'secondary', dataAttributes: { route: '/codex-router' } })
+                : ''
+            }
           </div>
         </div>
         <div class="hero-panel">
           <div class="status-list">
             <article class="status-item status-item--positive">
-              <strong>Basico</strong>
-              <p>Controlos de produto, leitura de saude e proximos caminhos.</p>
+              <strong>${escapeHtml(primaryAppOwner?.displayName ?? 'Owner por definir')}</strong>
+              <p>${escapeHtml(primaryAppOwner?.whatsappJids[0] ?? 'Define nome e telefone para a LLM saber quem manda na app.')}</p>
             </article>
-            <article class="status-item status-item--warning">
-              <strong>Avancado</strong>
-              <p>Provider LLM, energia, tokens, auth e governanca ficam recolhidos abaixo.</p>
+            <article class="status-item status-item--${whatsAppTone}">
+              <strong>${escapeHtml(whatsAppLabel)}</strong>
+              <p>${escapeHtml(whatsappWorkspace.runtime.session.connected ? 'Sessao pronta para responder e enviar.' : 'Se houver QR, faz scan nesta pagina ou no WhatsApp.')}</p>
             </article>
           </div>
         </div>
+      </section>
+      <section class="content-grid">
+        <article class="surface content-card span-6">
+          <div class="card-header">
+            <div>
+              <h3>Owner principal da app</h3>
+              <p>Nome e telefone do responsavel global. A LLM recebe estes dados como contexto de app owner.</p>
+            </div>
+            ${renderUiBadge({ label: primaryAppOwner ? 'Definido' : 'Por definir', tone: primaryAppOwner ? 'positive' : 'warning' })}
+          </div>
+          <div class="ui-form-grid">
+            ${renderUiInputField({
+              label: 'Nome visivel',
+              value: appOwnerDraft.displayName,
+              dataKey: 'appOwner.displayName',
+              placeholder: 'Ex.: Andre Elias',
+              hint: 'Aparece na governanca e entra no contexto da LLM.',
+            })}
+            ${renderUiInputField({
+              label: 'Telefone WhatsApp',
+              value: appOwnerDraft.phoneNumber,
+              dataKey: 'appOwner.phoneNumber',
+              placeholder: 'Ex.: 351912345678',
+              hint: 'Usa o numero em formato simples; o LumeHub guarda tambem como JID WhatsApp.',
+            })}
+          </div>
+          <div class="action-row">
+            ${renderUiActionButton({
+              label: this.state.appOwnerDraft.saving ? 'A guardar...' : 'Guardar owner da app',
+              disabled: this.state.appOwnerDraft.saving,
+              dataAttributes: { 'settings-action': 'save-app-owner' },
+            })}
+          </div>
+        </article>
+
+        <article class="surface content-card span-6">
+          <div class="card-header">
+            <div>
+              <h3>WhatsApp e QR</h3>
+              <p>Ativa o canal e faz o emparelhamento da conta operadora dentro da configuracao geral.</p>
+            </div>
+            ${renderUiBadge({ label: whatsAppLabel, tone: whatsAppTone })}
+          </div>
+          <div class="settings-switch-grid">
+            ${renderUiSwitch({
+              label: 'WhatsApp ativo',
+              checked: snapshot.adminSettings.whatsapp.enabled,
+              description: snapshot.adminSettings.whatsapp.enabled ? 'O bot pode usar o canal WhatsApp.' : 'O canal WhatsApp fica parado.',
+              dataAttributes: { 'settings-action': 'toggle-whatsapp-enabled' },
+            })}
+          </div>
+          ${
+            whatsappWorkspace.runtime.qr.available && whatsappWorkspace.runtime.qr.svg
+              ? `
+                  <div class="qr-preview qr-preview--compact">
+                    <div class="qr-preview__code qr-preview__code--svg" aria-label="QR de emparelhamento live do WhatsApp">${whatsappWorkspace.runtime.qr.svg}</div>
+                    <div>
+                      <strong>QR pronto para scan</strong>
+                      <p>Abre WhatsApp no telemovel da conta operadora e faz o scan.</p>
+                      <a class="ui-button ui-button--secondary" href="/api/qr.svg" target="_blank" rel="noreferrer noopener">Abrir QR isolado</a>
+                    </div>
+                  </div>
+                `
+              : `
+                  <div class="inline-empty">
+                    <strong>${escapeHtml(whatsappWorkspace.runtime.session.connected ? 'Sessao ligada' : 'Sem QR ativo')}</strong>
+                    <p>${escapeHtml(whatsappWorkspace.runtime.session.connected ? 'Nao precisas de emparelhar agora.' : 'Quando a sessao pedir login, o QR aparece aqui.')}</p>
+                  </div>
+                `
+          }
+        </article>
       </section>
       <section class="surface content-card">
         <div class="card-header">
@@ -6293,6 +6387,57 @@ export class AppShell {
           <div class="inline-empty">
             <strong>Onde mexer se algo falhar</strong>
             <p>WhatsApp trata sessao e Codex Router trata tokens. Os detalhes avancados ficam abaixo.</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <article class="surface content-card span-6">
+          <div class="card-header">
+            <div>
+              <h3>Menus e modulos visiveis</h3>
+              <p>Escolhe se o Codex Router aparece como rota tecnica na interface normal.</p>
+            </div>
+            ${renderUiBadge({ label: codexRouterVisible ? 'Router visivel' : 'Router escondido', tone: codexRouterVisible ? 'positive' : 'neutral' })}
+          </div>
+          <div class="settings-switch-grid">
+            ${renderUiSwitch({
+              label: 'Mostrar Codex Router',
+              checked: codexRouterVisible,
+              description: codexRouterVisible ? 'A pagina de tokens aparece no menu de apoio.' : 'A rota fica acessivel diretamente, mas sai do menu.',
+              dataAttributes: { 'settings-action': 'toggle-codex-router-visible' },
+            })}
+          </div>
+        </article>
+
+        <article class="surface content-card span-6">
+          <div class="card-header">
+            <div>
+              <h3>Reset e reparacao segura</h3>
+              <p>Reset aqui e conservador: limpa preferencias locais e repoe defaults sem apagar grupos, tokens ou historico real.</p>
+            </div>
+            ${renderUiBadge({ label: 'Seguro', tone: 'warning' })}
+          </div>
+          <div class="action-row">
+            ${renderUiActionButton({
+              label: 'Repor avisos default',
+              variant: 'secondary',
+              dataAttributes: { 'settings-action': 'restore-default-notification-rules' },
+            })}
+            ${renderUiActionButton({
+              label: 'Limpar preferencias desta janela',
+              variant: 'secondary',
+              dataAttributes: { 'settings-action': 'reset-local-ui-state' },
+            })}
+            ${renderUiActionButton({
+              label: 'Atualizar estado agora',
+              variant: 'secondary',
+              dataAttributes: { 'settings-action': 'refresh-settings-surface' },
+            })}
+          </div>
+          <div class="inline-empty inline-empty--warning">
+            <strong>Factory reset total ainda nao e botao normal</strong>
+            <p>Apagar dados reais, grupos, tokens ou schedules deve ficar atras de uma wave propria com backup e confirmacao forte.</p>
           </div>
         </article>
       </section>
@@ -6818,6 +6963,18 @@ export class AppShell {
             ...this.state.codexRouterImportDraft,
             [fieldKey === 'codexRouter.importLabel' ? 'label' : 'authJson']: value,
           } as CodexRouterImportDraft,
+        };
+        this.render();
+        return;
+      case 'appOwner.displayName':
+      case 'appOwner.phoneNumber':
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          appOwnerDraft: {
+            ...this.state.appOwnerDraft,
+            [fieldKey === 'appOwner.displayName' ? 'displayName' : 'phoneNumber']: value,
+          },
         };
         this.render();
         return;
@@ -8577,6 +8734,143 @@ export class AppShell {
         this.recordUxEvent('danger', summarizeTelemetryMessage(message));
         this.render();
       }
+      return;
+    }
+
+    if (action === 'save-app-owner') {
+      const settingsPage = this.readSettingsPageData();
+
+      if (!settingsPage) {
+        return;
+      }
+
+      const people = buildSettingsPeopleViews(settingsPage.data.people, settingsPage.data.settings);
+      const primaryAppOwner = people.find((person) => person.globalRoles.includes('app_owner')) ?? null;
+      const draft = resolveAppOwnerDraft(this.state.appOwnerDraft, primaryAppOwner);
+      const displayName = draft.displayName.trim();
+      const phoneNumber = normaliseOwnerPhoneNumber(draft.phoneNumber);
+      const whatsappJid = phoneNumber ? `${phoneNumber}@s.whatsapp.net` : '';
+
+      if (!displayName || !whatsappJid) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message: 'Falta nome e telefone valido para definir o owner da app.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        appOwnerDraft: {
+          ...draft,
+          saving: true,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'A guardar o owner principal da app.',
+        },
+      };
+      this.render();
+
+      try {
+        await this.currentClient().upsertPerson({
+          personId: primaryAppOwner?.personId ?? undefined,
+          displayName,
+          identifiers: [
+            {
+              kind: 'whatsapp_jid',
+              value: whatsappJid,
+            },
+          ],
+          globalRoles: ['app_owner'],
+        });
+        this.state = {
+          ...this.state,
+          appOwnerDraft: createEmptyAppOwnerDraft(),
+          flowFeedback: {
+            tone: 'positive',
+            message: `${displayName} ficou definido como owner principal da app e passa a entrar no contexto da LLM.`,
+          },
+        };
+        this.recordUxEvent('positive', `Owner principal da app atualizado para ${displayName}.`);
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel guardar o owner da app. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          appOwnerDraft: {
+            ...draft,
+            saving: false,
+          },
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
+    if (action === 'toggle-codex-router-visible') {
+      const settingsPage = this.readSettingsPageData();
+
+      if (!settingsPage) {
+        return;
+      }
+
+      const nextValue = !settingsPage.data.settings.adminSettings.ui.codexRouterVisible;
+
+      await this.runSettingsMutation(
+        async () => {
+          await this.currentClient().updateUiSettings({
+            codexRouterVisible: nextValue,
+          });
+        },
+        nextValue ? 'O Codex Router voltou a aparecer no menu.' : 'O Codex Router ficou escondido do menu normal.',
+      );
+      return;
+    }
+
+    if (action === 'toggle-whatsapp-enabled') {
+      const settingsPage = this.readSettingsPageData();
+
+      if (!settingsPage) {
+        return;
+      }
+
+      const nextValue = !settingsPage.data.settings.adminSettings.whatsapp.enabled;
+
+      await this.runSettingsMutation(
+        async () => {
+          await this.currentClient().updateWhatsAppSettings({
+            enabled: nextValue,
+          });
+        },
+        nextValue ? 'O WhatsApp ficou ativo nesta app.' : 'O WhatsApp ficou desativado nesta app.',
+      );
+      return;
+    }
+
+    if (action === 'reset-local-ui-state') {
+      localStorage.removeItem(ADVANCED_DETAILS_STORAGE_KEY);
+      localStorage.removeItem(UX_TELEMETRY_STORAGE_KEY);
+      this.currentBootstrap().queryClient.clear();
+      this.state = {
+        ...this.state,
+        advancedDetailsEnabled: false,
+        uxTelemetry: [],
+        flowFeedback: {
+          tone: 'positive',
+          message: 'Preferencias desta janela limpas. Dados reais da app nao foram apagados.',
+        },
+      };
+      await this.refreshCurrentRouteData();
       return;
     }
 
@@ -11669,6 +11963,14 @@ function createEmptyCodexRouterDeleteDraft(): CodexRouterDeleteDraft {
   };
 }
 
+function createEmptyAppOwnerDraft(): AppOwnerDraft {
+  return {
+    displayName: '',
+    phoneNumber: '',
+    saving: false,
+  };
+}
+
 function resolveAssistantSchedulingGroupJid(
   selectedGroupJid: string,
   groups: readonly Group[],
@@ -13392,6 +13694,24 @@ function buildSettingsPeopleViews(
       knownToBot: whatsappJids.length > 0,
     } satisfies WorkspacePersonView;
   });
+}
+
+function resolveAppOwnerDraft(draft: AppOwnerDraft, appOwner: WorkspacePersonView | null): AppOwnerDraft {
+  if (draft.displayName.trim() || draft.phoneNumber.trim() || draft.saving) {
+    return draft;
+  }
+
+  const phoneNumber = appOwner?.whatsappJids[0]?.replace(/@s\.whatsapp\.net$/u, '') ?? '';
+
+  return {
+    displayName: appOwner?.displayName ?? '',
+    phoneNumber,
+    saving: false,
+  };
+}
+
+function normaliseOwnerPhoneNumber(value: string): string {
+  return value.replace(/[^\d]/gu, '').trim();
 }
 
 function resolveAuthorizedPrivateJidsForCommands(

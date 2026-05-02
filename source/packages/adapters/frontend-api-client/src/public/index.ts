@@ -1180,16 +1180,20 @@ export class FrontendApiClient {
     );
   }
 
-  async updateDefaultNotificationRules(defaultNotificationRules: UiSettings['defaultNotificationRules']): Promise<AdminSettings> {
+  async updateUiSettings(update: Partial<UiSettings>): Promise<AdminSettings> {
     return this.expectOk(
       await this.transport.request<AdminSettings>({
         method: 'PATCH',
         path: '/api/settings/ui',
-        body: {
-          defaultNotificationRules,
-        },
+        body: update,
       }),
     );
+  }
+
+  async updateDefaultNotificationRules(defaultNotificationRules: UiSettings['defaultNotificationRules']): Promise<AdminSettings> {
+    return this.updateUiSettings({
+      defaultNotificationRules,
+    });
   }
 
   async updateLlmSettings(update: Partial<AdminSettings['llm']>): Promise<AdminSettings> {
