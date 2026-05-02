@@ -65,7 +65,7 @@ type ActionDataset = Readonly<Record<string, string | undefined>>;
 
 const ADVANCED_DETAILS_STORAGE_KEY = 'lumehub.web.advanced_details';
 const UX_TELEMETRY_STORAGE_KEY = 'lumehub.web.ux_telemetry';
-const LUMEHUB_WEB_VERSION = '0.1.0';
+const LUMEHUB_WEB_VERSION = '0.1.1';
 const WEEK_DAY_OPTIONS = [
   { value: 'segunda-feira', label: 'Segunda-feira', shortLabel: 'Seg' },
   { value: 'terca-feira', label: 'Terca-feira', shortLabel: 'Ter' },
@@ -86,6 +86,17 @@ interface GuidedScheduleDraft {
   readonly startTime: string;
   readonly durationMinutes: string;
   readonly notes: string;
+}
+
+interface GuidedAlertDraft {
+  readonly alertId: string | null;
+  readonly title: string;
+  readonly dayLabel: string;
+  readonly startTime: string;
+  readonly durationMinutes: string;
+  readonly messageTemplate: string;
+  readonly mediaAssetId: string;
+  readonly targetGroupJids: readonly string[];
 }
 
 interface GuidedDistributionDraft {
@@ -264,6 +275,7 @@ interface AppShellState {
   readonly uxTelemetry: readonly UxTelemetryEntry[];
   readonly lastLoadedAt: string | null;
   readonly scheduleDraft: GuidedScheduleDraft;
+  readonly alertDraft: GuidedAlertDraft;
   readonly distributionDraft: GuidedDistributionDraft;
   readonly mediaDistributionDraft: GuidedMediaDistributionDraft;
   readonly groupManagementDraft: GroupManagementDraft;
@@ -375,6 +387,10 @@ interface WeekCalendarDayView {
   readonly isToday: boolean;
 }
 
+interface WeekPlannerPageData extends WeekPlannerSnapshot {
+  readonly mediaAssets: readonly MediaAssetSnapshot[];
+}
+
 interface MonthCalendarDayView {
   readonly localDate: string;
   readonly dayOfMonth: string;
@@ -422,6 +438,7 @@ export class AppShell {
         durationMinutes: '60',
         notes: '',
       },
+      alertDraft: createEmptyAlertDraft(),
       distributionDraft: {
         ruleId: '',
         messageSummary: '',
@@ -1195,7 +1212,7 @@ export class AppShell {
       case '/today':
         return this.renderTodayPage(this.state.page as UiPage<DashboardSnapshot>);
       case '/week':
-        return this.renderWeekPage(this.state.page as UiPage<WeekPlannerSnapshot>);
+        return this.renderWeekPage(this.state.page as UiPage<WeekPlannerPageData>);
       case '/assistant':
         return this.renderAssistantPage(this.state.page as UiPage<AssistantPageData>);
       case '/media':
@@ -1390,13 +1407,16 @@ export class AppShell {
     `;
   }
 
-  private renderWeekPage(page: UiPage<WeekPlannerSnapshot>): string {
+  private renderWeekPage(page: UiPage<WeekPlannerPageData>): string {
     const groups = page.data.groups;
     const schedulableGroups = groups.filter((group) => canGroupUseManualScheduling(group));
     const llmDisabledGroups = groups.filter((group) => canGroupUseManualScheduling(group) && !canGroupUseLlmScheduling(group));
     const distributionGroups = groups.filter((group) => !canGroupUseManualScheduling(group));
     const draft = resolveScheduleDraft(this.state.scheduleDraft, schedulableGroups.length > 0 ? schedulableGroups : groups);
+    const alertDraft = resolveAlertDraft(this.state.alertDraft, groups, page.data.mediaAssets);
     const selectedGroup = groups.find((group) => group.groupJid === draft.groupJid) ?? null;
+    const alertTargetGroups = groups.filter((group) => alertDraft.targetGroupJids.includes(group.groupJid));
+    const alertMediaAssets = page.data.mediaAssets.filter((asset) => asset.mediaType === 'video' || asset.mediaType === 'image');
     const editingEvent = page.data.events.find((event) => event.eventId === draft.eventId) ?? null;
     const groupsByJid = new Map(groups.map((group) => [group.groupJid, group]));
     const weekDays = buildWeekCalendarDays(page.data);
@@ -1967,6 +1987,126 @@ export class AppShell {
                 <li>Abre a grelha completa apenas quando precisares de comparar varios dias ao mesmo tempo.</li>
               </ul>
             </div>
+          </div>
+        </article>
+
+        <article class="surface content-card span-12">
+          <div class="card-header card-header--with-switch">
+            <div>
+              <h3>Alerta solto</h3>
+              <p>Criar um alerta unico para um ou varios grupos sem mexer na rotina normal da semana.</p>
+            </div>
+            ${renderUiBadge({
+              label: alertTargetGroups.length > 0 ? `${alertTargetGroups.length} grupo(s) escolhidos` : 'Escolhe grupos',
+              tone: alertTargetGroups.length > 0 ? 'positive' : 'warning',
+            })}
+          </div>
+          <div class="guide-preview guide-preview--subtle">
+            <p><strong>Como funciona</strong>: o mesmo alerta e criado para cada grupo escolhido e vai com o horario que definires aqui.</p>
+            <p><strong>Media opcional</strong>: se escolheres uma imagem ou um video, a mensagem usa esse ficheiro como anexo.</p>
+          </div>
+          <div class="ui-form-grid ui-form-grid--equal">
+            ${renderUiInputField({
+              label: 'Titulo do alerta',
+              value: alertDraft.title,
+              dataKey: 'alert.title',
+              placeholder: 'Ex.: Confirmar entrega do teste',
+              hint: 'Usa uma frase curta para a equipa perceber logo o objetivo.',
+            })}
+            ${renderUiSelectField({
+              label: 'Dia',
+              value: alertDraft.dayLabel,
+              dataKey: 'alert.dayLabel',
+              options: WEEK_DAY_OPTIONS.map((option) => ({
+                value: option.value,
+                label: option.label,
+              })),
+              hint: 'Fica na mesma semana do calendario operacional.',
+            })}
+            ${renderUiInputField({
+              label: 'Hora',
+              value: alertDraft.startTime,
+              dataKey: 'alert.startTime',
+              type: 'time',
+            })}
+            ${renderUiSelectField({
+              label: 'Duracao interna',
+              value: alertDraft.durationMinutes,
+              dataKey: 'alert.durationMinutes',
+              options: [
+                { value: '10', label: '10 minutos' },
+                { value: '15', label: '15 minutos' },
+                { value: '30', label: '30 minutos' },
+                { value: '60', label: '60 minutos' },
+              ],
+              hint: 'Isto ajuda o calendario a mostrar a janela do alerta.',
+            })}
+          </div>
+          <div class="ui-form-grid ui-form-grid--equal">
+            ${renderUiSelectField({
+              label: 'Media opcional',
+              value: alertDraft.mediaAssetId,
+              dataKey: 'alert.mediaAssetId',
+              options: [
+                { value: '', label: 'Sem media' },
+                ...alertMediaAssets.map((asset) => ({
+                  value: asset.assetId,
+                  label: `${readableMediaType(asset.mediaType)} • ${asset.caption ?? asset.assetId}`,
+                })),
+              ],
+              hint: alertMediaAssets.length > 0 ? 'Anexa uma imagem ou um video ao alerta.' : 'Ainda nao ha media elegivel na biblioteca.',
+            })}
+            ${renderUiTextAreaField({
+              label: 'Texto do alerta',
+              value: alertDraft.messageTemplate,
+              dataKey: 'alert.messageTemplate',
+              rows: 4,
+              placeholder: 'Ex.: Hoje temos o prazo a terminar. Confirma antes das 18:00.',
+              hint: 'Se deixares vazio, a app usa um texto simples por defeito.',
+            })}
+          </div>
+          <div class="week-editor__section">
+            <p class="week-section-note">Escolher grupos</p>
+            <div class="control-row control-row--wrap">
+              ${
+                schedulableGroups.length > 0
+                  ? schedulableGroups
+                      .map((group) =>
+                        renderUiToggleButton({
+                          label: group.preferredSubject,
+                          value: group.groupJid,
+                          active: alertDraft.targetGroupJids.includes(group.groupJid),
+                          kind: 'alert-target-group',
+                        }),
+                      )
+                      .join('')
+                  : `<div class="timeline-item timeline-item--warning"><strong>Sem grupos elegiveis</strong><p>Reativa um grupo com agenda local para poderes criar este alerta.</p></div>`
+              }
+            </div>
+          </div>
+          <div class="action-row">
+            ${renderUiActionButton({
+              label: 'Guardar alerta',
+              dataAttributes: { 'flow-action': 'alert-save' },
+            })}
+            ${renderUiActionButton({
+              label: 'Limpar alerta',
+              variant: 'secondary',
+              dataAttributes: { 'flow-action': 'alert-clear' },
+            })}
+          </div>
+          <div class="week-editor__summary">
+            <p><strong>Grupos</strong>: ${escapeHtml(
+              alertTargetGroups.length > 0 ? alertTargetGroups.map((group) => group.preferredSubject).join(', ') : 'Escolhe pelo menos um grupo',
+            )}</p>
+            <p><strong>Quando</strong>: ${escapeHtml(`${readableWeekDayLabel(alertDraft.dayLabel)}, ${alertDraft.startTime}`)}</p>
+            <p><strong>Duracao</strong>: ${escapeHtml(`${sanitizeAlertDurationMinutes(alertDraft.durationMinutes)} minutos`)}</p>
+            <p><strong>Media</strong>: ${escapeHtml(
+              alertDraft.mediaAssetId
+                ? alertMediaAssets.find((asset) => asset.assetId === alertDraft.mediaAssetId)?.caption ?? 'media escolhida'
+                : 'sem media',
+            )}</p>
+            <p><strong>Mensagem</strong>: ${escapeHtml(alertDraft.messageTemplate || 'Sem texto adicional.')}</p>
           </div>
         </article>
       </section>
@@ -6821,6 +6961,22 @@ export class AppShell {
         };
         this.render();
         return;
+      case 'alert.title':
+      case 'alert.dayLabel':
+      case 'alert.startTime':
+      case 'alert.durationMinutes':
+      case 'alert.messageTemplate':
+      case 'alert.mediaAssetId':
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          alertDraft: {
+            ...this.state.alertDraft,
+            [fieldKey.replace('alert.', '')]: value,
+          } as GuidedAlertDraft,
+        };
+        this.render();
+        return;
       case 'distribution.ruleId':
       case 'distribution.messageSummary':
       case 'distribution.urgency':
@@ -7109,6 +7265,148 @@ export class AppShell {
       };
       this.recordUxEvent('neutral', 'Formulario de agendamento limpo.');
       this.render();
+      return;
+    }
+
+    if (action === 'alert-clear') {
+      this.state = {
+        ...this.state,
+        alertDraft: createEmptyAlertDraft(),
+        flowFeedback: {
+          tone: 'neutral',
+          message: 'Formulario do alerta solto limpo.',
+        },
+      };
+      this.recordUxEvent('neutral', 'Formulario de alerta solto limpo.');
+      this.render();
+      return;
+    }
+
+    if (action === 'toggle-alert-target-group') {
+      const page = this.readWeekPageData();
+      const groupJid = value?.trim();
+
+      if (!page || !groupJid) {
+        return;
+      }
+
+      const group = page.data.groups.find((candidate) => candidate.groupJid === groupJid) ?? null;
+
+      if (!group || !canGroupUseManualScheduling(group)) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message: group
+              ? describeManualSchedulingState(group)
+              : 'Nao encontramos esse grupo na agenda local.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      const selected = this.state.alertDraft.targetGroupJids.includes(groupJid);
+      const targetGroupJids = selected
+        ? this.state.alertDraft.targetGroupJids.filter((candidate) => candidate !== groupJid)
+        : [...this.state.alertDraft.targetGroupJids, groupJid];
+
+      this.state = {
+        ...this.state,
+        flowFeedback: null,
+        alertDraft: {
+          ...this.state.alertDraft,
+          targetGroupJids,
+        },
+      };
+      this.render();
+      return;
+    }
+
+    if (action === 'alert-save') {
+      const page = this.readWeekPageData();
+
+      if (!page) {
+        return;
+      }
+
+      const draft = resolveAlertDraft(this.state.alertDraft, page.data.groups, page.data.mediaAssets);
+      const selectedGroups = page.data.groups.filter((group) => draft.targetGroupJids.includes(group.groupJid));
+
+      if (selectedGroups.length === 0) {
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'warning',
+            message: 'Escolhe pelo menos um grupo para este alerta solto.',
+          },
+        };
+        this.render();
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        flowFeedback: {
+          tone: 'neutral',
+          message: `A criar o alerta solto para ${selectedGroups.length} grupo(s).`,
+        },
+      };
+      this.render();
+
+      try {
+        for (const group of selectedGroups) {
+          await this.currentClient().saveWeeklySchedule({
+            groupJid: group.groupJid,
+            title: draft.title.trim(),
+            dayLabel: draft.dayLabel,
+            startTime: draft.startTime,
+            durationMinutes: sanitizeAlertDurationMinutes(draft.durationMinutes),
+            notes: draft.messageTemplate.trim(),
+            notificationRules: [
+              {
+                kind: 'fixed_local_time',
+                enabled: true,
+                label: 'Alerta solto',
+                daysBeforeEvent: 0,
+                localTime: draft.startTime,
+                mediaAssetId: draft.mediaAssetId || null,
+                messageTemplate: draft.messageTemplate.trim() || 'Alerta: {{event_title}}.',
+                llmPromptTemplate:
+                  draft.messageTemplate.trim().length > 0
+                    ? `Escreve uma mensagem curta em portugues europeu para WhatsApp. Contexto: este e um alerta solto para o grupo {{group_label}}. Mantem a ideia principal: ${draft.messageTemplate.trim()}`
+                    : 'Escreve uma mensagem curta em portugues europeu para WhatsApp. Contexto: este e um alerta solto para o grupo {{group_label}}.',
+              },
+            ],
+            timeZone: page.data.timezone,
+          });
+        }
+
+        this.state = {
+          ...this.state,
+          alertDraft: createEmptyAlertDraft(),
+          flowFeedback: {
+            tone: 'positive',
+            message:
+              selectedGroups.length === 1
+                ? 'Alerta solto guardado para 1 grupo.'
+                : `Alerta solto guardado para ${selectedGroups.length} grupos.`,
+          },
+        };
+        this.recordUxEvent('positive', `Alerta solto criado para ${selectedGroups.length} grupo(s).`);
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel guardar o alerta solto. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
       return;
     }
 
@@ -7594,8 +7892,8 @@ export class AppShell {
     }
   }
 
-  private readWeekPageData(): UiPage<WeekPlannerSnapshot> | null {
-    const page = this.state.page as UiPage<WeekPlannerSnapshot> | null;
+  private readWeekPageData(): UiPage<WeekPlannerPageData> | null {
+    const page = this.state.page as UiPage<WeekPlannerPageData> | null;
 
     if (!page || page.route !== '/week') {
       return null;
@@ -11390,6 +11688,18 @@ export class AppShell {
       });
     }
 
+    for (const button of this.root.querySelectorAll<HTMLButtonElement>('[data-alert-target-group]')) {
+      button.addEventListener('click', () => {
+        const groupJid = button.dataset.alertTargetGroup;
+
+        if (!groupJid) {
+          return;
+        }
+
+        void this.handleFlowAction('toggle-alert-target-group', groupJid);
+      });
+    }
+
     for (const field of this.root.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[data-field-key]')) {
       const sync = () => {
         const fieldKey = field.dataset.fieldKey;
@@ -11893,6 +12203,48 @@ function createEmptyScheduleDraft(): GuidedScheduleDraft {
     durationMinutes: '60',
     notes: '',
   };
+}
+
+function createEmptyAlertDraft(): GuidedAlertDraft {
+  return {
+    alertId: null,
+    title: '',
+    dayLabel: 'sexta-feira',
+    startTime: '18:00',
+    durationMinutes: '15',
+    messageTemplate: '',
+    mediaAssetId: '',
+    targetGroupJids: [],
+  };
+}
+
+function resolveAlertDraft(
+  draft: GuidedAlertDraft,
+  groups: readonly WeekPlannerSnapshot['groups'][number][],
+  assets: readonly MediaAssetSnapshot[],
+): GuidedAlertDraft {
+  const validGroupJids = new Set(groups.map((group) => group.groupJid));
+  const selectedGroupJids = draft.targetGroupJids.filter((groupJid) => validGroupJids.has(groupJid));
+  const fallbackGroupJids = groups.filter((group) => canGroupUseManualScheduling(group)).map((group) => group.groupJid);
+  const mediaAssetId = assets.some((asset) => asset.assetId === draft.mediaAssetId) ? draft.mediaAssetId : '';
+
+  return {
+    ...draft,
+    title: draft.title.trim().length > 0 ? draft.title : 'Alerta solto',
+    durationMinutes: String(sanitizeAlertDurationMinutes(draft.durationMinutes)),
+    mediaAssetId,
+    targetGroupJids: selectedGroupJids.length > 0 ? selectedGroupJids : fallbackGroupJids.slice(0, 3),
+  };
+}
+
+function sanitizeAlertDurationMinutes(value: string): number {
+  const parsed = Number.parseInt(value, 10);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 15;
+  }
+
+  return Math.min(parsed, 240);
 }
 
 function createEmptyMediaDistributionDraft(): GuidedMediaDistributionDraft {

@@ -232,7 +232,20 @@ export class AppRouter {
         description: 'Agenda semanal para rever o que esta marcado e abrir o detalhe de cada grupo.',
         navigationPlacement: 'primary',
         legacyRoutes: ['/week-planner'],
-        render: async () => this.weekPlanner.render(await this.readQuery('weekly-planner', () => this.client.getWeeklyPlanner())),
+        render: async () => {
+          const [weeklyPlanner, mediaAssets] = await Promise.all([
+            this.readQuery('weekly-planner', () => this.client.getWeeklyPlanner()),
+            this.readQuery('media-assets', () => this.client.listMediaAssets()),
+          ]);
+
+          return {
+            ...this.weekPlanner.render(weeklyPlanner),
+            data: {
+              ...weeklyPlanner,
+              mediaAssets,
+            },
+          };
+        },
       },
       {
         route: this.groupDirectory.config.route,
