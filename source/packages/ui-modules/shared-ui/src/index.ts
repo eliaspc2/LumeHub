@@ -156,12 +156,6 @@ export function renderUiActionButton(spec: UiActionButtonSpec): string {
     .join('');
 
   if (spec.href) {
-    const isInternalNavigation = spec.href.startsWith('/') && !spec.href.startsWith('/api/');
-
-    if (isInternalNavigation) {
-      return `<span class="ui-button ui-button--${variant} ui-button--static ${disabled ? 'is-disabled' : ''}" aria-disabled="true">${escapeHtml(spec.label)}</span>`;
-    }
-
     return `<a class="ui-button ui-button--${variant} ${disabled ? 'is-disabled' : ''}" href="${disabled ? '#' : escapeHtml(spec.href)}"${disabled ? ' aria-disabled="true" tabindex="-1"' : ''}${attributeList}>${escapeHtml(spec.label)}</a>`;
   }
 
