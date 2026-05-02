@@ -151,7 +151,7 @@ export class AppRouter {
   private readonly whatsapp = new WhatsAppConsoleUiModule();
   private readonly settings = new SettingsCenterUiModule({
     route: '/settings',
-    label: 'LumeHub',
+    label: 'Configuracoes',
   });
 
   constructor(
@@ -325,7 +325,7 @@ export class AppRouter {
         navigationPlacement: 'primary',
         render: async () => ({
           route: '/settings',
-          title: 'LumeHub',
+          title: 'Configuracoes',
           description: 'Regras gerais da app, assistente, energia e arranque do LumeHub.',
           sections: [],
           data: await this.readSettingsPageData(),
