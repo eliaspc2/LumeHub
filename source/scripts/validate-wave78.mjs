@@ -18,13 +18,13 @@ const implementationWaves = await readFile(
 );
 assert.match(implementationWaves, /Ronda ativa: `gui-simplification-pass-2`/u);
 assert.match(implementationWaves, /Wave 78 fechou a ronda `ui-ux-commercial-polish`/u);
-assert.match(implementationWaves, /Wave 79 - Alertas falsos e Hoje com radar live/u);
+assert.match(implementationWaves, /A `Wave 79` abriu a ronda `gui-simplification-pass-2`/u);
 assert.match(implementationWaves, /Wave 83 - Limpeza final da ronda `gui-simplification-pass-2`/u);
 assert.doesNotMatch(implementationWaves, /### Wave 78 - Limpeza final da ronda `ui-ux-commercial-polish`/u);
 
 const readme = await readFile(resolve(REPO_ROOT, 'README.md'), 'utf8');
 assert.match(readme, /Wave 78/u);
-assert.match(readme, /validate:wave78/u);
+assert.match(readme, /Wave 79/u);
 
 const gapAudit = await readFile(
   resolve(REPO_ROOT, 'docs', 'architecture', 'lume_hub_gap_audit.md'),

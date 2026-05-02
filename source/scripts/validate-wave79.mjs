@@ -76,11 +76,13 @@ try {
   assert.match(todayDom.stdout, /Sem problemas confirmados neste momento\./u);
   assert.match(packageJson.scripts['validate:wave79'], /validate-wave79\.mjs/u);
   assert.ok(implementationWaves.includes('Wave 79 fechou o fix de alertas falsos e o radar live em `Hoje`.'));
+  assert.ok(implementationWaves.includes('A `Wave 79` abriu a ronda `gui-simplification-pass-2`'));
   assert.ok(implementationWaves.includes('Wave 80 - Shell e hierarquia com menos carga simultanea'));
   assert.ok(!implementationWaves.includes('### Wave 79 - Alertas falsos e Hoje com radar live'));
   assert.ok(readme.includes('fechou o fix de alertas falsos e o radar live em `Hoje`'));
   assert.ok(readme.includes('validate:wave79'));
   assert.ok(gapAudit.includes('fechou o fix de alertas falsos e o radar live em `Hoje`'));
+  assert.ok(gapAudit.includes('## Gaps ativos da ronda `gui-simplification-pass-2`'));
   assert.ok(gapAudit.includes('validate:wave79'));
 
   console.log('Wave 79 today radar validation passed');

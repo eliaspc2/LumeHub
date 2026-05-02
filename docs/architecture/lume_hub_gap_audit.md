@@ -208,17 +208,26 @@ Estado canonico deixado:
 
 Nao restam gaps ativos nesta ronda.
 A `Wave 78` fechou a limpeza final, consolidou os validadores e relancou o LumeHub.
-A `Wave 79` fechou o fix de alertas falsos e o radar live em `Hoje`.
 
 Estado canonico deixado:
 
 - a shell ficou mais compacta e menos tecnica nas areas tocadas
 - a leitura operacional da pagina ficou menos repetitiva
-- o fecho da ronda ficou consolidado em `validate:wave79`
+- o fecho da ronda ficou consolidado em `validate:wave78`
+
+## Gaps ativos da ronda `gui-simplification-pass-2`
+
+A ronda esta aberta.
+A `Wave 79` fechou o fix de alertas falsos e o radar live em `Hoje`.
+
+Estado canonico deixado:
+
+- `Hoje` passou a abrir com radar live compacto em vez de atalhos paralelos
+- alertas parciais deixaram de aparecer como risco confirmado no resumo principal
+- a validacao consolidada mais recente e `validate:wave79`
 
 Trabalho ja reservado para a ronda seguinte:
 
-- abrir `gui-simplification-pass-2`
 - arrancar a ronda com simplificacao de shell e hierarquia com menos carga simultanea
 - fazer uma nova revisao headless das rotas live antes de mexer no layout dessa ronda
 - acrescentar um modulo `official-update-sync` para descobrir e descarregar updates a partir do repo oficial, com toggle `on/off`
@@ -246,7 +255,8 @@ Se a pergunta for "as waves planeadas ficaram fechadas?", a resposta e:
 - a ronda de inteligencia por grupo, sim
 - a ronda `ui-clarity`, sim
 - a ronda `commercial-readiness`, sim
-- neste momento nao ha waves ativas registadas
+- a ronda `ui-ux-commercial-polish`, sim
+- a ronda `gui-simplification-pass-2` esta aberta, com a `Wave 79` fechada e `Wave 80` como proxima wave planeada
 
 Se a pergunta for "o produto ja esta 100% implementado em runtime real?", a resposta e:
 - para o runtime operacional base, a base existe e esta bastante forte

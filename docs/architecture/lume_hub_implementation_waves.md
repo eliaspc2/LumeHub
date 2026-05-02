@@ -196,13 +196,20 @@ Estado canonico deixado:
 - kit de entrega comercial honesto para `backend containerizado + host companion`
 - validadores intermédios da ronda removidos; a serie ficou consolidada em `validate:wave72`
 
-A ronda `ui-ux-commercial-polish` ficou fechada com a limpeza final da `Wave 79`.
+A ronda `ui-ux-commercial-polish` ficou fechada com a limpeza final da `Wave 78`.
 Estado canonico deixado:
 
 - a shell ficou menos tecnica e mais compacta nas areas tocadas
 - `LumeHub`, `Codex Router` e rotas tecnicas por papel ficaram alinhadas com mais detalhe progressivo e menos repeticao visual
 - a limpeza final consolidou os validadores e fechou a ronda com relancamento do LumeHub
-- a serie ficou consolidada em `validate:wave79`
+- a serie ficou consolidada em `validate:wave78`
+
+A `Wave 79` abriu a ronda `gui-simplification-pass-2` com o fix de alertas falsos e o radar live em `Hoje`.
+Estado canonico deixado:
+
+- `Hoje` substituiu atalhos paralelos por um radar live compacto
+- sinais parciais deixaram de inflacionar alertas falsos no resumo principal
+- a validacao consolidada mais recente passou a ser `validate:wave79`
 
 A `Wave 73` fechou o cutover operacional de avisos e ownership OAuth.
 Estado canonico deixado:
