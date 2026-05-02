@@ -216,19 +216,23 @@ Estado confirmado:
 - a shell global ficou mais compacta e menos tecnica
 - a navegacao mobile foi compactada para nao ocupar um ecra inteiro antes do conteudo
 
+Em `2026-05-02`, a `Wave 77` fechou a ronda das rotas tecnicas por papel:
+
+- `Workspace` deixou de repetir varias acoes por ficheiro na lista base
+- `Media` deixou de mostrar a origem tecnica na linha principal de cada asset
+- `Watchdog` ficou mais humano na leitura do problema aberto
+- `Codex Router` manteve o detalhe tecnico num nivel progressivo, sem o empurrar para a vista base
+
 Gaps ainda ativos:
 
 - `Grupos` e pagina de grupo repetem demasiados estados e nomes; precisam separar catalogo global de detalhe do grupo
 - `WhatsApp` repete permissoes/contactos e deve resumir por problema/acao antes de mostrar ACL
 - `Calendario` mostra muitos estados a zero; deve esconder ruido vazio e promover evento/proximo passo
 - `LLM` ainda deve separar melhor pergunta segura de alteracao real de agenda
-- `Codex Router` esta funcional, mas diagnostico tecnico deve ficar mais recolhido face a uso livre/troca manual
-- `Workspace` repete acoes por ficheiro dezenas de vezes; deve passar a barra de acoes contextual
-- `Media` e rotas tecnicas devem esconder JIDs/logs na vista base quando houver label humana ou resumo de impacto
 
 Validacao canonica atual da ronda:
 
-- `validate:wave74`
+- `validate:wave77`
 
 Trabalho ja reservado para a ronda seguinte:
 

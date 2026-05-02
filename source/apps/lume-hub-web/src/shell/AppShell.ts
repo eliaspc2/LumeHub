@@ -2635,7 +2635,8 @@ export class AppShell {
                       (asset) => `
                         <article class="timeline-item">
                           <strong>${escapeHtml(asset.caption ?? `${readableMediaType(asset.mediaType)} sem caption`)}</strong>
-                          <time>${escapeHtml(`${readableSourceChat(asset.sourceChatJid)} • ${formatShortDateTime(asset.storedAt)}`)}</time>
+                          <time>${escapeHtml(formatShortDateTime(asset.storedAt))}</time>
+                          <p>${escapeHtml(`Origem: ${readableSourceChat(asset.sourceChatJid)}`)}</p>
                           <p>${escapeHtml(`${readableMediaType(asset.mediaType)} • ${formatFileSize(asset.fileSize)} • ${asset.exists ? 'guardado' : 'em falta'}`)}</p>
                           <div class="action-row">
                             ${renderUiActionButton({
@@ -3072,36 +3073,28 @@ export class AppShell {
                         <article class="timeline-item workspace-file-item ${draft.previewPath === file.relativePath ? 'workspace-file-item--active' : ''}">
                           <strong>${escapeHtml(file.relativePath)}</strong>
                           <time>${escapeHtml(file.extension || 'sem extensao')}</time>
-                  <div class="action-row">
-                    ${renderUiActionButton({
-                      label: draft.previewPath === file.relativePath ? 'Preview aberto' : 'Abrir preview',
-                      variant: draft.previewPath === file.relativePath ? 'primary' : 'secondary',
-                      dataAttributes: {
+                          <div class="action-row workspace-file-actions">
+                            ${renderUiActionButton({
+                              label: draft.previewPath === file.relativePath ? 'Preview aberto' : 'Abrir preview',
+                              variant: draft.previewPath === file.relativePath ? 'primary' : 'secondary',
+                              dataAttributes: {
                                 'workspace-action': 'preview-file',
                                 'workspace-file-path': file.relativePath,
                               },
                             })}
-                    ${renderUiActionButton({
-                      label: selectedFiles.includes(file.relativePath) ? 'Retirar' : 'Usar no pedido',
-                      variant: selectedFiles.includes(file.relativePath) ? 'secondary' : 'primary',
-                      dataAttributes: {
-                        'workspace-action': 'toggle-file-selection',
-                        'workspace-file-path': file.relativePath,
-                      },
-                    })}
-                    ${renderUiActionButton({
-                      label: 'Rever sem alterar',
-                      variant: 'secondary',
-                      dataAttributes: {
-                        'workspace-action': 'review-file',
-                        'workspace-file-path': file.relativePath,
-                      },
-                    })}
-                  </div>
-                </article>
-              `,
-            )
-            .join('')}
+                            ${renderUiActionButton({
+                              label: selectedFiles.includes(file.relativePath) ? 'Retirar do pedido' : 'Usar no pedido',
+                              variant: selectedFiles.includes(file.relativePath) ? 'secondary' : 'primary',
+                              dataAttributes: {
+                                'workspace-action': 'toggle-file-selection',
+                                'workspace-file-path': file.relativePath,
+                              },
+                            })}
+                          </div>
+                        </article>
+                      `,
+                    )
+                    .join('')}
                 </div>
               `
               : `
@@ -3157,6 +3150,7 @@ export class AppShell {
                         },
                       })}
                     </div>
+                    <p class="workspace-file-actions__hint">A lista ao lado ficou reduzida para evitar botoes repetidos por ficheiro. A revisao sem alterar vive aqui.</p>
                   </div>
                   <pre class="workspace-code-preview">${escapeHtml(draft.previewContent.content)}</pre>
                 `
@@ -5150,19 +5144,19 @@ export class AppShell {
             ? issues
                 .map(
                   (issue) =>
-                    renderUiRecordCard({
-                      title: issue.groupLabel,
-                      subtitle: issue.summary,
-                      badgeLabel: issue.kind,
-                      badgeTone: issue.status === 'open' ? 'warning' : 'positive',
-                      bodyHtml: `
-                        <ul>
-                          <li>Status: ${escapeHtml(issue.status)}</li>
-                          <li>Aberta: ${escapeHtml(formatShortDateTime(issue.openedAt))}</li>
-                          <li>Semana: ${escapeHtml(issue.weekId)}</li>
-                        </ul>
-                      `,
-                    }),
+                      renderUiRecordCard({
+                        title: issue.groupLabel,
+                        subtitle: issue.summary,
+                        badgeLabel: issue.kind,
+                        badgeTone: issue.status === 'open' ? 'warning' : 'positive',
+                        bodyHtml: `
+                          <ul>
+                            <li>Status: ${escapeHtml(issue.status)}</li>
+                            <li>Aberta: ${escapeHtml(formatShortDateTime(issue.openedAt))}</li>
+                          <li>Semana operacional: ${escapeHtml(issue.weekId)}</li>
+                          </ul>
+                        `,
+                      }),
                 )
                 .join('')
             : `

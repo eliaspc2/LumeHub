@@ -36,37 +36,9 @@ Logo:
 Ronda ativa: `ui-ux-commercial-polish`.
 
 A `Wave 76` fechou `Hoje`, `Calendario` e `LLM` com leitura de resumo primeiro.
+A `Wave 77` fechou `LumeHub`, `Codex Router` e rotas tecnicas por papel com menos repeticao visual e melhor detalhe progressivo.
 
 Waves ainda por executar:
-
-### Wave 77 - LumeHub, Codex Router e rotas tecnicas por papel
-
-Objetivo:
-- separar operacao normal de diagnostico tecnico
-- manter informacao sensivel e tecnica em detalhe progressivo
-- melhorar legibilidade comercial das areas de sistema
-
-Scope:
-- `/settings`
-- `/codex-router`
-- `/media`
-- `/workspace`
-- `/distributions`
-- `/delivery-monitor`
-- `/watchdog`
-
-Obrigatorio:
-- `Codex Router` deve manter uso livre, token em uso e troca manual, mas com diagnostico tecnico recolhido
-- o delete basico de token pode ser funcional e curto nesta ronda, mas o aperfeicoamento de UX fica em queue para clarificar melhor `retirar do router` vs `apagar copia gerida`
-- `Workspace` deve deixar de repetir dezenas de acoes iguais por ficheiro
-- `Media` deve evitar JIDs crus na vista base quando houver label humana
-- rotas tecnicas devem mostrar impacto e proximo passo antes do log/diagnostico
-- a propria wave deve remover copy, blocos e acao repetida que fiquem mortos nas rotas tecnicas tocadas
-
-Validacao:
-- criar `validate:wave77`
-- validar `Codex Router` live sem imprimir tokens
-- validar rotas tecnicas em browser headless/CDP
 
 ### Wave 78 - Limpeza final da ronda `ui-ux-commercial-polish`
 
@@ -78,7 +50,7 @@ Obrigatorio:
 - consolidar a validacao final em `validate:wave78`
 - remover validadores intermédios `74..77`, se ja estiverem cobertos
 - atualizar README, gap audit e esta lista para declarar a ronda fechada
-- rever e fechar limpeza pendente acumulada nas `Wave 77` e na ronda `ui-ux-commercial-polish`, incluindo artefactos runtime gerados que ja nao sejam necessarios
+- rever e fechar limpeza pendente acumulada na ronda `ui-ux-commercial-polish`, incluindo artefactos runtime gerados que ja nao sejam necessarios
 - relancar no fim:
   - `bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh restart`
   - se for a partir de sessao automatizada, usar `setsid bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh restart >/tmp/lumehub-wave-restart.log 2>&1 < /dev/null &`
@@ -191,17 +163,20 @@ Validacao:
 
 Objetivo:
 - permitir ao LumeHub descobrir, descarregar e preparar updates a partir do repositorio oficial
+- fechar tambem o bootstrap/install helper para PCs novos, para que a entrega a terceiros nao dependa de contexto manual do autor
 - reduzir dependencia de procedimentos manuais dispersos no host
 - dar ao operador uma leitura clara da versao atual, update disponivel e estado do download
 
 Scope:
 - novo modulo backend
+- helper de bootstrap/instalacao para primeiro arranque em PC novo
 - integracao com `lume-hub-host` para fetch e staging local
 - superficie minima de operador na UI
 
 Obrigatorio:
 - usar apenas o repo oficial configurado como upstream canonico do LumeHub
 - suportar pelo menos `check update`, `download update` e `preparar apply`, sem auto-aplicar por defeito
+- suportar instalacao guiada em PC novo com instrucoes curtas e reproduziveis
 - guardar metadata de versao atual, versao remota, commit/tag e ultima verificacao
 - descarregar para staging claro e validado antes de qualquer apply
 - a UI deve ter um toggle `updates ligados/desligados` para permitir ao operador activar ou cortar esta capacidade sem mexer em config manual
@@ -283,6 +258,15 @@ Estado canonico deixado:
 - navegacao mobile ficou compacta em vez de ocupar um ecra inteiro antes do conteudo
 - shell global ficou mais densa e menos tecnica
 - validacao consolidada atual: `validate:wave74`
+
+A `Wave 77` fechou a ronda curta das rotas tecnicas por papel.
+Estado canonico deixado:
+
+- `Workspace` ficou menos repetitivo na lista de ficheiros
+- `Media` deixou de repetir a origem tecnica na linha principal da timeline
+- `Watchdog` passou a mostrar o problema aberto com uma leitura mais humana
+- `Codex Router` manteve a leitura progressiva para diagnostico tecnico
+- validacao consolidada: `validate:wave77`
 
 ## Como reabrir uma ronda
 

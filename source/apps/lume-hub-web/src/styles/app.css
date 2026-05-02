@@ -1819,6 +1819,21 @@ textarea {
   padding-right: 4px;
 }
 
+.workspace-file-actions {
+  flex-wrap: wrap;
+}
+
+.workspace-file-actions .ui-button {
+  min-width: 11rem;
+}
+
+.workspace-file-actions__hint {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
 .workspace-file-item {
   gap: 12px;
 }
