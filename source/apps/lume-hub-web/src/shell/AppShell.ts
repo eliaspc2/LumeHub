@@ -1278,11 +1278,6 @@ export class AppShell {
           <p class="eyebrow">Entrada principal</p>
           <h2>Resumo primeiro: estado, risco e proximo passo sem procurar no resto da pagina.</h2>
           <p>${escapeHtml(page.description)}</p>
-          <div class="action-row">
-            ${renderUiActionButton({ label: 'Ver agenda', href: '/week', dataAttributes: { route: '/week' } })}
-            ${renderUiActionButton({ label: 'Ver WhatsApp', href: '/whatsapp', variant: 'secondary', dataAttributes: { route: '/whatsapp' } })}
-            ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', variant: 'secondary', dataAttributes: { route: '/groups' } })}
-          </div>
         </div>
         <div class="hero-panel status-list">
           <article class="status-item status-item--${readyTone}">
@@ -1387,10 +1382,6 @@ export class AppShell {
                     </article>
                   `
             }
-          </div>
-          <div class="action-row">
-            ${renderUiActionButton({ label: 'Abrir WhatsApp', href: '/whatsapp', variant: 'secondary', dataAttributes: { route: '/whatsapp' } })}
-            ${renderUiActionButton({ label: 'Ver distribuicoes', href: '/distributions', variant: 'secondary', dataAttributes: { route: '/distributions' } })}
           </div>
         </article>
       </section>
@@ -2249,20 +2240,6 @@ export class AppShell {
           <p class="eyebrow">Assistente LLM</p>
           <h2>Comeca por uma pergunta segura. A agenda real fica separada e so muda com preview.</h2>
           <p>${escapeHtml(page.description)}</p>
-          <div class="action-row">
-            ${renderUiActionButton({
-              label: 'Abrir calendario',
-              variant: 'secondary',
-              href: '/week',
-              dataAttributes: { route: '/week' },
-            })}
-            ${renderUiActionButton({
-              label: 'Ver grupos',
-              variant: 'secondary',
-              href: '/groups',
-              dataAttributes: { route: '/groups' },
-            })}
-          </div>
         </div>
         <div class="hero-panel status-list">
           <article class="status-item status-item--positive">
@@ -2586,19 +2563,6 @@ export class AppShell {
           <p class="eyebrow">Biblioteca operacional</p>
           <h2>Escolher um video recebido e espalha-lo pelos grupos certos sem entrar em detalhes tecnicos.</h2>
           <p>${escapeHtml(page.description)}</p>
-          <div class="action-row">
-            ${renderUiActionButton({
-              label: 'Abrir WhatsApp',
-              href: '/whatsapp',
-              dataAttributes: { route: '/whatsapp' },
-            })}
-            ${renderUiActionButton({
-              label: 'Voltar a hoje',
-              href: '/today',
-              variant: 'secondary',
-              dataAttributes: { route: '/today' },
-            })}
-          </div>
         </div>
         <div class="hero-panel">
           ${renderUiPanelCard({
@@ -3381,12 +3345,6 @@ export class AppShell {
                     })
                   : ''
               }
-              ${renderUiActionButton({
-                label: 'Ver WhatsApp',
-                href: '/whatsapp',
-                variant: 'secondary',
-                dataAttributes: { route: '/whatsapp' },
-              })}
             </div>
           </div>
           <div class="hero-panel">
@@ -3553,20 +3511,8 @@ export class AppShell {
           )}</p>
           <div class="action-row">
             ${renderUiActionButton({
-              label: 'Voltar ao catalogo',
-              href: '/groups',
-              variant: 'secondary',
-              dataAttributes: { route: '/groups' },
-            })}
-            ${renderUiActionButton({
               label: 'Atualizar preview',
               dataAttributes: { 'group-action': 'refresh-preview' },
-            })}
-            ${renderUiActionButton({
-              label: 'Ver WhatsApp',
-              href: '/whatsapp',
-              variant: 'secondary',
-              dataAttributes: { route: '/whatsapp' },
             })}
           </div>
           ${
@@ -4444,8 +4390,6 @@ export class AppShell {
               variant: 'secondary',
               dataAttributes: { 'whatsapp-action': 'refresh-workspace' },
             })}
-            ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', variant: 'secondary', dataAttributes: { route: '/groups' } })}
-            ${renderUiActionButton({ label: 'Abrir LumeHub', href: '/settings', variant: 'secondary', dataAttributes: { route: '/settings' } })}
           </div>
         </div>
         <div class="hero-panel">
@@ -4761,16 +4705,6 @@ export class AppShell {
                               )}</p>
                             </div>
                             <div class="action-row">
-                              ${
-                                person.ownedGroupJids.length > 0
-                                  ? renderUiActionButton({
-                                      label: 'Ver grupos',
-                                      href: '/groups',
-                                      variant: 'secondary',
-                                      dataAttributes: { route: '/groups' },
-                                    })
-                                  : ''
-                              }
                             </div>
                           </article>
                         `,
@@ -5238,11 +5172,6 @@ export class AppShell {
           <p class="eyebrow">Migracao</p>
           <h2>Consola de operador para sair do WA-notify sem confundir com o uso diario.</h2>
           <p>Esta pagina nao e a homepage normal do produto. Usa-a so quando estas a preparar, validar ou aplicar a migracao.</p>
-          <div class="action-row">
-            ${renderUiActionButton({ label: 'Voltar ao LumeHub', href: '/settings', dataAttributes: { route: '/settings' } })}
-            ${renderUiActionButton({ label: 'Ver WhatsApp', href: '/whatsapp', variant: 'secondary', dataAttributes: { route: '/whatsapp' } })}
-            ${renderUiActionButton({ label: 'Abrir Codex Router', href: '/codex-router', variant: 'secondary', dataAttributes: { route: '/codex-router' } })}
-          </div>
         </div>
         <div class="hero-panel">
           <div class="status-list">
@@ -5483,9 +5412,6 @@ export class AppShell {
             </div>
             ${renderUiBadge({ label: authRouterStatus ? visibleTokenLabel : 'Indisponivel', tone: authRouterStatus ? 'neutral' : 'warning' })}
           </div>
-          <div class="action-row">
-            ${renderUiActionButton({ label: 'Abrir Codex Router', href: '/codex-router', dataAttributes: { route: '/codex-router' } })}
-          </div>
         </article>
       </section>
 
@@ -5507,10 +5433,6 @@ export class AppShell {
           <p class="eyebrow">Codex Router</p>
           <h2>Troca tokens do Codex com travoes claros e backup antes de mexer.</h2>
           <p>Esta pagina serve so para gerir a auth do Codex. O LumeHub continua na configuracao base e os imports legacy ficam fora do menu principal.</p>
-          <div class="action-row">
-            ${renderUiActionButton({ label: 'Abrir LumeHub', href: '/settings', dataAttributes: { route: '/settings' } })}
-            ${renderUiActionButton({ label: 'Abrir LLM', href: '/assistant', variant: 'secondary', dataAttributes: { route: '/assistant' } })}
-          </div>
         </div>
         <div class="hero-panel">
           <div class="status-list">
@@ -6212,13 +6134,6 @@ export class AppShell {
           <h2>Centro de controlo da app: owner, WhatsApp, menus, reset e regras globais.</h2>
           <p>Esta zona junta o que define a instalacao. As paginas de trabalho ficam para operar grupos, calendario, WhatsApp e tokens quando estiverem visiveis.</p>
           <div class="action-row">
-            ${renderUiActionButton({ label: 'Ver grupos', href: '/groups', dataAttributes: { route: '/groups' } })}
-            ${renderUiActionButton({ label: 'Abrir WhatsApp', href: '/whatsapp', variant: 'secondary', dataAttributes: { route: '/whatsapp' } })}
-            ${
-              codexRouterVisible
-                ? renderUiActionButton({ label: 'Abrir Codex Router', href: '/codex-router', variant: 'secondary', dataAttributes: { route: '/codex-router' } })
-                : ''
-            }
           </div>
         </div>
         <div class="hero-panel">
@@ -6560,12 +6475,6 @@ export class AppShell {
                             'settings-action': 'toggle-codex-router-enabled',
                             'codex-router-enabled': authRouterStatus.enabled ? 'true' : 'false',
                           },
-                        })}
-                        ${renderUiActionButton({
-                          label: 'Abrir Codex Router',
-                          href: '/codex-router',
-                          variant: 'secondary',
-                          dataAttributes: { route: '/codex-router' },
                         })}
                       </div>
                     `
