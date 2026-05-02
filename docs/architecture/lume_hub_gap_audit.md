@@ -206,37 +206,18 @@ Estado canonico deixado:
 
 ## Gaps ativos da ronda `ui-ux-commercial-polish`
 
-Em `2026-04-22`, a `Wave 74` abriu uma nova ronda curta depois de auditoria visual e DOM das paginas principais e tecnicas.
+Nao restam gaps ativos nesta ronda.
+A `Wave 78` fechou a limpeza final, consolidou os validadores e relancou o LumeHub.
 
-Estado confirmado:
+Estado canonico deixado:
 
-- nao ha evidencia de pagina branca real no LumeHub live
-- o branco observado em captura veio de artefacto do `google-chrome --screenshot` e do scroll/foco automatico
-- o foco automatico no primeiro load foi removido para reduzir saltos de janela/scroll
-- a shell global ficou mais compacta e menos tecnica
-- a navegacao mobile foi compactada para nao ocupar um ecra inteiro antes do conteudo
-
-Em `2026-05-02`, a `Wave 77` fechou a ronda das rotas tecnicas por papel:
-
-- `Workspace` deixou de repetir varias acoes por ficheiro na lista base
-- `Media` deixou de mostrar a origem tecnica na linha principal de cada asset
-- `Watchdog` ficou mais humano na leitura do problema aberto
-- `Codex Router` manteve o detalhe tecnico num nivel progressivo, sem o empurrar para a vista base
-
-Gaps ainda ativos:
-
-- `Grupos` e pagina de grupo repetem demasiados estados e nomes; precisam separar catalogo global de detalhe do grupo
-- `WhatsApp` repete permissoes/contactos e deve resumir por problema/acao antes de mostrar ACL
-- `Calendario` mostra muitos estados a zero; deve esconder ruido vazio e promover evento/proximo passo
-- `LLM` ainda deve separar melhor pergunta segura de alteracao real de agenda
-
-Validacao canonica atual da ronda:
-
-- `validate:wave77`
+- a shell ficou mais compacta e menos tecnica nas areas tocadas
+- a leitura operacional da pagina ficou menos repetitiva
+- o fecho da ronda ficou consolidado em `validate:wave78`
 
 Trabalho ja reservado para a ronda seguinte:
 
-- abrir `gui-simplification-pass-2` depois de fechar a `Wave 78`
+- abrir `gui-simplification-pass-2`
 - arrancar a ronda com fix de alertas falsos e substituicao de `Atalhos principais` por `Radar live` em `Hoje`
 - fazer uma nova revisao headless das rotas live antes de mexer no layout dessa ronda
 - acrescentar um modulo `official-update-sync` para descobrir e descarregar updates a partir do repo oficial, com toggle `on/off`

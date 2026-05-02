@@ -33,48 +33,21 @@ Logo:
 
 ## Estado atual
 
-Ronda ativa: `ui-ux-commercial-polish`.
+Ronda ativa: `gui-simplification-pass-2`.
 
 A `Wave 76` fechou `Hoje`, `Calendario` e `LLM` com leitura de resumo primeiro.
 A `Wave 77` fechou `LumeHub`, `Codex Router` e rotas tecnicas por papel com menos repeticao visual e melhor detalhe progressivo.
 
+Wave 78 fechou a ronda `ui-ux-commercial-polish`.
+
+Estado canonico deixado:
+
+- a ronda `ui-ux-commercial-polish` terminou com limpeza final e relancamento do LumeHub
+- validacao consolidada: `validate:wave78`
+- validadores intermédios `74..77` ficaram removidos
+- docs, README e backlog ficaram alinhados ao estado final
+
 Waves ainda por executar:
-
-### Wave 78 - Limpeza final da ronda `ui-ux-commercial-polish`
-
-Objetivo:
-- fechar a ronda, remover validadores intermédios e deixar docs/README/backlog canonicos
-- relancar o LumeHub no fim da limpeza
-
-Obrigatorio:
-- consolidar a validacao final em `validate:wave78`
-- remover validadores intermédios `74..77`, se ja estiverem cobertos
-- atualizar README, gap audit e esta lista para declarar a ronda fechada
-- rever e fechar limpeza pendente acumulada na ronda `ui-ux-commercial-polish`, incluindo artefactos runtime gerados que ja nao sejam necessarios
-- relancar no fim:
-  - `bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh restart`
-  - se for a partir de sessao automatizada, usar `setsid bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh restart >/tmp/lumehub-wave-restart.log 2>&1 < /dev/null &`
-- validar a seguir:
-  - `bash /home/eliaspc/Documentos/Instruction/KubuntuLTS/scripts/lumehub-launch.sh status`
-  - `curl -fsS http://127.0.0.1:18420/api/runtime/diagnostics`
-
-A validacao consolidada atual e:
-
-- `cd /home/eliaspc/Documentos/Git/lume-hub/source`
-- `corepack pnpm run validate:wave76`
-
-## Ronda seguinte reservada
-
-Depois de fechar a `Wave 78`, abrir a ronda `gui-simplification-pass-2`.
-
-Motivo:
-
-- a shell ficou melhor, mas o produto ainda pode parecer assoberbante quando uma pagina junta resumo, diagnostico, labels repetidas e varias acoes primarias ao mesmo tempo
-- o proximo passo ja nao e "mais polish"; e simplificar a leitura operacional para reduzir fadiga e hesitacao
-- revisao headless das rotas live confirma excesso de blocos simultaneos em `Hoje`, `Grupos`, `LumeHub` e `Codex Router`
-- nesta ronda entram tambem:
-  - um modulo novo para descarregar updates do LumeHub a partir do repo oficial
-  - um radar live compacto em `Hoje` no lugar de atalhos pouco uteis
 
 ### Wave 79 - Alertas falsos e Hoje com radar live
 
@@ -238,6 +211,14 @@ Estado canonico deixado:
 - `Codex Router` em pagina propria, com backup antes de trocar token e suporte a `3+` tokens
 - kit de entrega comercial honesto para `backend containerizado + host companion`
 - validadores intermédios da ronda removidos; a serie ficou consolidada em `validate:wave72`
+
+A ronda `ui-ux-commercial-polish` ficou fechada com a limpeza final da `Wave 78`.
+Estado canonico deixado:
+
+- a shell ficou menos tecnica e mais compacta nas areas tocadas
+- `LumeHub`, `Codex Router` e rotas tecnicas por papel ficaram alinhadas com mais detalhe progressivo e menos repeticao visual
+- a limpeza final consolidou os validadores e fechou a ronda com relancamento do LumeHub
+- a serie ficou consolidada em `validate:wave78`
 
 A `Wave 73` fechou o cutover operacional de avisos e ownership OAuth.
 Estado canonico deixado:

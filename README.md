@@ -307,8 +307,8 @@ Em `2026-04-06`, a leitura canonica passa a ser esta:
 - a ronda `commercial-readiness` tambem ficou fechada com a `Wave 72`
 - a shell comercial atual tem `Hoje` como homepage, estados humanos, paginas por papel, fluxos guiados, lembretes por grupo `1..N`, `Codex Router` proprio e kit de entrega honesto
 - a `Wave 74` abriu a ronda `ui-ux-commercial-polish`, com auditoria page-by-page, foco/scroll inicial corrigido e shell mais compacta
-- a `Wave 77` fechou as rotas tecnicas por papel com menos repeticao no `Workspace`, `Media` e `Watchdog`
-- a validacao consolidada mais recente passou a ser `validate:wave77`
+- a `Wave 78` fechou a ronda `ui-ux-commercial-polish`, consolidou a limpeza final e relancou o LumeHub
+- a validacao consolidada mais recente passou a ser `validate:wave78`
 - a `Wave 52` ja fechou a fundacao do modelo `group-first`
 - a `Wave 53` ja fechou a shell `group-first`, com switcher global de grupo e navegacao principal curta
 - a `Wave 54` ja fechou a pagina operacional de grupo, com owner, modos e politicas locais persistentes
