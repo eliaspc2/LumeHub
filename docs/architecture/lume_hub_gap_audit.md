@@ -226,7 +226,7 @@ Estado canonico deixado:
 - alertas parciais deixaram de aparecer como risco confirmado no resumo principal
 - a validacao consolidada mais recente e `validate:wave79`
 
-Trabalho ja reservado para a ronda seguinte:
+Trabalho ja reservado para o resto desta ronda:
 
 - arrancar a ronda com simplificacao de shell e hierarquia com menos carga simultanea
 - fazer uma nova revisao headless das rotas live antes de mexer no layout dessa ronda

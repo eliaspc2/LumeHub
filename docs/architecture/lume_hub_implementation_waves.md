@@ -47,7 +47,7 @@ Estado canonico deixado:
 - validadores intermédios `74..77` ficaram removidos
 - docs, README e backlog ficaram alinhados ao estado final
 
-Wave 79 fechou o fix de alertas falsos e o radar live em `Hoje`.
+A `Wave 79` abriu a ronda `gui-simplification-pass-2` e fechou o fix de alertas falsos e o radar live em `Hoje`.
 
 Estado canonico deixado:
 
@@ -220,25 +220,6 @@ Estado canonico deixado:
 - o host companion sincroniza o mesmo historico de backups do router usado pelo backend para o repositorio privado
 - os avisos migrados do WA-Notify ficam no LumeHub como envio principal; a redundancia WA-Notify foi desativada no cutover total
 - validacao consolidada: `validate:wave73`
-
-A `Wave 74` abriu a ronda `ui-ux-commercial-polish`.
-Estado canonico deixado:
-
-- auditoria UI/UX page-by-page documentada em `lume_hub_ui_ux_audit_2026-04-22.md`
-- confirmado que nao ha pagina branca real; o branco inicial era artefacto de captura/scroll
-- load inicial deixou de forcar foco/scroll para o conteudo principal
-- navegacao mobile ficou compacta em vez de ocupar um ecra inteiro antes do conteudo
-- shell global ficou mais densa e menos tecnica
-- validacao consolidada atual: `validate:wave74`
-
-A `Wave 77` fechou a ronda curta das rotas tecnicas por papel.
-Estado canonico deixado:
-
-- `Workspace` ficou menos repetitivo na lista de ficheiros
-- `Media` deixou de repetir a origem tecnica na linha principal da timeline
-- `Watchdog` passou a mostrar o problema aberto com uma leitura mais humana
-- `Codex Router` manteve a leitura progressiva para diagnostico tecnico
-- validacao consolidada: `validate:wave77`
 
 ## Como reabrir uma ronda
 
