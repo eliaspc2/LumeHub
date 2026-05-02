@@ -117,6 +117,7 @@ export class ScheduleDispatcherService {
             eventId: currentJob.eventId,
             ruleId: currentJob.ruleId,
             ruleLabel: currentJob.ruleLabel,
+            mediaAssetId: currentJob.mediaAssetId,
             groupJid: currentJob.groupJid,
             groupLabel: currentJob.groupLabel,
             eventTitle: currentJob.title,

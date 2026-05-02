@@ -7,6 +7,7 @@ export interface NotificationRule {
   readonly kind: NotificationRuleKind;
   readonly enabled: boolean;
   readonly label: string | null;
+  readonly mediaAssetId?: string | null;
   readonly offsetMinutesBeforeEvent?: number | null;
   readonly offsetMinutesAfterEvent?: number | null;
   readonly daysBeforeEvent?: number | null;
@@ -20,6 +21,7 @@ export interface NotificationRuleDefinitionInput {
   readonly kind: NotificationRuleKind;
   readonly enabled?: boolean;
   readonly label?: string | null;
+  readonly mediaAssetId?: string | null;
   readonly offsetMinutesBeforeEvent?: number | null;
   readonly offsetMinutesAfterEvent?: number | null;
   readonly daysBeforeEvent?: number | null;

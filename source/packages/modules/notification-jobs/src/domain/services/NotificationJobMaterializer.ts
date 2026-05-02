@@ -27,6 +27,7 @@ export class NotificationJobMaterializer {
         timeZone: event.timeZone,
         ruleType: rule.kind,
         ruleLabel: rule.label ?? rule.kind,
+        mediaAssetId: rule.mediaAssetId ?? null,
         messageTemplate: rule.messageTemplate ?? null,
         llmPromptTemplate: rule.llmPromptTemplate ?? null,
         sendAt: this.resolveSendAt(event, rule),

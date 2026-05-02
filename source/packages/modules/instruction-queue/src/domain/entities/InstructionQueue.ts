@@ -142,6 +142,7 @@ export interface ReminderDeliveryActionPayload {
   readonly eventId: string;
   readonly ruleId: string;
   readonly ruleLabel: string | null;
+  readonly mediaAssetId: string | null;
   readonly groupJid: string;
   readonly groupLabel: string;
   readonly eventTitle: string;

@@ -471,7 +471,13 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       const nextPolicy: GroupReminderPolicySnapshot = {
         ...entry.reminderPolicy,
         enabled: typeof body.enabled === 'boolean' ? body.enabled : entry.reminderPolicy.enabled,
-        reminders: Array.isArray(body.reminders) ? (body.reminders as GroupReminderPolicySnapshot['reminders']) : entry.reminderPolicy.reminders,
+        reminders: Array.isArray(body.reminders)
+          ? body.reminders.map((reminder, index) => ({
+              ...reminder,
+              reminderId: reminder.reminderId ?? `group-reminder-${index + 1}`,
+              mediaAssetId: reminder.mediaAssetId ?? null,
+            }))
+          : entry.reminderPolicy.reminders,
       };
       this.state.groupIntelligenceByGroupJid[groupReminderPolicyMatch.groupJid] = {
         ...entry,
@@ -2404,6 +2410,7 @@ function createDemoReminderPolicy(groupJid: string): GroupReminderPolicySnapshot
         enabled: true,
         label: '24h antes',
         kind: 'relative_before_event',
+        mediaAssetId: null,
         daysBeforeEvent: 1,
         offsetMinutesBeforeEvent: 0,
         offsetMinutesAfterEvent: null,
@@ -2420,6 +2427,7 @@ function createDemoReminderPolicy(groupJid: string): GroupReminderPolicySnapshot
         enabled: true,
         label: 'Dia anterior as 18:00',
         kind: 'fixed_local_time',
+        mediaAssetId: null,
         daysBeforeEvent: 1,
         offsetMinutesBeforeEvent: null,
         offsetMinutesAfterEvent: null,
@@ -2436,6 +2444,7 @@ function createDemoReminderPolicy(groupJid: string): GroupReminderPolicySnapshot
         enabled: true,
         label: '30 min antes',
         kind: 'relative_before_event',
+        mediaAssetId: null,
         daysBeforeEvent: 0,
         offsetMinutesBeforeEvent: 30,
         offsetMinutesAfterEvent: null,

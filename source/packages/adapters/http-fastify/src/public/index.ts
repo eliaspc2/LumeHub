@@ -2563,6 +2563,10 @@ function readReminderDefinitionBody(entry: unknown, fieldName: string): GroupRem
     kind,
     enabled: readOptionalBooleanValue(payload.enabled, `${fieldName}.enabled`) ?? true,
     label: payload.label === null ? null : readOptionalTrimmedStringValue(payload.label, `${fieldName}.label`) ?? null,
+    mediaAssetId:
+      payload.mediaAssetId === null
+        ? null
+        : readOptionalTrimmedStringValue(payload.mediaAssetId, `${fieldName}.mediaAssetId`) ?? null,
     daysBeforeEvent:
       payload.daysBeforeEvent === null
         ? null
@@ -3204,6 +3208,7 @@ function mapGroupReminderPolicySnapshot(
       enabled: reminder.enabled ?? true,
       label: reminder.label ?? null,
       kind: reminder.kind,
+      mediaAssetId: reminder.mediaAssetId ?? null,
       daysBeforeEvent: reminder.daysBeforeEvent ?? null,
       offsetMinutesBeforeEvent: reminder.offsetMinutesBeforeEvent ?? null,
       offsetMinutesAfterEvent: reminder.offsetMinutesAfterEvent ?? null,

@@ -119,6 +119,7 @@ interface GroupReminderDraft {
   readonly enabled: boolean;
   readonly label: string;
   readonly timingMode: ReminderTimingMode;
+  readonly mediaAssetId: string;
   readonly offsetMinutes: string;
   readonly localTime: string;
   readonly messageTemplate: string;
@@ -870,7 +871,8 @@ export class AppShell {
   }
 
   private syncGroupManagementDraft(page: UiPage<GroupManagementPageData>): void {
-    const { selectedGroupJid, intelligence, previewText } = page.data;
+    const { selectedGroupJid, intelligence, previewText, groups } = page.data;
+    const selectedGroup = groups.find((group) => group.groupJid === selectedGroupJid) ?? null;
     const selectedDocument =
       intelligence?.knowledge.documents.find(
         (document) => document.documentId === this.state.groupManagementDraft.selectedDocumentId,
@@ -879,16 +881,16 @@ export class AppShell {
       null;
 
     this.state = {
-      ...this.state,
-      groupManagementDraft: {
-        selectedGroupJid,
-        instructions: intelligence?.instructions.content ?? '',
-        previewText,
-        reminderPolicy: mapReminderPolicySnapshotToDraft(intelligence?.policy ?? null),
-        selectedDocumentId: selectedDocument?.documentId ?? null,
-        knowledgeDocument: selectedDocument
-          ? mapGroupKnowledgeDocumentToDraft(selectedDocument)
-          : createEmptyGroupKnowledgeDraft(),
+        ...this.state,
+        groupManagementDraft: {
+          selectedGroupJid,
+          instructions: intelligence?.instructions.content ?? '',
+          previewText,
+          reminderPolicy: mapReminderPolicySnapshotToDraft(intelligence?.policy ?? null, selectedGroup),
+          selectedDocumentId: selectedDocument?.documentId ?? null,
+          knowledgeDocument: selectedDocument
+            ? mapGroupKnowledgeDocumentToDraft(selectedDocument)
+            : createEmptyGroupKnowledgeDraft(),
       },
     };
   }
@@ -3310,6 +3312,7 @@ export class AppShell {
     const ownerOptions = selectedGroup ? buildGroupOwnerOptions(selectedGroup, people) : [{ value: '', label: 'Sem pessoas conhecidas' }];
     const ownerOverflowCount = Math.max((selectedGroup?.groupOwners.length ?? 0) - (primaryOwnerPersonId ? 1 : 0), 0);
     const reminderPolicy = this.state.groupManagementDraft.reminderPolicy;
+    const reminderMediaAssets = page.data.mediaAssets.filter((asset) => asset.mediaType === 'video' || asset.mediaType === 'image');
     const reminderPreviewContext = buildReminderPreviewContext(selectedGroup, page.data.reminderPreviewEvent);
     const reminderVariables = intelligence?.policy.canonicalVariables ?? [];
     const reminderNextEventLabel = page.data.reminderPreviewEvent
@@ -3862,6 +3865,15 @@ export class AppShell {
                   <p><strong>Evento de exemplo</strong>: ${escapeHtml(reminderNextEventLabel)}</p>
                   <p><strong>O que acontece ao guardar</strong>: os novos eventos deste grupo passam a herdar estes lembretes. Se mudares um evento, a fila acompanha a mudanca.</p>
                 </div>
+                ${
+                  selectedGroup && isEfaOrCetGroup(selectedGroup)
+                    ? `
+                      <div class="guide-preview guide-preview--subtle">
+                        <p><strong>Extra EFA/CET</strong>: este grupo recebe tambem um lembrete 24h depois para avisar que o tempo de fazer o teste esta a terminar.</p>
+                      </div>
+                    `
+                    : ''
+                }
                 <div class="action-row">
                   ${renderUiActionButton({
                     label: 'Adicionar lembrete',
@@ -3982,6 +3994,28 @@ export class AppShell {
                                     placeholder: 'Ex.: Escreve um lembrete curto para WhatsApp com o contexto abaixo...',
                                     hint: 'Se preenchido, a LLM personaliza o texto final antes do envio.',
                                   })}
+                                </div>
+                                <div class="ui-form-grid ui-form-grid--equal">
+                                  ${renderUiSelectField({
+                                    label: 'Media opcional',
+                                    value: reminder.mediaAssetId,
+                                    dataKey: `group.reminder.${index}.mediaAssetId`,
+                                    options: [
+                                      { value: '', label: 'Sem media' },
+                                      ...reminderMediaAssets.map((asset) => ({
+                                        value: asset.assetId,
+                                        label: `${readableMediaType(asset.mediaType)} • ${asset.caption ?? asset.assetId}`,
+                                      })),
+                                    ],
+                                    hint:
+                                      reminderMediaAssets.length > 0
+                                        ? 'Anexa uma imagem ou um video a este lembrete.'
+                                        : 'Ainda nao ha imagens ou videos disponiveis na biblioteca.',
+                                  })}
+                                  <div class="inline-empty">
+                                    <strong>Legenda incluida</strong>
+                                    <p>Se escolheres media, o texto do lembrete segue como legenda da imagem ou do video.</p>
+                                  </div>
                                 </div>
                               </article>
                             `,
@@ -6718,7 +6752,7 @@ export class AppShell {
   }
 
   private updateGuidedField(fieldKey: string, value: string): void {
-    const reminderMatch = /^group\.reminder\.(\d+)\.(label|timingMode|offsetMinutes|localTime|messageTemplate|llmPromptTemplate)$/u.exec(
+    const reminderMatch = /^group\.reminder\.(\d+)\.(label|timingMode|mediaAssetId|offsetMinutes|localTime|messageTemplate|llmPromptTemplate)$/u.exec(
       fieldKey,
     );
 
@@ -9925,6 +9959,10 @@ export class AppShell {
     }
 
     if (action === 'reset-reminder-policy') {
+      const selectedGroupJid = this.state.groupManagementDraft.selectedGroupJid;
+      const selectedGroup =
+        this.readGroupManagementPageData()?.data.groups.find((group) => group.groupJid === selectedGroupJid) ?? null;
+
       this.state = {
         ...this.state,
         flowFeedback: {
@@ -9933,7 +9971,7 @@ export class AppShell {
         },
         groupManagementDraft: {
           ...this.state.groupManagementDraft,
-          reminderPolicy: mapReminderPolicySnapshotToDraft(null),
+          reminderPolicy: mapReminderPolicySnapshotToDraft(null, selectedGroup),
         },
       };
       this.render();
@@ -13016,19 +13054,23 @@ function createEmptyGroupManagementDraft(): GroupManagementDraft {
   };
 }
 
-function mapReminderPolicySnapshotToDraft(policy: GroupReminderPolicySnapshot | null): GroupReminderPolicyDraft {
+function mapReminderPolicySnapshotToDraft(
+  policy: GroupReminderPolicySnapshot | null,
+  group: Pick<Group, 'preferredSubject' | 'aliases' | 'courseId'> | null = null,
+): GroupReminderPolicyDraft {
   if (!policy) {
     return {
       enabled: true,
-      reminders: createDefaultReminderDrafts(),
+      reminders: createDefaultReminderDrafts(group),
     };
   }
 
   const reminders = policy.reminders.map((reminder) => mapReminderSnapshotToDraft(reminder));
+  const nextReminders = appendSpecialGroupReminderDefaults(reminders, group);
 
   return {
     enabled: policy.enabled,
-    reminders: reminders.length > 0 || policy.exists ? reminders : createDefaultReminderDrafts(),
+    reminders: reminders.length > 0 || policy.exists ? nextReminders : createDefaultReminderDrafts(group),
   };
 }
 
@@ -13047,6 +13089,7 @@ function mapReminderSnapshotToDraft(reminder: GroupReminderPolicySnapshot['remin
     enabled: reminder.enabled,
     label: reminder.label ?? '',
     timingMode,
+    mediaAssetId: reminder.mediaAssetId ?? '',
     offsetMinutes: String(
       timingMode === 'relative_after_event'
         ? reminder.offsetMinutesAfterEvent ?? 30
@@ -13065,6 +13108,7 @@ function mapReminderPolicyDraftToPayload(draft: GroupReminderPolicyDraft): {
     readonly kind: 'relative_before_event' | 'fixed_local_time' | 'relative_after_event';
     readonly enabled?: boolean;
     readonly label?: string | null;
+    readonly mediaAssetId?: string | null;
     readonly daysBeforeEvent?: number | null;
     readonly offsetMinutesBeforeEvent?: number | null;
     readonly offsetMinutesAfterEvent?: number | null;
@@ -13083,6 +13127,7 @@ function mapReminderPolicyDraftToPayload(draft: GroupReminderPolicyDraft): {
           : reminder.timingMode,
       enabled: reminder.enabled,
       label: reminder.label.trim() || null,
+      mediaAssetId: reminder.mediaAssetId.trim() || null,
       daysBeforeEvent:
         reminder.timingMode === 'fixed_previous_day'
           ? 1
@@ -13112,8 +13157,10 @@ function sanitizeReminderOffset(value: string): number {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : 30;
 }
 
-function createDefaultReminderDrafts(): readonly GroupReminderDraft[] {
-  return [
+function createDefaultReminderDrafts(
+  group: Pick<Group, 'preferredSubject' | 'aliases' | 'courseId'> | null = null,
+): readonly GroupReminderDraft[] {
+  const reminders = [
     createReminderDraft({
       reminderId: 'draft-reminder-24h',
       timingMode: 'relative_before_event',
@@ -13127,6 +13174,8 @@ function createDefaultReminderDrafts(): readonly GroupReminderDraft[] {
       offsetMinutes: '30',
     }),
   ];
+
+  return appendSpecialGroupReminderDefaults(reminders, group);
 }
 
 function createNextReminderDraft(index: number): GroupReminderDraft {
@@ -13175,11 +13224,54 @@ function createReminderDraft(input: Partial<GroupReminderDraft> = {}): GroupRemi
     enabled: input.enabled ?? true,
     label: input.label ?? '',
     timingMode,
+    mediaAssetId: input.mediaAssetId ?? '',
     offsetMinutes: input.offsetMinutes ?? '30',
     localTime: input.localTime ?? '18:00',
     messageTemplate: input.messageTemplate ?? defaultMessageTemplateForTimingMode(timingMode),
     llmPromptTemplate: input.llmPromptTemplate ?? defaultLlmPromptTemplateForTimingMode(timingMode),
   };
+}
+
+function appendSpecialGroupReminderDefaults(
+  reminders: readonly GroupReminderDraft[],
+  group: Pick<Group, 'preferredSubject' | 'aliases' | 'courseId'> | null,
+): readonly GroupReminderDraft[] {
+  if (!isEfaOrCetGroup(group)) {
+    return reminders;
+  }
+
+  const hasDeadlineReminder = reminders.some(
+    (reminder) => reminder.timingMode === 'relative_after_event' && sanitizeReminderOffset(reminder.offsetMinutes) === 1440,
+  );
+
+  if (hasDeadlineReminder) {
+    return reminders;
+  }
+
+  return [
+    ...reminders,
+    createReminderDraft({
+      reminderId: 'draft-reminder-test-ending',
+      timingMode: 'relative_after_event',
+      label: 'Fim do teste - 24h depois',
+      mediaAssetId: '',
+      offsetMinutes: '1440',
+      messageTemplate: 'Ainda vais a tempo de concluir {{event_title}}, mas o tempo de fazer o teste está a terminar.',
+      llmPromptTemplate:
+        'Escreve um lembrete curto em portugues europeu para WhatsApp. Contexto: passaram {{hours_since_event}} horas desde {{event_title}} em {{event_datetime}} no grupo {{group_label}}. O objetivo e avisar que o tempo de fazer o teste esta a terminar e que o prazo está a acabar.',
+    }),
+  ];
+}
+
+function isEfaOrCetGroup(
+  group: Pick<Group, 'preferredSubject' | 'aliases' | 'courseId'> | null,
+): boolean {
+  if (!group) {
+    return false;
+  }
+
+  const haystack = [group.preferredSubject, group.courseId ?? '', ...group.aliases].join(' ').toLowerCase();
+  return /(^|[^a-z0-9])(efa|cet)([^a-z0-9]|$)/iu.test(haystack);
 }
 
 function defaultMessageTemplateForTimingMode(timingMode: ReminderTimingMode): string {

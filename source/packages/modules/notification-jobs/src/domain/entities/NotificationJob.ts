@@ -13,6 +13,7 @@ export interface NotificationJob {
   readonly timeZone: string;
   readonly ruleType: string;
   readonly ruleLabel: string | null;
+  readonly mediaAssetId: string | null;
   readonly messageTemplate: string | null;
   readonly llmPromptTemplate: string | null;
   readonly sendAt: string;

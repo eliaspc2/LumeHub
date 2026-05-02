@@ -309,11 +309,13 @@ export class InstructionQueueExecutionRuntime {
       }
     }
     const finalText = llmText || fallbackText || `${payload.summaryLabel}: ${payload.eventTitle}`;
-    const sendResult = await this.config.whatsAppRuntime.sendText({
-      chatJid: payload.groupJid,
-      text: finalText,
-      idempotencyKey: buildIdempotencyKey(instruction, action),
-    });
+    const sendResult = payload.mediaAssetId
+      ? await this.sendReminderMedia(payload, finalText, instruction, action)
+      : await this.config.whatsAppRuntime.sendText({
+          chatJid: payload.groupJid,
+          text: finalText,
+          idempotencyKey: buildIdempotencyKey(instruction, action),
+        });
 
     await this.config.deliveryTracker.registerAttemptStarted(
       {
@@ -336,6 +338,7 @@ export class InstructionQueueExecutionRuntime {
         eventId: payload.eventId,
         eventTitle: payload.eventTitle,
         summaryLabel: payload.summaryLabel,
+        mediaAssetId: payload.mediaAssetId,
         acceptedAt: sendResult.acceptedAt,
         finalText,
       },
@@ -348,6 +351,34 @@ export class InstructionQueueExecutionRuntime {
       externalMessageId: sendResult.messageId,
     });
     return result;
+  }
+
+  private async sendReminderMedia(
+    payload: ReminderDeliveryActionPayload,
+    caption: string,
+    instruction: Instruction,
+    action: InstructionAction,
+  ): Promise<{ readonly messageId: string; readonly chatJid: string; readonly acceptedAt: string; readonly idempotencyKey?: string }> {
+    if (!payload.mediaAssetId) {
+      return this.config.whatsAppRuntime.sendText({
+        chatJid: payload.groupJid,
+        text: caption,
+        idempotencyKey: buildIdempotencyKey(instruction, action),
+      });
+    }
+
+    const asset = await this.readRequiredMediaAsset(payload.mediaAssetId);
+    const binary = await this.config.mediaLibrary.readBinary(asset.assetId);
+
+    return this.config.whatsAppRuntime.sendMedia({
+      chatJid: payload.groupJid,
+      mediaType: resolveOutboundMediaType(asset),
+      mimeType: asset.mimeType,
+      binary,
+      caption,
+      fileName: buildOutboundFileName(asset),
+      idempotencyKey: buildIdempotencyKey(instruction, action),
+    });
   }
 
   private async readRequiredMediaAsset(assetId: string): Promise<MediaAsset> {
@@ -494,16 +525,17 @@ function readReminderDeliveryPayload(action: InstructionAction): ReminderDeliver
     throw new Error(`Unsupported reminder delivery payload for action '${action.actionId}'.`);
   }
 
-  return {
-    kind: 'reminder_delivery',
-    jobId: payload.jobId.trim(),
-    eventId: payload.eventId.trim(),
-    ruleId: payload.ruleId.trim(),
-    ruleLabel: normaliseOptionalString(payload.ruleLabel),
-    groupJid: payload.groupJid.trim(),
-    groupLabel: payload.groupLabel.trim(),
-    eventTitle: payload.eventTitle.trim(),
-    eventAt: payload.eventAt.trim(),
+    return {
+      kind: 'reminder_delivery',
+      jobId: payload.jobId.trim(),
+      eventId: payload.eventId.trim(),
+      ruleId: payload.ruleId.trim(),
+      ruleLabel: normaliseOptionalString(payload.ruleLabel),
+      mediaAssetId: normaliseOptionalString(payload.mediaAssetId),
+      groupJid: payload.groupJid.trim(),
+      groupLabel: payload.groupLabel.trim(),
+      eventTitle: payload.eventTitle.trim(),
+      eventAt: payload.eventAt.trim(),
     sendAt: payload.sendAt.trim(),
     timeZone: payload.timeZone.trim(),
     summaryLabel: payload.summaryLabel.trim(),

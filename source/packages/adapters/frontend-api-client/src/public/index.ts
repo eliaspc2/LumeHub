@@ -373,6 +373,7 @@ export interface GroupReminderSnapshot {
   readonly enabled: boolean;
   readonly label: string | null;
   readonly kind: 'relative_before_event' | 'fixed_local_time' | 'relative_after_event';
+  readonly mediaAssetId: string | null;
   readonly daysBeforeEvent: number | null;
   readonly offsetMinutesBeforeEvent: number | null;
   readonly offsetMinutesAfterEvent: number | null;
@@ -398,6 +399,7 @@ export interface GroupReminderPolicyUpdateInput {
     readonly kind: GroupReminderSnapshot['kind'];
     readonly enabled?: boolean;
     readonly label?: string | null;
+    readonly mediaAssetId?: string | null;
     readonly daysBeforeEvent?: number | null;
     readonly offsetMinutesBeforeEvent?: number | null;
     readonly offsetMinutesAfterEvent?: number | null;
