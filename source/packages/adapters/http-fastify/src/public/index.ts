@@ -464,6 +464,12 @@ export class FastifyHttpServer {
         body: parseRequestBody(bodyText, request.headers['content-type']),
         headers: mapHeaders(request.headers),
       });
+
+      if (isOpenAiChatCompletionStreamBody(result.body)) {
+        this.writeOpenAiChatCompletionStreamResponse(response, result.body.result, result.body.payload);
+        return;
+      }
+
       this.writeJsonResponse(response, result.statusCode, result.body);
     } catch (error) {
       const apiError = this.errorHandler.toResponse(error);
@@ -538,6 +544,30 @@ export class FastifyHttpServer {
       'cache-control': 'no-store',
     });
     response.end(JSON.stringify(body));
+  }
+
+  private writeOpenAiChatCompletionStreamResponse(
+    response: ServerResponse,
+    result: LlmChatResult,
+    payload: OpenAiChatCompletionsBody,
+  ): void {
+    response.writeHead(200, {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive',
+      'x-accel-buffering': 'no',
+    });
+
+    if (typeof response.flushHeaders === 'function') {
+      response.flushHeaders();
+    }
+
+    for (const chunk of buildOpenAiChatCompletionStreamChunks(result, payload)) {
+      response.write(`data: ${JSON.stringify(chunk)}\n\n`);
+    }
+
+    response.write('data: [DONE]\n\n');
+    response.end();
   }
 }
 
@@ -1363,6 +1393,10 @@ export class RouteRegistrar {
           providerId: result.providerId,
           modelId: result.modelId,
         });
+
+        if (payload.stream) {
+          return buildOpenAiChatCompletionStreamBody(result, payload);
+        }
 
         return buildOpenAiChatCompletionResponse(result, payload);
       },
@@ -2933,7 +2967,14 @@ interface OpenAiChatCompletionMessageInput {
 interface OpenAiChatCompletionsBody {
   readonly model?: string | null;
   readonly providerId?: string | null;
+  readonly stream?: boolean;
   readonly messages: readonly OpenAiChatCompletionMessageInput[];
+}
+
+interface OpenAiChatCompletionStreamBody {
+  readonly kind: 'openai_chat_completion_stream';
+  readonly result: LlmChatResult;
+  readonly payload: OpenAiChatCompletionsBody;
 }
 
 function readOpenAiChatCompletionsBody(body: unknown): OpenAiChatCompletionsBody {
@@ -2947,6 +2988,7 @@ function readOpenAiChatCompletionsBody(body: unknown): OpenAiChatCompletionsBody
   return {
     model: readOptionalTrimmedStringValue(payload.model, 'model'),
     providerId: readOptionalTrimmedStringValue(payload.providerId, 'providerId'),
+    stream: readOptionalBooleanValue(payload.stream, 'stream') ?? false,
     messages: messagesValue.map((entry, index) => {
       const message = readBodyObject(entry, `messages[${index}] must be an object.`);
       const role = readOptionalTrimmedStringValue(message.role, `messages[${index}].role`);
@@ -3063,6 +3105,84 @@ function buildOpenAiChatCompletionResponse(
     ],
     requestModel: payload.model ?? null,
   };
+}
+
+function buildOpenAiChatCompletionStreamBody(
+  result: LlmChatResult,
+  payload: OpenAiChatCompletionsBody,
+): OpenAiChatCompletionStreamBody {
+  return {
+    kind: 'openai_chat_completion_stream',
+    result,
+    payload,
+  };
+}
+
+function isOpenAiChatCompletionStreamBody(
+  value: unknown,
+): value is OpenAiChatCompletionStreamBody {
+  return (
+    Boolean(value) &&
+    typeof value === 'object' &&
+    (value as { readonly kind?: string }).kind === 'openai_chat_completion_stream'
+  );
+}
+
+function buildOpenAiChatCompletionStreamChunks(
+  result: LlmChatResult,
+  payload: OpenAiChatCompletionsBody,
+): readonly {
+  readonly id: string;
+  readonly object: 'chat.completion.chunk';
+  readonly created: number;
+  readonly model: string;
+  readonly providerId: string;
+  readonly choices: readonly {
+    readonly index: number;
+    readonly delta: {
+      readonly role?: 'assistant';
+      readonly content?: string;
+    };
+    readonly finish_reason: 'stop' | null;
+  }[];
+  readonly requestModel: string | null;
+}[] {
+  const id = `chatcmpl-${randomUUID()}`;
+  const created = Math.floor(Date.now() / 1000);
+  const base = {
+    id,
+    object: 'chat.completion.chunk' as const,
+    created,
+    model: result.modelId,
+    providerId: result.providerId,
+    requestModel: payload.model ?? null,
+  };
+
+  return [
+    {
+      ...base,
+      choices: [
+        {
+          index: 0,
+          delta: {
+            role: 'assistant',
+            content: result.text,
+          },
+          finish_reason: null,
+        },
+      ],
+    },
+    {
+      ...base,
+      choices: [
+        {
+          index: 0,
+          delta: {},
+          finish_reason: 'stop',
+        },
+      ],
+    },
+  ];
 }
 
 function capitalizeOpenAiRole(role: OpenAiChatCompletionMessageInput['role']): string {

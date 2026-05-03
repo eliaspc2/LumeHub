@@ -202,3 +202,114 @@ test('codex router exposes models and surfaces quota failures clearly', async ()
   assert.equal(chat.statusCode, 429);
   assert.match(chat.body.error, /quota/i);
 });
+
+test('codex router streams openai chat completions when requested', async () => {
+  const server = new FastifyHttpServer({
+    modules: {
+      adminConfig: {
+        async getSettings() {
+          return {
+            commands: {
+              assistantEnabled: true,
+              schedulingEnabled: true,
+              ownerTerminalEnabled: true,
+              autoReplyEnabled: true,
+              directRepliesEnabled: false,
+              allowPrivateAssistant: true,
+              authorizedGroupJids: [],
+              authorizedPrivateJids: [],
+            },
+            whatsapp: {
+              enabled: true,
+              sharedAuthWithCodex: true,
+              groupDiscoveryEnabled: true,
+              conversationDiscoveryEnabled: true,
+            },
+            llm: {
+              enabled: true,
+              provider: 'codex-openai',
+              model: 'gpt-5.4',
+              streamingEnabled: true,
+              openAiApiKey: 'test-openai-key',
+            },
+            ui: {
+              codexRouterVisible: true,
+              defaultNotificationRules: [],
+            },
+            alerts: {
+              enabled: true,
+              rules: [],
+            },
+            automations: {
+              enabled: true,
+              fireWindowMinutes: 5,
+              definitions: [],
+            },
+            updatedAt: '2026-05-03T08:00:00.000Z',
+          };
+        },
+      },
+      llmOrchestrator: {
+        listModels() {
+          return [
+            {
+              providerId: 'codex-openai',
+              modelId: 'gpt-5.4-mini',
+              label: 'gpt-5.4-mini',
+              capabilities: {
+                chat: true,
+                scheduling: true,
+                weeklyPlanning: true,
+                streaming: true,
+              },
+            },
+          ];
+        },
+        async refreshModels() {},
+        async chat() {
+          return {
+            runId: 'run-stream-ok',
+            providerId: 'codex-openai',
+            modelId: 'gpt-5.4-mini',
+            text: 'OK',
+          };
+        },
+      },
+    },
+  });
+
+  const address = await server.listen({
+    host: '127.0.0.1',
+    port: 0,
+  });
+
+  try {
+    const response = await fetch(`${address.origin}/api/openai/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer test-openai-key',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-5.4-mini',
+        stream: true,
+        messages: [
+          {
+            role: 'user',
+            content: 'Olá',
+          },
+        ],
+      }),
+    });
+
+    const body = await response.text();
+
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type') ?? '', /text\/event-stream/);
+    assert.match(body, /data: .*"chat\.completion\.chunk"/);
+    assert.match(body, /"content":"OK"/);
+    assert.match(body, /\[DONE\]/);
+  } finally {
+    await server.close();
+  }
+});
