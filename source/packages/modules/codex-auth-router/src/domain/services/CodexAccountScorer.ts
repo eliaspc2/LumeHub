@@ -1,22 +1,23 @@
-import type { CodexAccount, CodexAuthRouterState, CodexRoutingTier } from '../entities/CodexAuthRouter.js';
+import type { CodexAccount, CodexRoutingTier } from '../entities/CodexAuthRouter.js';
 
 export class CodexAccountScorer {
-  score(account: CodexAccount, state: CodexAuthRouterState, now: Date): number {
+  score(account: CodexAccount, now: Date): number {
     if (!account.exists) {
+      return Number.NEGATIVE_INFINITY;
+    }
+
+    if (account.routingTier === 'do_not_touch') {
       return Number.NEGATIVE_INFINITY;
     }
 
     const cooldownUntil = account.usage.cooldownUntil ? Date.parse(account.usage.cooldownUntil) : null;
     const inCooldown = cooldownUntil !== null && cooldownUntil > now.getTime();
-    const currentBonus = state.currentSelection?.accountId === account.accountId ? 12 : 0;
     const reliabilityScore = account.usage.successCount * 3 - account.usage.failureCount * 5 - account.usage.consecutiveFailures * 8;
-    const priorityScore = Math.max(0, 20 - account.priority * 2);
     const kindBonus = account.kind === 'secondary' ? 6 : 0;
-    const tierBonus = scoreRoutingTier(account.routingTier);
     const cooldownPenalty = inCooldown ? 1_000 : 0;
-    const quotaScore = scoreQuota(account);
+    const globalRateScore = scoreGlobalRate(account);
 
-    return currentBonus + reliabilityScore + priorityScore + kindBonus + tierBonus + quotaScore - cooldownPenalty;
+    return reliabilityScore + kindBonus + globalRateScore - cooldownPenalty;
   }
 
   isAvailable(account: CodexAccount, now: Date, ignoreCooldown = false): boolean {
@@ -63,6 +64,13 @@ function scoreQuota(account: CodexAccount): number {
   return remaining + creditBonus - limitPenalty;
 }
 
+function scoreGlobalRate(account: CodexAccount): number {
+  const quotaScore = scoreQuota(account);
+  const usageScore = account.usage.successCount - account.usage.failureCount * 2 - account.usage.consecutiveFailures * 4;
+
+  return quotaScore + usageScore;
+}
+
 function isQuotaAvailable(account: CodexAccount): boolean {
   const quota = account.quota;
 
@@ -71,15 +79,4 @@ function isQuotaAvailable(account: CodexAccount): boolean {
   }
 
   return quota.allowed && !quota.limitReached;
-}
-
-function scoreRoutingTier(tier: CodexRoutingTier): number {
-  switch (tier) {
-    case 'priority':
-      return 120;
-    case 'reserve':
-      return 0;
-    case 'do_not_touch':
-      return Number.NEGATIVE_INFINITY;
-  }
 }

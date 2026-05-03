@@ -12,7 +12,7 @@ export class CodexAccountSwitchPolicy {
 
   selectAccount(
     accounts: readonly CodexAccount[],
-    state: CodexAuthRouterState,
+    _state: CodexAuthRouterState,
     input: CodexAccountSelectionPolicyInput,
   ): CodexAccount | null {
     if (input.preferredAccountId) {
@@ -33,9 +33,21 @@ export class CodexAccountSwitchPolicy {
 
     return [...available].sort(
       (left, right) =>
-        this.scorer.score(right, state, input.now) - this.scorer.score(left, state, input.now) ||
-        left.priority - right.priority ||
-        left.label.localeCompare(right.label),
+        scoreRoutingTier(right.routingTier) - scoreRoutingTier(left.routingTier) ||
+        right.priority - left.priority ||
+        this.scorer.score(right, input.now) - this.scorer.score(left, input.now) ||
+        left.label.localeCompare(right.label, 'pt-PT'),
     )[0];
+  }
+}
+
+function scoreRoutingTier(tier: CodexAccount['routingTier']): number {
+  switch (tier) {
+    case 'priority':
+      return 2;
+    case 'reserve':
+      return 1;
+    case 'do_not_touch':
+      return 0;
   }
 }

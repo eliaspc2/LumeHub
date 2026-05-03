@@ -403,7 +403,10 @@ export class AppRouter {
         legacyRoutes: ['/codex-auth-router', '/oauth-router'],
         render: async () => {
           const settings = await this.readQuery('settings', () => this.client.getSettings());
-          const availableModels = await this.readOptionalLlmModels();
+          const availableModels = await this.readOptionalLlmModels({
+            accountId: settings.authRouterStatus?.currentSelection?.accountId ?? null,
+            contentHash: settings.authRouterStatus?.currentSelection?.contentHash ?? null,
+          });
 
           return {
             route: '/codex-router',
@@ -611,11 +614,15 @@ export class AppRouter {
     }
   }
 
-  private async readOptionalLlmModels(): Promise<readonly LlmModelDescriptor[]> {
+  private async readOptionalLlmModels(input: {
+    readonly accountId: string | null;
+    readonly contentHash: string | null;
+  }): Promise<readonly LlmModelDescriptor[]> {
     try {
-      const models = await this.readQuery('codex-router-models', () =>
+      const cacheKey = `codex-router-models:${input.accountId ?? 'none'}:${input.contentHash ?? 'none'}`;
+      const models = await this.readQuery(cacheKey, () =>
         this.client.listLlmModels({
-          refresh: false,
+          refresh: true,
           providerId: 'codex-openai',
         }),
       );

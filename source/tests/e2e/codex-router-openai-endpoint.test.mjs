@@ -6,6 +6,7 @@ const { FastifyHttpServer } = await import(
 );
 
 test('codex router exposes models and surfaces quota failures clearly', async () => {
+  const refreshedProviderIds = [];
   const server = new FastifyHttpServer({
     modules: {
       adminConfig: {
@@ -56,6 +57,17 @@ test('codex router exposes models and surfaces quota failures clearly', async ()
           return [
             {
               providerId: 'codex-openai',
+              modelId: 'gpt-5.5',
+              label: 'gpt-5.5',
+              capabilities: {
+                chat: true,
+                scheduling: true,
+                weeklyPlanning: true,
+                streaming: true,
+              },
+            },
+            {
+              providerId: 'codex-openai',
               modelId: 'gpt-5.4',
               label: 'gpt-5.4',
               capabilities: {
@@ -77,6 +89,61 @@ test('codex router exposes models and surfaces quota failures clearly', async ()
               },
             },
             {
+              providerId: 'codex-openai',
+              modelId: 'gpt-5.3-codex',
+              label: 'gpt-5.3-codex',
+              capabilities: {
+                chat: true,
+                scheduling: true,
+                weeklyPlanning: true,
+                streaming: true,
+              },
+            },
+            {
+              providerId: 'codex-openai',
+              modelId: 'gpt-5.2',
+              label: 'gpt-5.2',
+              capabilities: {
+                chat: true,
+                scheduling: true,
+                weeklyPlanning: true,
+                streaming: true,
+              },
+            },
+            {
+              providerId: 'codex-openai',
+              modelId: 'gpt-oss-120b',
+              label: 'gpt-oss-120b',
+              capabilities: {
+                chat: true,
+                scheduling: true,
+                weeklyPlanning: true,
+                streaming: true,
+              },
+            },
+            {
+              providerId: 'codex-openai',
+              modelId: 'gpt-oss-20b',
+              label: 'gpt-oss-20b',
+              capabilities: {
+                chat: true,
+                scheduling: true,
+                weeklyPlanning: true,
+                streaming: true,
+              },
+            },
+            {
+              providerId: 'codex-openai',
+              modelId: 'codex-auto-review',
+              label: 'codex-auto-review',
+              capabilities: {
+                chat: true,
+                scheduling: true,
+                weeklyPlanning: true,
+                streaming: true,
+              },
+            },
+            {
               providerId: 'openai-compat',
               modelId: 'gpt-4o-mini',
               label: 'gpt-4o-mini',
@@ -89,8 +156,8 @@ test('codex router exposes models and surfaces quota failures clearly', async ()
             },
           ];
         },
-        async refreshModels() {
-          throw new Error('refreshModels should not run in this test');
+        async refreshModels(providerId) {
+          refreshedProviderIds.push(providerId ?? null);
         },
         async chat() {
           throw new Error('OPENAI_CODEX_OAUTH error 429: The usage limit has been reached');
@@ -113,8 +180,9 @@ test('codex router exposes models and surfaces quota failures clearly', async ()
   assert.equal(models.body.object, 'list');
   assert.deepEqual(
     models.body.data.map((entry) => entry.id),
-    ['gpt-5.4', 'gpt-5.4-mini'],
+    ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.2', 'gpt-oss-120b', 'gpt-oss-20b', 'codex-auto-review'],
   );
+  assert.deepEqual(refreshedProviderIds, ['codex-openai']);
 
   const chat = await server.inject({
     method: 'POST',

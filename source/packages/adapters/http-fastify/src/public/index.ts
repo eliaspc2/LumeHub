@@ -1297,7 +1297,7 @@ export class RouteRegistrar {
         const refresh = readOptionalBooleanQuery(context.query, 'refresh');
         const providerId = readOptionalQueryString(context.query, 'providerId') ?? 'codex-openai';
 
-        if (refresh === true) {
+        if (refresh !== false) {
           try {
             await this.modules.llmOrchestrator.refreshModels(providerId);
           } catch (error) {

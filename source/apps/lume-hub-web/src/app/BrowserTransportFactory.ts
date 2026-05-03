@@ -2045,8 +2045,85 @@ function createDemoState(): DemoState {
     },
     {
       providerId: 'codex-openai',
+      modelId: 'gpt-5.5',
+      label: 'Codex OpenAI GPT-5.5',
+      capabilities: {
+        chat: true,
+        scheduling: true,
+        weeklyPlanning: true,
+        streaming: true,
+      },
+    },
+    {
+      providerId: 'codex-openai',
       modelId: 'gpt-5.4',
       label: 'Codex OpenAI GPT-5.4',
+      capabilities: {
+        chat: true,
+        scheduling: true,
+        weeklyPlanning: true,
+        streaming: true,
+      },
+    },
+    {
+      providerId: 'codex-openai',
+      modelId: 'gpt-5.4-mini',
+      label: 'Codex OpenAI GPT-5.4 Mini',
+      capabilities: {
+        chat: true,
+        scheduling: true,
+        weeklyPlanning: true,
+        streaming: true,
+      },
+    },
+    {
+      providerId: 'codex-openai',
+      modelId: 'gpt-5.3-codex',
+      label: 'Codex OpenAI GPT-5.3 Codex',
+      capabilities: {
+        chat: true,
+        scheduling: true,
+        weeklyPlanning: true,
+        streaming: true,
+      },
+    },
+    {
+      providerId: 'codex-openai',
+      modelId: 'gpt-5.2',
+      label: 'Codex OpenAI GPT-5.2',
+      capabilities: {
+        chat: true,
+        scheduling: true,
+        weeklyPlanning: true,
+        streaming: true,
+      },
+    },
+    {
+      providerId: 'codex-openai',
+      modelId: 'gpt-oss-120b',
+      label: 'Codex OpenAI GPT-OSS 120B',
+      capabilities: {
+        chat: true,
+        scheduling: true,
+        weeklyPlanning: true,
+        streaming: true,
+      },
+    },
+    {
+      providerId: 'codex-openai',
+      modelId: 'gpt-oss-20b',
+      label: 'Codex OpenAI GPT-OSS 20B',
+      capabilities: {
+        chat: true,
+        scheduling: true,
+        weeklyPlanning: true,
+        streaming: true,
+      },
+    },
+    {
+      providerId: 'codex-openai',
+      modelId: 'codex-auto-review',
+      label: 'Codex OpenAI Auto Review',
       capabilities: {
         chat: true,
         scheduling: true,
@@ -4435,17 +4512,72 @@ function forceDemoCodexAuthRouterSwitch(
   state: DemoState,
   accountId: string,
 ): NonNullable<SettingsSnapshot['authRouterStatus']> | null {
-  const target = state.settings.authRouterStatus?.accounts.find((account) => account.accountId === accountId);
+  const currentStatus = state.settings.authRouterStatus ?? failMissingDemoAuthRouter();
+  const target = currentStatus.accounts.find((account) => account.accountId === accountId);
 
   if (!target) {
     return null;
   }
 
-  return updateDemoCodexAuthRouterState(state, {
-    preferredAccountId: accountId,
-    reason: 'demo_manual_force_switch',
-    event: 'force_switch',
-  });
+  const nowIso = new Date().toISOString();
+  const previousSelection = currentStatus.currentSelection;
+  const switchPerformed = previousSelection?.accountId !== target.accountId;
+  const backupFilePath = switchPerformed
+    ? `${currentStatus.backupDirectoryPath}/${sanitizeTimestampForFile(nowIso)}.json`
+    : null;
+  const nextStatus: NonNullable<SettingsSnapshot['authRouterStatus']> = {
+    ...currentStatus,
+    currentSelection: {
+      accountId: target.accountId,
+      label: target.label,
+      sourceFilePath: target.sourceFilePath,
+      canonicalAuthFilePath: currentStatus.canonicalAuthFilePath,
+      selectedAt: nowIso,
+      switchPerformed,
+      backupFilePath,
+      reason: 'demo_manual_force_switch',
+      contentHash: target.contentHash,
+    },
+    lastPreparedAt: nowIso,
+    lastSwitchAt: switchPerformed ? nowIso : currentStatus.lastSwitchAt,
+    lastError: null,
+    accountCount: currentStatus.accounts.filter((account) => account.exists).length,
+    switchHistory: [
+      ...currentStatus.switchHistory,
+      {
+        auditId: `demo-codex-auth-${sanitizeTimestampForFile(nowIso)}`,
+        event: 'force_switch' as const,
+        accountId: target.accountId,
+        label: target.label,
+        sourceFilePath: target.sourceFilePath,
+        canonicalAuthFilePath: currentStatus.canonicalAuthFilePath,
+        createdAt: nowIso,
+        switchPerformed,
+        backupFilePath,
+        reason: 'demo_manual_force_switch',
+        failureKind: null,
+      },
+    ].slice(-12),
+  };
+
+  state.settings = {
+    ...state.settings,
+    authRouterStatus: nextStatus,
+    llmRuntime: createDemoLlmRuntimeStatus(state.settings.adminSettings, nextStatus),
+    hostStatus: {
+      ...state.settings.hostStatus,
+      authRouter: {
+        ...state.settings.hostStatus.authRouter,
+        canonicalAuthFilePath: nextStatus.canonicalAuthFilePath,
+        currentAccountId: target.accountId,
+        currentSourceFilePath: target.sourceFilePath,
+        accountCount: nextStatus.accountCount,
+        lastSwitchAt: nextStatus.lastSwitchAt,
+      },
+    },
+  };
+
+  return nextStatus;
 }
 
 function refreshDemoCodexAuthAccountQuota(
@@ -4811,7 +4943,13 @@ function pickBestDemoCodexAccount(
   return (
     accounts
       .slice()
-      .sort((left, right) => scoreDemoRoutingTier(right.routingTier) - scoreDemoRoutingTier(left.routingTier) || right.priority - left.priority)
+      .sort(
+        (left, right) =>
+          scoreDemoRoutingTier(right.routingTier) - scoreDemoRoutingTier(left.routingTier) ||
+          right.priority - left.priority ||
+          readDemoCodexAccountGlobalRateScore(right) - readDemoCodexAccountGlobalRateScore(left) ||
+          left.label.localeCompare(right.label, 'pt-PT'),
+      )
       .find((account) => account.usage.cooldownUntil == null) ?? accounts[0]
   );
 }
@@ -4827,6 +4965,35 @@ function scoreDemoRoutingTier(tier: CodexRoutingTier): number {
     default:
       return 1;
   }
+}
+
+function readDemoCodexAccountGlobalRateScore(
+  account: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number],
+): number {
+  const quota = account.quota;
+  const usageScore = account.usage.successCount - account.usage.failureCount * 2 - account.usage.consecutiveFailures * 4;
+
+  if (!quota) {
+    return usageScore;
+  }
+
+  if (quota.fetchError) {
+    return -100 + usageScore;
+  }
+
+  if (quota.credits.unlimited) {
+    return 100 + usageScore;
+  }
+
+  const primaryRemaining = quota.primaryWindow?.remainingPercent;
+  const secondaryRemaining = quota.secondaryWindow?.remainingPercent;
+  const remaining =
+    primaryRemaining !== null && primaryRemaining !== undefined
+      ? primaryRemaining * 0.65 + (secondaryRemaining ?? primaryRemaining) * 0.35
+      : 0;
+  const creditBonus = quota.credits.hasCredits ? 10 : 0;
+
+  return remaining + creditBonus + usageScore;
 }
 
 function readDemoCodexRoutingTier(value: unknown): CodexRoutingTier | null {

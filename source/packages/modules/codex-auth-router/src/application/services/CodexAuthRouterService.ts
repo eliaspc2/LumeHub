@@ -101,12 +101,7 @@ export class CodexAuthRouterService {
     }
 
     const accounts = await this.readAccountsWithQuotas(state, now);
-    const selectedAccount =
-      this.switchPolicy.selectAccount(accounts, state, {
-        preferredAccountId: accountId,
-        now,
-        ignoreCooldown: true,
-      }) ?? failMissingAccount(accountId);
+    const selectedAccount = accounts.find((account) => account.accountId === accountId) ?? failMissingAccount(accountId);
     const syncBackAccount = await resolveSyncBackAccount(
       state,
       accounts,

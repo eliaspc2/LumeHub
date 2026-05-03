@@ -112,7 +112,7 @@ export class CodexAccountRepository {
     );
     const accounts = hideCanonicalLiveDuplicate(discoveredAccounts);
 
-    return [...accounts].sort((left, right) => left.priority - right.priority || left.label.localeCompare(right.label));
+    return [...accounts].sort((left, right) => compareAccountsForDisplay(left, right, state));
   }
 
   async listSecondarySources(): Promise<readonly DiscoveredCodexAccountSource[]> {
@@ -710,6 +710,74 @@ function normaliseRoutingTier(value: unknown): CodexAuthSourceConfig['routingTie
   }
 
   return undefined;
+}
+
+function compareAccountsForDisplay(
+  left: CodexAccount,
+  right: CodexAccount,
+  state: CodexAuthRouterState,
+): number {
+  const tierDelta = scoreRoutingTierForDisplay(right.routingTier) - scoreRoutingTierForDisplay(left.routingTier);
+
+  if (tierDelta !== 0) {
+    return tierDelta;
+  }
+
+  const priorityDelta = right.priority - left.priority;
+
+  if (priorityDelta !== 0) {
+    return priorityDelta;
+  }
+
+  const leftGlobalRateScore = scoreAccountGlobalRateForDisplay(left, state);
+  const rightGlobalRateScore = scoreAccountGlobalRateForDisplay(right, state);
+
+  if (leftGlobalRateScore !== rightGlobalRateScore) {
+    return rightGlobalRateScore - leftGlobalRateScore;
+  }
+
+  return left.label.localeCompare(right.label, 'pt-PT');
+}
+
+function scoreRoutingTierForDisplay(tier: CodexAuthSourceConfig['routingTier']): number {
+  switch (tier) {
+    case 'priority':
+      return 3;
+    case 'reserve':
+      return 2;
+    case 'do_not_touch':
+      return 0;
+  }
+
+  return 0;
+}
+
+function scoreAccountGlobalRateForDisplay(account: CodexAccount, state: CodexAuthRouterState): number {
+  const quota = account.quota;
+  const usage = mapAccountStateToUsage(state.accountStates[account.accountId]);
+  const usageScore = usage.successCount - usage.failureCount * 2 - usage.consecutiveFailures * 4;
+
+  if (!quota) {
+    return usageScore;
+  }
+
+  if (quota.fetchError) {
+    return -100 + usageScore;
+  }
+
+  if (quota.credits.unlimited) {
+    return 100 + usageScore;
+  }
+
+  const primaryRemaining = quota.primaryWindow?.remainingPercent;
+  const secondaryRemaining = quota.secondaryWindow?.remainingPercent;
+  const remaining =
+    primaryRemaining !== null && primaryRemaining !== undefined
+      ? primaryRemaining * 0.65 + (secondaryRemaining ?? primaryRemaining) * 0.35
+      : 0;
+  const creditBonus = quota.credits.hasCredits ? 10 : 0;
+
+  return remaining + creditBonus + usageScore;
 }
 
 function readRequiredString(

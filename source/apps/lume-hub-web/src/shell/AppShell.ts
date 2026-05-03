@@ -67,7 +67,7 @@ type ActionDataset = Readonly<Record<string, string | undefined>>;
 
 const ADVANCED_DETAILS_STORAGE_KEY = 'lumehub.web.advanced_details';
 const UX_TELEMETRY_STORAGE_KEY = 'lumehub.web.ux_telemetry';
-const LUMEHUB_WEB_VERSION = '0.1.5';
+const LUMEHUB_WEB_VERSION = '0.1.6';
 const WEEK_DAY_OPTIONS = [
   { value: 'segunda-feira', label: 'Segunda-feira', shortLabel: 'Seg' },
   { value: 'terca-feira', label: 'Terca-feira', shortLabel: 'Ter' },
@@ -5894,6 +5894,10 @@ export class AppShell {
               ? `
                   <div class="codex-router-account-list">
                     ${authRouterStatus.accounts
+                      .slice()
+                      .sort((left, right) =>
+                        compareCodexRouterAccountsForDisplay(left, right),
+                      )
                       .map(
                         (account) => {
                           const availability = readCodexTokenAvailability(account, activeAccountId);
@@ -14571,6 +14575,75 @@ function readCodexTokenKindLabel(
   kind: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number]['kind'],
 ): string {
   return kind === 'canonical_live' ? 'Principal' : 'Reserva';
+}
+
+function compareCodexRouterAccountsForDisplay(
+  left: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number],
+  right: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number],
+): number {
+  const tierDelta = readCodexRoutingTierSortRank(right.routingTier) - readCodexRoutingTierSortRank(left.routingTier);
+
+  if (tierDelta !== 0) {
+    return tierDelta;
+  }
+
+  const priorityDelta = right.priority - left.priority;
+
+  if (priorityDelta !== 0) {
+    return priorityDelta;
+  }
+
+  const rateDelta = readCodexAccountGlobalRateScore(right) - readCodexAccountGlobalRateScore(left);
+
+  if (rateDelta !== 0) {
+    return rateDelta;
+  }
+
+  return left.label.localeCompare(right.label, 'pt-PT');
+}
+
+function readCodexRoutingTierSortRank(tier: CodexRoutingTier): number {
+  switch (tier) {
+    case 'priority':
+      return 3;
+    case 'reserve':
+      return 2;
+    case 'do_not_touch':
+      return 0;
+  }
+}
+
+function readCodexAccountGlobalRateScore(
+  account: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number],
+): number {
+  if (!account.exists) {
+    return -1_000;
+  }
+
+  const quota = account.quota;
+
+  if (!quota) {
+    return 0;
+  }
+
+  if (quota.fetchError) {
+    return -100;
+  }
+
+  if (quota.credits.unlimited) {
+    return 100;
+  }
+
+  const primaryRemaining = quota.primaryWindow?.remainingPercent;
+  const secondaryRemaining = quota.secondaryWindow?.remainingPercent;
+  const remaining =
+    primaryRemaining !== null && primaryRemaining !== undefined
+      ? primaryRemaining * 0.65 + (secondaryRemaining ?? primaryRemaining) * 0.35
+      : 0;
+  const creditBonus = quota.credits.hasCredits ? 10 : 0;
+  const successBonus = Math.min(20, account.usage.successCount - account.usage.failureCount * 2);
+
+  return remaining + creditBonus + successBonus;
 }
 
 function readCodexRoutingTierValue(value: string | undefined): CodexRoutingTier | null {
