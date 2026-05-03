@@ -9147,25 +9147,6 @@ export class AppShell {
         return;
       }
 
-      const people = buildSettingsPeopleViews(settingsPage.data.people, settingsPage.data.settings);
-      const pendingConfirmation = !options.confirmed
-        ? this.buildSettingsConfirmation(action, dataset, settingsPage.data.settings, people)
-        : null;
-
-      if (pendingConfirmation) {
-        this.state = {
-          ...this.state,
-          pendingConfirmation,
-          flowFeedback: {
-            tone: 'warning',
-            message: pendingConfirmation.description,
-          },
-        };
-        this.recordUxEvent('warning', `Confirmacao pedida: ${pendingConfirmation.title}`);
-        this.render();
-        return;
-      }
-
       const nextKey = generateOpenAiApiKey();
 
       await this.runSettingsMutation(
