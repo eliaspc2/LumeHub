@@ -23,6 +23,7 @@ export interface LlmRuntimeSettings {
   readonly provider: string;
   readonly model: string;
   readonly streamingEnabled: boolean;
+  readonly openAiApiKey: string;
 }
 
 export type MessageAlertScope =
@@ -192,6 +193,7 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
     provider: 'codex-oauth',
     model: 'gpt-5.4',
     streamingEnabled: true,
+    openAiApiKey: '',
   },
   alerts: {
     enabled: true,

@@ -1297,6 +1297,18 @@ export class RouteRegistrar {
           throw new ApiError(404, 'LLM orchestrator is not configured.');
         }
 
+        const currentSettings = await this.modules.adminConfig.getSettings();
+        const expectedApiKey = currentSettings.llm.openAiApiKey.trim();
+        const providedApiKey = readOpenAiApiKey(context.headers);
+
+        if (!expectedApiKey) {
+          throw new ApiError(503, 'OpenAI API key is not ready yet.');
+        }
+
+        if (!providedApiKey || providedApiKey !== expectedApiKey) {
+          throw new ApiError(401, 'OpenAI API key invalid.');
+        }
+
         const payload = readOpenAiChatCompletionsBody(context.body);
         const result = await this.modules.llmOrchestrator.chat(
           buildOpenAiCompatibleLlmChatInput(payload),
@@ -2641,7 +2653,26 @@ function readLlmSettingsBody(body: unknown): Partial<AdminSettings['llm']> {
     provider: readOptionalTrimmedStringValue(payload.provider, 'provider'),
     model: readOptionalTrimmedStringValue(payload.model, 'model'),
     streamingEnabled: readOptionalBooleanValue(payload.streamingEnabled, 'streamingEnabled'),
+    openAiApiKey: readOptionalTrimmedStringValue(payload.openAiApiKey, 'openAiApiKey'),
   };
+}
+
+function readOpenAiApiKey(headers: Record<string, string>): string | null {
+  const directHeader = headers['x-api-key']?.trim();
+
+  if (directHeader) {
+    return directHeader;
+  }
+
+  const authorization = headers.authorization?.trim();
+
+  if (!authorization) {
+    return null;
+  }
+
+  const bearerMatch = /^Bearer\s+(.+)$/iu.exec(authorization);
+
+  return bearerMatch?.[1]?.trim() ?? null;
 }
 
 function readCodexAuthReady(

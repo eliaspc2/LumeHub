@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
@@ -40,10 +41,18 @@ export class AdminConfigRepository {
   async readSettings(): Promise<AdminSettings> {
     try {
       const raw = JSON.parse(await readFile(this.settingsFilePath, 'utf8')) as Partial<AdminSettings>;
-      return normaliseSettings(raw);
+      const normalised = normaliseSettings(raw);
+
+      if (!hasOpenAiApiKey(raw.llm?.openAiApiKey)) {
+        await this.writer.write(this.settingsFilePath, normalised);
+      }
+
+      return normalised;
     } catch (error) {
       if (isNodeError(error) && error.code === 'ENOENT') {
-        return DEFAULT_ADMIN_SETTINGS;
+        const initial = normaliseSettings(DEFAULT_ADMIN_SETTINGS);
+        await this.writer.write(this.settingsFilePath, initial);
+        return initial;
       }
 
       throw error;
@@ -65,6 +74,9 @@ function normaliseSettings(input: Partial<AdminSettings>): AdminSettings {
     llm: {
       ...DEFAULT_ADMIN_SETTINGS.llm,
       ...(input.llm ?? {}),
+      openAiApiKey: hasOpenAiApiKey(input.llm?.openAiApiKey)
+        ? input.llm!.openAiApiKey.trim()
+        : generateOpenAiApiKey(),
     },
     alerts: normaliseAlertSettings(input.alerts),
     automations: normaliseAutomationSettings(input.automations),
@@ -78,6 +90,14 @@ function normaliseSettings(input: Partial<AdminSettings>): AdminSettings {
     },
     updatedAt: input.updatedAt ?? DEFAULT_ADMIN_SETTINGS.updatedAt,
   };
+}
+
+function hasOpenAiApiKey(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function generateOpenAiApiKey(): string {
+  return `lume-openai-${randomUUID().replace(/-/g, '')}`;
 }
 
 function normaliseCommandsSettings(input: Partial<CommandsPolicySettings> | undefined): CommandsPolicySettings {

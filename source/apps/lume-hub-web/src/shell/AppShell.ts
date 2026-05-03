@@ -65,7 +65,7 @@ type ActionDataset = Readonly<Record<string, string | undefined>>;
 
 const ADVANCED_DETAILS_STORAGE_KEY = 'lumehub.web.advanced_details';
 const UX_TELEMETRY_STORAGE_KEY = 'lumehub.web.ux_telemetry';
-const LUMEHUB_WEB_VERSION = '0.1.2';
+const LUMEHUB_WEB_VERSION = '0.1.4';
 const WEEK_DAY_OPTIONS = [
   { value: 'segunda-feira', label: 'Segunda-feira', shortLabel: 'Seg' },
   { value: 'terca-feira', label: 'Terca-feira', shortLabel: 'Ter' },
@@ -572,6 +572,10 @@ export class AppShell {
 
   private currentClient() {
     return this.currentBootstrap().apiClientProvider.getClient();
+  }
+
+  private getOpenAiApiUrl(): string {
+    return new URL('/api/openai/v1/chat/completions', window.location.origin).toString();
   }
 
   private getAssistantRailPreferredGroupJid(): string | null {
@@ -5733,9 +5737,17 @@ export class AppShell {
                     })}
                   </div>
                   <div class="guide-preview codex-router-api-card">
-                    <p><strong>Dados da API</strong>: a rota OpenAI-like disponivel nesta instalacao usa <code>/api/openai/v1/chat/completions</code>.</p>
+                    <p><strong>API URL</strong>: <code>${escapeHtml(this.getOpenAiApiUrl())}</code></p>
+                    <p><strong>API key</strong>: <code>${escapeHtml(snapshot.adminSettings.llm.openAiApiKey)}</code></p>
                     <p><strong>Routing manual</strong>: no chat e possivel fixar <code>codex-oauth</code> ou <code>codex-openai</code> por conversa, ou deixar em Auto para seguir a app.</p>
                     <p><strong>Tokens visiveis</strong>: ${escapeHtml(visibleTokenLabel)} · <strong>Token atual</strong>: ${escapeHtml(activeTokenLabel)} · <strong>Modo</strong>: ${escapeHtml(routerEnabledLabel)}</p>
+                    <div class="action-row">
+                      ${renderUiActionButton({
+                        label: 'Gerar nova API key',
+                        variant: 'secondary',
+                        dataAttributes: { 'settings-action': 'rotate-openai-api-key' },
+                      })}
+                    </div>
                   </div>
                   <div class="guide-preview codex-router-import-card">
                     <div class="card-header">
@@ -9128,6 +9140,45 @@ export class AppShell {
       return;
     }
 
+    if (action === 'rotate-openai-api-key') {
+      const settingsPage = this.readSettingsPageData();
+
+      if (!settingsPage) {
+        return;
+      }
+
+      const people = buildSettingsPeopleViews(settingsPage.data.people, settingsPage.data.settings);
+      const pendingConfirmation = !options.confirmed
+        ? this.buildSettingsConfirmation(action, dataset, settingsPage.data.settings, people)
+        : null;
+
+      if (pendingConfirmation) {
+        this.state = {
+          ...this.state,
+          pendingConfirmation,
+          flowFeedback: {
+            tone: 'warning',
+            message: pendingConfirmation.description,
+          },
+        };
+        this.recordUxEvent('warning', `Confirmacao pedida: ${pendingConfirmation.title}`);
+        this.render();
+        return;
+      }
+
+      const nextKey = generateOpenAiApiKey();
+
+      await this.runSettingsMutation(
+        async () => {
+          await this.currentClient().updateLlmSettings({
+            openAiApiKey: nextKey,
+          });
+        },
+        `A API key ficou rotacionada para ${nextKey}.`,
+      );
+      return;
+    }
+
     if (action === 'toggle-whatsapp-enabled') {
       const settingsPage = this.readSettingsPageData();
 
@@ -11308,6 +11359,19 @@ export class AppShell {
       };
     }
 
+    if (action === 'rotate-openai-api-key') {
+      return {
+        domain: 'settings',
+        key: 'rotate-openai-api-key',
+        action,
+        dataset,
+        title: 'Rotacionar a API key?',
+        description: 'A key da porta OpenAI-like vai mudar agora. Quem estiver a usar a antiga tera de atualizar a nova.',
+        confirmLabel: 'Rotacionar key',
+        tone: 'warning',
+      };
+    }
+
     if (action === 'toggle-app-owner') {
       const person = people.find((candidate) => candidate.personId === dataset.personId);
 
@@ -12175,6 +12239,11 @@ function truncateText(value: string, maxLength: number): string {
   }
 
   return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+}
+
+function generateOpenAiApiKey(): string {
+  const randomPart = globalThis.crypto?.randomUUID?.().replace(/-/g, '') ?? Math.random().toString(36).slice(2, 18);
+  return `lume-openai-${randomPart}`;
 }
 
 function capitalizeFirst(value: string): string {

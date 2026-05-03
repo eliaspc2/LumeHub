@@ -89,6 +89,7 @@ const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
     provider: 'codex-oauth',
     model: 'gpt-5.4',
     streamingEnabled: true,
+    openAiApiKey: 'demo-openai-api-key',
   },
   ui: {
     codexRouterVisible: true,
@@ -874,6 +875,17 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
     }
 
     if (request.method === 'POST' && pathname === '/api/openai/v1/chat/completions') {
+      const expectedApiKey = this.state.settings.adminSettings.llm.openAiApiKey.trim();
+      const providedApiKey = readDemoOpenAiApiKey(request.headers);
+
+      if (!expectedApiKey) {
+        return this.error(503, 'OpenAI API key is not ready yet.');
+      }
+
+      if (!providedApiKey || providedApiKey !== expectedApiKey) {
+        return this.error(401, 'OpenAI API key invalid.');
+      }
+
       const completion = createDemoOpenAiChatCompletion(
         this.state,
         request.body as OpenAiChatCompletionsBody,
@@ -1613,6 +1625,7 @@ function createDemoState(): DemoState {
       provider: 'codex-oauth',
       model: 'gpt-5.4',
       streamingEnabled: true,
+      openAiApiKey: 'demo-openai-api-key',
     },
     alerts: {
       enabled: true,
@@ -4218,6 +4231,28 @@ function createDemoOpenAiChatCompletion(
     ],
     requestModel: payload.model?.trim() || null,
   };
+}
+
+function readDemoOpenAiApiKey(headers?: Record<string, string>): string | null {
+  if (!headers) {
+    return null;
+  }
+
+  const direct = headers['x-api-key']?.trim();
+
+  if (direct) {
+    return direct;
+  }
+
+  const authorization = headers.authorization?.trim();
+
+  if (!authorization) {
+    return null;
+  }
+
+  const bearerMatch = /^Bearer\s+(.+)$/iu.exec(authorization);
+
+  return bearerMatch?.[1]?.trim() ?? null;
 }
 
 function createDemoLlmRuntimeStatus(
