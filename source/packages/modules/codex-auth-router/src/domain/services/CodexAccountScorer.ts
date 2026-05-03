@@ -1,4 +1,4 @@
-import type { CodexAccount, CodexAuthRouterState } from '../entities/CodexAuthRouter.js';
+import type { CodexAccount, CodexAuthRouterState, CodexRoutingTier } from '../entities/CodexAuthRouter.js';
 
 export class CodexAccountScorer {
   score(account: CodexAccount, state: CodexAuthRouterState, now: Date): number {
@@ -12,14 +12,19 @@ export class CodexAccountScorer {
     const reliabilityScore = account.usage.successCount * 3 - account.usage.failureCount * 5 - account.usage.consecutiveFailures * 8;
     const priorityScore = Math.max(0, 20 - account.priority * 2);
     const kindBonus = account.kind === 'secondary' ? 6 : 0;
+    const tierBonus = scoreRoutingTier(account.routingTier);
     const cooldownPenalty = inCooldown ? 1_000 : 0;
     const quotaScore = scoreQuota(account);
 
-    return currentBonus + reliabilityScore + priorityScore + kindBonus + quotaScore - cooldownPenalty;
+    return currentBonus + reliabilityScore + priorityScore + kindBonus + tierBonus + quotaScore - cooldownPenalty;
   }
 
   isAvailable(account: CodexAccount, now: Date, ignoreCooldown = false): boolean {
     if (!account.exists) {
+      return false;
+    }
+
+    if (account.routingTier === 'do_not_touch') {
       return false;
     }
 
@@ -66,4 +71,15 @@ function isQuotaAvailable(account: CodexAccount): boolean {
   }
 
   return quota.allowed && !quota.limitReached;
+}
+
+function scoreRoutingTier(tier: CodexRoutingTier): number {
+  switch (tier) {
+    case 'priority':
+      return 120;
+    case 'reserve':
+      return 0;
+    case 'do_not_touch':
+      return Number.NEGATIVE_INFINITY;
+  }
 }

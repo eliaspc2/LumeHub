@@ -11,6 +11,7 @@ import type {
   LegacyAutomationImportReportSnapshot,
   LegacyScheduleImportFileSnapshot,
   LegacyScheduleImportReportSnapshot,
+  LlmModelDescriptor,
   MessageAlertMatchSnapshot,
   MediaAssetSnapshot,
   MigrationReadinessSnapshot,
@@ -113,6 +114,7 @@ export interface SettingsPageData {
 
 export interface CodexRouterPageData {
   readonly settings: SettingsSnapshot;
+  readonly availableModels: readonly LlmModelDescriptor[];
 }
 
 export interface MigrationPageData {
@@ -399,15 +401,21 @@ export class AppRouter {
         description: 'Escolhe o token em uso e decide se a troca pode ser automatica.',
         navigationPlacement: 'secondary',
         legacyRoutes: ['/codex-auth-router', '/oauth-router'],
-        render: async () => ({
-          route: '/codex-router',
-          title: 'Codex Router',
-          description: 'Escolhe o token em uso e decide se a troca pode ser automatica.',
-          sections: [],
-          data: {
-            settings: await this.readQuery('settings', () => this.client.getSettings()),
-          } satisfies CodexRouterPageData,
-        }),
+        render: async () => {
+          const settings = await this.readQuery('settings', () => this.client.getSettings());
+          const availableModels = await this.readOptionalLlmModels();
+
+          return {
+            route: '/codex-router',
+            title: 'Codex Router',
+            description: 'Escolhe o token em uso e decide se a troca pode ser automatica.',
+            sections: [],
+            data: {
+              settings,
+              availableModels,
+            } satisfies CodexRouterPageData,
+          };
+        },
       },
       {
         route: this.routing.config.route,
@@ -598,6 +606,21 @@ export class AppRouter {
   private async readOptionalPeople(): Promise<readonly Person[]> {
     try {
       return await this.readQuery('people', () => this.client.listPeople());
+    } catch {
+      return [];
+    }
+  }
+
+  private async readOptionalLlmModels(): Promise<readonly LlmModelDescriptor[]> {
+    try {
+      const models = await this.readQuery('codex-router-models', () =>
+        this.client.listLlmModels({
+          refresh: false,
+          providerId: 'codex-openai',
+        }),
+      );
+
+      return models.filter((model) => model.providerId === 'codex-openai');
     } catch {
       return [];
     }

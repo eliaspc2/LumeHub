@@ -97,6 +97,13 @@ export class CodexAuthRouterModule extends BaseModule implements CodexAuthRouter
     return this.service.renameAccount(input);
   }
 
+  async updateAccountRoutingTier(
+    accountId: string,
+    routingTier: Parameters<CodexAuthRouterService['updateAccountRoutingTier']>[1],
+  ) {
+    return this.service.updateAccountRoutingTier(accountId, routingTier);
+  }
+
   async removeAccount(accountId: string) {
     return this.service.removeAccount(accountId);
   }

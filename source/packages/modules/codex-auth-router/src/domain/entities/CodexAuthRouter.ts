@@ -1,4 +1,5 @@
 export type CodexFailureKind = 'quota' | 'auth' | 'network' | 'unknown';
+export type CodexRoutingTier = 'priority' | 'reserve' | 'do_not_touch';
 
 export interface CodexUsageSnapshot {
   readonly successCount: number;
@@ -43,6 +44,7 @@ export interface CodexAccount {
   readonly label: string;
   readonly sourceFilePath: string;
   readonly priority: number;
+  readonly routingTier: CodexRoutingTier;
   readonly kind: 'canonical_live' | 'secondary';
   readonly exists: boolean;
   readonly contentHash: string | null;
@@ -177,6 +179,7 @@ export interface DiscoveredCodexAccountSource {
   readonly label: string;
   readonly filePath: string;
   readonly priority: number;
+  readonly routingTier: CodexRoutingTier;
   readonly kind: 'canonical_live' | 'secondary';
 }
 

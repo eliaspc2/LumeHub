@@ -25,7 +25,9 @@ import type {
   ImportedCodexAuthAccount,
   RemovedCodexAuthAccount,
   RenamedCodexAuthAccount,
+  CodexRoutingTier,
 } from '@lume-hub/codex-auth-router';
+export type { CodexRoutingTier } from '@lume-hub/codex-auth-router';
 import type { ConversationAuditRecord } from '@lume-hub/conversation';
 import type { HealthSnapshot } from '@lume-hub/health-monitor';
 import type { HostCompanionStatus } from '@lume-hub/host-lifecycle';
@@ -1360,6 +1362,34 @@ export class FrontendApiClient {
         path: `/api/settings/codex-auth-router/accounts/${encodeURIComponent(accountId)}/label`,
         body: {
           label,
+        },
+      }),
+    );
+  }
+
+  async updateCodexAuthAccountRoutingTier(accountId: string, routingTier: CodexRoutingTier): Promise<{
+    readonly result: {
+      readonly accountId: string;
+      readonly label: string;
+      readonly sourceFilePath: string;
+      readonly routingTier: CodexRoutingTier;
+    };
+    readonly status: CodexAuthRouterStatus;
+  }> {
+    return this.expectOk(
+      await this.transport.request<{
+        readonly result: {
+          readonly accountId: string;
+          readonly label: string;
+          readonly sourceFilePath: string;
+          readonly routingTier: CodexRoutingTier;
+        };
+        readonly status: CodexAuthRouterStatus;
+      }>({
+        method: 'PATCH',
+        path: `/api/settings/codex-auth-router/accounts/${encodeURIComponent(accountId)}/routing-tier`,
+        body: {
+          routingTier,
         },
       }),
     );

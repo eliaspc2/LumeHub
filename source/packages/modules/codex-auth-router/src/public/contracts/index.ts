@@ -20,6 +20,10 @@ export interface CodexAuthRouterModuleContract {
   renameAccount(
     input: import('../../domain/entities/CodexAuthRouter.js').RenameCodexAuthAccountInput,
   ): Promise<import('../../domain/entities/CodexAuthRouter.js').RenamedCodexAuthAccount>;
+  updateAccountRoutingTier(
+    accountId: string,
+    routingTier: import('../../domain/entities/CodexAuthRouter.js').CodexRoutingTier,
+  ): Promise<import('../../domain/entities/CodexAuthRouter.js').DiscoveredCodexAccountSource>;
   removeAccount(accountId: string): Promise<import('../../domain/entities/CodexAuthRouter.js').RemovedCodexAuthAccount>;
   setEnabled(enabled: boolean): Promise<import('../../domain/entities/CodexAuthRouter.js').CodexAuthRouterStatus>;
   getStatus(): Promise<import('../../domain/entities/CodexAuthRouter.js').CodexAuthRouterStatus>;

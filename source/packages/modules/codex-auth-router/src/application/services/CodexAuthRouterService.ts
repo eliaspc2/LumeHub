@@ -9,6 +9,7 @@ import type {
   CodexAuthRouterStatus,
   CodexAuthSwitchRecord,
   CodexFailureKind,
+  DiscoveredCodexAccountSource,
   ForceCodexAuthSwitchInput,
   ImportedCodexAuthAccount,
   ImportCodexAuthAccountInput,
@@ -18,6 +19,7 @@ import type {
   RenameCodexAuthAccountInput,
   ReportCodexAuthFailureInput,
   ReportCodexAuthSuccessInput,
+  CodexRoutingTier,
 } from '../../domain/entities/CodexAuthRouter.js';
 import { CodexAccountSwitchPolicy } from '../../domain/services/CodexAccountSwitchPolicy.js';
 import { CodexAccountUsageService } from '../../domain/services/CodexAccountUsageService.js';
@@ -198,6 +200,47 @@ export class CodexAuthRouterService {
       accountId: source.accountId,
       label: source.label,
       sourceFilePath: source.filePath,
+    };
+  }
+
+  async updateAccountRoutingTier(
+    accountId: string,
+    routingTier: CodexRoutingTier,
+  ): Promise<DiscoveredCodexAccountSource> {
+    const targetAccountId = accountId.trim();
+
+    if (!targetAccountId) {
+      throw new Error('Codex auth router routing tier update requires accountId.');
+    }
+
+    const state = await this.repository.readState();
+    const accounts = await this.readAccountsWithQuotas(state, new Date());
+    const targetAccount = accounts.find((account) => account.accountId === targetAccountId) ?? null;
+
+    if (!targetAccount || targetAccount.kind === 'canonical_live') {
+      throw new Error(`Codex auth router could not update account '${targetAccountId}' because it is unavailable.`);
+    }
+
+    const updatedSource = await this.repository.updateSourceRoutingTier(targetAccountId, routingTier);
+    this.quotaService.clearCache();
+
+    if (
+      routingTier === 'do_not_touch' &&
+      state.currentSelection?.accountId === targetAccountId &&
+      accounts.some((account) => account.accountId !== targetAccountId && account.exists && account.routingTier !== 'do_not_touch')
+    ) {
+      await this.prepareAuthForRequest({
+        reason: 'routing_tier_do_not_touch',
+      });
+    }
+
+    return {
+      accountId: updatedSource.accountId,
+      label: updatedSource.label,
+      filePath: updatedSource.filePath,
+      priority: updatedSource.priority,
+      routingTier: updatedSource.routingTier,
+      kind: updatedSource.kind,
     };
   }
 

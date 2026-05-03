@@ -16,6 +16,7 @@ import type {
   LegacyScheduleImportFileSnapshot,
   LegacyScheduleImportReportSnapshot,
   LlmChatInput,
+  LlmModelDescriptor,
   MediaAssetSnapshot,
   MessageAlertMatchSnapshot,
   Person,
@@ -27,6 +28,7 @@ import type {
   WorkspaceAgentRunSnapshot,
   WorkspaceFileContentSnapshot,
   WorkspaceFileSnapshot,
+  CodexRoutingTier,
 } from '@lume-hub/frontend-api-client';
 import type { RoutingConsoleSnapshot } from '@lume-hub/queue-console';
 import {
@@ -65,7 +67,7 @@ type ActionDataset = Readonly<Record<string, string | undefined>>;
 
 const ADVANCED_DETAILS_STORAGE_KEY = 'lumehub.web.advanced_details';
 const UX_TELEMETRY_STORAGE_KEY = 'lumehub.web.ux_telemetry';
-const LUMEHUB_WEB_VERSION = '0.1.4';
+const LUMEHUB_WEB_VERSION = '0.1.5';
 const WEEK_DAY_OPTIONS = [
   { value: 'segunda-feira', label: 'Segunda-feira', shortLabel: 'Seg' },
   { value: 'terca-feira', label: 'Terca-feira', shortLabel: 'Ter' },
@@ -239,6 +241,10 @@ interface CodexRouterDeleteDraft {
   readonly deletingAccountId: string | null;
 }
 
+interface CodexRouterRoutingTierDraft {
+  readonly savingAccountId: string | null;
+}
+
 interface AppOwnerDraft {
   readonly displayName: string;
   readonly phoneNumber: string;
@@ -289,6 +295,7 @@ interface AppShellState {
   readonly codexRouterRenameDraft: CodexRouterRenameDraft;
   readonly codexRouterQuotaRefreshDraft: CodexRouterQuotaRefreshDraft;
   readonly codexRouterDeleteDraft: CodexRouterDeleteDraft;
+  readonly codexRouterRoutingTierDraft: CodexRouterRoutingTierDraft;
   readonly appOwnerDraft: AppOwnerDraft;
   readonly assistantRailChat: AssistantRailChatState;
   readonly whatsappRepairFocus: 'auth' | 'groups' | 'permissions';
@@ -457,6 +464,7 @@ export class AppShell {
       codexRouterRenameDraft: createEmptyCodexRouterRenameDraft(),
       codexRouterQuotaRefreshDraft: createEmptyCodexRouterQuotaRefreshDraft(),
       codexRouterDeleteDraft: createEmptyCodexRouterDeleteDraft(),
+      codexRouterRoutingTierDraft: createEmptyCodexRouterRoutingTierDraft(),
       appOwnerDraft: createEmptyAppOwnerDraft(),
       assistantRailChat: createInitialAssistantRailChatState(),
       whatsappRepairFocus: 'auth',
@@ -574,7 +582,15 @@ export class AppShell {
     return this.currentBootstrap().apiClientProvider.getClient();
   }
 
-  private getOpenAiApiUrl(): string {
+  private getOpenAiBaseUrl(): string {
+    return new URL('/api/openai/v1', window.location.origin).toString();
+  }
+
+  private getOpenAiModelsUrl(): string {
+    return new URL('/api/openai/v1/models', window.location.origin).toString();
+  }
+
+  private getOpenAiChatCompletionsUrl(): string {
     return new URL('/api/openai/v1/chat/completions', window.location.origin).toString();
   }
 
@@ -5656,11 +5672,11 @@ export class AppShell {
         </div>
       </section>
 
-      ${this.renderCodexRouterSurface(snapshot)}
+      ${this.renderCodexRouterSurface(snapshot, page.data.availableModels)}
     `;
   }
 
-  private renderCodexRouterSurface(snapshot: SettingsSnapshot): string {
+  private renderCodexRouterSurface(snapshot: SettingsSnapshot, availableModels: readonly LlmModelDescriptor[]): string {
     const authRouterStatus = snapshot.authRouterStatus;
     const activeAccountId = authRouterStatus?.currentSelection?.accountId ?? null;
     const activeAccount =
@@ -5737,10 +5753,13 @@ export class AppShell {
                     })}
                   </div>
                   <div class="guide-preview codex-router-api-card">
-                    <p><strong>API URL</strong>: <code>${escapeHtml(this.getOpenAiApiUrl())}</code></p>
+                    <p><strong>API base URL</strong>: <code>${escapeHtml(this.getOpenAiBaseUrl())}</code></p>
+                    <p><strong>Models endpoint</strong>: <code>${escapeHtml(this.getOpenAiModelsUrl())}</code></p>
+                    <p><strong>Chat endpoint</strong>: <code>${escapeHtml(this.getOpenAiChatCompletionsUrl())}</code></p>
                     <p><strong>API key</strong>: <code>${escapeHtml(snapshot.adminSettings.llm.openAiApiKey)}</code></p>
                     <p><strong>Routing manual</strong>: no chat e possivel fixar <code>codex-oauth</code> ou <code>codex-openai</code> por conversa, ou deixar em Auto para seguir a app.</p>
                     <p><strong>Tokens visiveis</strong>: ${escapeHtml(visibleTokenLabel)} · <strong>Token atual</strong>: ${escapeHtml(activeTokenLabel)} · <strong>Modo</strong>: ${escapeHtml(routerEnabledLabel)}</p>
+                    <p class="section-hint">Clientes OpenAI-like devem apontar para a base URL e ler o catalogo em <code>/models</code>. Se o verificador bater num token sem quota, o backend devolve <code>429</code> em vez de esconder o problema num <code>500</code>.</p>
                     <div class="action-row">
                       ${renderUiActionButton({
                         label: 'Gerar nova API key',
@@ -5748,6 +5767,47 @@ export class AppShell {
                         dataAttributes: { 'settings-action': 'rotate-openai-api-key' },
                       })}
                     </div>
+                  </div>
+                  <div class="guide-preview codex-router-models-card">
+                    <div class="card-header">
+                      <div>
+                        <h4>Modelos disponiveis</h4>
+                        <p>Este catalogo e o que o endpoint <code>GET /api/openai/v1/models</code> expõe a clientes como o OpenClaw.</p>
+                      </div>
+                      ${renderUiBadge({
+                        label: `${availableModels.length} modelo(s)`,
+                        tone: availableModels.length > 0 ? 'positive' : 'warning',
+                      })}
+                    </div>
+                    ${
+                      availableModels.length > 0
+                        ? `<div class="card-grid">
+                            ${availableModels
+                              .map(
+                                (model) =>
+                                  renderUiRecordCard({
+                                    title: model.modelId,
+                                    subtitle: model.label,
+                                    badgeLabel: model.modelId === snapshot.adminSettings.llm.model ? 'Configurado' : 'Disponivel',
+                                    badgeTone: model.modelId === snapshot.adminSettings.llm.model ? 'positive' : 'neutral',
+                                    bodyHtml: `
+                                      <ul>
+                                        <li>Provider: ${escapeHtml(model.providerId)}</li>
+                                        <li>Chat: ${model.capabilities.chat ? 'sim' : 'nao'}</li>
+                                        <li>Streaming: ${model.capabilities.streaming ? 'sim' : 'nao'}</li>
+                                      </ul>
+                                    `,
+                                  }),
+                              )
+                              .join('')}
+                          </div>`
+                        : `
+                            <div class="inline-empty inline-empty--warning">
+                              <strong>Sem catalogo carregado</strong>
+                              <p>O backend ainda nao devolveu modelos para o router. Confirma o endpoint <code>/models</code> ou refresca a lista de modelos na app.</p>
+                            </div>
+                          `
+                    }
                   </div>
                   <div class="guide-preview codex-router-import-card">
                     <div class="card-header">
@@ -5838,16 +5898,22 @@ export class AppShell {
                         (account) => {
                           const availability = readCodexTokenAvailability(account, activeAccountId);
                           const isActive = account.accountId === activeAccountId;
+                          const routingTierLabel = readCodexRoutingTierLabel(account.routingTier);
+                          const routingTierTone = readCodexRoutingTierTone(account.routingTier);
+                          const routingTierDescription = readCodexRoutingTierDescription(account.routingTier);
                           const renameLabel = readCodexRouterRenameLabel(this.state.codexRouterRenameDraft, account);
                           const renameBusy = this.state.codexRouterRenameDraft.savingAccountId === account.accountId;
-                          const renameSupported = account.kind === 'secondary';
+                          const routingTierBusy =
+                            this.state.codexRouterRoutingTierDraft.savingAccountId === account.accountId;
+                          const renameSupported = account.kind === 'secondary' && account.routingTier !== 'do_not_touch';
                           const renameChanged = renameLabel.trim() !== account.label;
                           const quotaRefreshBusy =
                             this.state.codexRouterQuotaRefreshDraft.refreshingAccountId === account.accountId;
                           const deleteConfirming =
                             this.state.codexRouterDeleteDraft.confirmingAccountId === account.accountId;
                           const deleteBusy = this.state.codexRouterDeleteDraft.deletingAccountId === account.accountId;
-                          const deleteSupported = account.kind === 'secondary';
+                          const deleteSupported = account.kind === 'secondary' && account.routingTier !== 'do_not_touch';
+                          const routingControlsDisabled = account.routingTier === 'do_not_touch';
 
                           return `
                           <article class="codex-router-account-card">
@@ -5867,13 +5933,18 @@ export class AppShell {
                                   tone: account.kind === 'canonical_live' ? 'neutral' : 'warning',
                                   style: 'chip',
                                 })}
+                                ${renderUiBadge({
+                                  label: routingTierLabel,
+                                  tone: routingTierTone,
+                                  style: 'chip',
+                                })}
                               </div>
                             </div>
                             <div class="action-row">
                               ${renderUiActionButton({
                                 label: isActive ? 'Ja ativa' : 'Ativar esta conta',
                                 variant: isActive ? 'secondary' : 'primary',
-                                disabled: !authRouterStatus.enabled || !account.exists || isActive,
+                                disabled: !authRouterStatus.enabled || !account.exists || isActive || routingControlsDisabled,
                                 dataAttributes: {
                                   'settings-action': 'switch-codex-account',
                                   'codex-account-id': account.accountId,
@@ -5882,7 +5953,7 @@ export class AppShell {
                               ${renderUiActionButton({
                                 label: quotaRefreshBusy ? 'A reler limites...' : 'Reler limites',
                                 variant: 'secondary',
-                                disabled: quotaRefreshBusy || !account.exists,
+                                disabled: quotaRefreshBusy || !account.exists || routingControlsDisabled,
                                 dataAttributes: {
                                   'settings-action': 'refresh-codex-account-quota',
                                   'codex-account-id': account.accountId,
@@ -5895,9 +5966,9 @@ export class AppShell {
                                         ? 'A apagar...'
                                         : deleteConfirming
                                           ? 'Confirmar apagar'
-                                          : 'Apagar do router',
+                                      : 'Apagar do router',
                                       variant: deleteConfirming ? 'primary' : 'secondary',
-                                      disabled: deleteBusy || isActive,
+                                      disabled: deleteBusy || isActive || routingControlsDisabled,
                                       dataAttributes: {
                                         'settings-action': 'remove-codex-account',
                                         'codex-account-id': account.accountId,
@@ -5906,6 +5977,20 @@ export class AppShell {
                                   : ''
                               }
                             </div>
+                            <label class="ui-field">
+                              <span class="ui-field__label">Nivel de prioridade</span>
+                              <select
+                                class="ui-control"
+                                data-settings-action="set-codex-account-routing-tier"
+                                data-codex-account-id="${escapeHtml(account.accountId)}"
+                                ${routingTierBusy ? 'disabled' : ''}
+                              >
+                                <option value="priority"${account.routingTier === 'priority' ? ' selected' : ''}>Prioritario</option>
+                                <option value="reserve"${account.routingTier === 'reserve' ? ' selected' : ''}>Reserva</option>
+                                <option value="do_not_touch"${account.routingTier === 'do_not_touch' ? ' selected' : ''}>Nao tocar</option>
+                              </select>
+                              <span class="ui-field__hint">${escapeHtml(routingTierDescription)}</span>
+                            </label>
                             ${
                               renameSupported
                                 ? `
@@ -5922,7 +6007,11 @@ export class AppShell {
                                           ${renderUiActionButton({
                                             label: renameBusy ? 'A guardar...' : 'Guardar nome',
                                             variant: renameChanged ? 'primary' : 'secondary',
-                                            disabled: renameBusy || !renameChanged || renameLabel.trim().length === 0,
+                                            disabled:
+                                              renameBusy ||
+                                              !renameChanged ||
+                                              renameLabel.trim().length === 0 ||
+                                              routingControlsDisabled,
                                             dataAttributes: {
                                               'settings-action': 'rename-codex-account',
                                               'codex-account-id': account.accountId,
@@ -5951,6 +6040,7 @@ export class AppShell {
                                 <ul>
                                   <li><strong>Origem</strong>: ${escapeHtml(account.sourceFilePath)}</li>
                                   <li><strong>Prioridade</strong>: ${account.priority}</li>
+                                  <li><strong>Nivel de routing</strong>: ${escapeHtml(routingTierLabel)}</li>
                                   <li><strong>Sucessos</strong>: ${account.usage.successCount} · <strong>Falhas</strong>: ${account.usage.failureCount}</li>
                                   <li><strong>Cooldown</strong>: ${escapeHtml(formatShortDateTime(account.usage.cooldownUntil))}</li>
                                   <li><strong>Limites lidos</strong>: ${escapeHtml(formatShortDateTime(account.quota?.checkedAt ?? null))}</li>
@@ -8967,6 +9057,67 @@ export class AppShell {
       return;
     }
 
+    if (action === 'set-codex-account-routing-tier') {
+      const accountId = dataset.codexAccountId?.trim() ?? '';
+      const routingTier = readCodexRoutingTierValue(dataset.settingsValue);
+
+      if (!accountId || !routingTier) {
+        return;
+      }
+
+      const authRouterStatus = page.data.settings.authRouterStatus;
+      const account = authRouterStatus?.accounts.find((entry) => entry.accountId === accountId) ?? null;
+
+      if (!account || account.routingTier === routingTier) {
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        codexRouterRoutingTierDraft: {
+          savingAccountId: accountId,
+        },
+        flowFeedback: {
+          tone: 'neutral',
+          message: `A guardar o nivel ${readCodexRoutingTierLabel(routingTier)} de ${account.label}.`,
+        },
+      };
+      this.render();
+
+      try {
+        const result = await this.currentClient().updateCodexAuthAccountRoutingTier(accountId, routingTier);
+        this.state = {
+          ...this.state,
+          codexRouterRoutingTierDraft: createEmptyCodexRouterRoutingTierDraft(),
+          flowFeedback: {
+            tone: 'positive',
+            message:
+              routingTier === 'do_not_touch'
+                ? `${result.result.label} ficou marcado como nao tocar.`
+                : `${result.result.label} ficou com nivel ${readCodexRoutingTierLabel(result.result.routingTier)}.`,
+          },
+        };
+        this.recordUxEvent(
+          'positive',
+          `Codex router alterou o nivel de routing de ${accountId} para ${result.result.routingTier}.`,
+        );
+        await this.refreshCurrentRouteData();
+      } catch (error) {
+        const message = `Nao foi possivel atualizar o nivel deste token. ${readErrorMessage(error)}`;
+        this.state = {
+          ...this.state,
+          codexRouterRoutingTierDraft: createEmptyCodexRouterRoutingTierDraft(),
+          flowFeedback: {
+            tone: 'danger',
+            message,
+          },
+        };
+        this.recordUxEvent('danger', summarizeTelemetryMessage(message));
+        this.render();
+      }
+      return;
+    }
+
     if (action === 'remove-codex-account') {
       const accountId = dataset.codexAccountId?.trim() ?? '';
 
@@ -11832,6 +11983,10 @@ export class AppShell {
 
     for (const element of this.root.querySelectorAll<HTMLElement>('[data-settings-action]')) {
       element.addEventListener('click', (event) => {
+        if (element instanceof HTMLSelectElement) {
+          return;
+        }
+
         event.preventDefault();
         const action = element.dataset.settingsAction;
 
@@ -11840,6 +11995,21 @@ export class AppShell {
         }
 
         void this.handleSettingsAction(action, element.dataset);
+      });
+    }
+
+    for (const element of this.root.querySelectorAll<HTMLSelectElement>('[data-settings-action]')) {
+      element.addEventListener('change', () => {
+        const action = element.dataset.settingsAction;
+
+        if (!action) {
+          return;
+        }
+
+        void this.handleSettingsAction(action, {
+          ...element.dataset,
+          settingsValue: element.value,
+        });
       });
     }
 
@@ -12416,6 +12586,12 @@ function createEmptyCodexRouterDeleteDraft(): CodexRouterDeleteDraft {
   return {
     confirmingAccountId: null,
     deletingAccountId: null,
+  };
+}
+
+function createEmptyCodexRouterRoutingTierDraft(): CodexRouterRoutingTierDraft {
+  return {
+    savingAccountId: null,
   };
 }
 
@@ -14397,6 +14573,53 @@ function readCodexTokenKindLabel(
   return kind === 'canonical_live' ? 'Principal' : 'Reserva';
 }
 
+function readCodexRoutingTierValue(value: string | undefined): CodexRoutingTier | null {
+  if (value === 'priority' || value === 'reserve' || value === 'do_not_touch') {
+    return value;
+  }
+
+  return null;
+}
+
+function readCodexRoutingTierLabel(tier: CodexRoutingTier): string {
+  switch (tier) {
+    case 'priority':
+      return 'Prioritario';
+    case 'reserve':
+      return 'Reserva';
+    case 'do_not_touch':
+      return 'Nao tocar';
+    default:
+      return 'Reserva';
+  }
+}
+
+function readCodexRoutingTierTone(tier: CodexRoutingTier): UiTone {
+  switch (tier) {
+    case 'priority':
+      return 'positive';
+    case 'reserve':
+      return 'neutral';
+    case 'do_not_touch':
+      return 'warning';
+    default:
+      return 'neutral';
+  }
+}
+
+function readCodexRoutingTierDescription(tier: CodexRoutingTier): string {
+  switch (tier) {
+    case 'priority':
+      return 'Este token entra primeiro nas trocas automaticas quando estiver disponivel.';
+    case 'reserve':
+      return 'Este token fica como reserva e pode ser escolhido quando necessario.';
+    case 'do_not_touch':
+      return 'Este token fica fora das trocas automaticas e o router nao lhe toca.';
+    default:
+      return 'Este token fica como reserva e pode ser escolhido quando necessario.';
+  }
+}
+
 function describeCodexTokenRole(account: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number]): string {
   return account.kind === 'canonical_live'
     ? 'Token canonico usado pelo Codex.'
@@ -14414,8 +14637,11 @@ function readCodexTokenAvailability(
   if (account.accountId === activeAccountId) {
     return {
       label: 'Em uso',
-      tone: 'positive',
-      summary: 'Este e o token que o Codex esta a usar agora.',
+      tone: account.routingTier === 'do_not_touch' ? 'warning' : 'positive',
+      summary:
+        account.routingTier === 'do_not_touch'
+          ? 'Este e o token que o Codex esta a usar agora, mas ja foi marcado para nao tocar nas proximas trocas.'
+          : 'Este e o token que o Codex esta a usar agora.',
     };
   }
 
@@ -14424,6 +14650,14 @@ function readCodexTokenAvailability(
       label: 'Em falta',
       tone: 'warning',
       summary: 'O ficheiro deste token nao esta disponivel neste runtime.',
+    };
+  }
+
+  if (account.routingTier === 'do_not_touch') {
+    return {
+      label: 'Nao tocar',
+      tone: 'warning',
+      summary: 'Este token ficou excluido das trocas automaticas e nao deve ser usado salvo ordem manual.',
     };
   }
 

@@ -34,6 +34,7 @@ import type { DistributionContentInput, Instruction, InstructionQueueModuleContr
 import type {
   LlmChatInput,
   LlmChatResult,
+  LlmModelDescriptor,
   LlmOrchestratorModuleContract,
   LlmRunLogEntry,
 } from '@lume-hub/llm-orchestrator';
@@ -126,6 +127,7 @@ export interface HttpApiModules {
     | 'forceSwitch'
     | 'importAccount'
     | 'renameAccount'
+    | 'updateAccountRoutingTier'
     | 'removeAccount'
     | 'setEnabled'
     | 'getStatus'
@@ -1273,6 +1275,42 @@ export class RouteRegistrar {
       },
     });
     server.registerRoute({
+      method: 'GET',
+      path: '/api/openai/v1/models',
+      handler: async (context) => {
+        if (!this.modules.llmOrchestrator) {
+          throw new ApiError(404, 'LLM orchestrator is not configured.');
+        }
+
+        const currentSettings = await this.modules.adminConfig.getSettings();
+        const expectedApiKey = currentSettings.llm.openAiApiKey.trim();
+        const providedApiKey = readOpenAiApiKey(context.headers);
+
+        if (!expectedApiKey) {
+          throw new ApiError(503, 'OpenAI API key is not ready yet.');
+        }
+
+        if (!providedApiKey || providedApiKey !== expectedApiKey) {
+          throw new ApiError(401, 'OpenAI API key invalid.');
+        }
+
+        const refresh = readOptionalBooleanQuery(context.query, 'refresh');
+        const providerId = readOptionalQueryString(context.query, 'providerId') ?? 'codex-openai';
+
+        if (refresh === true) {
+          try {
+            await this.modules.llmOrchestrator.refreshModels(providerId);
+          } catch (error) {
+            throw mapOpenAiRouteError(error);
+          }
+        }
+
+        return buildOpenAiModelsResponse(
+          this.modules.llmOrchestrator.listModels().filter((model) => model.providerId === providerId),
+        );
+      },
+    });
+    server.registerRoute({
       method: 'POST',
       path: '/api/llm/chat',
       handler: async (context) => {
@@ -1310,9 +1348,15 @@ export class RouteRegistrar {
         }
 
         const payload = readOpenAiChatCompletionsBody(context.body);
-        const result = await this.modules.llmOrchestrator.chat(
-          buildOpenAiCompatibleLlmChatInput(payload),
-        );
+        let result: LlmChatResult;
+
+        try {
+          result = await this.modules.llmOrchestrator.chat(
+            buildOpenAiCompatibleLlmChatInput(payload),
+          );
+        } catch (error) {
+          throw mapOpenAiRouteError(error);
+        }
 
         this.publish('llm.chat.completed', {
           runId: result.runId,
@@ -1688,6 +1732,37 @@ export class RouteRegistrar {
         });
         return {
           renamedAccount,
+          status,
+        };
+      },
+    });
+    server.registerRoute({
+      method: 'PATCH',
+      path: '/api/settings/codex-auth-router/accounts/:accountId/routing-tier',
+      handler: async (context) => {
+        if (!this.modules.codexAuthRouter) {
+          throw new ApiError(404, 'Codex auth router is not configured.');
+        }
+
+        if (!context.body || typeof context.body !== 'object') {
+          throw new ApiError(400, 'Codex auth router routing tier payload must be an object.');
+        }
+
+        const routingTier = readCodexRoutingTierBody(readBodyObject(context.body, 'Codex auth router routing tier payload must be an object.'));
+        const result = await this.modules.codexAuthRouter.updateAccountRoutingTier(context.params.accountId, routingTier);
+        const mappedResult = {
+          accountId: result.accountId,
+          label: result.label,
+          sourceFilePath: result.filePath,
+          routingTier: result.routingTier,
+        };
+        const status = await this.modules.codexAuthRouter.getStatus();
+        this.publish('settings.codex_auth_router.updated', {
+          result: mappedResult,
+          status,
+        });
+        return {
+          result: mappedResult,
           status,
         };
       },
@@ -2657,6 +2732,16 @@ function readLlmSettingsBody(body: unknown): Partial<AdminSettings['llm']> {
   };
 }
 
+function readCodexRoutingTierBody(body: Record<string, unknown>): 'priority' | 'reserve' | 'do_not_touch' {
+  const routingTier = readStringBodyField(body, 'routingTier');
+
+  if (routingTier === 'priority' || routingTier === 'reserve' || routingTier === 'do_not_touch') {
+    return routingTier;
+  }
+
+  throw new ApiError(400, 'routingTier must be priority, reserve or do_not_touch.');
+}
+
 function readOpenAiApiKey(headers: Record<string, string>): string | null {
   const directHeader = headers['x-api-key']?.trim();
 
@@ -2912,6 +2997,35 @@ function buildOpenAiCompatibleLlmChatInput(payload: OpenAiChatCompletionsBody): 
   };
 }
 
+function buildOpenAiModelsResponse(models: readonly LlmModelDescriptor[]): {
+  readonly object: 'list';
+  readonly data: readonly {
+    readonly id: string;
+    readonly object: 'model';
+    readonly owned_by: string;
+  }[];
+} {
+  const seen = new Set<string>();
+
+  return {
+    object: 'list',
+    data: models
+      .filter((model) => {
+        if (seen.has(model.modelId)) {
+          return false;
+        }
+
+        seen.add(model.modelId);
+        return true;
+      })
+      .map((model) => ({
+        id: model.modelId,
+        object: 'model',
+        owned_by: model.providerId,
+      })),
+  };
+}
+
 function buildOpenAiChatCompletionResponse(
   result: LlmChatResult,
   payload: OpenAiChatCompletionsBody,
@@ -2962,6 +3076,47 @@ function capitalizeOpenAiRole(role: OpenAiChatCompletionMessageInput['role']): s
     case 'developer':
       return 'Developer';
   }
+}
+
+function mapOpenAiRouteError(error: unknown): ApiError {
+  if (error instanceof ApiError) {
+    return error;
+  }
+
+  const message = toErrorMessage(error);
+  const lowerMessage = message.toLowerCase();
+
+  if (
+    lowerMessage.includes('error 429') ||
+    lowerMessage.includes('usage limit') ||
+    lowerMessage.includes('quota') ||
+    lowerMessage.includes('rate limit')
+  ) {
+    return new ApiError(429, 'Codex quota is temporarily exhausted.');
+  }
+
+  if (
+    lowerMessage.includes('error 401') ||
+    lowerMessage.includes('error 403') ||
+    lowerMessage.includes('unauthor') ||
+    lowerMessage.includes('auth')
+  ) {
+    return new ApiError(401, 'Codex auth is invalid or expired.');
+  }
+
+  if (
+    lowerMessage.includes('no account source is available') ||
+    lowerMessage.includes('could not prepare auth because account') ||
+    lowerMessage.includes('could not prepare auth because no account source is available')
+  ) {
+    return new ApiError(503, 'No Codex account is currently available.');
+  }
+
+  return new ApiError(500, message);
+}
+
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function readOptionalLlmMemoryScopeValue(

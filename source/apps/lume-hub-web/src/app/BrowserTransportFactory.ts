@@ -50,6 +50,7 @@ import type {
   WorkspaceAgentStatusSnapshot,
   WorkspaceFileContentSnapshot,
   WorkspaceFileSnapshot,
+  CodexRoutingTier,
 } from '@lume-hub/frontend-api-client';
 
 export type FrontendTransportMode = 'demo' | 'live';
@@ -671,6 +672,38 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
         status,
       });
       return this.ok(status);
+    }
+
+    if (request.method === 'PATCH' && /^\/api\/settings\/codex-auth-router\/accounts\/[^/]+\/routing-tier$/u.test(pathname)) {
+      const match = pathname.match(/^\/api\/settings\/codex-auth-router\/accounts\/([^/]+)\/routing-tier$/u);
+      const accountId = match?.[1] ? decodeURIComponent(match[1]) : '';
+      const body = request.body as { readonly routingTier?: string } | undefined;
+      const routingTier = readDemoCodexRoutingTier(body?.routingTier);
+
+      if (!accountId) {
+        return this.error(400, 'Demo codex auth router routing tier update requires accountId.');
+      }
+
+      if (!routingTier) {
+        return this.error(400, 'Demo codex auth router routing tier update requires routingTier.');
+      }
+
+      const result = updateDemoCodexAuthAccountRoutingTier(this.state, accountId, routingTier);
+
+      if (!result) {
+        return this.error(404, `Demo codex auth account ${accountId} not found.`);
+      }
+
+      this.emit('settings.codex_auth_router.updated', {
+        mode: 'demo',
+        routingTier,
+        accountId,
+        status: this.state.settings.authRouterStatus ?? failMissingDemoAuthRouter(),
+      });
+      return this.ok({
+        result,
+        status: this.state.settings.authRouterStatus ?? failMissingDemoAuthRouter(),
+      });
     }
 
     if (request.method === 'POST' && pathname === '/api/settings/codex-auth-router/switch') {
@@ -1662,6 +1695,7 @@ function createDemoState(): DemoState {
         label: 'Token principal',
         sourceFilePath: '/home/eliaspc/.codex/auth.json',
         priority: 100,
+        routingTier: 'priority',
         kind: 'canonical_live',
         exists: true,
         contentHash: 'demo-hash-main',
@@ -1711,6 +1745,7 @@ function createDemoState(): DemoState {
         label: 'Token reserva A',
         sourceFilePath: '/home/eliaspc/.codex/auth-reserva-a.json',
         priority: 80,
+        routingTier: 'reserve',
         kind: 'secondary',
         exists: true,
         contentHash: 'demo-hash-secondary',
@@ -1760,6 +1795,7 @@ function createDemoState(): DemoState {
         label: 'Token reserva B',
         sourceFilePath: '/home/eliaspc/.codex/auth-reserva-b.json',
         priority: 60,
+        routingTier: 'reserve',
         kind: 'secondary',
         exists: true,
         contentHash: 'demo-hash-tertiary',
@@ -4501,6 +4537,7 @@ function importDemoCodexAuthAccount(
   const nextAccount = {
     ...(existingAccount ?? {
       priority: status.accounts.length + 1,
+      routingTier: 'reserve' as const,
       kind: 'secondary' as const,
       exists: true,
       contentHash: `demo-hash-${accountId}`,
@@ -4524,6 +4561,7 @@ function importDemoCodexAuthAccount(
     exists: true,
     bytes: input.authJson.length,
     lastModifiedAt: new Date().toISOString(),
+    routingTier: existingAccount?.routingTier ?? 'reserve',
   };
 
   state.settings = {
@@ -4644,10 +4682,11 @@ function updateDemoCodexAuthRouterState(
 ): NonNullable<SettingsSnapshot['authRouterStatus']> {
   const currentStatus = state.settings.authRouterStatus ?? failMissingDemoAuthRouter();
   const existingAccounts = currentStatus.accounts.filter((account) => account.exists);
+  const eligibleAccounts = existingAccounts.filter((account) => account.routingTier !== 'do_not_touch');
   const selectedAccount =
     (options.preferredAccountId
-      ? existingAccounts.find((account) => account.accountId === options.preferredAccountId)
-      : pickBestDemoCodexAccount(existingAccounts)) ?? existingAccounts[0] ?? failMissingDemoAuthRouter();
+      ? eligibleAccounts.find((account) => account.accountId === options.preferredAccountId)
+      : pickBestDemoCodexAccount(eligibleAccounts)) ?? eligibleAccounts[0] ?? failMissingDemoAuthRouter();
   const nowIso = new Date().toISOString();
   const previousSelection = currentStatus.currentSelection;
   const switchPerformed = previousSelection?.accountId !== selectedAccount.accountId;
@@ -4709,6 +4748,59 @@ function updateDemoCodexAuthRouterState(
   return nextStatus;
 }
 
+function updateDemoCodexAuthAccountRoutingTier(
+  state: DemoState,
+  accountId: string,
+  routingTier: CodexRoutingTier,
+): {
+  readonly accountId: string;
+  readonly label: string;
+  readonly sourceFilePath: string;
+  readonly routingTier: CodexRoutingTier;
+} | null {
+  const status = state.settings.authRouterStatus ?? failMissingDemoAuthRouter();
+  const targetAccount = status.accounts.find((account) => account.accountId === accountId) ?? null;
+
+  if (!targetAccount) {
+    return null;
+  }
+
+  const nextAccounts = status.accounts.map((account) =>
+    account.accountId === accountId
+      ? {
+          ...account,
+          routingTier,
+        }
+      : account,
+  );
+  const nextStatus: NonNullable<SettingsSnapshot['authRouterStatus']> = {
+    ...status,
+    accounts: nextAccounts,
+    accountCount: nextAccounts.filter((account) => account.exists).length,
+  };
+
+  state.settings = {
+    ...state.settings,
+    authRouterStatus: nextStatus,
+    llmRuntime: createDemoLlmRuntimeStatus(state.settings.adminSettings, nextStatus),
+  };
+
+  if (
+    routingTier === 'do_not_touch' &&
+    state.settings.authRouterStatus?.currentSelection?.accountId === accountId &&
+    nextAccounts.some((account) => account.accountId !== accountId && account.exists && account.routingTier !== 'do_not_touch')
+  ) {
+    prepareDemoCodexAuthRouter(state);
+  }
+
+  return {
+    accountId: targetAccount.accountId,
+    label: targetAccount.label,
+    sourceFilePath: targetAccount.sourceFilePath,
+    routingTier,
+  };
+}
+
 function pickBestDemoCodexAccount(
   accounts: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'],
 ): NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number] | null {
@@ -4719,9 +4811,37 @@ function pickBestDemoCodexAccount(
   return (
     accounts
       .slice()
-      .sort((left, right) => right.priority - left.priority)
+      .sort((left, right) => scoreDemoRoutingTier(right.routingTier) - scoreDemoRoutingTier(left.routingTier) || right.priority - left.priority)
       .find((account) => account.usage.cooldownUntil == null) ?? accounts[0]
   );
+}
+
+function scoreDemoRoutingTier(tier: CodexRoutingTier): number {
+  switch (tier) {
+    case 'priority':
+      return 2;
+    case 'reserve':
+      return 1;
+    case 'do_not_touch':
+      return 0;
+    default:
+      return 1;
+  }
+}
+
+function readDemoCodexRoutingTier(value: unknown): CodexRoutingTier | null {
+  if (value === 'priority' || value === 'reserve' || value === 'do_not_touch') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === 'priority' || trimmed === 'reserve' || trimmed === 'do_not_touch') {
+      return trimmed;
+    }
+  }
+
+  return null;
 }
 
 function sanitizeTimestampForFile(value: string): string {

@@ -97,6 +97,7 @@ export class CodexAccountRepository {
             label: source.label,
             sourceFilePath: source.filePath,
             priority: source.priority,
+            routingTier: source.routingTier,
             kind: source.kind,
             exists: snapshot.exists,
             contentHash: snapshot.contentHash,
@@ -133,6 +134,7 @@ export class CodexAccountRepository {
     await this.writeManagedSourceMetadata(sourceFilePath, {
       accountId: input.accountId,
       label: input.label,
+      routingTier: existingSource?.routingTier ?? 'reserve',
     });
 
     const nextPriority =
@@ -143,6 +145,7 @@ export class CodexAccountRepository {
       label: input.label,
       filePath: sourceFilePath,
       priority: nextPriority,
+      routingTier: existingSource?.routingTier ?? 'reserve',
       kind: 'secondary',
     };
 
@@ -177,6 +180,39 @@ export class CodexAccountRepository {
       await this.writeManagedSourceMetadata(existingSource.filePath, {
         accountId: existingSource.accountId,
         label: nextLabel,
+        routingTier: existingSource.routingTier,
+      });
+    }
+
+    await this.persistDynamicSources([
+      ...existingSources.filter((source) => source.accountId !== accountId),
+      updatedSource,
+    ]);
+
+    return updatedSource;
+  }
+
+  async updateSourceRoutingTier(
+    accountId: string,
+    routingTier: DiscoveredCodexAccountSource['routingTier'],
+  ): Promise<DiscoveredCodexAccountSource> {
+    const existingSources = await this.listSecondarySources();
+    const existingSource = existingSources.find((source) => source.accountId === accountId) ?? null;
+
+    if (!existingSource) {
+      throw new Error(`Codex auth router could not update account '${accountId}' because it is unavailable.`);
+    }
+
+    const updatedSource: DiscoveredCodexAccountSource = {
+      ...existingSource,
+      routingTier,
+    };
+
+    if (this.isManagedSourceFilePath(existingSource.filePath)) {
+      await this.writeManagedSourceMetadata(existingSource.filePath, {
+        accountId: existingSource.accountId,
+        label: existingSource.label,
+        routingTier,
       });
     }
 
@@ -301,6 +337,7 @@ export class CodexAccountRepository {
               label: await this.readManagedSourceLabel(sourceFilePath, accountId),
               filePath: sourceFilePath,
               priority: index + 1,
+              routingTier: await this.readManagedSourceRoutingTier(sourceFilePath),
               kind: 'secondary' as const,
             };
           } catch (error) {
@@ -328,6 +365,7 @@ export class CodexAccountRepository {
         label: source.label,
         filePath: source.filePath,
         priority: Number.isInteger(source.priority) ? source.priority : index + 1,
+        routingTier: source.routingTier ?? 'reserve',
         kind: source.kind,
       }));
 
@@ -350,6 +388,7 @@ export class CodexAccountRepository {
     metadata: {
       readonly accountId: string;
       readonly label: string;
+      readonly routingTier?: CodexAuthSourceConfig['routingTier'];
     },
   ): Promise<void> {
     const metadataFilePath = join(dirname(sourceFilePath), 'meta.json');
@@ -380,6 +419,21 @@ export class CodexAccountRepository {
 
     return `account-${fallbackAccountId.slice(0, 8)}`;
   }
+
+  private async readManagedSourceRoutingTier(sourceFilePath: string): Promise<CodexAuthSourceConfig['routingTier'] | undefined> {
+    const metadataFilePath = join(dirname(sourceFilePath), 'meta.json');
+
+    try {
+      const raw = JSON.parse(await readFile(metadataFilePath, 'utf8')) as { readonly routingTier?: unknown };
+      return normaliseRoutingTier(raw.routingTier);
+    } catch (error) {
+      if (isNodeError(error) && error.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+
+    return undefined;
+  }
 }
 
 function buildSourceAccounts(
@@ -394,6 +448,7 @@ function buildSourceAccounts(
     label: 'Canonical live',
     filePath: canonicalAuthFilePath,
     priority: 0,
+    routingTier: 'reserve',
     kind: 'canonical_live',
   });
 
@@ -403,6 +458,7 @@ function buildSourceAccounts(
       label: source.label,
       filePath: source.filePath,
       priority: source.priority ?? index + 1,
+      routingTier: normaliseRoutingTier(source.routingTier) ?? 'reserve',
       kind: source.kind ?? 'secondary',
     });
   }
@@ -413,6 +469,7 @@ function buildSourceAccounts(
       label: source.label,
       filePath: source.filePath,
       priority: source.priority ?? configuredSources.length + index + 1,
+      routingTier: normaliseRoutingTier(source.routingTier) ?? 'reserve',
       kind: source.kind ?? 'secondary',
     });
   }
@@ -615,11 +672,12 @@ function normaliseConfiguredSource(entry: unknown, index: number): CodexAuthSour
   }
 
   const value = entry as Record<string, unknown>;
-  const accountId = readRequiredString(value, index, 'accountId');
-  const label = readRequiredString(value, index, 'label');
-  const filePath = readRequiredString(value, index, 'filePath');
-  const priority = value.priority === undefined ? undefined : Number(value.priority);
-  const kind = value.kind === undefined ? undefined : String(value.kind);
+    const accountId = readRequiredString(value, index, 'accountId');
+    const label = readRequiredString(value, index, 'label');
+    const filePath = readRequiredString(value, index, 'filePath');
+    const priority = value.priority === undefined ? undefined : Number(value.priority);
+    const routingTier = normaliseRoutingTier(value.routingTier);
+    const kind = value.kind === undefined ? undefined : String(value.kind);
 
   if (priority !== undefined && (!Number.isInteger(priority) || priority < 0)) {
     throw new Error(`LUME_HUB_CODEX_AUTH_SOURCES[${index}].priority must be a non-negative integer.`);
@@ -634,8 +692,24 @@ function normaliseConfiguredSource(entry: unknown, index: number): CodexAuthSour
     label,
     filePath,
     priority,
+    routingTier: routingTier ?? 'reserve',
     kind,
   };
+}
+
+function normaliseRoutingTier(value: unknown): CodexAuthSourceConfig['routingTier'] | undefined {
+  if (value === 'priority' || value === 'reserve' || value === 'do_not_touch') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === 'priority' || trimmed === 'reserve' || trimmed === 'do_not_touch') {
+      return trimmed;
+    }
+  }
+
+  return undefined;
 }
 
 function readRequiredString(

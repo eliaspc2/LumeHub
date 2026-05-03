@@ -1,3 +1,4 @@
+import type { CodexRoutingTier } from '../domain/entities/CodexAuthRouter.js';
 import type { CodexAccountRepository } from '../infrastructure/persistence/CodexAccountRepository.js';
 import type { CodexAuthRouterService } from '../application/services/CodexAuthRouterService.js';
 import type { CodexAuthCanonicalWriter } from '../domain/services/CodexAuthCanonicalWriter.js';
@@ -11,6 +12,7 @@ export interface CodexAuthSourceConfig {
   readonly label: string;
   readonly filePath: string;
   readonly priority?: number;
+  readonly routingTier?: CodexRoutingTier;
   readonly kind?: 'canonical_live' | 'secondary';
 }
 
