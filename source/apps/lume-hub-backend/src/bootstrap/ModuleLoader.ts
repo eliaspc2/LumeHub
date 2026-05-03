@@ -245,6 +245,15 @@ export class ModuleLoader {
     const llmProviderRegistry = new LlmProviderRegistry([
       deterministicProvider,
       new CodexOauthLlmProvider({
+        providerId: 'codex-oauth',
+        authFilePath: paths.canonicalCodexAuthFile,
+        authRouter: codexAuthRouterModule,
+        clientVersion: this.config.llmCodexClientVersion,
+        modelResolver: async () => (await adminConfigModule.getSettings()).llm.model,
+        fetchImpl: this.config.llmFetch,
+      }),
+      new CodexOauthLlmProvider({
+        providerId: 'codex-openai',
         authFilePath: paths.canonicalCodexAuthFile,
         authRouter: codexAuthRouterModule,
         clientVersion: this.config.llmCodexClientVersion,

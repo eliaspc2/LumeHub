@@ -637,9 +637,12 @@ function readDynamicGroupRouteJid(pathname: string): string | null {
 }
 
 function describeLlmAuthReadiness(settings: SettingsSnapshot): string {
-  const codexAuth = settings.llmRuntime.providerReadiness.find((provider) => provider.providerId === 'codex-oauth');
+  const providerReadiness = settings.llmRuntime.providerReadiness;
+  const codexAuth = providerReadiness.find(
+    (provider) => provider.providerId === 'codex-oauth' || provider.providerId === 'codex-openai',
+  );
 
-  if (settings.adminSettings.llm.provider === 'codex-oauth') {
+  if (settings.adminSettings.llm.provider === 'codex-oauth' || settings.adminSettings.llm.provider === 'codex-openai') {
     if (codexAuth?.ready) {
       const accountCount = settings.authRouterStatus?.accountCount ?? 0;
       return accountCount > 0 ? `pronta (${accountCount} conta(s) visiveis)` : 'pronta';
@@ -648,7 +651,7 @@ function describeLlmAuthReadiness(settings: SettingsSnapshot): string {
     return codexAuth?.reason ?? 'Auth live ainda nao esta pronta.';
   }
 
-  return settings.llmRuntime.providerReadiness
+  return providerReadiness
     .map((provider) => `${provider.label}: ${provider.ready ? 'pronto' : provider.reason ?? 'indisponivel'}`)
     .join(' | ');
 }

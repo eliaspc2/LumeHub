@@ -16,6 +16,7 @@ export interface LlmChatInput {
   readonly contextSummary?: readonly string[];
   readonly domainFacts?: readonly string[];
   readonly memoryScope?: LlmMemoryScope | null;
+  readonly providerId?: string | null;
 }
 
 export interface LlmChatResult {

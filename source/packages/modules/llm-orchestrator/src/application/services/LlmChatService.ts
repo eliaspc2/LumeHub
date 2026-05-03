@@ -11,7 +11,9 @@ export class LlmChatService {
   ) {}
 
   async chat(input: LlmChatInput): Promise<LlmChatResult> {
-    const provider = this.registry.resolve(await resolveProviderId(this.providerId, this.providerResolver));
+    const provider = this.registry.resolve(
+      await resolveProviderId(input.providerId, this.providerId, this.providerResolver),
+    );
     const result = await provider.chat(input);
 
     await this.runLogger.log({
@@ -30,9 +32,15 @@ export class LlmChatService {
 }
 
 async function resolveProviderId(
+  inputProviderId: string | null | undefined,
   providerId: string | undefined,
   providerResolver?: () => Promise<string | null | undefined> | string | null | undefined,
 ): Promise<string | undefined> {
   const resolved = providerResolver ? await providerResolver() : undefined;
-  return resolved ?? providerId;
+  return normaliseProviderId(inputProviderId) ?? resolved ?? providerId;
+}
+
+function normaliseProviderId(providerId: string | null | undefined): string | undefined {
+  const trimmed = providerId?.trim();
+  return trimmed ? trimmed : undefined;
 }

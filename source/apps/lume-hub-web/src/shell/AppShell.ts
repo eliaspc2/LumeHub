@@ -65,7 +65,7 @@ type ActionDataset = Readonly<Record<string, string | undefined>>;
 
 const ADVANCED_DETAILS_STORAGE_KEY = 'lumehub.web.advanced_details';
 const UX_TELEMETRY_STORAGE_KEY = 'lumehub.web.ux_telemetry';
-const LUMEHUB_WEB_VERSION = '0.1.1';
+const LUMEHUB_WEB_VERSION = '0.1.2';
 const WEEK_DAY_OPTIONS = [
   { value: 'segunda-feira', label: 'Segunda-feira', shortLabel: 'Seg' },
   { value: 'terca-feira', label: 'Terca-feira', shortLabel: 'Ter' },
@@ -256,6 +256,7 @@ interface AssistantRailMessage {
 interface AssistantRailChatState {
   readonly contextMode: 'global' | 'group';
   readonly selectedGroupJid: string | null;
+  readonly selectedProviderId: string | null;
   readonly input: string;
   readonly availableGroups: readonly Group[];
   readonly loadingGroups: boolean;
@@ -653,7 +654,7 @@ export class AppShell {
     readonly input: LlmChatInput;
     readonly contextLabel: string;
   }> {
-    const { contextMode, selectedGroupJid, messages, availableGroups } = this.state.assistantRailChat;
+    const { contextMode, selectedGroupJid, selectedProviderId, messages, availableGroups } = this.state.assistantRailChat;
     const currentRoute = this.currentRouter().resolveRoute(this.state.route);
     const chatIntent = currentRoute.canonicalRoute === '/assistant' ? 'direct_ui_chat' : 'sidebar_ui_chat';
     const recentHistory = messages
@@ -688,6 +689,7 @@ export class AppShell {
           prompt,
           preview,
           baseContextSummary: contextSummary,
+          providerId: selectedProviderId,
         }),
       };
     }
@@ -710,6 +712,7 @@ export class AppShell {
           knowledgeSnippetCount: 0,
           knowledgeDocuments: [],
         },
+        providerId: selectedProviderId ?? undefined,
       },
     };
   }
@@ -2443,6 +2446,19 @@ export class AppShell {
                 </div>
               </div>
             </div>
+
+            ${renderUiSelectField({
+              label: 'Roteamento da conversa',
+              value: this.state.assistantRailChat.selectedProviderId ?? '',
+              dataKey: 'railChat.providerId',
+              options: [
+                { value: '', label: 'Auto - seguir a configuracao da app' },
+                { value: 'codex-openai', label: 'Codex OpenAI - token atual' },
+                { value: 'codex-oauth', label: 'Codex Router - token atual' },
+                { value: 'openai-compat', label: 'OpenAI compat' },
+              ],
+              hint: 'Escolhe Auto para deixar o runtime decidir ou fixa esta conversa num provider concreto.',
+            })}
 
             ${
               this.state.assistantRailChat.contextMode === 'group'
@@ -5716,6 +5732,11 @@ export class AppShell {
                       dataAttributes: { 'settings-action': 'prepare-codex-router' },
                     })}
                   </div>
+                  <div class="guide-preview codex-router-api-card">
+                    <p><strong>Dados da API</strong>: a rota OpenAI-like disponivel nesta instalacao usa <code>/api/openai/v1/chat/completions</code>.</p>
+                    <p><strong>Routing manual</strong>: no chat e possivel fixar <code>codex-oauth</code> ou <code>codex-openai</code> por conversa, ou deixar em Auto para seguir a app.</p>
+                    <p><strong>Tokens visiveis</strong>: ${escapeHtml(visibleTokenLabel)} · <strong>Token atual</strong>: ${escapeHtml(activeTokenLabel)} · <strong>Modo</strong>: ${escapeHtml(routerEnabledLabel)}</p>
+                  </div>
                   <div class="guide-preview codex-router-import-card">
                     <div class="card-header">
                       <div>
@@ -7113,6 +7134,17 @@ export class AppShell {
           assistantRailChat: {
             ...this.state.assistantRailChat,
             selectedGroupJid: value || null,
+          },
+        };
+        this.render();
+        return;
+      case 'railChat.providerId':
+        this.state = {
+          ...this.state,
+          flowFeedback: null,
+          assistantRailChat: {
+            ...this.state.assistantRailChat,
+            selectedProviderId: value || null,
           },
         };
         this.render();
@@ -12049,6 +12081,7 @@ function createInitialAssistantRailChatState(): AssistantRailChatState {
   return {
     contextMode: 'global',
     selectedGroupJid: null,
+    selectedProviderId: null,
     input: '',
     availableGroups: [],
     loadingGroups: false,
@@ -12095,8 +12128,9 @@ function buildAssistantRailGroupChatInput(input: {
   readonly prompt: string;
   readonly preview: GroupContextPreviewSnapshot;
   readonly baseContextSummary: readonly string[];
+  readonly providerId?: string | null;
 }): LlmChatInput {
-  const { intent, prompt, preview, baseContextSummary } = input;
+  const { intent, prompt, preview, baseContextSummary, providerId } = input;
   const groupLabel = preview.group?.preferredSubject ?? preview.groupJid ?? 'grupo atual';
   const contextSummary = [
     ...baseContextSummary,
@@ -12131,6 +12165,7 @@ function buildAssistantRailGroupChatInput(input: {
         matchedTerms: snippet.matchedTerms,
       })),
     },
+    providerId: providerId ?? undefined,
   };
 }
 
@@ -14279,7 +14314,9 @@ function readPowerModeLabel(mode: ProductPowerMode): string {
 }
 
 function readCodexAuthLabel(snapshot: SettingsSnapshot): string {
-  const codexProvider = snapshot.llmRuntime.providerReadiness.find((provider) => provider.providerId === 'codex-oauth');
+  const codexProvider = snapshot.llmRuntime.providerReadiness.find(
+    (provider) => provider.providerId === 'codex-oauth' || provider.providerId === 'codex-openai',
+  );
 
   if (codexProvider?.ready) {
     const accountCount = snapshot.authRouterStatus?.accountCount ?? 0;

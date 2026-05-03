@@ -169,6 +169,12 @@ function buildProviderReadiness(input: LlmRuntimeStatusInput): readonly LlmProvi
       reason: input.codexAuthReady ?? false ? null : 'Auth live do Codex ainda nao esta pronta.',
     },
     {
+      providerId: 'codex-openai',
+      label: 'Codex OpenAI',
+      ready: input.codexAuthReady ?? false,
+      reason: input.codexAuthReady ?? false ? null : 'Auth live do Codex ainda nao esta pronta.',
+    },
+    {
       providerId: 'openai-compat',
       label: 'OpenAI compat',
       ready: input.openAiCompatReady ?? false,

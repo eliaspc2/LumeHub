@@ -31,7 +31,12 @@ import type { GroupKnowledgeModuleContract } from '@lume-hub/group-knowledge';
 import type { HealthMonitorModuleContract } from '@lume-hub/health-monitor';
 import type { HostLifecycleModuleContract } from '@lume-hub/host-lifecycle';
 import type { DistributionContentInput, Instruction, InstructionQueueModuleContract } from '@lume-hub/instruction-queue';
-import type { LlmChatInput, LlmOrchestratorModuleContract, LlmRunLogEntry } from '@lume-hub/llm-orchestrator';
+import type {
+  LlmChatInput,
+  LlmChatResult,
+  LlmOrchestratorModuleContract,
+  LlmRunLogEntry,
+} from '@lume-hub/llm-orchestrator';
 import type { MediaLibraryModuleContract } from '@lume-hub/media-library';
 import type { MessageAlertsModuleContract } from '@lume-hub/message-alerts';
 import {
@@ -1282,6 +1287,28 @@ export class RouteRegistrar {
           modelId: result.modelId,
         });
         return result;
+      },
+    });
+    server.registerRoute({
+      method: 'POST',
+      path: '/api/openai/v1/chat/completions',
+      handler: async (context) => {
+        if (!this.modules.llmOrchestrator) {
+          throw new ApiError(404, 'LLM orchestrator is not configured.');
+        }
+
+        const payload = readOpenAiChatCompletionsBody(context.body);
+        const result = await this.modules.llmOrchestrator.chat(
+          buildOpenAiCompatibleLlmChatInput(payload),
+        );
+
+        this.publish('llm.chat.completed', {
+          runId: result.runId,
+          providerId: result.providerId,
+          modelId: result.modelId,
+        });
+
+        return buildOpenAiChatCompletionResponse(result, payload);
       },
     });
     server.registerRoute({
@@ -2778,7 +2805,132 @@ function readLlmChatBody(body: unknown): LlmChatInput {
     contextSummary: readOptionalStringArrayValue(payload.contextSummary, 'contextSummary'),
     domainFacts: readOptionalStringArrayValue(payload.domainFacts, 'domainFacts'),
     memoryScope: readOptionalLlmMemoryScopeValue(payload.memoryScope, 'memoryScope'),
+    providerId: readOptionalTrimmedStringValue(payload.providerId, 'providerId'),
   };
+}
+
+interface OpenAiChatCompletionMessageInput {
+  readonly role: 'system' | 'user' | 'assistant' | 'developer';
+  readonly content: string;
+}
+
+interface OpenAiChatCompletionsBody {
+  readonly model?: string | null;
+  readonly providerId?: string | null;
+  readonly messages: readonly OpenAiChatCompletionMessageInput[];
+}
+
+function readOpenAiChatCompletionsBody(body: unknown): OpenAiChatCompletionsBody {
+  const payload = readBodyObject(body, 'OpenAI chat completion payload must be an object.');
+  const messagesValue = payload.messages;
+
+  if (!Array.isArray(messagesValue) || messagesValue.length === 0) {
+    throw new ApiError(400, 'messages must be a non-empty array.');
+  }
+
+  return {
+    model: readOptionalTrimmedStringValue(payload.model, 'model'),
+    providerId: readOptionalTrimmedStringValue(payload.providerId, 'providerId'),
+    messages: messagesValue.map((entry, index) => {
+      const message = readBodyObject(entry, `messages[${index}] must be an object.`);
+      const role = readOptionalTrimmedStringValue(message.role, `messages[${index}].role`);
+      const content = readOptionalTrimmedStringValue(message.content, `messages[${index}].content`);
+
+      if (!role || !['system', 'user', 'assistant', 'developer'].includes(role)) {
+        throw new ApiError(400, `messages[${index}].role must be system, user, assistant or developer.`);
+      }
+
+      if (!content) {
+        throw new ApiError(400, `messages[${index}].content is required.`);
+      }
+
+      return {
+        role: role as OpenAiChatCompletionMessageInput['role'],
+        content,
+      };
+    }),
+  };
+}
+
+function buildOpenAiCompatibleLlmChatInput(payload: OpenAiChatCompletionsBody): LlmChatInput {
+  const transcript = payload.messages
+    .map((message) => `${capitalizeOpenAiRole(message.role)}: ${message.content}`)
+    .join('\n');
+  const transcriptSummary =
+    transcript.length > 2000 ? `${transcript.slice(0, 2000)}...` : transcript;
+  const lastUserMessage = [...payload.messages].reverse().find((message) => message.role === 'user')?.content;
+
+  return {
+    text: lastUserMessage ?? payload.messages[payload.messages.length - 1]?.content ?? transcript,
+    intent: 'openai_chat_completion',
+    contextSummary: [
+      'Pedido recebido por uma porta OpenAI-like do LumeHub, roteada para o provider Codex configurado.',
+      `Conversa resumida: ${transcriptSummary}`,
+    ],
+    domainFacts: payload.model ? [`Modelo pedido pelo cliente: ${payload.model}`] : undefined,
+    memoryScope: {
+      scope: 'none',
+      groupJid: null,
+      groupLabel: null,
+      instructionsSource: null,
+      instructionsApplied: false,
+      knowledgeSnippetCount: 0,
+      knowledgeDocuments: [],
+    },
+    providerId: payload.providerId ?? 'codex-openai',
+  };
+}
+
+function buildOpenAiChatCompletionResponse(
+  result: LlmChatResult,
+  payload: OpenAiChatCompletionsBody,
+): {
+  readonly id: string;
+  readonly object: 'chat.completion';
+  readonly created: number;
+  readonly model: string;
+  readonly providerId: string;
+  readonly choices: readonly {
+    readonly index: number;
+    readonly message: {
+      readonly role: 'assistant';
+      readonly content: string;
+    };
+    readonly finish_reason: 'stop';
+  }[];
+  readonly requestModel: string | null;
+} {
+  return {
+    id: `chatcmpl-${randomUUID()}`,
+    object: 'chat.completion',
+    created: Math.floor(Date.now() / 1000),
+    model: result.modelId,
+    providerId: result.providerId,
+    choices: [
+      {
+        index: 0,
+        message: {
+          role: 'assistant',
+          content: result.text,
+        },
+        finish_reason: 'stop',
+      },
+    ],
+    requestModel: payload.model ?? null,
+  };
+}
+
+function capitalizeOpenAiRole(role: OpenAiChatCompletionMessageInput['role']): string {
+  switch (role) {
+    case 'system':
+      return 'System';
+    case 'user':
+      return 'User';
+    case 'assistant':
+      return 'Assistant';
+    case 'developer':
+      return 'Developer';
+  }
 }
 
 function readOptionalLlmMemoryScopeValue(

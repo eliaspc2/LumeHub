@@ -873,6 +873,19 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
       return this.ok(result);
     }
 
+    if (request.method === 'POST' && pathname === '/api/openai/v1/chat/completions') {
+      const completion = createDemoOpenAiChatCompletion(
+        this.state,
+        request.body as OpenAiChatCompletionsBody,
+      );
+      this.emit('llm.chat.completed', {
+        runId: completion.id,
+        providerId: completion.providerId,
+        modelId: completion.model,
+      });
+      return this.ok(completion);
+    }
+
     if (request.method === 'POST' && pathname === '/api/assistant/schedules/preview') {
       return this.ok(buildDemoAssistantSchedulePreview(this.state, request.body as Record<string, unknown>));
     }
@@ -1982,6 +1995,17 @@ function createDemoState(): DemoState {
       },
     },
     {
+      providerId: 'codex-openai',
+      modelId: 'gpt-5.4',
+      label: 'Codex OpenAI GPT-5.4',
+      capabilities: {
+        chat: true,
+        scheduling: true,
+        weeklyPlanning: true,
+        streaming: true,
+      },
+    },
+    {
       providerId: 'openai-compat',
       modelId: 'gpt-4o-mini',
       label: 'OpenAI compat GPT-4o mini',
@@ -3079,7 +3103,9 @@ function buildStatusSnapshot(state: DemoState): StatusSnapshot {
 function buildDemoMigrationReadinessSnapshot(state: DemoState): MigrationReadinessSnapshot {
   const effectiveProvider = state.settings.llmRuntime.effectiveProviderId;
   const codexAuthReady = Boolean(
-    state.settings.llmRuntime.providerReadiness.find((provider) => provider.providerId === 'codex-oauth')?.ready,
+    state.settings.llmRuntime.providerReadiness.find(
+      (provider) => provider.providerId === 'codex-oauth' || provider.providerId === 'codex-openai',
+    )?.ready,
   );
   const whatsappEnabled = state.settings.adminSettings.whatsapp.enabled;
   const authExists = state.settings.hostStatus.auth.exists;
@@ -4103,7 +4129,7 @@ function createDemoDistribution(state: DemoState, payload: Record<string, unknow
 function createDemoLlmChatResult(state: DemoState, payload: LlmChatInput): LlmChatResult {
   const result: LlmChatResult = {
     runId: `run-demo-${Date.now()}`,
-    providerId: state.settings.llmRuntime.effectiveProviderId,
+    providerId: payload.providerId?.trim() || state.settings.llmRuntime.effectiveProviderId,
     modelId: state.settings.llmRuntime.effectiveModelId,
     text: `Resposta demo: ${payload.text.slice(0, 80)}`,
   };
@@ -4120,6 +4146,78 @@ function createDemoLlmChatResult(state: DemoState, payload: LlmChatInput): LlmCh
   });
 
   return result;
+}
+
+interface OpenAiChatCompletionsBody {
+  readonly model?: string | null;
+  readonly providerId?: string | null;
+  readonly messages?: readonly {
+    readonly role?: string | null;
+    readonly content?: string | null;
+  }[];
+}
+
+function createDemoOpenAiChatCompletion(
+  state: DemoState,
+  payload: OpenAiChatCompletionsBody,
+): {
+  readonly id: string;
+  readonly object: 'chat.completion';
+  readonly created: number;
+  readonly model: string;
+  readonly providerId: string;
+  readonly choices: readonly {
+    readonly index: number;
+    readonly message: {
+      readonly role: 'assistant';
+      readonly content: string;
+    };
+    readonly finish_reason: 'stop';
+  }[];
+  readonly requestModel: string | null;
+} {
+  const promptText = (payload.messages ?? [])
+    .map((message) => `${String(message.role ?? 'user')}: ${String(message.content ?? '')}`)
+    .join('\n');
+  const assistantText = `Resposta demo: ${
+    (promptText || 'sem mensagem').length > 80 ? `${(promptText || 'sem mensagem').slice(0, 80)}...` : promptText || 'sem mensagem'
+  }`;
+  const result: LlmChatResult = {
+    runId: `run-demo-${Date.now()}`,
+    providerId: payload.providerId?.trim() || 'codex-openai',
+    modelId: payload.model?.trim() || state.settings.llmRuntime.effectiveModelId,
+    text: assistantText,
+  };
+
+  state.llmRuns.unshift({
+    runId: result.runId,
+    operation: 'chat',
+    providerId: result.providerId,
+    modelId: result.modelId,
+    inputSummary: promptText.slice(0, 120),
+    outputSummary: result.text,
+    memoryScope: null,
+    createdAt: new Date().toISOString(),
+  });
+
+  return {
+    id: result.runId,
+    object: 'chat.completion',
+    created: Math.floor(Date.now() / 1000),
+    model: result.modelId,
+    providerId: result.providerId,
+    choices: [
+      {
+        index: 0,
+        message: {
+          role: 'assistant',
+          content: result.text,
+        },
+        finish_reason: 'stop',
+      },
+    ],
+    requestModel: payload.model?.trim() || null,
+  };
 }
 
 function createDemoLlmRuntimeStatus(
@@ -4146,6 +4244,12 @@ function createDemoLlmRuntimeStatus(
           reason: authReady ? null : 'Auth do Codex em falta neste preview.',
         },
         {
+          providerId: 'codex-openai',
+          label: 'Codex OpenAI',
+          ready: authReady,
+          reason: authReady ? null : 'Auth do Codex em falta neste preview.',
+        },
+        {
           providerId: 'openai-compat',
           label: 'OpenAI compat',
           ready: true,
@@ -4156,7 +4260,7 @@ function createDemoLlmRuntimeStatus(
   }
 
   const configuredProviderReady =
-    adminSettings.llm.provider === 'codex-oauth'
+    adminSettings.llm.provider === 'codex-oauth' || adminSettings.llm.provider === 'codex-openai'
       ? authReady
       : adminSettings.llm.provider === 'openai-compat'
         ? true
@@ -4180,6 +4284,12 @@ function createDemoLlmRuntimeStatus(
           reason: authReady ? null : 'Auth do Codex em falta neste preview.',
         },
         {
+          providerId: 'codex-openai',
+          label: 'Codex OpenAI',
+          ready: authReady,
+          reason: authReady ? null : 'Auth do Codex em falta neste preview.',
+        },
+        {
           providerId: 'openai-compat',
           label: 'OpenAI compat',
           ready: true,
@@ -4198,13 +4308,19 @@ function createDemoLlmRuntimeStatus(
     effectiveModelId: 'lume-context-v1',
     fallbackActive: true,
     fallbackReason:
-      adminSettings.llm.provider === 'codex-oauth'
+      adminSettings.llm.provider === 'codex-oauth' || adminSettings.llm.provider === 'codex-openai'
         ? 'Auth do Codex em falta no preview, por isso o sistema caiu para fallback deterministico.'
         : 'O provider configurado nao esta pronto neste preview, por isso o sistema caiu para fallback deterministico.',
     providerReadiness: [
       {
         providerId: 'codex-oauth',
         label: 'Codex OAuth',
+        ready: authReady,
+        reason: authReady ? null : 'Auth do Codex em falta neste preview.',
+      },
+      {
+        providerId: 'codex-openai',
+        label: 'Codex OpenAI',
         ready: authReady,
         reason: authReady ? null : 'Auth do Codex em falta neste preview.',
       },
