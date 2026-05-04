@@ -103,6 +103,39 @@ test('codex auth scorer prefers the token with more free quota', () => {
   assert.ok(scorer.score(highQuota, emptyState, now) > scorer.score(lowQuota, emptyState, now));
 });
 
+test('codex auth scorer respects the weakest quota window as the bottleneck', () => {
+  const scorer = new CodexAccountScorer();
+  const now = new Date('2026-04-22T10:00:00.000Z');
+  const emptyState = {
+    schemaVersion: 1,
+    enabled: true,
+    currentSelection: null,
+    accountStates: {},
+    switchHistory: [],
+    lastPreparedAt: null,
+    lastSwitchAt: null,
+    lastError: null,
+    updatedAt: null,
+  };
+  const bottlenecked = buildAccount(
+    '/tmp/bottlenecked.json',
+    {
+      remainingPercent: 100,
+      usedPercent: 0,
+    },
+    {
+      remainingPercent: 0,
+      usedPercent: 100,
+    },
+  );
+  const balanced = buildAccount('/tmp/balanced.json', {
+    remainingPercent: 60,
+    usedPercent: 40,
+  });
+
+  assert.ok(scorer.score(balanced, emptyState, now) > scorer.score(bottlenecked, emptyState, now));
+});
+
 test('codex quota refresh can bypass cached usage limits', async () => {
   const sandboxPath = await mkdtemp(join(tmpdir(), 'lume-hub-codex-quota-refresh-'));
   const authFilePath = join(sandboxPath, 'account-a', 'auth.json');
@@ -161,7 +194,7 @@ test('codex quota refresh can bypass cached usage limits', async () => {
   }
 });
 
-function buildAccount(sourceFilePath, quotaWindow) {
+function buildAccount(sourceFilePath, quotaWindow, secondaryQuotaWindow = null) {
   return {
     accountId: sourceFilePath.includes('high') ? 'high' : 'account-a',
     label: 'Account A',
@@ -182,7 +215,7 @@ function buildAccount(sourceFilePath, quotaWindow) {
       lastFailureReason: null,
       cooldownUntil: null,
     },
-    quota: quotaWindow
+    quota: quotaWindow || secondaryQuotaWindow
       ? {
           checkedAt: '2026-04-22T10:00:00.000Z',
           allowed: true,
@@ -197,12 +230,20 @@ function buildAccount(sourceFilePath, quotaWindow) {
           },
           primaryWindow: {
             windowSeconds: 18_000,
-            usedPercent: quotaWindow.usedPercent,
-            remainingPercent: quotaWindow.remainingPercent,
+            usedPercent: quotaWindow?.usedPercent ?? null,
+            remainingPercent: quotaWindow?.remainingPercent ?? null,
             resetAfterSeconds: 900,
             resetAt: '2026-04-22T10:15:00.000Z',
           },
-          secondaryWindow: null,
+          secondaryWindow: secondaryQuotaWindow
+            ? {
+                windowSeconds: 604_800,
+                usedPercent: secondaryQuotaWindow.usedPercent,
+                remainingPercent: secondaryQuotaWindow.remainingPercent,
+                resetAfterSeconds: 7_200,
+                resetAt: '2026-04-22T12:00:00.000Z',
+              }
+            : null,
           fetchError: null,
         }
       : null,

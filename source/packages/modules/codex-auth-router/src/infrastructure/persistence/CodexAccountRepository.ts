@@ -769,12 +769,10 @@ function scoreAccountGlobalRateForDisplay(account: CodexAccount, state: CodexAut
     return 100 + usageScore;
   }
 
-  const primaryRemaining = quota.primaryWindow?.remainingPercent;
-  const secondaryRemaining = quota.secondaryWindow?.remainingPercent;
-  const remaining =
-    primaryRemaining !== null && primaryRemaining !== undefined
-      ? primaryRemaining * 0.65 + (secondaryRemaining ?? primaryRemaining) * 0.35
-      : 0;
+  const remainingValues = [quota.primaryWindow?.remainingPercent, quota.secondaryWindow?.remainingPercent].filter(
+    (value): value is number => typeof value === 'number' && Number.isFinite(value),
+  );
+  const remaining = remainingValues.length > 0 ? Math.min(...remainingValues) : 0;
   const creditBonus = quota.credits.hasCredits ? 10 : 0;
 
   return remaining + creditBonus + usageScore;

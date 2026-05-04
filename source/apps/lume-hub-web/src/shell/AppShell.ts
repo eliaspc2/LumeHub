@@ -14634,12 +14634,10 @@ function readCodexAccountGlobalRateScore(
     return 100;
   }
 
-  const primaryRemaining = quota.primaryWindow?.remainingPercent;
-  const secondaryRemaining = quota.secondaryWindow?.remainingPercent;
-  const remaining =
-    primaryRemaining !== null && primaryRemaining !== undefined
-      ? primaryRemaining * 0.65 + (secondaryRemaining ?? primaryRemaining) * 0.35
-      : 0;
+  const remainingValues = [quota.primaryWindow?.remainingPercent, quota.secondaryWindow?.remainingPercent].filter(
+    (value): value is number => typeof value === 'number' && Number.isFinite(value),
+  );
+  const remaining = remainingValues.length > 0 ? Math.min(...remainingValues) : 0;
   const creditBonus = quota.credits.hasCredits ? 10 : 0;
   const successBonus = Math.min(20, account.usage.successCount - account.usage.failureCount * 2);
 
@@ -14750,6 +14748,25 @@ function readCodexTokenAvailability(
     };
   }
 
+  const quotaFreePercent = readCodexQuotaFreePercent(account);
+
+  if (account.quota && (account.quota.limitReached || account.quota.allowed === false || quotaFreePercent === 0)) {
+    return {
+      label: 'Limite atingido',
+      tone: 'warning',
+      summary:
+        'Os limites ativos desta conta ja se esgotaram e so voltara a entrar em uso quando a janela semanal e a janela de 5h tiverem margem.',
+    };
+  }
+
+  if (quotaFreePercent !== null && quotaFreePercent <= 10) {
+    return {
+      label: 'A rever',
+      tone: 'warning',
+      summary: 'A quota desta conta ja esta muito perto do limite nas janelas ativas.',
+    };
+  }
+
   return {
     label: 'Pronto',
     tone: 'neutral',
@@ -14760,6 +14777,11 @@ function readCodexTokenAvailability(
 type CodexRouterAccountSnapshot = NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number];
 type CodexRouterQuotaSnapshot = NonNullable<CodexRouterAccountSnapshot['quota']>;
 type CodexRouterQuotaWindowSnapshot = CodexRouterQuotaSnapshot['primaryWindow'];
+type CodexQuotaEffectiveReading = {
+  readonly freePercent: number | null;
+  readonly usedPercent: number | null;
+  readonly resetAt: string | null;
+};
 
 function renderCodexRouterSummaryCard(input: {
   readonly title: string;
@@ -14881,9 +14903,10 @@ function readCodexQuotaSummary(account: NonNullable<SettingsSnapshot['authRouter
     return 'Uso livre sem limite visivel.';
   }
 
-  const freePercent = readCodexQuotaFreePercent(account);
-  const usedPercent = quota.primaryWindow?.usedPercent ?? quota.secondaryWindow?.usedPercent ?? null;
-  const resetAt = readCodexQuotaResetAt(account);
+  const reading = readCodexQuotaEffectiveReading(quota);
+  const freePercent = reading.freePercent;
+  const usedPercent = reading.usedPercent;
+  const resetAt = reading.resetAt;
   const pieces = [
     freePercent === null ? null : `${freePercent}% livre`,
     usedPercent === null ? null : `${usedPercent}% usado`,
@@ -14891,7 +14914,7 @@ function readCodexQuotaSummary(account: NonNullable<SettingsSnapshot['authRouter
     resetAt ? `renova ${formatShortDateTime(resetAt)}` : null,
   ].filter((piece): piece is string => piece !== null);
 
-  if (quota.limitReached) {
+  if (quota.limitReached || freePercent === 0) {
     return pieces.length > 0 ? `Limite atingido · ${pieces.join(' · ')}` : 'Limite atingido.';
   }
 
@@ -14900,9 +14923,14 @@ function readCodexQuotaSummary(account: NonNullable<SettingsSnapshot['authRouter
 
 function renderCodexQuotaMeter(account: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number]): string {
   const quota = account.quota;
-  const freePercent = readCodexQuotaFreePercent(account);
+  const freePercent = readCodexQuotaEffectiveReading(quota).freePercent;
   const checkedLabel = quota?.checkedAt ? `Lido ${formatShortDateTime(quota.checkedAt)}` : 'Ainda nao lido';
-  const meterTone = quota?.limitReached ? 'warning' : quota?.fetchError ? 'neutral' : 'positive';
+  const meterTone =
+    quota?.fetchError || (freePercent !== null && freePercent <= 10) || quota?.limitReached || quota?.allowed === false
+      ? quota?.fetchError
+        ? 'neutral'
+        : 'warning'
+      : 'positive';
 
   if (freePercent === null) {
     return `
@@ -14930,28 +14958,95 @@ function renderCodexQuotaMeter(account: NonNullable<SettingsSnapshot['authRouter
 }
 
 function readCodexQuotaFreePercent(account: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number]): number | null {
-  const quota = account.quota;
-
-  if (!quota || quota.fetchError) {
-    return null;
-  }
-
-  if (quota.credits.unlimited) {
-    return 100;
-  }
-
-  const value = quota.primaryWindow?.remainingPercent ?? quota.secondaryWindow?.remainingPercent ?? null;
-  return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(100, Math.round(value))) : null;
+  return readCodexQuotaEffectiveReading(account.quota).freePercent;
 }
 
 function readCodexQuotaResetAt(account: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number]): string | null {
-  const values = [account.quota?.primaryWindow?.resetAt, account.quota?.secondaryWindow?.resetAt]
-    .filter((value): value is string => Boolean(value))
-    .map((value) => Date.parse(value))
-    .filter((value) => Number.isFinite(value) && value > Date.now())
-    .sort((left, right) => left - right);
+  return readCodexQuotaEffectiveReading(account.quota).resetAt;
+}
 
-  return values.length > 0 ? new Date(values[0] as number).toISOString() : null;
+function readCodexQuotaEffectiveReading(quota: CodexRouterQuotaSnapshot | null): CodexQuotaEffectiveReading {
+  if (!quota || quota.fetchError) {
+    return {
+      freePercent: null,
+      usedPercent: null,
+      resetAt: null,
+    };
+  }
+
+  if (quota.credits.unlimited) {
+    return {
+      freePercent: 100,
+      usedPercent: 0,
+      resetAt: null,
+    };
+  }
+
+  const candidates = [quota.primaryWindow, quota.secondaryWindow]
+    .filter((window): window is NonNullable<CodexRouterQuotaWindowSnapshot> => window !== null)
+    .map((window) => {
+      const remainingPercent =
+        typeof window.remainingPercent === 'number' && Number.isFinite(window.remainingPercent)
+          ? Math.max(0, Math.min(100, Math.round(window.remainingPercent)))
+          : null;
+
+      if (remainingPercent === null) {
+        return null;
+      }
+
+      const usedPercent =
+        typeof window.usedPercent === 'number' && Number.isFinite(window.usedPercent)
+          ? Math.max(0, Math.min(100, Math.round(window.usedPercent)))
+          : null;
+
+      return {
+        remainingPercent,
+        usedPercent,
+        resetAt: window.resetAt,
+      };
+    })
+    .filter(
+      (
+        candidate,
+      ): candidate is {
+        readonly remainingPercent: number;
+        readonly usedPercent: number | null;
+        readonly resetAt: string | null;
+      } => candidate !== null,
+    );
+
+  if (candidates.length === 0) {
+    return {
+      freePercent: null,
+      usedPercent: null,
+      resetAt: null,
+    };
+  }
+
+  const selected = candidates.reduce((lowest, current) => {
+    if (current.remainingPercent < lowest.remainingPercent) {
+      return current;
+    }
+
+    if (current.remainingPercent > lowest.remainingPercent) {
+      return lowest;
+    }
+
+    const currentResetAt = current.resetAt ? Date.parse(current.resetAt) : Number.NEGATIVE_INFINITY;
+    const lowestResetAt = lowest.resetAt ? Date.parse(lowest.resetAt) : Number.NEGATIVE_INFINITY;
+
+    if (Number.isFinite(currentResetAt) && currentResetAt > lowestResetAt) {
+      return current;
+    }
+
+    return lowest;
+  });
+
+  return {
+    freePercent: selected.remainingPercent,
+    usedPercent: selected.usedPercent,
+    resetAt: selected.resetAt,
+  };
 }
 
 function createCanonicalDefaultNotificationRules() {
