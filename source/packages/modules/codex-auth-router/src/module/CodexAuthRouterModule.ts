@@ -39,6 +39,7 @@ export class CodexAuthRouterModule extends BaseModule implements CodexAuthRouter
       new CodexAccountQuotaService({
         enabled: config.usageLimitsEnabled ?? true,
         cacheTtlMs: config.usageLimitCacheTtlMs,
+        historyDirectoryPath: config.backupHistoryDirectoryPath,
       });
     const canonicalWriter =
       config.canonicalWriter ??

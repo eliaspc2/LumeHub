@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir, stat } from 'node:fs/promises';
+import { basename, join, resolve, sep } from 'node:path';
 
 import type {
   CodexAccount,
@@ -56,12 +57,14 @@ export interface CodexAccountQuotaServiceConfig {
   readonly enabled?: boolean;
   readonly cacheTtlMs?: number;
   readonly fetcher?: FetchLike;
+  readonly historyDirectoryPath?: string | null;
 }
 
 export class CodexAccountQuotaService {
   private readonly enabled: boolean;
   private readonly cacheTtlMs: number;
   private readonly fetcher: FetchLike | null;
+  private readonly historyDirectoryPath: string | null;
   private readonly cache = new Map<
     string,
     {
@@ -74,6 +77,7 @@ export class CodexAccountQuotaService {
     this.enabled = config.enabled === true;
     this.cacheTtlMs = normaliseCacheTtlMs(config.cacheTtlMs);
     this.fetcher = config.fetcher ?? readGlobalFetch();
+    this.historyDirectoryPath = normaliseOptionalPath(config.historyDirectoryPath);
   }
 
   async enrichAccounts(accounts: readonly CodexAccount[], now: Date = new Date()): Promise<readonly CodexAccount[]> {
@@ -147,13 +151,79 @@ export class CodexAccountQuotaService {
     const loaded = await readValidAuth(authFilePath, now);
 
     if (!loaded.valid) {
-      return loaded.quota;
+      const historicalQuota = await this.tryReadHistoricalQuota(account, now, authFilePath);
+      return historicalQuota ?? loaded.quota;
     }
 
     const cacheKey = buildCacheKey(authFilePath, loaded.contentHash);
     const cached = this.cache.get(cacheKey);
 
     if (cached && cached.expiresAt > now.getTime()) {
+      if (!shouldTryHistoricalFallback(account, cached.quota)) {
+        return cached.quota;
+      }
+
+      const cachedFallback = await this.tryReadHistoricalQuota(account, now, authFilePath, {
+        primaryCacheKey: cacheKey,
+        primaryContentHash: loaded.contentHash,
+      });
+
+      return cachedFallback ?? cached.quota;
+    }
+
+    const quota = await this.fetchQuota(loaded, now);
+    this.cache.set(cacheKey, {
+      expiresAt: now.getTime() + this.cacheTtlMs,
+      quota,
+    });
+
+    if (shouldTryHistoricalFallback(account, quota)) {
+      const fallbackQuota = await this.tryReadHistoricalQuota(account, now, authFilePath, {
+        primaryCacheKey: cacheKey,
+        primaryContentHash: loaded.contentHash,
+      });
+
+      if (fallbackQuota) {
+        return fallbackQuota;
+      }
+    }
+
+    return quota;
+  }
+
+  private async tryReadHistoricalQuota(
+    account: CodexAccount,
+    now: Date,
+    authFilePath: string,
+    options: {
+      readonly primaryCacheKey?: string | null;
+      readonly primaryContentHash?: string | null;
+    } = {},
+  ): Promise<CodexQuotaSnapshot | null> {
+    if (account.kind === 'canonical_live' || !this.historyDirectoryPath) {
+      return null;
+    }
+
+    const historyFilePath = await findLatestHistoricalAuthFilePath(this.historyDirectoryPath, account.accountId);
+
+    if (!historyFilePath || resolve(historyFilePath) === resolve(authFilePath)) {
+      return null;
+    }
+
+    const loaded = await readValidAuth(historyFilePath, now);
+
+    if (!loaded.valid) {
+      return null;
+    }
+
+    const cacheKey = buildCacheKey(historyFilePath, loaded.contentHash);
+    const cached = this.cache.get(cacheKey);
+
+    if (cached && cached.expiresAt > now.getTime()) {
+      if (options.primaryCacheKey && options.primaryContentHash) {
+        this.cache.set(options.primaryCacheKey, cached);
+      }
+
       return cached.quota;
     }
 
@@ -162,6 +232,13 @@ export class CodexAccountQuotaService {
       expiresAt: now.getTime() + this.cacheTtlMs,
       quota,
     });
+
+    if (options.primaryCacheKey && options.primaryContentHash) {
+      this.cache.set(options.primaryCacheKey, {
+        expiresAt: now.getTime() + this.cacheTtlMs,
+        quota,
+      });
+    }
 
     return quota;
   }
@@ -372,6 +449,103 @@ function normaliseCacheTtlMs(value: number | undefined): number {
 
 function buildCacheKey(sourceFilePath: string, contentHash: string | null): string {
   return `${sourceFilePath}:${contentHash ?? 'missing'}`;
+}
+
+function normaliseOptionalPath(value: string | null | undefined): string | null {
+  const next = value?.trim();
+  return next ? resolve(next) : null;
+}
+
+function shouldTryHistoricalFallback(account: CodexAccount, quota: CodexQuotaSnapshot): boolean {
+  if (account.kind === 'canonical_live') {
+    return false;
+  }
+
+  return typeof quota.fetchError === 'string' && /HTTP 401/u.test(quota.fetchError);
+}
+
+async function findLatestHistoricalAuthFilePath(historyDirectoryPath: string, accountId: string): Promise<string | null> {
+  try {
+    const candidates = await listHistoryCandidates(historyDirectoryPath, accountId);
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    const sortedCandidates = [...candidates].sort(
+      (left, right) => right.mtimeMs - left.mtimeMs || right.filePath.localeCompare(left.filePath),
+    );
+    return sortedCandidates[0]?.filePath ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function listHistoryCandidates(
+  rootPath: string,
+  accountId: string,
+): Promise<readonly { readonly filePath: string; readonly mtimeMs: number }[]> {
+  const files = await listRelativeFiles(rootPath);
+  const accountSegment = sanitisePathSegment(accountId);
+  const candidates: { filePath: string; mtimeMs: number }[] = [];
+
+  for (const relativePath of files) {
+    const filePath = join(rootPath, relativePath);
+
+    if (!isHistoryCandidate(filePath, accountId, accountSegment)) {
+      continue;
+    }
+
+    const fileStat = await stat(filePath).catch(() => null);
+
+    if (!fileStat?.isFile()) {
+      continue;
+    }
+
+    candidates.push({
+      filePath,
+      mtimeMs: fileStat.mtimeMs,
+    });
+  }
+
+  return candidates;
+}
+
+async function listRelativeFiles(rootPath: string, currentRelativePath = ''): Promise<readonly string[]> {
+  const entries = await readdir(join(rootPath, currentRelativePath), { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const nextRelativePath = currentRelativePath ? join(currentRelativePath, entry.name) : entry.name;
+
+    if (entry.isDirectory()) {
+      files.push(...(await listRelativeFiles(rootPath, nextRelativePath)));
+      continue;
+    }
+
+    if (entry.isFile()) {
+      files.push(nextRelativePath);
+    }
+  }
+
+  return files;
+}
+
+function isHistoryCandidate(filePath: string, accountId: string, accountSegment: string): boolean {
+  const resolved = resolve(filePath);
+  const resolvedSegments = resolved.split(sep);
+  const fileName = basename(resolved);
+
+  return (
+    resolvedSegments.includes(accountSegment) ||
+    fileName.startsWith(`${accountId}--`) ||
+    fileName.startsWith(`${accountSegment}--`) ||
+    fileName.includes(`-${accountSegment}-`)
+  );
+}
+
+function sanitisePathSegment(value: string): string {
+  return value.replaceAll(/[^a-zA-Z0-9._-]/g, '-');
 }
 
 function resolveQuotaFilePath(
