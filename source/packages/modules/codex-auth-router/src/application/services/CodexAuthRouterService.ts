@@ -380,13 +380,19 @@ export class CodexAuthRouterService {
     const accounts = await this.repository.listAccounts(state);
     const targetAccount = accounts.find((account) => account.accountId === targetAccountId) ?? failMissingRefreshAccount(targetAccountId);
 
-    await this.quotaService.refreshAccount(targetAccount);
+    await this.quotaService.refreshAccount(targetAccount, new Date(), {
+      activeAccountId: state.currentSelection?.accountId ?? null,
+      canonicalAuthFilePath: this.repository.getCanonicalAuthFilePath(),
+    });
     return this.getStatus();
   }
 
   private async readAccountsWithQuotas(state: CodexAuthRouterState, now: Date = new Date()): Promise<readonly CodexAccount[]> {
     const accounts = await this.repository.listAccounts(state);
-    return this.quotaService.enrichAccounts(accounts, now);
+    return this.quotaService.enrichAccountsWithAuthPath(accounts, now, {
+      activeAccountId: state.currentSelection?.accountId ?? null,
+      canonicalAuthFilePath: this.repository.getCanonicalAuthFilePath(),
+    });
   }
 }
 

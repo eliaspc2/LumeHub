@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 import type {
@@ -76,6 +77,17 @@ export class CodexAccountQuotaService {
   }
 
   async enrichAccounts(accounts: readonly CodexAccount[], now: Date = new Date()): Promise<readonly CodexAccount[]> {
+    return this.enrichAccountsWithAuthPath(accounts, now);
+  }
+
+  async enrichAccountsWithAuthPath(
+    accounts: readonly CodexAccount[],
+    now: Date = new Date(),
+    options: {
+      readonly activeAccountId?: string | null;
+      readonly canonicalAuthFilePath?: string | null;
+    } = {},
+  ): Promise<readonly CodexAccount[]> {
     if (!this.enabled) {
       return accounts;
     }
@@ -83,7 +95,7 @@ export class CodexAccountQuotaService {
     return Promise.all(
       accounts.map(async (account) => ({
         ...account,
-        quota: await this.readQuota(account, now),
+        quota: await this.readQuota(account, now, resolveQuotaFilePath(account, options)),
       })),
     );
   }
@@ -92,13 +104,8 @@ export class CodexAccountQuotaService {
     this.cache.clear();
   }
 
-  clearAccountCache(account: Pick<CodexAccount, 'sourceFilePath' | 'contentHash'>): void {
-    if (account.contentHash) {
-      this.cache.delete(buildCacheKey(account.sourceFilePath, account.contentHash));
-      return;
-    }
-
-    const cachePrefix = `${account.sourceFilePath}:`;
+  clearCacheForPath(sourceFilePath: string): void {
+    const cachePrefix = `${sourceFilePath}:`;
 
     for (const cacheKey of this.cache.keys()) {
       if (cacheKey.startsWith(cachePrefix)) {
@@ -107,12 +114,28 @@ export class CodexAccountQuotaService {
     }
   }
 
-  async refreshAccount(account: CodexAccount, now: Date = new Date()): Promise<CodexQuotaSnapshot> {
-    this.clearAccountCache(account);
-    return this.readQuota(account, now);
+  clearAccountCache(account: Pick<CodexAccount, 'sourceFilePath' | 'contentHash'>): void {
+    this.clearCacheForPath(account.sourceFilePath);
   }
 
-  async readQuota(account: CodexAccount, now: Date = new Date()): Promise<CodexQuotaSnapshot> {
+  async refreshAccount(
+    account: CodexAccount,
+    now: Date = new Date(),
+    options: {
+      readonly activeAccountId?: string | null;
+      readonly canonicalAuthFilePath?: string | null;
+    } = {},
+  ): Promise<CodexQuotaSnapshot> {
+    const authFilePath = resolveQuotaFilePath(account, options);
+    this.clearCacheForPath(authFilePath);
+    return this.readQuota(account, now, authFilePath);
+  }
+
+  async readQuota(
+    account: CodexAccount,
+    now: Date = new Date(),
+    authFilePath: string = account.sourceFilePath,
+  ): Promise<CodexQuotaSnapshot> {
     if (!this.enabled) {
       return buildUnavailableQuota(now, 'Leitura de limites desativada neste runtime.');
     }
@@ -121,14 +144,20 @@ export class CodexAccountQuotaService {
       return buildUnavailableQuota(now, 'Ficheiro OAuth em falta.');
     }
 
-    const cacheKey = buildCacheKey(account.sourceFilePath, account.contentHash);
+    const loaded = await readValidAuth(authFilePath, now);
+
+    if (!loaded.valid) {
+      return loaded.quota;
+    }
+
+    const cacheKey = buildCacheKey(authFilePath, loaded.contentHash);
     const cached = this.cache.get(cacheKey);
 
     if (cached && cached.expiresAt > now.getTime()) {
       return cached.quota;
     }
 
-    const quota = await this.fetchQuota(account.sourceFilePath, now);
+    const quota = await this.fetchQuota(loaded, now);
     this.cache.set(cacheKey, {
       expiresAt: now.getTime() + this.cacheTtlMs,
       quota,
@@ -137,13 +166,10 @@ export class CodexAccountQuotaService {
     return quota;
   }
 
-  private async fetchQuota(authFilePath: string, now: Date): Promise<CodexQuotaSnapshot> {
-    const loaded = await readValidAuth(authFilePath, now);
-
-    if (!loaded.valid) {
-      return loaded.quota;
-    }
-
+  private async fetchQuota(
+    loaded: Extract<Awaited<ReturnType<typeof readValidAuth>>, { readonly valid: true }>,
+    now: Date,
+  ): Promise<CodexQuotaSnapshot> {
     if (!this.fetcher) {
       return buildUnavailableQuota(now, 'Cliente HTTP indisponivel para ler limites.');
     }
@@ -193,6 +219,7 @@ async function readValidAuth(
       readonly valid: true;
       readonly accessToken: string;
       readonly accountId: string | null;
+      readonly contentHash: string;
     }
   | {
       readonly valid: false;
@@ -200,7 +227,9 @@ async function readValidAuth(
     }
 > {
   try {
-    const parsed = JSON.parse(await readFile(authFilePath, 'utf8')) as CodexAuthJson;
+    const rawContents = await readFile(authFilePath, 'utf8');
+    const parsed = JSON.parse(rawContents) as CodexAuthJson;
+    const contentHash = createHash('sha256').update(rawContents).digest('hex');
     const accessToken = typeof parsed.tokens?.access_token === 'string' ? parsed.tokens.access_token.trim() : '';
     const accountId = typeof parsed.tokens?.account_id === 'string' ? parsed.tokens.account_id.trim() : '';
 
@@ -215,6 +244,7 @@ async function readValidAuth(
       valid: true,
       accessToken,
       accountId: accountId || null,
+      contentHash,
     };
   } catch {
     return {
@@ -342,6 +372,25 @@ function normaliseCacheTtlMs(value: number | undefined): number {
 
 function buildCacheKey(sourceFilePath: string, contentHash: string | null): string {
   return `${sourceFilePath}:${contentHash ?? 'missing'}`;
+}
+
+function resolveQuotaFilePath(
+  account: Pick<CodexAccount, 'accountId' | 'sourceFilePath' | 'kind'>,
+  options: {
+    readonly activeAccountId?: string | null;
+    readonly canonicalAuthFilePath?: string | null;
+  },
+): string {
+  if (
+    options.activeAccountId &&
+    account.accountId === options.activeAccountId &&
+    options.canonicalAuthFilePath &&
+    options.canonicalAuthFilePath.trim().length > 0
+  ) {
+    return options.canonicalAuthFilePath.trim();
+  }
+
+  return account.sourceFilePath;
 }
 
 function readGlobalFetch(): FetchLike | null {
