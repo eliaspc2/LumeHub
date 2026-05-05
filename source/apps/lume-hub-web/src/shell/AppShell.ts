@@ -67,7 +67,7 @@ type ActionDataset = Readonly<Record<string, string | undefined>>;
 
 const ADVANCED_DETAILS_STORAGE_KEY = 'lumehub.web.advanced_details';
 const UX_TELEMETRY_STORAGE_KEY = 'lumehub.web.ux_telemetry';
-const LUMEHUB_WEB_VERSION = '0.1.10';
+const LUMEHUB_WEB_VERSION = '0.1.11';
 const WEEK_DAY_OPTIONS = [
   { value: 'segunda-feira', label: 'Segunda-feira', shortLabel: 'Seg' },
   { value: 'terca-feira', label: 'Terca-feira', shortLabel: 'Ter' },
@@ -879,6 +879,30 @@ export class AppShell {
       focusMainContent: false,
       raiseOnBackgroundError: !options.silent,
     });
+  }
+
+  private updateCurrentPageAuthRouterStatus(authRouterStatus: SettingsSnapshot['authRouterStatus']): void {
+    const page = this.state.page;
+
+    if (!page || !page.data || typeof page.data !== 'object' || !('settings' in page.data)) {
+      return;
+    }
+
+    const currentPageData = page.data as { readonly settings: SettingsSnapshot };
+
+    this.state = {
+      ...this.state,
+      page: {
+        ...page,
+        data: {
+          ...page.data,
+          settings: {
+            ...currentPageData.settings,
+            authRouterStatus,
+          },
+        },
+      },
+    };
   }
 
   private syncRouteDraftState(page: UiPage): void {
@@ -8895,6 +8919,7 @@ export class AppShell {
 
       try {
         const status = await this.currentClient().forceCodexAuthSwitch(accountId);
+        this.updateCurrentPageAuthRouterStatus(status);
         this.state = {
           ...this.state,
           flowFeedback: {
