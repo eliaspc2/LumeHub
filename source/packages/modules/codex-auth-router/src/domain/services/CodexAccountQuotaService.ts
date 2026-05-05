@@ -171,7 +171,7 @@ export class CodexAccountQuotaService {
       return cachedFallback ?? cached.quota;
     }
 
-    const quota = await this.fetchQuota(loaded, now);
+    const quota = await this.fetchQuota(loaded, now, false);
     this.cache.set(cacheKey, {
       expiresAt: now.getTime() + this.cacheTtlMs,
       quota,
@@ -227,7 +227,7 @@ export class CodexAccountQuotaService {
       return cached.quota;
     }
 
-    const quota = await this.fetchQuota(loaded, now);
+    const quota = await this.fetchQuota(loaded, now, true);
     this.cache.set(cacheKey, {
       expiresAt: now.getTime() + this.cacheTtlMs,
       quota,
@@ -246,6 +246,7 @@ export class CodexAccountQuotaService {
   private async fetchQuota(
     loaded: Extract<Awaited<ReturnType<typeof readValidAuth>>, { readonly valid: true }>,
     now: Date,
+    estimated: boolean,
   ): Promise<CodexQuotaSnapshot> {
     if (!this.fetcher) {
       return buildUnavailableQuota(now, 'Cliente HTTP indisponivel para ler limites.');
@@ -274,6 +275,7 @@ export class CodexAccountQuotaService {
 
       return {
         checkedAt: now.toISOString(),
+        estimated,
         allowed: Boolean(rateLimit.allowed ?? true),
         limitReached: Boolean(rateLimit.limit_reached),
         planType: asNonEmptyString(parsed.plan_type),
@@ -334,6 +336,7 @@ async function readValidAuth(
 function buildUnavailableQuota(now: Date, fetchError: string): CodexQuotaSnapshot {
   return {
     checkedAt: now.toISOString(),
+    estimated: false,
     allowed: false,
     limitReached: false,
     planType: null,

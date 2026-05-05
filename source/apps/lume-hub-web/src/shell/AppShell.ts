@@ -67,7 +67,7 @@ type ActionDataset = Readonly<Record<string, string | undefined>>;
 
 const ADVANCED_DETAILS_STORAGE_KEY = 'lumehub.web.advanced_details';
 const UX_TELEMETRY_STORAGE_KEY = 'lumehub.web.ux_telemetry';
-const LUMEHUB_WEB_VERSION = '0.1.9';
+const LUMEHUB_WEB_VERSION = '0.1.10';
 const WEEK_DAY_OPTIONS = [
   { value: 'segunda-feira', label: 'Segunda-feira', shortLabel: 'Seg' },
   { value: 'terca-feira', label: 'Terca-feira', shortLabel: 'Ter' },
@@ -14856,18 +14856,19 @@ function readCodexQuotaWindowReading(
       : null;
   const resetLabel = window?.resetAt ? `renova ${formatShortDateTime(window.resetAt)}` : 'sem hora de reset visivel';
   const tone: UiTone = quota.limitReached || (remainingPercent !== null && remainingPercent <= 10) ? 'warning' : 'positive';
+  const estimateLabel = quota.estimated ? ' · estimativa' : '';
 
   if (remainingPercent === null) {
     return {
       value: 'Sem percentagem',
-      detail: usedPercent === null ? resetLabel : `${usedPercent}% usado · ${resetLabel}`,
+      detail: usedPercent === null ? `${resetLabel}${estimateLabel}` : `${usedPercent}% usado · ${resetLabel}${estimateLabel}`,
       tone: 'neutral',
     };
   }
 
   return {
     value: `${remainingPercent}% livre`,
-    detail: usedPercent === null ? resetLabel : `${usedPercent}% usado · ${resetLabel}`,
+    detail: usedPercent === null ? `${resetLabel}${estimateLabel}` : `${usedPercent}% usado · ${resetLabel}${estimateLabel}`,
     tone,
   };
 }
@@ -14908,6 +14909,7 @@ function readCodexQuotaSummary(account: NonNullable<SettingsSnapshot['authRouter
   const usedPercent = reading.usedPercent;
   const resetAt = reading.resetAt;
   const pieces = [
+    quota.estimated ? 'estimativa' : null,
     freePercent === null ? null : `${freePercent}% livre`,
     usedPercent === null ? null : `${usedPercent}% usado`,
     quota.planType ? `plano ${quota.planType}` : null,
@@ -14924,7 +14926,9 @@ function readCodexQuotaSummary(account: NonNullable<SettingsSnapshot['authRouter
 function renderCodexQuotaMeter(account: NonNullable<SettingsSnapshot['authRouterStatus']>['accounts'][number]): string {
   const quota = account.quota;
   const freePercent = readCodexQuotaEffectiveReading(quota).freePercent;
-  const checkedLabel = quota?.checkedAt ? `Lido ${formatShortDateTime(quota.checkedAt)}` : 'Ainda nao lido';
+  const checkedLabel = quota?.checkedAt
+    ? `${quota.estimated ? 'Estimativa' : 'Lido'} ${formatShortDateTime(quota.checkedAt)}`
+    : 'Ainda nao lido';
   const meterTone =
     quota?.fetchError || (freePercent !== null && freePercent <= 10) || quota?.limitReached || quota?.allowed === false
       ? quota?.fetchError

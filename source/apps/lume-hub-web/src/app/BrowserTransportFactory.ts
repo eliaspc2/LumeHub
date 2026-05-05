@@ -1713,6 +1713,7 @@ function createDemoState(): DemoState {
         },
         quota: {
           checkedAt: iso(-20),
+          estimated: false,
           allowed: true,
           limitReached: false,
           planType: 'plus',
@@ -1763,6 +1764,7 @@ function createDemoState(): DemoState {
         },
         quota: {
           checkedAt: iso(-25),
+          estimated: false,
           allowed: true,
           limitReached: false,
           planType: 'plus',
@@ -1813,6 +1815,7 @@ function createDemoState(): DemoState {
         },
         quota: {
           checkedAt: iso(-40),
+          estimated: false,
           allowed: false,
           limitReached: true,
           planType: 'plus',
@@ -4603,6 +4606,7 @@ function refreshDemoCodexAuthAccountQuota(
           }
         : {
             checkedAt: nowIso,
+            estimated: false,
             allowed: true,
             limitReached: false,
             planType: 'plus',

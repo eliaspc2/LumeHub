@@ -30,6 +30,7 @@ export interface CodexQuotaCreditsSnapshot {
 
 export interface CodexQuotaSnapshot {
   readonly checkedAt: string;
+  readonly estimated: boolean;
   readonly allowed: boolean;
   readonly limitReached: boolean;
   readonly planType: string | null;
