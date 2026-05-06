@@ -96,10 +96,6 @@ export class CodexAuthRouterService {
     const now = input.now ?? new Date();
     const state = await this.repository.readState();
 
-    if (!state.enabled) {
-      throw new Error('Codex auth router switching is disabled.');
-    }
-
     const accounts = await this.readAccountsWithQuotas(state, now);
     const selectedAccount = accounts.find((account) => account.accountId === accountId) ?? failMissingAccount(accountId);
     const syncBackAccount = await resolveSyncBackAccount(

@@ -67,7 +67,7 @@ type ActionDataset = Readonly<Record<string, string | undefined>>;
 
 const ADVANCED_DETAILS_STORAGE_KEY = 'lumehub.web.advanced_details';
 const UX_TELEMETRY_STORAGE_KEY = 'lumehub.web.ux_telemetry';
-const LUMEHUB_WEB_VERSION = '0.1.11';
+const LUMEHUB_WEB_VERSION = '0.1.12';
 const WEEK_DAY_OPTIONS = [
   { value: 'segunda-feira', label: 'Segunda-feira', shortLabel: 'Seg' },
   { value: 'terca-feira', label: 'Terca-feira', shortLabel: 'Ter' },
@@ -5972,7 +5972,7 @@ export class AppShell {
                               ${renderUiActionButton({
                                 label: isActive ? 'Ja ativa' : 'Ativar esta conta',
                                 variant: isActive ? 'secondary' : 'primary',
-                                disabled: !authRouterStatus.enabled || !account.exists || isActive || routingControlsDisabled,
+                                disabled: !account.exists || isActive,
                                 dataAttributes: {
                                   'settings-action': 'switch-codex-account',
                                   'codex-account-id': account.accountId,
@@ -5981,7 +5981,7 @@ export class AppShell {
                               ${renderUiActionButton({
                                 label: quotaRefreshBusy ? 'A reler limites...' : 'Reler limites',
                                 variant: 'secondary',
-                                disabled: quotaRefreshBusy || !account.exists || routingControlsDisabled,
+                                disabled: quotaRefreshBusy || !account.exists,
                                 dataAttributes: {
                                   'settings-action': 'refresh-codex-account-quota',
                                   'codex-account-id': account.accountId,
@@ -5996,7 +5996,7 @@ export class AppShell {
                                           ? 'Confirmar apagar'
                                       : 'Apagar do router',
                                       variant: deleteConfirming ? 'primary' : 'secondary',
-                                      disabled: deleteBusy || isActive || routingControlsDisabled,
+                                      disabled: deleteBusy || isActive,
                                       dataAttributes: {
                                         'settings-action': 'remove-codex-account',
                                         'codex-account-id': account.accountId,
