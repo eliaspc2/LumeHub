@@ -622,7 +622,7 @@ export class AppRouter {
       const cacheKey = `codex-router-models:${input.accountId ?? 'none'}:${input.contentHash ?? 'none'}`;
       const models = await this.readQuery(cacheKey, () =>
         this.client.listLlmModels({
-          refresh: true,
+          refresh: false,
           providerId: 'codex-openai',
         }),
       );
