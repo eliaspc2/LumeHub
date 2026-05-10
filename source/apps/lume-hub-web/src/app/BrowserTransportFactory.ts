@@ -714,10 +714,6 @@ class DemoFrontendApiTransport implements FrontendApiTransport {
         return this.error(400, 'Demo codex auth router switch requires accountId.');
       }
 
-      if (this.state.settings.authRouterStatus && !this.state.settings.authRouterStatus.enabled) {
-        return this.error(409, 'Demo codex auth router switching is disabled.');
-      }
-
       const status = forceDemoCodexAuthRouterSwitch(this.state, accountId);
 
       if (!status) {
