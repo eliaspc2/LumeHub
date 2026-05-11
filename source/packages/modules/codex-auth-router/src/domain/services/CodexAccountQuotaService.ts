@@ -459,7 +459,7 @@ function normaliseOptionalPath(value: string | null | undefined): string | null 
   return next ? resolve(next) : null;
 }
 
-function shouldTryHistoricalFallback(account: CodexAccount, quota: CodexQuotaSnapshot): boolean {
+function shouldTryHistoricalFallback(_account: CodexAccount, quota: CodexQuotaSnapshot): boolean {
   return typeof quota.fetchError === 'string' && /HTTP 401|HTTP 403/u.test(quota.fetchError);
 }
 

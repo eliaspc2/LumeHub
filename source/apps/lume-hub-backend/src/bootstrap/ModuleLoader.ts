@@ -179,6 +179,7 @@ export class ModuleLoader {
       canonicalAuthFilePath: paths.canonicalCodexAuthFile,
       stateFilePath: paths.codexAuthRouterStateFilePath,
       backupDirectoryPath: paths.codexAuthRouterBackupDirectoryPath,
+      backupHistoryDirectoryPath: `${paths.codexAuthRouterBackupDirectoryPath}/history`,
       sourcesEnvironmentFilePath: paths.codexAuthSourcesEnvironmentFilePath,
       managedAccountsDirectoryPath: paths.codexAuthManagedAccountsDirectoryPath,
       sourceAccounts: codexAuthSources,
