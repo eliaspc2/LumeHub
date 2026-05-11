@@ -460,11 +460,7 @@ function normaliseOptionalPath(value: string | null | undefined): string | null 
 }
 
 function shouldTryHistoricalFallback(account: CodexAccount, quota: CodexQuotaSnapshot): boolean {
-  if (account.kind === 'canonical_live') {
-    return false;
-  }
-
-  return typeof quota.fetchError === 'string' && /HTTP 401/u.test(quota.fetchError);
+  return typeof quota.fetchError === 'string' && /HTTP 401|HTTP 403/u.test(quota.fetchError);
 }
 
 async function findLatestHistoricalAuthFilePath(historyDirectoryPath: string, accountId: string): Promise<string | null> {
