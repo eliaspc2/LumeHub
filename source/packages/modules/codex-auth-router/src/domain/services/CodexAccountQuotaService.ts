@@ -200,47 +200,52 @@ export class CodexAccountQuotaService {
       readonly primaryContentHash?: string | null;
     } = {},
   ): Promise<CodexQuotaSnapshot | null> {
-    if (account.kind === 'canonical_live' || !this.historyDirectoryPath) {
+    if (!this.historyDirectoryPath) {
       return null;
     }
 
-    const historyFilePath = await findLatestHistoricalAuthFilePath(this.historyDirectoryPath, account.accountId);
+    const candidates = [...(await listHistoryCandidates(this.historyDirectoryPath, account.accountId))].sort(
+      (left, right) => right.mtimeMs - left.mtimeMs || right.filePath.localeCompare(left.filePath),
+    );
 
-    if (!historyFilePath || resolve(historyFilePath) === resolve(authFilePath)) {
-      return null;
-    }
+    let lastFallbackQuota: CodexQuotaSnapshot | null = null;
 
-    const loaded = await readValidAuth(historyFilePath, now);
-
-    if (!loaded.valid) {
-      return null;
-    }
-
-    const cacheKey = buildCacheKey(historyFilePath, loaded.contentHash);
-    const cached = this.cache.get(cacheKey);
-
-    if (cached && cached.expiresAt > now.getTime()) {
-      if (options.primaryCacheKey && options.primaryContentHash) {
-        this.cache.set(options.primaryCacheKey, cached);
+    for (const candidate of candidates) {
+      if (resolve(candidate.filePath) === resolve(authFilePath)) {
+        continue;
       }
 
-      return cached.quota;
-    }
+      const loaded = await readValidAuth(candidate.filePath, now);
 
-    const quota = await this.fetchQuota(loaded, now, true);
-    this.cache.set(cacheKey, {
-      expiresAt: now.getTime() + this.cacheTtlMs,
-      quota,
-    });
+      if (!loaded.valid) {
+        continue;
+      }
 
-    if (options.primaryCacheKey && options.primaryContentHash) {
-      this.cache.set(options.primaryCacheKey, {
+      const cacheKey = buildCacheKey(candidate.filePath, loaded.contentHash);
+      const cached = this.cache.get(cacheKey);
+      const quota =
+        cached && cached.expiresAt > now.getTime() ? cached.quota : await this.fetchQuota(loaded, now, true);
+
+      this.cache.set(cacheKey, {
         expiresAt: now.getTime() + this.cacheTtlMs,
         quota,
       });
+
+      if (!quota.fetchError) {
+        if (options.primaryCacheKey && options.primaryContentHash) {
+          this.cache.set(options.primaryCacheKey, {
+            expiresAt: now.getTime() + this.cacheTtlMs,
+            quota,
+          });
+        }
+
+        return quota;
+      }
+
+      lastFallbackQuota = quota;
     }
 
-    return quota;
+    return lastFallbackQuota;
   }
 
   private async fetchQuota(
@@ -461,23 +466,6 @@ function normaliseOptionalPath(value: string | null | undefined): string | null 
 
 function shouldTryHistoricalFallback(_account: CodexAccount, quota: CodexQuotaSnapshot): boolean {
   return typeof quota.fetchError === 'string' && /HTTP 401|HTTP 403/u.test(quota.fetchError);
-}
-
-async function findLatestHistoricalAuthFilePath(historyDirectoryPath: string, accountId: string): Promise<string | null> {
-  try {
-    const candidates = await listHistoryCandidates(historyDirectoryPath, accountId);
-
-    if (candidates.length === 0) {
-      return null;
-    }
-
-    const sortedCandidates = [...candidates].sort(
-      (left, right) => right.mtimeMs - left.mtimeMs || right.filePath.localeCompare(left.filePath),
-    );
-    return sortedCandidates[0]?.filePath ?? null;
-  } catch {
-    return null;
-  }
 }
 
 async function listHistoryCandidates(
