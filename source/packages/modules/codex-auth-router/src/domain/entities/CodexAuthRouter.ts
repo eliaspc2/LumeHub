@@ -90,6 +90,7 @@ export interface CodexAccountState {
   readonly lastFailureKind: CodexFailureKind | null;
   readonly lastFailureReason: string | null;
   readonly cooldownUntil: string | null;
+  readonly lastKnownQuota: CodexQuotaSnapshot | null;
 }
 
 export interface CodexAuthRouterState {
@@ -204,6 +205,7 @@ export const DEFAULT_CODEX_ACCOUNT_STATE: CodexAccountState = {
   lastFailureKind: null,
   lastFailureReason: null,
   cooldownUntil: null,
+  lastKnownQuota: null,
 };
 
 export const DEFAULT_CODEX_AUTH_ROUTER_STATE: CodexAuthRouterState = {

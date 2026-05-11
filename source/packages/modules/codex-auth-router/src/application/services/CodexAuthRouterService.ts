@@ -13,6 +13,7 @@ import type {
   ForceCodexAuthSwitchInput,
   ImportedCodexAuthAccount,
   ImportCodexAuthAccountInput,
+  CodexQuotaSnapshot,
   PrepareAuthForRequestInput,
   RemovedCodexAuthAccount,
   RenamedCodexAuthAccount,
@@ -21,6 +22,7 @@ import type {
   ReportCodexAuthSuccessInput,
   CodexRoutingTier,
 } from '../../domain/entities/CodexAuthRouter.js';
+import { DEFAULT_CODEX_ACCOUNT_STATE } from '../../domain/entities/CodexAuthRouter.js';
 import { CodexAccountSwitchPolicy } from '../../domain/services/CodexAccountSwitchPolicy.js';
 import { CodexAccountUsageService } from '../../domain/services/CodexAccountUsageService.js';
 import { CodexAccountQuotaService } from '../../domain/services/CodexAccountQuotaService.js';
@@ -385,11 +387,105 @@ export class CodexAuthRouterService {
 
   private async readAccountsWithQuotas(state: CodexAuthRouterState, now: Date = new Date()): Promise<readonly CodexAccount[]> {
     const accounts = await this.repository.listAccounts(state);
-    return this.quotaService.enrichAccountsWithAuthPath(accounts, now, {
+    const enrichedAccounts = await this.quotaService.enrichAccountsWithAuthPath(accounts, now, {
       activeAccountId: state.currentSelection?.accountId ?? null,
       canonicalAuthFilePath: this.repository.getCanonicalAuthFilePath(),
     });
+    const nextState = this.rememberQuotaSnapshots(state, enrichedAccounts);
+    const rememberedState = nextState ?? state;
+
+    if (nextState !== null) {
+      await this.repository.saveState(nextState);
+    }
+
+    return enrichedAccounts.map((account) => {
+      const remembered = rememberedState.accountStates[account.accountId]?.lastKnownQuota ?? null;
+
+      if (account.quota?.fetchError && remembered) {
+        return {
+          ...account,
+          quota: cloneEstimatedQuotaSnapshot(remembered),
+        };
+      }
+
+      return account;
+    });
   }
+
+  private rememberQuotaSnapshots(
+    state: CodexAuthRouterState,
+    accounts: readonly CodexAccount[],
+  ): CodexAuthRouterState | null {
+    let changed = false;
+    const nextAccountStates = { ...state.accountStates };
+
+    for (const account of accounts) {
+      const quota = account.quota;
+
+      if (!quota || quota.fetchError) {
+        continue;
+      }
+
+      const current = nextAccountStates[account.accountId] ?? DEFAULT_CODEX_ACCOUNT_STATE;
+      const nextQuota = cloneQuotaSnapshot(quota);
+
+      if (current.lastKnownQuota && areQuotaSnapshotsEqual(current.lastKnownQuota, nextQuota)) {
+        continue;
+      }
+
+      nextAccountStates[account.accountId] = {
+        ...current,
+        lastKnownQuota: nextQuota,
+      };
+      changed = true;
+    }
+
+    if (!changed) {
+      return null;
+    }
+
+    return {
+      ...state,
+      accountStates: nextAccountStates,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+}
+
+function cloneQuotaSnapshot(quota: CodexQuotaSnapshot): CodexQuotaSnapshot {
+  return {
+    checkedAt: quota.checkedAt,
+    estimated: quota.estimated,
+    allowed: quota.allowed,
+    limitReached: quota.limitReached,
+    planType: quota.planType,
+    credits: {
+      hasCredits: quota.credits.hasCredits,
+      unlimited: quota.credits.unlimited,
+      balance: quota.credits.balance,
+      approxLocalMessages: [...quota.credits.approxLocalMessages],
+      approxCloudMessages: [...quota.credits.approxCloudMessages],
+    },
+    primaryWindow: quota.primaryWindow
+      ? { ...quota.primaryWindow }
+      : null,
+    secondaryWindow: quota.secondaryWindow
+      ? { ...quota.secondaryWindow }
+      : null,
+    fetchError: quota.fetchError,
+  };
+}
+
+function cloneEstimatedQuotaSnapshot(quota: CodexQuotaSnapshot): CodexQuotaSnapshot {
+  return {
+    ...cloneQuotaSnapshot(quota),
+    estimated: true,
+    fetchError: null,
+  };
+}
+
+function areQuotaSnapshotsEqual(left: CodexQuotaSnapshot, right: CodexQuotaSnapshot): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function buildSelection(

@@ -9,6 +9,7 @@ import type {
   CodexAccountState,
   CodexAuthRouterState,
   DiscoveredCodexAccountSource,
+  CodexQuotaSnapshot,
 } from '../../domain/entities/CodexAuthRouter.js';
 import {
   DEFAULT_CODEX_ACCOUNT_STATE,
@@ -830,6 +831,69 @@ function normaliseAccountState(input: Partial<CodexAccountState> | undefined): C
     lastFailureKind: input?.lastFailureKind ?? DEFAULT_CODEX_ACCOUNT_STATE.lastFailureKind,
     lastFailureReason: input?.lastFailureReason ?? DEFAULT_CODEX_ACCOUNT_STATE.lastFailureReason,
     cooldownUntil: input?.cooldownUntil ?? DEFAULT_CODEX_ACCOUNT_STATE.cooldownUntil,
+    lastKnownQuota: normaliseQuotaSnapshot(input?.lastKnownQuota ?? DEFAULT_CODEX_ACCOUNT_STATE.lastKnownQuota),
+  };
+}
+
+function normaliseQuotaSnapshot(input: Partial<CodexQuotaSnapshot> | null | undefined): CodexQuotaSnapshot | null {
+  if (!input) {
+    return null;
+  }
+
+  return {
+    checkedAt: typeof input.checkedAt === 'string' ? input.checkedAt : new Date().toISOString(),
+    estimated: input.estimated === true,
+    allowed: input.allowed === true,
+    limitReached: input.limitReached === true,
+    planType: typeof input.planType === 'string' ? input.planType : null,
+    credits: {
+      hasCredits: input.credits?.hasCredits === true,
+      unlimited: input.credits?.unlimited === true,
+      balance: typeof input.credits?.balance === 'string' ? input.credits.balance : null,
+      approxLocalMessages: Array.isArray(input.credits?.approxLocalMessages)
+        ? input.credits.approxLocalMessages.map((value) => Number(value) || 0)
+        : [],
+      approxCloudMessages: Array.isArray(input.credits?.approxCloudMessages)
+        ? input.credits.approxCloudMessages.map((value) => Number(value) || 0)
+        : [],
+    },
+    primaryWindow: input.primaryWindow
+      ? {
+          windowSeconds:
+            typeof input.primaryWindow.windowSeconds === 'number' ? Math.trunc(input.primaryWindow.windowSeconds) : null,
+          usedPercent:
+            typeof input.primaryWindow.usedPercent === 'number' ? Math.trunc(input.primaryWindow.usedPercent) : null,
+          remainingPercent:
+            typeof input.primaryWindow.remainingPercent === 'number'
+              ? Math.trunc(input.primaryWindow.remainingPercent)
+              : null,
+          resetAfterSeconds:
+            typeof input.primaryWindow.resetAfterSeconds === 'number'
+              ? Math.trunc(input.primaryWindow.resetAfterSeconds)
+              : null,
+          resetAt: typeof input.primaryWindow.resetAt === 'string' ? input.primaryWindow.resetAt : null,
+        }
+      : null,
+    secondaryWindow: input.secondaryWindow
+      ? {
+          windowSeconds:
+            typeof input.secondaryWindow.windowSeconds === 'number'
+              ? Math.trunc(input.secondaryWindow.windowSeconds)
+              : null,
+          usedPercent:
+            typeof input.secondaryWindow.usedPercent === 'number' ? Math.trunc(input.secondaryWindow.usedPercent) : null,
+          remainingPercent:
+            typeof input.secondaryWindow.remainingPercent === 'number'
+              ? Math.trunc(input.secondaryWindow.remainingPercent)
+              : null,
+          resetAfterSeconds:
+            typeof input.secondaryWindow.resetAfterSeconds === 'number'
+              ? Math.trunc(input.secondaryWindow.resetAfterSeconds)
+              : null,
+          resetAt: typeof input.secondaryWindow.resetAt === 'string' ? input.secondaryWindow.resetAt : null,
+        }
+      : null,
+    fetchError: typeof input.fetchError === 'string' ? input.fetchError : null,
   };
 }
 
