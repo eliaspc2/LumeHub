@@ -2,7 +2,6 @@ import type { AdminConfigModule } from '@lume-hub/admin-config';
 import type { AgentRuntimeModule } from '@lume-hub/agent-runtime';
 import type { AssistantContextModule } from '@lume-hub/assistant-context';
 import type { AudienceRoutingModule } from '@lume-hub/audience-routing';
-import type { CodexAuthRouterModule } from '@lume-hub/codex-auth-router';
 import type { CommandPolicyModule } from '@lume-hub/command-policy';
 import type { ConversationModule } from '@lume-hub/conversation';
 import type { DeliveryTrackerModule } from '@lume-hub/delivery-tracker';
@@ -59,7 +58,6 @@ export interface BackendRuntimeModules {
   readonly workspaceAgentModule: WorkspaceAgentModule;
   readonly instructionQueueModule: InstructionQueueModule;
   readonly systemPowerModule: SystemPowerModule;
-  readonly codexAuthRouterModule: CodexAuthRouterModule;
   readonly hostLifecycleModule: HostLifecycleModule;
   readonly watchdogModule: WatchdogModule;
   readonly healthMonitorModule: HealthMonitorModule;

@@ -2,7 +2,6 @@ import { AdminConfigModule } from '@lume-hub/admin-config';
 import { AgentRuntimeModule } from '@lume-hub/agent-runtime';
 import { AssistantContextModule } from '@lume-hub/assistant-context';
 import { AudienceRoutingModule } from '@lume-hub/audience-routing';
-import { CodexAuthRouterModule } from '@lume-hub/codex-auth-router';
 import { CommandPolicyModule } from '@lume-hub/command-policy';
 import { ConversationModule } from '@lume-hub/conversation';
 import { DeliveryTrackerModule } from '@lume-hub/delivery-tracker';
@@ -39,12 +38,12 @@ import { WorkspaceAgentModule } from '@lume-hub/workspace-agent';
 import { BaileysWhatsAppGateway } from '@lume-hub/whatsapp-baileys';
 import { WebSocketGateway } from '@lume-hub/ws-fastify';
 import { ConversationAuditRepository } from '@lume-hub/conversation';
+import { existsSync } from 'node:fs';
 
 import type { BackendRuntimeModules } from './BackendRuntime.js';
 import { BackendRuntimeStateRepository } from './BackendRuntimeStateRepository.js';
 import {
   resolveBackendRuntimePaths,
-  resolveCodexAuthSources,
   resolveConversationMaxInboundAgeMs,
   type BackendRuntimeConfig,
   type BackendRuntimePaths,
@@ -72,7 +71,6 @@ export class ModuleLoader {
 
   load(): LoadedBackendComposition {
     const paths = resolveBackendRuntimePaths(this.config);
-    const codexAuthSources = resolveCodexAuthSources(this.config.codexAuthSources);
     const adminConfigModule = new AdminConfigModule({
       settingsFilePath: paths.settingsFilePath,
     });
@@ -175,16 +173,6 @@ export class ModuleLoader {
       stateFilePath: paths.powerStateFilePath,
       inhibitorStatePath: paths.inhibitorStatePath,
     });
-    const codexAuthRouterModule = new CodexAuthRouterModule({
-      canonicalAuthFilePath: paths.canonicalCodexAuthFile,
-      stateFilePath: paths.codexAuthRouterStateFilePath,
-      backupDirectoryPath: paths.codexAuthRouterBackupDirectoryPath,
-      backupHistoryDirectoryPath: `${paths.codexAuthRouterBackupDirectoryPath}/history`,
-      sourcesEnvironmentFilePath: paths.codexAuthSourcesEnvironmentFilePath,
-      managedAccountsDirectoryPath: paths.codexAuthManagedAccountsDirectoryPath,
-      sourceAccounts: codexAuthSources,
-      startByPreparingAuth: this.config.startByPreparingCodexAuth ?? false,
-    });
     const hostLifecycleModule = new HostLifecycleModule({
       clock: this.config.clock,
       codexAuthFile: paths.codexAuthFile,
@@ -204,17 +192,6 @@ export class ModuleLoader {
           inhibitorActive: status.inhibitorActive,
           leaseId: status.activeLease?.leaseId ?? null,
           explanation: status.explanation,
-        };
-      },
-      authRouterStatusProvider: async () => {
-        const status = await codexAuthRouterModule.getStatus();
-
-        return {
-          canonicalAuthFilePath: status.canonicalAuthFilePath,
-          currentAccountId: status.currentSelection?.accountId ?? null,
-          currentSourceFilePath: status.currentSelection?.sourceFilePath ?? null,
-          accountCount: status.accountCount,
-          lastSwitchAt: status.lastSwitchAt,
         };
       },
     });
@@ -238,7 +215,7 @@ export class ModuleLoader {
     const openAiCompatReady = resolveOpenAiCompatReady(this.config);
     const getLlmRuntimeStatus = async () =>
       adminConfigModule.getLlmRuntimeStatus({
-        codexAuthReady: await resolveCodexAuthReady(codexAuthRouterModule),
+        codexAuthReady: resolveCodexAuthReady(paths.canonicalCodexAuthFile),
         openAiCompatReady,
         fallbackProviderId: deterministicProvider.providerId,
         fallbackModelId: deterministicProvider.defaultModelId,
@@ -248,7 +225,6 @@ export class ModuleLoader {
       new CodexOauthLlmProvider({
         providerId: 'codex-oauth',
         authFilePath: paths.canonicalCodexAuthFile,
-        authRouter: codexAuthRouterModule,
         clientVersion: this.config.llmCodexClientVersion,
         modelResolver: async () => (await adminConfigModule.getSettings()).llm.model,
         fetchImpl: this.config.llmFetch,
@@ -256,7 +232,6 @@ export class ModuleLoader {
       new CodexOauthLlmProvider({
         providerId: 'codex-openai',
         authFilePath: paths.canonicalCodexAuthFile,
-        authRouter: codexAuthRouterModule,
         clientVersion: this.config.llmCodexClientVersion,
         modelResolver: async () => (await adminConfigModule.getSettings()).llm.model,
         fetchImpl: this.config.llmFetch,
@@ -359,7 +334,6 @@ export class ModuleLoader {
       workspaceAgentModule,
       instructionQueueModule,
       systemPowerModule,
-      codexAuthRouterModule,
       hostLifecycleModule,
       watchdogModule,
       healthMonitorModule,
@@ -390,7 +364,6 @@ export class ModuleLoader {
         workspaceAgentModule,
         instructionQueueModule,
         systemPowerModule,
-        codexAuthRouterModule,
         hostLifecycleModule,
         watchdogModule,
         healthMonitorModule,
@@ -424,7 +397,6 @@ export class ModuleLoader {
       workspaceAgentModule,
       instructionQueueModule,
       systemPowerModule,
-      codexAuthRouterModule,
       hostLifecycleModule,
       watchdogModule,
       healthMonitorModule,
@@ -480,7 +452,6 @@ export class ModuleLoader {
         conversationReplyDeliveries: {
           readRecent: async (limit) => conversationReplyDeliveryRepository.listRecent(limit),
         },
-        codexAuthRouter: codexAuthRouterModule,
         groupDirectory: groupDirectoryModule,
         groupKnowledge: groupKnowledgeModule,
         healthMonitor: healthMonitorModule,
@@ -544,16 +515,8 @@ export class ModuleLoader {
   }
 }
 
-async function resolveCodexAuthReady(
-  codexAuthRouterModule: {
-    getStatus(): Promise<{
-      readonly canonicalExists: boolean;
-      readonly accountCount: number;
-    }>;
-  },
-): Promise<boolean> {
-  const status = await codexAuthRouterModule.getStatus();
-  return Boolean(status.canonicalExists || status.accountCount > 0);
+function resolveCodexAuthReady(canonicalAuthFilePath: string): boolean {
+  return existsSync(canonicalAuthFilePath);
 }
 
 function resolveOpenAiCompatReady(config: BackendRuntimeConfig): boolean {

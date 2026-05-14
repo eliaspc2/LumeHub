@@ -398,8 +398,8 @@ export class AppRouter {
       {
         route: '/codex-router',
         label: 'Codex Router',
-        description: 'Escolhe o token em uso e decide se a troca pode ser automatica.',
-        navigationPlacement: 'secondary',
+        description: 'Router antigo removido do LumeHub. Usa a app independente Codex Router.',
+        navigationPlacement: 'hidden',
         legacyRoutes: ['/codex-auth-router', '/oauth-router'],
         render: async () => {
           const settings = await this.readQuery('settings', () => this.client.getSettings());

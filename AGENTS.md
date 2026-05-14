@@ -22,9 +22,10 @@ Ponto de entrada para qualquer agente/LLM que trabalhe neste novo projeto.
 - Se um modulo atual for aproveitado, deve ser portado para a estrutura modular nova em vez de ser simplesmente colado para dentro do backend.
 - O sistema deve nascer modular, com `apps/`, `foundation/`, `adapters/`, `modules/` e `ui-modules/`.
 - O bootstrap tem de continuar fino; a logica de negocio nao deve voltar a acumular-se em `server.ts` ou equivalente.
-- O OAuth Codex deve sair do host em `/home/eliaspc/.codex/auth.json` e aparecer no runtime em `/codex/auth.json`.
-- O ficheiro OAuth live gerido pelo projeto e o mesmo que o Codex usa.
-- Se existirem contas secundarias, o roteamento deve ser feito por um modulo tipo `codex_auth_router`, nunca por hacks dispersos.
+- O LumeHub ja nao deve gerir roteamento de tokens Codex. O Codex Router antigo embutido foi retirado de funcionamento em 2026-05-14.
+- A gestao/rotacao de tokens Codex vive agora na app independente `/home/eliaspc/Documentos/Git/codex-router`.
+- O LumeHub pode ler o OAuth Codex canonico configurado, mas nao deve escolher, trocar, importar ou sincronizar tokens.
+- Nao reativar `CodexAuthRouterModule` nem `CodexAuthBackupSyncModule` no backend/host do LumeHub sem pedido explicito.
 - O conceito de semana ISO deve ser de primeira classe no dominio.
 - A fonte canonica dos schedules deve ser por grupo.
 - Dentro de cada grupo, o calendario canonico deve ser mensal.
