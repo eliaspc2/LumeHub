@@ -498,6 +498,24 @@ importers:
         specifier: workspace:*
         version: link:../../adapters/persistence-group-files
 
+  packages/modules/codex-orchestrator:
+    dependencies:
+      '@lume-hub/admin-config':
+        specifier: workspace:*
+        version: link:../admin-config
+      '@lume-hub/group-directory':
+        specifier: workspace:*
+        version: link:../group-directory
+      '@lume-hub/kernel':
+        specifier: workspace:*
+        version: link:../../foundation/kernel
+      '@lume-hub/people-memory':
+        specifier: workspace:*
+        version: link:../people-memory
+      '@lume-hub/schedule-events':
+        specifier: workspace:*
+        version: link:../schedule-events
+
   packages/modules/command-policy:
     dependencies:
       '@lume-hub/group-directory':

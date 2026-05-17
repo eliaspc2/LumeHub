@@ -102,6 +102,9 @@
       "@lume-hub/codex-auth-backup-sync": [
         "packages/modules/codex-auth-backup-sync/src/public/index.ts"
       ],
+      "@lume-hub/codex-orchestrator": [
+        "packages/modules/codex-orchestrator/src/public/index.ts"
+      ],
       "@lume-hub/schedule-weeks": [
         "packages/modules/schedule-weeks/src/public/index.ts"
       ],

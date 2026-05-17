@@ -1,0 +1,29 @@
+{
+  "name": "@lume-hub/codex-orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/modules/codex-orchestrator/src/public/index.js",
+  "types": "./dist/modules/codex-orchestrator/src/public/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/modules/codex-orchestrator/src/public/index.d.ts",
+      "default": "./dist/modules/codex-orchestrator/src/public/index.js"
+    }
+  },
+  "bin": {
+    "lume-codex-orchestrator": "./dist/modules/codex-orchestrator/src/cli/main.js"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "test": "node -e \"console.log('No tests yet for @lume-hub/codex-orchestrator.')\""
+  },
+  "dependencies": {
+    "@lume-hub/admin-config": "workspace:*",
+    "@lume-hub/group-directory": "workspace:*",
+    "@lume-hub/kernel": "workspace:*",
+    "@lume-hub/people-memory": "workspace:*",
+    "@lume-hub/schedule-events": "workspace:*"
+  }
+}

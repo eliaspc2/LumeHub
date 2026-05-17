@@ -121,6 +121,22 @@ O runtime em `runtime/` deve ser tratado como destino de build/publicacao, nao c
   - diagnostico do canal sem misturar settings globais do produto
 - o backend deve expor um snapshot unico de workspace WhatsApp para esta pagina, em vez de obrigar a UI a compor varios endpoints sem contexto
 
+## Orquestrador Codex
+
+- o LumeHub inclui um modulo `codex-orchestrator` para operacao direta por Codex, sem duplicar o motor WhatsApp/scheduler existente
+- o ficheiro canonico para reconhecer o admin por telefone e:
+  - `runtime/lxd/host-mounts/data/config/admin-phone.txt`
+- o orquestrador normaliza esse numero para JID WhatsApp, cria/atualiza a pessoa `app_owner` e fecha a policy para:
+  - privado autorizado: apenas o admin configurado
+  - grupos autorizados: apenas grupos em modo `com_agendamento` com scheduling ativo
+  - resposta em grupos: apenas quando o bot e tagado ou quando respondem a uma mensagem dele
+- a entrada CLI fica disponivel depois de build com:
+  - `corepack pnpm --dir source run codex:orchestrator -- status`
+  - `corepack pnpm --dir source run codex:orchestrator -- admin sync --phone-file <ficheiro>`
+  - `corepack pnpm --dir source run codex:orchestrator -- policy lockdown`
+  - `corepack pnpm --dir source run codex:orchestrator -- group prompt-set --group-jid <jid> --file <prompt.md>`
+  - `corepack pnpm --dir source run codex:orchestrator -- automation add-weekly --group-jid <jid> --days mon,wed --time 09:00 --message <texto>`
+
 ## Pagina LumeHub
 
 - a UI operacional inclui uma pagina `LumeHub`
